@@ -1,0 +1,6 @@
+framework module UnityIosPlugin {
+  umbrella header "UnityIosPlugin.h"
+  export *
+
+  module * { export * }
+}

@@ -1,10 +1,10 @@
 using UnityEngine;
 
-public class NativeDialogManager : MonoBehaviour
+public class AndroidDialogManager : MonoBehaviour
 {
-    private static NativeDialogManager _instance;
+    private static AndroidDialogManager _instance;
 
-    public static NativeDialogManager Instance
+    public static AndroidDialogManager Instance
     {
         get
         {
@@ -13,7 +13,7 @@ public class NativeDialogManager : MonoBehaviour
                 Debug.Log("Creating new instance of NativeDialogManager");
                 // シーン内に存在しない場合、新しいGameObjectを作成してアタッチ
                 GameObject singletonObject = new GameObject("NativeDialogManager");
-                _instance = singletonObject.AddComponent<NativeDialogManager>();
+                _instance = singletonObject.AddComponent<AndroidDialogManager>();
                 DontDestroyOnLoad(singletonObject); // シーンをまたいで保持
             }
             return _instance;
