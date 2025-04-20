@@ -34,35 +34,39 @@ public class IosDialogManager : MonoBehaviour
         }
     }
 
+    public delegate void DialogManagerCallback(string result);
+
+    [AOT.MonoPInvokeCallback(typeof(DialogManagerCallback))]
+    public static void OnAlertCallback(string result)
+    {
+        Debug.Log("Alert callback received: " + result);
+        // 必要ならイベント発火など
+    }
+
     [DllImport("__Internal")]
-    private static extern void showDialog(string title, string message, string callbackObjectName, string callbackMethodName);
+    private static extern void showDialog(string title, string message, DialogManagerCallback callback);
 
     public void ShowDialog(string title, string message)
     {
         Debug.Log("ShowDialog called with title: " + title + ", message: " + message);
-        showDialog(title, message, gameObject.name, "OnAlertCallback");
-    }
-
-    private void OnAlertCallback(string result)
-    {
-        Debug.Log("Alert callback received: " + result);
+        showDialog(title, message, OnAlertCallback);
     }
 
     // iOS側のセレクタ名に対応するメソッド
-    public void sendMessageToGameObject(string callbackObjectName, string callbackMethodName)
-    {
-        Debug.Log($"sendMessageToGameObject called with callbackObjectName: {callbackObjectName}, callbackMethodName: {callbackMethodName}");
+    // public void sendMessageToGameObject(string callbackObjectName, string callbackMethodName)
+    // {
+    //     Debug.Log($"sendMessageToGameObject called with callbackObjectName: {callbackObjectName}, callbackMethodName: {callbackMethodName}");
 
-        // 指定されたGameObjectを名前で検索
-        GameObject callbackObject = GameObject.Find(callbackObjectName);
-        if (callbackObject != null)
-        {
-            // 指定されたメソッドをGameObject上で呼び出す
-            callbackObject.SendMessage(callbackMethodName, "OK", SendMessageOptions.DontRequireReceiver);
-        }
-        else
-        {
-            Debug.LogError($"GameObject with name {callbackObjectName} not found.");
-        }
-    }
+    //     // 指定されたGameObjectを名前で検索
+    //     GameObject callbackObject = GameObject.Find(callbackObjectName);
+    //     if (callbackObject != null)
+    //     {
+    //         // 指定されたメソッドをGameObject上で呼び出す
+    //         callbackObject.SendMessage(callbackMethodName, "OK", SendMessageOptions.DontRequireReceiver);
+    //     }
+    //     else
+    //     {
+    //         Debug.LogError($"GameObject with name {callbackObjectName} not found.");
+    //     }
+    // }
 }

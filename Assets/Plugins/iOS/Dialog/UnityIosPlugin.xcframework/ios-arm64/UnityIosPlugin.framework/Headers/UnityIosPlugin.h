@@ -14,5 +14,3 @@ FOUNDATION_EXPORT double UnityIosPluginVersionNumber;
 FOUNDATION_EXPORT const unsigned char UnityIosPluginVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <UnityIosPlugin/PublicHeader.h>
-
-//#import <UnityIosPlugin/Dialog/UnityIosDialogManagerBridge.h>

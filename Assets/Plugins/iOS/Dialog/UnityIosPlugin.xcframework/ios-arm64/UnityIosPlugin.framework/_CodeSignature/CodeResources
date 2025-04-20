@@ -10,15 +10,19 @@
 		</data>
 		<key>Frameworks/IosLibrary.framework/IosLibrary</key>
 		<data>
-		/p1GdrTcUVSinEu1m4G4SwRnFwk=
+		jieQ2WvnJP0x5WlXPIQ0HTJCymo=
 		</data>
 		<key>Frameworks/IosLibrary.framework/_CodeSignature/CodeResources</key>
 		<data>
 		MnAMHTZge7g96hYvWFHILylVdc4=
 		</data>
+		<key>Headers/UnityIosPlugin-Swift.h</key>
+		<data>
+		9KHOomiDgGy04nKBK5NQl8rZKV8=
+		</data>
 		<key>Headers/UnityIosPlugin.h</key>
 		<data>
-		93oReSCCoZNfg7ax+fZAWWbA3fI=
+		jOeeCplHJn3UrZXwVjv7JZJxBek=
 		</data>
 		<key>Info.plist</key>
 		<data>
@@ -26,11 +30,11 @@
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
 		<data>
-		lsh9jSgWGHgIo2gtGOJXgsQvDSE=
+		tzeh+DVmHcqFEMEVxBDp+5FM7SI=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<data>
-		PrzT0KzVwsV1wN5WExKxskiKrpU=
+		cfGSsYzGJweLvKSpjItCVn1f+1g=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
 		<data>
@@ -38,15 +42,15 @@
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
 		<data>
-		PrzT0KzVwsV1wN5WExKxskiKrpU=
+		cfGSsYzGJweLvKSpjItCVn1f+1g=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftmodule</key>
 		<data>
-		iUg8PKmCZWIjcJZdcZ7rCg0CO5U=
+		TvUwrrxpSei0+yzSMMHxvBDsYsM=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
-		si9LafOhLAFGJ4RnEkJfue5ecYY=
+		h/u978i2quDkXpQYhrIzKqOMkrM=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -62,7 +66,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			xSIUa3qusROFhZO4lfKA2cKj68OYF4o96kGIHG8pd6c=
+			jLZE4OXEbs+YC8+SP8reosPqUQ7oOMtDKLq327Q3nOc=
 			</data>
 		</dict>
 		<key>Frameworks/IosLibrary.framework/_CodeSignature/CodeResources</key>
@@ -72,25 +76,32 @@
 			lucuwce1dablklBPZRYfy+h/0dDdm7dYlmKS+Xi60I0=
 			</data>
 		</dict>
+		<key>Headers/UnityIosPlugin-Swift.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			OTZcnHa8YVJiGarKN8DN6NP52S39sQV9WkJ3antmub0=
+			</data>
+		</dict>
 		<key>Headers/UnityIosPlugin.h</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			OFjq9qrtWRYYBFjgvMsZ1VAR+mH3EopKfAuAmos0wS8=
+			/KlzMc0U1R5wEejA2vdnFO4A/4InQdusK+WaKm+3sSo=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			POSfzJSw9TDq4G+fBxYbC8WIIB/9rL5+bjCw+BdNA7k=
+			1ctE0E3RfT/h8cu3MMxVHzoFaYPuyL40YQtIiY1PjNU=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			QrARju/wY/TXkxym/44+hFlhJslcRVe6pZZrrGot7Ek=
+			2EljrDzduh/VYg2TfUiW9qCVT5tPlMDSm+DWtMMFLUg=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
@@ -104,21 +115,21 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			QrARju/wY/TXkxym/44+hFlhJslcRVe6pZZrrGot7Ek=
+			2EljrDzduh/VYg2TfUiW9qCVT5tPlMDSm+DWtMMFLUg=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			skKZK/DNI+I7TN8ZTP+UiH7XugvLyxhZbb6mTO/PvhA=
+			7YcJwTZC8+O1sWJ+gllAUO3PzGVjlZg/La9H9rqcY5Y=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			ol6LbfGhsVky3jyA3nwGJ3JPA5SdWpVkFawa/iAp8Gc=
+			iyypyNXDu5czjx+m2VVVqQ9DiRIpPjHAbI0C5/wM5dM=
 			</data>
 		</dict>
 	</dict>
