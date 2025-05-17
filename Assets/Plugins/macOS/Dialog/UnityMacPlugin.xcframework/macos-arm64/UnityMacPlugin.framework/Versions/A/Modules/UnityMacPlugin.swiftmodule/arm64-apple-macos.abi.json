@@ -1,0 +1,235 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "UnityMacPlugin",
+    "printedName": "UnityMacPlugin",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "AppKit",
+        "printedName": "AppKit",
+        "declKind": "Import",
+        "moduleName": "UnityMacPlugin",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "MacLibrary",
+        "printedName": "MacLibrary",
+        "declKind": "Import",
+        "moduleName": "UnityMacPlugin"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "UnityMacDialogManager",
+        "printedName": "UnityMacDialogManager",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "shared",
+            "printedName": "shared",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "UnityMacDialogManager",
+                "printedName": "UnityMacPlugin.UnityMacDialogManager",
+                "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(cpy)shared",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC6sharedACvpZ",
+            "moduleName": "UnityMacPlugin",
+            "static": true,
+            "declAttributes": [
+              "HasInitialValue",
+              "Final",
+              "HasStorage",
+              "AccessControl",
+              "ObjC"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "UnityMacDialogManager",
+                    "printedName": "UnityMacPlugin.UnityMacDialogManager",
+                    "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(cm)shared",
+                "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC6sharedACvgZ",
+                "moduleName": "UnityMacPlugin",
+                "static": true,
+                "implicit": true,
+                "declAttributes": [
+                  "Final",
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Function",
+            "name": "showDialog",
+            "printedName": "showDialog(title:message:handler:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.String) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.String) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ]
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showDialogWithTitle:message:handler:",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC04showD05title7message7handlerySS_SSySScSgtF",
+            "moduleName": "UnityMacPlugin",
+            "declAttributes": [
+              "AccessControl",
+              "ObjC"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager",
+        "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC",
+        "moduleName": "UnityMacPlugin",
+        "declAttributes": [
+          "AccessControl",
+          "ObjCMembers",
+          "ObjC"
+        ],
+        "superclassUsr": "c:objc(cs)NSObject",
+        "hasMissingDesignatedInitializers": true,
+        "inheritsConvenienceInitializers": true,
+        "superclassNames": [
+          "ObjectiveC.NSObject"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Equatable",
+            "printedName": "Equatable",
+            "usr": "s:SQ",
+            "mangledName": "$sSQ"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Hashable",
+            "printedName": "Hashable",
+            "usr": "s:SH",
+            "mangledName": "$sSH"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CVarArg",
+            "printedName": "CVarArg",
+            "usr": "s:s7CVarArgP",
+            "mangledName": "$ss7CVarArgP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "_KeyValueCodingAndObservingPublishing",
+            "printedName": "_KeyValueCodingAndObservingPublishing",
+            "usr": "s:10Foundation37_KeyValueCodingAndObservingPublishingP",
+            "mangledName": "$s10Foundation37_KeyValueCodingAndObservingPublishingP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "_KeyValueCodingAndObserving",
+            "printedName": "_KeyValueCodingAndObserving",
+            "usr": "s:10Foundation27_KeyValueCodingAndObservingP",
+            "mangledName": "$s10Foundation27_KeyValueCodingAndObservingP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CustomStringConvertible",
+            "printedName": "CustomStringConvertible",
+            "usr": "s:s23CustomStringConvertibleP",
+            "mangledName": "$ss23CustomStringConvertibleP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CustomDebugStringConvertible",
+            "printedName": "CustomDebugStringConvertible",
+            "usr": "s:s28CustomDebugStringConvertibleP",
+            "mangledName": "$ss28CustomDebugStringConvertibleP"
+          }
+        ]
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": [
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/mac\/UnityMacPlugin\/UnityMacPlugin\/Dialog\/UnityMacDialogManager.swift",
+      "kind": "StringLiteral",
+      "offset": 224,
+      "length": 23,
+      "value": "\"UnityMacDialogManager\""
+    }
+  ]
+}
