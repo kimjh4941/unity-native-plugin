@@ -1,3 +1,4 @@
+#if UNITY_IOS
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -9,3 +10,4 @@ public class IosDialogPlugin : MonoBehaviour
         IosDialogManager.Instance.ShowDialog("Hello from Unity", "This is a native iOS dialog!");
     }
 }
+#endif

@@ -10,9 +10,9 @@ public class AndroidDialogManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                Debug.Log("Creating new instance of NativeDialogManager");
+                Debug.Log("Creating new instance of AndroidDialogManager");
                 // シーン内に存在しない場合、新しいGameObjectを作成してアタッチ
-                GameObject singletonObject = new GameObject("NativeDialogManager");
+                GameObject singletonObject = new GameObject("AndroidDialogManager");
                 _instance = singletonObject.AddComponent<AndroidDialogManager>();
                 DontDestroyOnLoad(singletonObject); // シーンをまたいで保持
             }
@@ -41,7 +41,7 @@ public class AndroidDialogManager : MonoBehaviour
     public void Initialize()
     {
         Debug.Log("Initialize");
-        using (AndroidJavaClass pluginClass = new AndroidJavaClass("android.unity.dialog.NativeDialogManager"))
+        using (AndroidJavaClass pluginClass = new AndroidJavaClass("android.unity.dialog.UnityAndroidDialogManager"))
         {
             if (pluginClass == null)
             {
@@ -74,7 +74,7 @@ public class AndroidDialogManager : MonoBehaviour
     // Unityのコールバッククラス
     private class UnityCallback : AndroidJavaProxy
     {
-        public UnityCallback() : base("android.unity.dialog.NativeDialogManager$NativeDialogManagerCallback") { }
+        public UnityCallback() : base("android.unity.dialog.UnityAndroidDialogManager$AndroidDialogManagerCallback") { }
 
         public void onClickDialogNeutralButton(string message)
         {

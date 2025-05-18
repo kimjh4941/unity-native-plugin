@@ -11,7 +11,38 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
     public void OnPreprocessBuild(BuildReport report)
     {
-        if (report.summary.platform == BuildTarget.iOS)
+        if (report.summary.platform == BuildTarget.Android)
+        {
+            UnityEngine.Debug.Log("Androidビルドの前処理を開始します。");
+
+            // 1. gradlewがandroid/AndroidLibraryExample直下にある
+            string androidRootProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/AndroidLibraryExample";
+
+            // 2. android_library-debug.aarのビルド
+            string androidLibraryProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/android_library";
+            RunShellCommand(
+                $"cd \"{androidRootProjectPath}\" && ./gradlew :android_library:assembleDebug"
+            );
+            string aarSrc1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", "android_library-debug.aar");
+
+            // 3. unity_android_plugin-debug.aarのビルド
+            string unityAndroidPluginProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin";
+            RunShellCommand(
+                $"cd \"{androidRootProjectPath}\" && ./gradlew :unity_android_plugin:assembleDebug"
+            );
+            string aarSrc2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", "unity_android_plugin-debug.aar");
+
+            // 4. Plugins/Androidフォルダにコピー
+            string destDir = Path.Combine(Application.dataPath, "Plugins/Android/Dialog");
+            Directory.CreateDirectory(destDir);
+
+            RunShellCommand($"cp -f \"{aarSrc1}\" \"{destDir}\"");
+            RunShellCommand($"cp -f \"{aarSrc2}\" \"{destDir}\"");
+
+            UnityEngine.Debug.Log("android_library-debug.aarとunity_android_plugin-debug.aarを「Plugins/Android/Dialog」にコピーしました。");
+            UnityEngine.Debug.Log("Androidビルドの前処理を終了しました。");
+        }
+        else if (report.summary.platform == BuildTarget.iOS)
         {
             UnityEngine.Debug.Log("iOSビルドの前処理を開始します。");
 
@@ -83,17 +114,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             UnityEngine.Debug.Log("UnityMacPlugin.xcframeworkを「Plugins/macOS/Dialog」にコピーしました。");
             UnityEngine.Debug.Log("macOSビルドの前処理を終了しました。");
         }
-
-        // else if (report.summary.platform == BuildTarget.Android)
-        // {
-        //     Debug.Log("Androidビルドの前処理を実行します。");
-
-        //     // 例: Android固有の設定を確認
-        //     if (PlayerSettings.Android.minSdkVersion < AndroidSdkVersions.AndroidApiLevel21)
-        //     {
-        //         throw new BuildFailedException("AndroidのminSdkVersionが21未満です。");
-        //     }
-        // }
     }
 
     private void RunShellCommand(string command)

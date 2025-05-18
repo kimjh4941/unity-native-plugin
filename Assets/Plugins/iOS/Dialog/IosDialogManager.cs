@@ -1,3 +1,4 @@
+#if UNITY_IOS
 using UnityEngine;
 using System.Runtime.InteropServices;
 
@@ -70,3 +71,4 @@ public class IosDialogManager : MonoBehaviour
     //     }
     // }
 }
+#endif

@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_OSX
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -9,3 +10,4 @@ public class MacDialogPlugin : MonoBehaviour
         MacDialogManager.Instance.ShowDialog("Hello from Unity", "This is a native macOS dialog!");
     }
 }
+#endif

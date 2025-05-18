@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_OSX
 using UnityEngine;
 using System.Runtime.InteropServices;
 
@@ -52,3 +53,4 @@ public class MacDialogManager : MonoBehaviour
         showDialog(title, message, OnAlertCallback);
     }
 }
+#endif

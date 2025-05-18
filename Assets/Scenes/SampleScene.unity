@@ -282,7 +282,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1137488974}
-        m_TargetAssemblyTypeName: NativePluginAndroid, Assembly-CSharp
+        m_TargetAssemblyTypeName: AndroidDialogPlugin, Assembly-CSharp
         m_MethodName: ShowDialog
         m_Mode: 1
         m_Arguments:
