@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using UnityEngine;
 
 public class AndroidDialogManager : MonoBehaviour
@@ -117,3 +118,4 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 }
+#endif

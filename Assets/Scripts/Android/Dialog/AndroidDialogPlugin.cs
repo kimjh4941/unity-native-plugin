@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -9,3 +10,4 @@ public class AndroidDialogPlugin : MonoBehaviour
         AndroidDialogManager.Instance.ShowDialog("Hello from Unity", "This is a native Android dialog!");
     }
 }
+#endif
