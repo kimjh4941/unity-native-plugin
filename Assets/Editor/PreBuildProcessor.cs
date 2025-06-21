@@ -114,8 +114,30 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             UnityEngine.Debug.Log("UnityMacPlugin.xcframeworkを「Plugins/macOS/Dialog」にコピーしました。");
             UnityEngine.Debug.Log("macOSビルドの前処理を終了しました。");
         }
-    }
+        else if (report.summary.platform == BuildTarget.StandaloneWindows64)
+        {
+            UnityEngine.Debug.Log("Windowsビルドの前処理を開始します。");
 
+            // コピー元とコピー先
+            string dllSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary.dll";
+            string destDir = Path.Combine(Application.dataPath, "Plugins/Windows/Dialog");
+            string dllDst = Path.Combine(destDir, "WindowsLibrary.dll");
+
+            try
+            {
+                Directory.CreateDirectory(destDir);
+                File.Copy(dllSrc, dllDst, true);
+                UnityEngine.Debug.Log("WindowsLibrary.dll を「Plugins/Windows/Dialog」にコピーしました。");
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("WindowsLibrary.dll のコピーに失敗: " + ex.Message);
+            }
+
+            UnityEngine.Debug.Log("Windowsビルドの前処理を終了しました。");
+        }
+    }
+    
     private void RunShellCommand(string command)
     {
         var process = new Process();

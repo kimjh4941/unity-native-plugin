@@ -1,6 +1,8 @@
 using UnityEditor;
 using UnityEditor.Callbacks;
-using UnityEditor.iOS.Xcode;
+#if UNITY_EDITOR_OSX
+using UnityEditor.macOS.Xcode;
+#endif
 using System.IO;
 
 public static class PostBuildProcessor
@@ -8,6 +10,7 @@ public static class PostBuildProcessor
     [PostProcessBuild]
     public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
     {
+#if UNITY_EDITOR_OSX
         if (target == BuildTarget.StandaloneOSX)
         {
             UnityEngine.Debug.Log("macOSビルドの後処理を開始します。");
@@ -45,6 +48,30 @@ public static class PostBuildProcessor
             UnityEngine.Debug.Log("UnityMacPlugin.xcframeworkをXcodeプロジェクトに追加しました。");
             UnityEngine.Debug.Log("macOSビルドの後処理を終了しました。");
         }
+#endif
+#if UNITY_STANDALONE_WIN
+        if (target == BuildTarget.StandaloneWindows64)
+        {
+            UnityEngine.Debug.Log("Windowsビルドの後処理を開始します。");
+
+            // コピー元とコピー先
+            string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary.pdb";
+            string pdbDst = Path.Combine(@"D:\Build\Windows\unity-native-plugin_Data", @"Plugins\x86_64\WindowsLibrary.pdb");
+            
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(pdbDst));
+                File.Copy(pdbSrc, pdbDst, true);
+                UnityEngine.Debug.Log("WindowsLibrary.pdb をコピーしました: " + pdbDst);
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning("WindowsLibrary.pdb のコピーに失敗: " + ex.Message);
+            }
+
+            UnityEngine.Debug.Log("Windowsビルドの後処理を終了しました。");
+        }
+#endif
     }
 
     // ディレクトリコピーのヘルパー

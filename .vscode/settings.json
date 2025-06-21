@@ -11,7 +11,7 @@
         "**/*.user": true,
         "**/*.userprefs": true,
         "**/*.unityproj": true,
-        "**/*.dll": true,
+        // "**/*.dll": true,
         "**/*.exe": true,
         "**/*.pdf": true,
         "**/*.mid": true,
