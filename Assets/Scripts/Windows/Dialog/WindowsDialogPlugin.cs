@@ -1,3 +1,4 @@
+#if UNITY_STANDALONE_WIN
 using System.Runtime.InteropServices;
 using UnityEngine;
 using System.Text;
@@ -74,3 +75,4 @@ public class WindowsDialogPlugin : MonoBehaviour
         WindowsDialogManager.Instance.ShowMultiFolderDialog(4096, title);
     }
 }
+#endif

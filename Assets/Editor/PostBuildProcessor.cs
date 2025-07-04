@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEditor.Callbacks;
 #if UNITY_EDITOR_OSX
-using UnityEditor.macOS.Xcode;
+using UnityEditor.iOS.Xcode;
 #endif
 using System.IO;
 
