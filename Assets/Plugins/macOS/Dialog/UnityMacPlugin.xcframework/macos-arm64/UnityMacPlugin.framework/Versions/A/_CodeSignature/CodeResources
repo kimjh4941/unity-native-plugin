@@ -15,7 +15,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			/E0uFu9+NWGhvcEXDvzzqU0JJxI=
+			HjLSEfURG01y0Z4C3jhjrQkiraI=
 			</data>
 			<key>requirement</key>
 			<string>identifier "mac.library.MacLibrary.MacLibrary" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Jong Hyun Kim (545GVBT238)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
@@ -24,7 +24,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			JaSAqQXORvrFjCp+i0qqWbCimvsQaxBVs1zkcFMmSBw=
+			1td+fAuD//Rg2BPTTaHvsxL2MW/WBCRwh4gJT3SehYQ=
 			</data>
 		</dict>
 		<key>Headers/UnityMacPlugin.h</key>
@@ -38,14 +38,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			6HPIgiCB7aQ/EgzEo+19JnSi/CVH17AKQeRExRF6TNg=
+			rNXfnbUNoUugB7+KCiXUefrf45vwzRWeuS5ygRq+GZk=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			VgagohmE7URgclNX4JvvIYHaCOwYVjDmKAj3FhkA/uk=
+			gHz92ZNKXJIJUgeY+GxLVUi1r5ef8new0/jEorUlxPQ=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.swiftdoc</key>
@@ -59,14 +59,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			VgagohmE7URgclNX4JvvIYHaCOwYVjDmKAj3FhkA/uk=
+			gHz92ZNKXJIJUgeY+GxLVUi1r5ef8new0/jEorUlxPQ=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			CYd0kUwSxaIxZkNbXijTSATvBLH2VHXgtojzvTjykQw=
+			resRsQMwPPOV+jmOjp0K7pelDNiA3zlgCsevC7nkxV8=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
