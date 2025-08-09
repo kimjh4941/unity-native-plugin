@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=8f8eb420530eb450f8a0ac787cb158d8&amp;type=3#AndroidDialogManagerExampleStyle" />
+    <ui:VisualElement class="android-safe-area-container">
+        <ui:VisualElement class="android-dialog-content">
+            <ui:Label text="AndroidDialogManager Example" class="android-dialog-title" />
+            <ui:ListView name="DialogListView"
+                         class="android-dialog-listview"
+                         style="flex-grow: 1;"
+                         show-border="false"
+                         selection-type="Single"
+                         virtualization-method="DynamicHeight"
+                         />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

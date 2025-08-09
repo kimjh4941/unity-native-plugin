@@ -1,0 +1,192 @@
+/* Android Safe Area対応USS */
+:root {
+}
+
+.android-safe-area-container {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.android-dialog-content {
+    flex-grow: 1;
+    background-color: rgba(255, 255, 255, 1);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.android-dialog-title {
+    font-size: 20px;
+    color: #212121;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-bottom: 20px;
+    white-space: normal;
+    text-overflow: ellipsis;
+}
+
+/* ListView専用スタイル */
+.android-dialog-listview {
+    flex-grow: 1;
+    overflow: visible; /* スクロールを有効化 */
+    background-color: transparent;
+    border-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* ListViewアイテム（Label）スタイル - 修正版 */
+.android-dialog-list-item {
+    background-color: #2196F3;
+    color: white;
+    -unity-font-style: bold;
+    height: 50px; /* 高さを固定 */
+    -unity-text-align: middle-center;
+    font-size: 14px;
+    padding: 0 14px;     /* 上下0、左右14px */
+    white-space: normal;
+}
+
+.android-dialog-list-item:hover {
+    background-color: #1976D2;
+}
+
+/* アイテム別の色分け - 基本クラスを継承 */
+.show-dialog-item {
+    background-color: #2196F3;
+}
+
+.show-dialog-item:hover {
+    background-color: #1976D2;
+}
+
+.show-confirm-dialog-item {
+    background-color: #FF9800;
+}
+
+.show-confirm-dialog-item:hover {
+    background-color: #F57C00;
+}
+
+.show-single-choice-item-dialog-item {
+    background-color: #9C27B0;
+}
+
+.show-single-choice-item-dialog-item:hover {
+    background-color: #7B1FA2;
+}
+
+.show-multi-choice-item-dialog-item {
+    background-color: #607D8B;
+}
+
+.show-multi-choice-item-dialog-item:hover {
+    background-color: #455A64;
+}
+
+.show-text-input-dialog-item {
+    background-color: #00BCD4;
+}
+
+.show-text-input-dialog-item:hover {
+    background-color: #0097A7;
+}
+
+.show-login-dialog-item {
+    background-color: #F44336;
+}
+
+.show-login-dialog-item:hover {
+    background-color: #D32F2F;
+}
+
+/* 画面サイズ別スタイル */
+.small-screen .android-dialog-list-item {
+    font-size: 12px;
+}
+
+.small-screen .android-dialog-content {
+    margin: 8px;
+    padding: 12px;
+}
+
+.small-screen .android-dialog-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+}
+
+.medium-screen .android-dialog-list-item {
+    font-size: 14px;
+}
+
+.medium-screen .android-dialog-content {
+    margin: 12px;
+    padding: 16px;
+}
+
+.medium-screen .android-dialog-title {
+    font-size: 20px;
+}
+
+.large-screen .android-dialog-list-item {
+    font-size: 16px;
+}
+
+.large-screen .android-dialog-content {
+    margin: 16px;
+    padding: 20px;
+    max-width: 500px;
+    align-self: center;
+}
+
+.large-screen .android-dialog-title {
+    font-size: 24px;
+}
+
+/* DPI別スタイル調整 */
+.low-dpi .android-dialog-list-item {
+    font-size: 12px;
+}
+
+.low-dpi .android-dialog-title {
+    font-size: 18px;
+}
+
+.medium-dpi .android-dialog-list-item {
+    font-size: 14px;
+}
+
+.medium-dpi .android-dialog-title {
+    font-size: 20px;
+}
+
+.high-dpi .android-dialog-list-item {
+    font-size: 16px;
+}
+
+.high-dpi .android-dialog-title {
+    font-size: 22px;
+}
+
+/* 組み合わせスタイル */
+.small-screen.low-dpi .android-dialog-list-item {
+    font-size: 10px;
+}
+
+.small-screen.high-dpi .android-dialog-list-item {
+    font-size: 13px;
+}
+
+.large-screen.low-dpi .android-dialog-list-item {
+    font-size: 14px;
+}
+
+.large-screen.high-dpi .android-dialog-list-item {
+    font-size: 18px;
+}

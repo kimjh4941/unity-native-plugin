@@ -1,0 +1,367 @@
+/* TreeViewStyles.uss */
+/* Unity UI Toolkit TreeView Styles */
+
+/* Root container styles */
+.unity-tree-view {
+    background-color: rgb(56, 56, 56);
+    border-color: rgb(35, 35, 35);
+    border-width: 1px;
+}
+
+/* TreeView scroll area */
+.unity-tree-view__scroll-view {
+    background-color: rgb(56, 56, 56);
+}
+
+/* TreeView content container */
+.unity-tree-view__content-container {
+    background-color: transparent;
+}
+
+/* TreeView items */
+.unity-tree-view__item {
+    background-color: transparent;
+    border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    min-height: 25px;
+}
+
+/* TreeView item hover state */
+.unity-tree-view__item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* TreeView item selected state */
+.unity-tree-view__item:selected {
+    background-color: rgba(58, 121, 187, 0.8);
+}
+
+/* TreeView item focused state */
+.unity-tree-view__item:focus {
+    background-color: rgba(58, 121, 187, 0.6);
+}
+
+/* TreeView item toggle (expand/collapse) */
+.unity-tree-view__item-toggle {
+    margin-left: 3px;
+    margin-right: 2px;
+    width: 12px;
+    height: 12px;
+    background-color: transparent;
+    border-color: rgb(132, 132, 132);
+    border-width: 0;
+}
+
+.unity-tree-view__item-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* TreeView item toggle arrow */
+.unity-tree-view__item-toggle > .unity-toggle__checkmark {
+    background-color: transparent;
+    border-color: rgb(196, 196, 196);
+    border-width: 0;
+    background-image: resource('Builtin Skins/DarkSkin/Images/IN foldout.png');
+    width: 12px;
+    height: 12px;
+}
+
+.unity-tree-view__item-toggle:checked > .unity-toggle__checkmark {
+    background-image: resource('Builtin Skins/DarkSkin/Images/IN foldout on.png');
+}
+
+/* TreeView item indentation */
+.unity-tree-view__item--depth-0 {
+    padding-left: 16px;
+}
+
+.unity-tree-view__item--depth-1 {
+    padding-left: 32px;
+}
+
+.unity-tree-view__item--depth-2 {
+    padding-left: 48px;
+}
+
+.unity-tree-view__item--depth-3 {
+    padding-left: 64px;
+}
+
+.unity-tree-view__item--depth-4 {
+    padding-left: 80px;
+}
+
+/* Custom TreeView item container */
+.tree-item-container {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    min-height: 25px;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.tree-item-container:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 0.1s;
+}
+
+.tree-item-container:selected {
+    background-color: rgba(58, 121, 187, 0.7);
+}
+
+.tree-item-container:focus {
+    background-color: rgba(58, 121, 187, 0.5);
+}
+
+/* Item icon */
+.item-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    border-radius: 2px;
+    background-color: rgb(128, 128, 128);
+    flex-shrink: 0;
+}
+
+.item-icon.folder {
+    background-color: rgb(255, 193, 7);
+}
+
+.item-icon.file {
+    background-color: rgb(0, 188, 212);
+}
+
+.item-icon.script {
+    background-color: rgb(76, 175, 80);
+}
+
+.item-icon.scene {
+    background-color: rgb(156, 39, 176);
+}
+
+.item-icon.texture {
+    background-color: rgb(255, 87, 34);
+}
+
+.item-icon.audio {
+    background-color: rgb(255, 152, 0);
+}
+
+.item-icon.prefab {
+    background-color: rgb(63, 81, 181);
+}
+
+/* Item label */
+.item-label {
+    flex-grow: 1;
+    color: rgb(210, 210, 210);
+    font-size: 12px;
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 0;
+    margin-right: 5px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.item-label.folder {
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+}
+
+.item-label.selected {
+    color: rgb(255, 255, 255);
+}
+
+/* Item description */
+.item-description {
+    color: rgb(150, 150, 150);
+    font-size: 10px;
+    -unity-text-align: middle-left;
+    margin-left: 8px;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    flex-shrink: 1;
+}
+
+.item-description.selected {
+    color: rgb(220, 220, 220);
+}
+
+/* Header styles */
+.tree-header {
+    background-color: rgb(64, 64, 64);
+    border-bottom-color: rgb(35, 35, 35);
+    border-bottom-width: 1px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.tree-header .unity-label {
+    color: rgb(255, 255, 255);
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* Main container */
+.tree-container {
+    flex-grow: 1;
+    background-color: rgb(48, 48, 48);
+    border-color: rgb(35, 35, 35);
+    border-width: 1px;
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Scrollbars */
+.unity-scroller--vertical {
+    background-color: rgb(42, 42, 42);
+    border-left-color: rgb(35, 35, 35);
+    border-left-width: 1px;
+    width: 16px;
+}
+
+.unity-scroller--horizontal {
+    background-color: rgb(42, 42, 42);
+    border-top-color: rgb(35, 35, 35);
+    border-top-width: 1px;
+    height: 16px;
+}
+
+.unity-scroller__slider {
+    background-color: rgb(132, 132, 132);
+    border-radius: 6px;
+    margin-left: 2px;
+    margin-right: 2px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.unity-scroller__slider:hover {
+    background-color: rgb(158, 158, 158);
+}
+
+.unity-scroller__slider:active {
+    background-color: rgb(174, 174, 174);
+}
+
+/* Context menu related */
+.tree-item-container:focus {
+    outline-color: rgba(58, 121, 187, 0.8);
+    outline-width: 1px;
+}
+
+/* Animation and transitions */
+.tree-item-container {
+    transition-property: background-color;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+}
+
+.item-icon {
+    transition-property: background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-out;
+}
+
+/* Dark theme specific adjustments */
+:root {
+    --tree-background: rgb(56, 56, 56);
+    --tree-border: rgb(35, 35, 35);
+    --tree-text: rgb(210, 210, 210);
+    --tree-text-secondary: rgb(150, 150, 150);
+    --tree-hover: rgba(255, 255, 255, 0.08);
+    --tree-selected: rgba(58, 121, 187, 0.7);
+    --tree-focus: rgba(58, 121, 187, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .item-description {
+        display: none;
+    }
+    
+    .tree-item-container {
+        min-height: 30px;
+    }
+    
+    .item-icon {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .unity-tree-view__item:selected {
+        background-color: rgb(0, 120, 215);
+        border-color: rgb(255, 255, 255);
+        border-width: 1px;
+    }
+    
+    .item-label {
+        color: rgb(255, 255, 255);
+    }
+    
+    .item-description {
+        color: rgb(200, 200, 200);
+    }
+}
+
+/* Accessibility improvements */
+.unity-tree-view:focus-within .unity-tree-view__item:selected {
+    outline-color: rgb(255, 255, 255);
+    outline-width: 2px;
+    outline-offset: -2px;
+}
+
+/* Performance optimizations */
+.tree-item-container {
+    will-change: background-color;
+}
+
+.item-icon {
+    will-change: background-color;
+}
