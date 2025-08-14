@@ -1,30 +1,33 @@
+#nullable enable
+
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 [System.Serializable]
-public class DialogButtonData
+public class AndroidDialogButtonData
 {
-    public string text;
-    public string action;
-    public string buttonId;
+    public string? text;
+    public string? action;
+    public string? buttonId;
 }
 
 public class AndroidDialogManagerExampleController : MonoBehaviour
 {
-    [SerializeField] private UIDocument uiDocument;
+    [SerializeField] private UIDocument? uiDocument;
 
     // ListView用のデータ
-    private ListView dialogListView;
-    private readonly List<DialogButtonData> dialogButtons = new()
+    private ListView? dialogListView;
+    private readonly List<AndroidDialogButtonData> dialogButtons = new()
     {
-        new() { text = "ShowDialog", action = "ShowDialog", buttonId = "ShowDialog" },
-        new() { text = "ShowConfirmDialog", action = "ShowConfirmDialog", buttonId = "ShowConfirmDialog" },
-        new() { text = "ShowSingleChoiceItemDialog", action = "ShowSingleChoiceItemDialog", buttonId = "ShowSingleChoiceItemDialog" },
-        new() { text = "ShowMultiChoiceItemDialog", action = "ShowMultiChoiceItemDialog", buttonId = "ShowMultiChoiceItemDialog" },
-        new() { text = "ShowTextInputDialog", action = "ShowTextInputDialog", buttonId = "ShowTextInputDialog" },
-        new() { text = "ShowLoginDialog", action = "ShowLoginDialog", buttonId = "ShowLoginDialog" }
+        new AndroidDialogButtonData { text = "ShowDialog", action = "ShowDialog", buttonId = "ShowDialog" },
+        new AndroidDialogButtonData { text = "ShowConfirmDialog", action = "ShowConfirmDialog", buttonId = "ShowConfirmDialog" },
+        new AndroidDialogButtonData { text = "ShowSingleChoiceItemDialog", action = "ShowSingleChoiceItemDialog", buttonId = "ShowSingleChoiceItemDialog" },
+        new AndroidDialogButtonData { text = "ShowMultiChoiceItemDialog", action = "ShowMultiChoiceItemDialog", buttonId = "ShowMultiChoiceItemDialog" },
+        new AndroidDialogButtonData { text = "ShowTextInputDialog", action = "ShowTextInputDialog", buttonId = "ShowTextInputDialog" },
+        new AndroidDialogButtonData { text = "ShowLoginDialog", action = "ShowLoginDialog", buttonId = "ShowLoginDialog" }
     };
 
     [Header("Manual Safe Area Override (for testing)")]
@@ -39,6 +42,20 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     private Vector2 lastScreenSize;
     private float orientationCheckInterval = 0.3f;
     private float lastOrientationCheckTime;
+
+    void Awake()
+    {
+#if UNITY_EDITOR
+        Debug.Log("Running in Unity Editor - Android simulation mode");
+#elif UNITY_ANDROID
+    Debug.Log("Running on Android device");
+#else
+    Debug.LogWarning("AndroidDialogManagerExampleController is only supported on Android platform or Editor.");
+    gameObject.SetActive(false);
+    return;
+#endif
+        Debug.Log("AndroidDialogManagerExampleController initialized successfully.");
+    }
 
     private void Start()
     {
@@ -104,7 +121,12 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     private void InitializeUI()
     {
-        var root = uiDocument.rootVisualElement;
+        var root = uiDocument?.rootVisualElement;
+        if (root == null)
+        {
+            Debug.LogError("[AndroidDialogManagerExampleController] rootVisualElement is null!");
+            return;
+        }
         dialogListView = root.Q<ListView>("DialogListView");
 
         if (dialogListView == null)
@@ -119,6 +141,11 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     private void SetupListView()
     {
+        if (dialogListView == null)
+        {
+            Debug.LogError("[AndroidDialogManagerExampleController] dialogListView is null!");
+            return;
+        }
         // ListViewのデータソースを設定
         dialogListView.itemsSource = dialogButtons;
 
@@ -133,9 +160,13 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         // アイテムバインド関数
         dialogListView.bindItem = (element, index) =>
         {
-            var label = element as Label;
             var buttonData = dialogButtons[index];
 
+            if (element is not Label label || buttonData == null)
+            {
+                Debug.LogError($"[ListView] Invalid element or button data at index {index}");
+                return;
+            }
             label.text = buttonData.text;
             label.name = buttonData.buttonId;
 
@@ -148,7 +179,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
             label.RemoveFromClassList("show-login-dialog-item");
 
             // アイテム別のクラスを追加（色分け用）
-            string itemClass = GetItemClassFromButtonId(buttonData.buttonId);
+            string itemClass = GetItemClassFromButtonId(buttonData.buttonId ?? string.Empty);
             label.AddToClassList(itemClass);
 
             // デバッグ用：テキストが設定されているか確認
@@ -193,13 +224,20 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     private void OnListViewSelectionChanged(IEnumerable<object> selectedItems)
     {
-        foreach (DialogButtonData item in selectedItems)
+        foreach (AndroidDialogButtonData item in selectedItems.Cast<AndroidDialogButtonData>())
         {
             Debug.Log($"[AndroidDialogManagerExampleController] ListView item selected: {item.text}");
-            OnDialogButtonClicked(item.action);
+            if (!string.IsNullOrEmpty(item.action))
+            {
+                OnDialogButtonClicked(item.action);
+            }
+            else
+            {
+                Debug.LogError("[AndroidDialogManagerExampleController] Button action is null or empty.");
+            }
 
             // 選択をクリア（連続クリックを可能にする）
-            dialogListView.ClearSelection();
+            dialogListView?.ClearSelection();
             break;
         }
     }
@@ -393,7 +431,12 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
 
-        var root = uiDocument.rootVisualElement;
+        var root = uiDocument?.rootVisualElement;
+        if (root == null)
+        {
+            Debug.LogError("[AndroidDialogManagerExampleController] rootVisualElement is null!");
+            yield break;
+        }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         
@@ -464,7 +507,12 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     private void ApplyResponsiveClasses()
     {
-        var root = uiDocument.rootVisualElement;
+        var root = uiDocument?.rootVisualElement;
+        if (root == null)
+        {
+            Debug.LogError("[AndroidDialogManagerExampleController] rootVisualElement is null!");
+            return;
+        }
         var screenWidth = Screen.width;
         var dpi = Screen.dpi;
 
@@ -523,17 +571,21 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     #region Editor Mode Fallback Methods
 
-#if UNITY_EDITOR
     private void ShowEditorDialog(string title, string message)
     {
+#if UNITY_EDITOR
         if (UnityEditor.EditorUtility.DisplayDialog(title, message, "OK"))
         {
             Debug.Log("[AndroidDialogManagerExampleController] Editor Dialog - OK clicked");
         }
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorDialog called: {title} - {message}");
+#endif
     }
 
     private void ShowEditorConfirmDialog(string title, string message)
     {
+#if UNITY_EDITOR
         if (UnityEditor.EditorUtility.DisplayDialog(title, message, "Yes", "No"))
         {
             Debug.Log("[AndroidDialogManagerExampleController] Editor Confirm Dialog - Yes clicked");
@@ -542,32 +594,120 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         {
             Debug.Log("[AndroidDialogManagerExampleController] Editor Confirm Dialog - No clicked");
         }
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorConfirmDialog called: {title} - {message}");
+#endif
     }
 
     private void ShowEditorSingleChoiceDialog(string title, string[] items)
     {
+#if UNITY_EDITOR
         int selectedIndex = UnityEditor.EditorUtility.DisplayDialogComplex(title, $"Available options:\n{string.Join("\n", items)}", items[0], items[1], "Cancel");
         Debug.Log($"[AndroidDialogManagerExampleController] Editor Single Choice - Selected index: {selectedIndex}");
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorSingleChoiceDialog called: {title} - {string.Join(", ", items)}");
+#endif
     }
 
     private void ShowEditorMultiChoiceDialog(string title, string[] items)
     {
+#if UNITY_EDITOR
         Debug.Log($"[AndroidDialogManagerExampleController] Editor Multi Choice - Available items: {string.Join(", ", items)}");
         UnityEditor.EditorUtility.DisplayDialog(title, $"Items: {string.Join(", ", items)}", "OK");
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorMultiChoiceDialog called: {title} - {string.Join(", ", items)}");
+#endif
     }
 
     private void ShowEditorTextInputDialog(string title, string message)
     {
+#if UNITY_EDITOR
         Debug.Log($"[AndroidDialogManagerExampleController] Editor Text Input - {title}: {message}");
         UnityEditor.EditorUtility.DisplayDialog(title, message, "OK");
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorTextInputDialog called: {title} - {message}");
+#endif
     }
 
     private void ShowEditorLoginDialog(string title, string message)
     {
+#if UNITY_EDITOR
         Debug.Log($"[AndroidDialogManagerExampleController] Editor Login Dialog - {title}: {message}");
         UnityEditor.EditorUtility.DisplayDialog(title, message, "OK");
-    }
+#else
+        Debug.Log($"[AndroidDialogManagerExampleController] ShowEditorLoginDialog called: {title} - {message}");
 #endif
+    }
+
+    #endregion
+
+    #region Event Subscription for AndroidDialogManager
+
+    private void OnEnable()
+    {
+        // AndroidDialogManagerのイベントを購読
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (AndroidDialogManager.Instance != null)
+        {
+            AndroidDialogManager.Instance.DialogResult += OnDialogResult;
+            AndroidDialogManager.Instance.ConfirmDialogResult += OnConfirmDialogResult;
+            AndroidDialogManager.Instance.SingleChoiceItemDialogResult += OnSingleChoiceItemDialogResult;
+            AndroidDialogManager.Instance.MultiChoiceItemDialogResult += OnMultiChoiceItemDialogResult;
+            AndroidDialogManager.Instance.TextInputDialogResult += OnTextInputDialogResult;
+            AndroidDialogManager.Instance.LoginDialogResult += OnLoginDialogResult;
+        }
+#endif
+    }
+
+    private void OnDisable()
+    {
+        // イベントの購読を解除
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (AndroidDialogManager.Instance != null)
+        {
+            AndroidDialogManager.Instance.DialogResult -= OnDialogResult;
+            AndroidDialogManager.Instance.ConfirmDialogResult -= OnConfirmDialogResult;
+            AndroidDialogManager.Instance.SingleChoiceItemDialogResult -= OnSingleChoiceItemDialogResult;
+            AndroidDialogManager.Instance.MultiChoiceItemDialogResult -= OnMultiChoiceItemDialogResult;
+            AndroidDialogManager.Instance.TextInputDialogResult -= OnTextInputDialogResult;
+            AndroidDialogManager.Instance.LoginDialogResult -= OnLoginDialogResult;
+        }
+#endif
+    }
+
+    #endregion
+
+    #region AndroidDialogManager Event Handlers
+
+    private void OnDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] DialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
+
+    private void OnConfirmDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] ConfirmDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
+
+    private void OnSingleChoiceItemDialogResult(string? buttonText, int? checkedItem, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] SingleChoiceItemDialogResult buttonText: {buttonText ?? "null"}, checkedItem: {(checkedItem.HasValue ? checkedItem.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
+
+    private void OnMultiChoiceItemDialogResult(string? buttonText, bool[]? checkedItems, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] MultiChoiceItemDialogResult buttonText: {buttonText ?? "null"}, checkedItems: {(checkedItems != null ? string.Join(", ", checkedItems) : "null")}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
+
+    private void OnTextInputDialogResult(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] TextInputDialogResult buttonText: {buttonText ?? "null"}, inputText: {inputText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
+
+    private void OnLoginDialogResult(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
+    {
+        Debug.Log($"[AndroidDialogManagerExampleController] LoginDialogResult buttonText: {buttonText ?? "null"}, username: {username ?? "null"}, password: {password ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+    }
 
     #endregion
 }

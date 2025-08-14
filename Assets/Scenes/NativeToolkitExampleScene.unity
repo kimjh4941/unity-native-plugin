@@ -517,7 +517,7 @@ GameObject:
   - component: {fileID: 1368476705}
   - component: {fileID: 1368476706}
   m_Layer: 0
-  m_Name: NativeExample
+  m_Name: NativeToolkitExample
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

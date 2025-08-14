@@ -1,15 +1,10 @@
-<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:VisualElement style="flex-grow: 1; -unity-background-image-tint-color: rgb(248, 244, 244); background-color: rgba(237, 245, 250, 0.09);">
-        <ui:Label text="IosDialogManager Example" />
-        <ui:VisualElement style="flex-grow: 1;">
-            <ui:ScrollView>
-                <ui:Button text="ShowDialog" name="ShowDialog" />
-                <ui:Button text="ShowConfirmDialog" name="ShowConfirmDialog" />
-                <ui:Button text="ShowDestructiveDialog" name="ShowDestructiveDialog" />
-                <ui:Button text="ShowActionSheet" name="ShowActionSheet" />
-                <ui:Button text="ShowTextInputDialog" name="ShowTextInputDialog" />
-                <ui:Button text="ShowLoginDialog" name="ShowLoginDialog" />
-            </ui:ScrollView>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=8f8eb420530eb450f8a0ac787cb158d8&amp;type=3#AndroidDialogManagerExampleStyle" />
+    <Style src="project://database/Assets/Scripts/Runtime/UI/iOS/Dialog/IosDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=13693ceda77d348b7a5737557d5893c2&amp;type=3#IosDialogManagerExampleStyle" />
+    <ui:VisualElement class="ios-safe-area-container">
+        <ui:VisualElement class="ios-dialog-content">
+            <ui:Label text="IosDialogManager Example" class="ios-dialog-title" />
+            <ui:ListView name="DialogListView" show-border="false" selection-type="Single" virtualization-method="DynamicHeight" class="ios-dialog-listview" style="flex-grow: 1;" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

@@ -1,3 +1,5 @@
+#nullable enable
+
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -6,11 +8,15 @@ using UnityEditor.SceneManagement;
 
 public class TreeViewEditorWindow : EditorWindow
 {
-    [SerializeField] private VisualTreeAsset mainDocument;
-    [SerializeField] private VisualTreeAsset itemTemplate;
-    [SerializeField] private StyleSheet styleSheet;
+    [SerializeField] private VisualTreeAsset? mainDocument;
+    [SerializeField] private VisualTreeAsset? itemTemplate;
+    [SerializeField] private StyleSheet? styleSheet;
 
-    private TreeView treeView;
+    private TreeView? treeView;
+
+    private const string NativeToolkitExampleScenePath = "Assets/Scenes/NativeToolkitExampleScene.unity";
+
+    private System.Action? _fileOpenHandler;
 
     [MenuItem("Tools/TreeView Editor")]
     public static void ShowWindow()
@@ -217,7 +223,7 @@ public class TreeViewEditorWindow : EditorWindow
 
     private void BindTreeViewItem(VisualElement element, int index)
     {
-        var item = treeView.GetItemDataForIndex<TreeItemData>(index);
+        var item = treeView?.GetItemDataForIndex<TreeItemData>(index);
         if (item == null) return;
 
         var label = element.Q<Label>("item-label");
@@ -307,7 +313,7 @@ public class TreeViewEditorWindow : EditorWindow
         treeView.RegisterCallback<ContextualMenuPopulateEvent>(OnContextualMenu);
     }
 
-    private void SetItemInspector(TreeItemData item = null)
+    private void SetItemInspector(TreeItemData? item = null)
     {
         var itemInspector = rootVisualElement.Q<VisualElement>("item-inspector");
         var infoInspector = rootVisualElement.Q<VisualElement>("info-inspector");
@@ -357,40 +363,43 @@ public class TreeViewEditorWindow : EditorWindow
             itemInspector.visible = true;
         }
 
-        // SampleSceneが読み込まれている場合、GameObjectを探してInspectorに表示
+        // NativeToolkitExampleSceneが読み込まれている場合、GameObjectを探してInspectorに表示
         var fileName = itemInspector.Q<Label>("file-name");
         var fileOpen = itemInspector.Q<Button>("file-open");
         if (fileName != null)
         {
-            fileName.text = item.name;
+            fileName.text = item?.name;
         }
 
         if (fileOpen != null)
         {
-            // 既存のイベントハンドラーを削除して重複を防ぐ
-            fileOpen.clicked -= OnFileOpenClicked;
-            fileOpen.clicked += () => OnFileOpenClicked(item);
+            // ラムダ式は毎回新しいインスタンスになるため、解除・登録には変数で保持する必要があります
+            if (_fileOpenHandler != null)
+            {
+                fileOpen.clicked -= _fileOpenHandler;
+            }
+            _fileOpenHandler = () => OnFileOpenClicked(item);
+            fileOpen.clicked += _fileOpenHandler;
         }
     }
 
-    private void OnFileOpenClicked(TreeItemData item)
+    private void OnFileOpenClicked(TreeItemData? item)
     {
-        Debug.Log($"[Editor] Open file: {item.name}");
+        Debug.Log($"[Editor] Open file: {item?.name}");
 
         try
         {
-            // SampleSceneが読み込まれていない場合、SampleSceneを読み込む
-            if (!EditorSceneManager.GetActiveScene().name.Equals("SampleScene"))
+            // NativeToolkitSampleSceneが読み込まれていない場合、NativeToolkitSampleSceneを読み込む
+            if (!EditorSceneManager.GetActiveScene().path.Equals(NativeToolkitExampleScenePath))
             {
-                var scenePath = "Assets/Scenes/SampleScene.unity";
-                if (System.IO.File.Exists(scenePath))
+                if (System.IO.File.Exists(NativeToolkitExampleScenePath))
                 {
-                    EditorSceneManager.OpenScene(scenePath);
-                    Debug.Log($"[Editor] Loaded scene: {scenePath}");
+                    EditorSceneManager.OpenScene(NativeToolkitExampleScenePath);
+                    Debug.Log($"[Editor] Loaded scene: {NativeToolkitExampleScenePath}");
                 }
                 else
                 {
-                    Debug.LogError($"[Editor] Scene not found at path: {scenePath}");
+                    Debug.LogError($"[Editor] Scene not found at path: {NativeToolkitExampleScenePath}");
                     return;
                 }
             }
@@ -408,7 +417,7 @@ public class TreeViewEditorWindow : EditorWindow
             Debug.Log($"[Editor] UXML found at path: {uxmlPath}");
 
             // GameObjectを検索
-            var gameObject = FindUIGameObject("NativeExample");
+            var gameObject = FindUIGameObject("NativeToolkitExample");
             if (gameObject == null)
             {
                 Debug.LogError($"[Editor] Failed to find GameObject");
@@ -442,6 +451,10 @@ public class TreeViewEditorWindow : EditorWindow
 
             Debug.Log($"[Editor] Successfully applied UXML to GameObject: {gameObject.name}");
 
+            // 変更をシーンにマークして保存
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            SaveNativeToolkitExampleScene(prompt: false);
+
             // GameObjectを選択してInspectorで確認できるようにする
             Selection.activeGameObject = gameObject;
 
@@ -454,9 +467,9 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    private void AddControllerComponent(GameObject gameObject, TreeItemData item)
+    private void AddControllerComponent(GameObject gameObject, TreeItemData? item)
     {
-        switch (item.name)
+        switch (item?.name)
         {
             case "AndroidDialogManager.cs":
                 AddAndroidDialogManagerExampleController(gameObject);
@@ -475,7 +488,7 @@ public class TreeViewEditorWindow : EditorWindow
                 break;
 
             default:
-                Debug.LogWarning($"[Editor] No controller available for: {item.name}");
+                Debug.LogWarning($"[Editor] No controller available for: {item?.name}");
                 break;
         }
     }
@@ -648,7 +661,7 @@ public class TreeViewEditorWindow : EditorWindow
         */
     }
 
-    private PanelSettings GetPanelSettings(TreeItemData item)
+    private PanelSettings? GetPanelSettings(TreeItemData? item)
     {
         // アイテムに応じた専用のPanelSettingsパスを取得
         var panelSettingsPath = GetPanelSettingsPathForItem(item);
@@ -676,10 +689,10 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    private string GetPanelSettingsPathForItem(TreeItemData item)
+    private string GetPanelSettingsPathForItem(TreeItemData? item)
     {
         // アイテム名に基づいてPanelSettingsのパスを決定
-        switch (item.name)
+        switch (item?.name)
         {
             case "AndroidDialogManager.cs":
                 return "Assets/Settings/UI/Android/AndroidDialogPanelSettings.asset";
@@ -694,10 +707,10 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    private string GetUXMLPathForItem(TreeItemData item)
+    private string GetUXMLPathForItem(TreeItemData? item)
     {
         // アイテム名に基づいてUXMLファイルのパスを決定
-        switch (item.name)
+        switch (item?.name)
         {
             case "AndroidDialogManager.cs":
                 return "Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExample.uxml";
@@ -712,7 +725,7 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    private GameObject FindUIGameObject(string objectName)
+    private GameObject? FindUIGameObject(string objectName)
     {
         // 既存のGameObjectを検索
         var existingObject = GameObject.Find(objectName);
@@ -724,7 +737,7 @@ public class TreeViewEditorWindow : EditorWindow
         return null;
     }
 
-    private void ApplyStyleSheetIfExists(UIDocument uiDocument, TreeItemData item)
+    private void ApplyStyleSheetIfExists(UIDocument uiDocument, TreeItemData? item)
     {
         // 対応するスタイルシートのパスを取得
         var stylePath = GetStyleSheetPathForItem(item);
@@ -743,10 +756,10 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    private string GetStyleSheetPathForItem(TreeItemData item)
+    private string GetStyleSheetPathForItem(TreeItemData? item)
     {
         // アイテム名に基づいてスタイルシートのパスを決定
-        switch (item.name)
+        switch (item?.name)
         {
             case "AndroidDialogManager.cs":
                 return "Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss";
@@ -761,8 +774,34 @@ public class TreeViewEditorWindow : EditorWindow
         }
     }
 
-    // イベントハンドラーの重複を防ぐためのダミーメソッド
-    private void OnFileOpenClicked() { }
+    private static bool SaveNativeToolkitExampleScene(bool prompt = true)
+    {
+        var scene = EditorSceneManager.GetActiveScene();
+        if (!scene.path.Equals(NativeToolkitExampleScenePath))
+            return false;
+
+        if (!scene.isDirty)
+            return true;
+
+        if (prompt)
+        {
+            var ok = EditorUtility.DisplayDialog("Save NativeToolkitExampleScene",
+                "Save changes to NativeToolkitExampleScene.unity?", "Save", "Don't Save");
+            if (!ok) return false;
+        }
+
+        var saved = EditorSceneManager.SaveScene(scene);
+        if (saved)
+        {
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Editor] Saved scene: {NativeToolkitExampleScenePath}");
+        }
+        else
+        {
+            Debug.LogError($"[Editor] Failed to save scene: {NativeToolkitExampleScenePath}");
+        }
+        return saved;
+    }
 
     private void OnTreeViewSelectionChanged(IEnumerable<object> selectedItems)
     {

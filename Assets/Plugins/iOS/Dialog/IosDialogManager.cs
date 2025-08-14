@@ -1,3 +1,5 @@
+#nullable enable
+
 #if UNITY_IOS
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -6,7 +8,7 @@ using AOT;
 
 public class IosDialogManager : MonoBehaviour
 {
-    private static IosDialogManager _instance;
+    private static IosDialogManager? _instance;
 
     public static IosDialogManager Instance
     {
@@ -24,12 +26,12 @@ public class IosDialogManager : MonoBehaviour
     }
 
     // ダイアログ結果を受け取るためのイベント（isSuccessとerrorMessageを追加）
-    public event Action<string, bool, string> DialogResult; // result, isSuccess, errorMessage
-    public event Action<string, bool, string> ConfirmDialogResult; // result, isSuccess, errorMessage
-    public event Action<string, bool, string> DestructiveDialogResult; // result, isSuccess, errorMessage
-    public event Action<string, bool, string> ActionSheetResult; // result, isSuccess, errorMessage
-    public event Action<string, string, bool, string> TextInputDialogResult; // buttonPressed, inputText, isSuccess, errorMessage
-    public event Action<string, string, string, bool, string> LoginDialogResult; // buttonPressed, username, password, isSuccess, errorMessage
+    public event Action<string?, bool, string?>? DialogResult; // buttonText, isSuccess, errorMessage
+    public event Action<string?, bool, string?>? ConfirmDialogResult; // buttonText, isSuccess, errorMessage
+    public event Action<string?, bool, string?>? DestructiveDialogResult; // buttonText, isSuccess, errorMessage
+    public event Action<string?, bool, string?>? ActionSheetResult; // buttonText, isSuccess, errorMessage
+    public event Action<string?, string?, bool, string?>? TextInputDialogResult; // buttonText, inputText, isSuccess, errorMessage
+    public event Action<string?, string?, string?, bool, string?>? LoginDialogResult; // buttonText, username, password, isSuccess, errorMessage
 
     private void Awake()
     {
@@ -47,22 +49,22 @@ public class IosDialogManager : MonoBehaviour
 
     // ネイティブコードとのインターフェース用デリゲート定義（IL2CPP対応）
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void DialogCallback(string buttonPressed, bool isSuccess, string errorMessage);
+    public delegate void DialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void ConfirmDialogCallback(string buttonPressed, bool isSuccess, string errorMessage);
+    public delegate void ConfirmDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void DestructiveDialogCallback(string buttonPressed, bool isSuccess, string errorMessage);
+    public delegate void DestructiveDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void ActionSheetCallback(string buttonPressed, bool isSuccess, string errorMessage);
+    public delegate void ActionSheetCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void TextInputDialogCallback(string buttonPressed, string inputText, bool isSuccess, string errorMessage);
+    public delegate void TextInputDialogCallback(string? buttonText, string? inputText, bool isSuccess, string? errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void LoginDialogCallback(string buttonPressed, string username, string password, bool isSuccess, string errorMessage);
+    public delegate void LoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage);
 
     // ネイティブ関数のインポート（enableパラメータ追加）
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
@@ -85,17 +87,17 @@ public class IosDialogManager : MonoBehaviour
 
     // ActionSheet用のメモリ管理（静的変数）
     private static IntPtr s_optionsPtr = IntPtr.Zero;
-    private static IntPtr[] s_stringPointers = null;
+    private static IntPtr[]? s_stringPointers = null;
 
     // 静的コールバックメソッド群（IL2CPP対応）
     [MonoPInvokeCallback(typeof(DialogCallback))]
-    private static void OnDialogCallback(string buttonPressed, bool isSuccess, string errorMessage)
+    private static void OnDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.DialogResult?.Invoke(buttonPressed, isSuccess, errorMessage);
+                Instance.DialogResult?.Invoke(buttonText, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -105,13 +107,13 @@ public class IosDialogManager : MonoBehaviour
     }
 
     [MonoPInvokeCallback(typeof(ConfirmDialogCallback))]
-    private static void OnConfirmDialogCallback(string buttonPressed, bool isSuccess, string errorMessage)
+    private static void OnConfirmDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.ConfirmDialogResult?.Invoke(buttonPressed, isSuccess, errorMessage);
+                Instance.ConfirmDialogResult?.Invoke(buttonText, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -121,13 +123,13 @@ public class IosDialogManager : MonoBehaviour
     }
 
     [MonoPInvokeCallback(typeof(DestructiveDialogCallback))]
-    private static void OnDestructiveDialogCallback(string buttonPressed, bool isSuccess, string errorMessage)
+    private static void OnDestructiveDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.DestructiveDialogResult?.Invoke(buttonPressed, isSuccess, errorMessage);
+                Instance.DestructiveDialogResult?.Invoke(buttonText, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -137,13 +139,13 @@ public class IosDialogManager : MonoBehaviour
     }
 
     [MonoPInvokeCallback(typeof(ActionSheetCallback))]
-    private static void OnActionSheetCallback(string buttonPressed, bool isSuccess, string errorMessage)
+    private static void OnActionSheetCallback(string? buttonText, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.ActionSheetResult?.Invoke(buttonPressed, isSuccess, errorMessage);
+                Instance.ActionSheetResult?.Invoke(buttonText, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -171,13 +173,13 @@ public class IosDialogManager : MonoBehaviour
     }
 
     [MonoPInvokeCallback(typeof(TextInputDialogCallback))]
-    private static void OnTextInputDialogCallback(string buttonPressed, string inputText, bool isSuccess, string errorMessage)
+    private static void OnTextInputDialogCallback(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.TextInputDialogResult?.Invoke(buttonPressed, inputText, isSuccess, errorMessage);
+                Instance.TextInputDialogResult?.Invoke(buttonText, inputText, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -187,13 +189,13 @@ public class IosDialogManager : MonoBehaviour
     }
 
     [MonoPInvokeCallback(typeof(LoginDialogCallback))]
-    private static void OnLoginDialogCallback(string buttonPressed, string username, string password, bool isSuccess, string errorMessage)
+    private static void OnLoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
     {
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
             try
             {
-                Instance.LoginDialogResult?.Invoke(buttonPressed, username, password, isSuccess, errorMessage);
+                Instance.LoginDialogResult?.Invoke(buttonText, username, password, isSuccess, errorMessage);
             }
             catch (Exception ex)
             {
@@ -224,7 +226,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowDialog error: {ex.Message}");
-            DialogResult?.Invoke("", false, $"Internal error: {ex.Message}");
+            DialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
         }
     }
 
@@ -248,7 +250,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowConfirmDialog error: {ex.Message}");
-            ConfirmDialogResult?.Invoke("", false, $"Internal error: {ex.Message}");
+            ConfirmDialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
         }
     }
 
@@ -272,7 +274,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowDestructiveDialog error: {ex.Message}");
-            DestructiveDialogResult?.Invoke("", false, $"Internal error: {ex.Message}");
+            DestructiveDialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
         }
     }
 
@@ -339,7 +341,7 @@ public class IosDialogManager : MonoBehaviour
                 }
                 s_stringPointers = null;
             }
-            ActionSheetResult?.Invoke("", false, $"Internal error: {ex.Message}");
+            ActionSheetResult?.Invoke(null, false, $"Internal error: {ex.Message}");
         }
     }
 
@@ -364,7 +366,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowTextInputDialog error: {ex.Message}");
-            TextInputDialogResult?.Invoke("Error", "", false, $"Internal error: {ex.Message}");
+            TextInputDialogResult?.Invoke(null, null, false, $"Internal error: {ex.Message}");
         }
     }
 
@@ -389,7 +391,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowLoginDialog error: {ex.Message}");
-            LoginDialogResult?.Invoke("Error", "", "", false, $"Internal error: {ex.Message}");
+            LoginDialogResult?.Invoke(null, null, null, false, $"Internal error: {ex.Message}");
         }
     }
 }
