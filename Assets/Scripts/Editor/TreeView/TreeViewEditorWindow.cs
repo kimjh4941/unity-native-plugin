@@ -575,8 +575,6 @@ public class TreeViewEditorWindow : EditorWindow
 
         Debug.Log($"[Editor] macOS Dialog Manager Example Controller not implemented yet for {gameObject.name}");
 
-        // 将来的にMacDialogManagerExampleControllerを実装する場合
-        /*
         var controller = gameObject.GetComponent<MacDialogManagerExampleController>();
         if (controller == null)
         {
@@ -594,7 +592,6 @@ public class TreeViewEditorWindow : EditorWindow
         {
             SetControllerUIDocument(controller, uiDocument);
         }
-        */
     }
 
     private void AddWindowsDialogManagerExampleController(GameObject gameObject)
@@ -643,8 +640,6 @@ public class TreeViewEditorWindow : EditorWindow
             Debug.Log($"[Editor] Removed existing IosDialogManagerExampleController from {gameObject.name}");
         }
 
-        // 将来的に他のプラットフォームコントローラーを追加する場合
-        /*
         var macController = gameObject.GetComponent<MacDialogManagerExampleController>();
         if (macController != null)
         {
@@ -652,6 +647,8 @@ public class TreeViewEditorWindow : EditorWindow
             Debug.Log($"[Editor] Removed existing MacDialogManagerExampleController from {gameObject.name}");
         }
 
+        // 将来的に他のプラットフォームコントローラーを追加する場合
+        /*
         var windowsController = gameObject.GetComponent<WindowsDialogManagerExampleController>();
         if (windowsController != null)
         {

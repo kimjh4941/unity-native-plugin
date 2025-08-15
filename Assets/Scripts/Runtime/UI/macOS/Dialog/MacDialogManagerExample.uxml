@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Scripts/Runtime/UI/macOS/Dialog/MacDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=bbd4318cf179a422581ce09d697b68a8&amp;type=3#MacDialogManagerExampleStyle" />
+    <ui:VisualElement class="mac-dialog-container">
+        <ui:VisualElement class="mac-dialog-content">
+            <ui:Label text="MacDialogManager Example" class="mac-dialog-title" />
+            <ui:ListView name="DialogListView" show-border="false" selection-type="Single" virtualization-method="DynamicHeight" class="mac-dialog-listview" style="flex-grow: 1;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

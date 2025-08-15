@@ -1,5 +1,4 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=8f8eb420530eb450f8a0ac787cb158d8&amp;type=3#AndroidDialogManagerExampleStyle" />
     <Style src="project://database/Assets/Scripts/Runtime/UI/iOS/Dialog/IosDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=13693ceda77d348b7a5737557d5893c2&amp;type=3#IosDialogManagerExampleStyle" />
     <ui:VisualElement class="ios-safe-area-container">
         <ui:VisualElement class="ios-dialog-content">

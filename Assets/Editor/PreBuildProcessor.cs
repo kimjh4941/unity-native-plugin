@@ -28,6 +28,11 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else if (report.summary.platform == BuildTarget.StandaloneOSX)
         {
+#if UNITY_2021_3_OR_NEWER
+            // Unity 6 でも残っていれば有効。無い場合はコンパイル条件で外してください。
+            PlayerSettings.usePlayerLog = false;
+            UnityEngine.Debug.Log("[Build] Set PlayerSettings.usePlayerLog = false for macOS");
+#endif
             BuildmacOSLibraries();
         }
     }

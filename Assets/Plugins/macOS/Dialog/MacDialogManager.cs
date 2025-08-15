@@ -1,3 +1,5 @@
+#nullable enable
+
 #if UNITY_STANDALONE_OSX
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -6,28 +8,28 @@ using System;
 [Serializable]
 public class DialogButtonsWrapper
 {
-    public DialogButton[] buttons;
+    public DialogButton[]? buttons;
 }
 
 [Serializable]
 public class DialogButton
 {
-    public string title;
+    public string? title;
     public bool isDefault;
-    public string keyEquivalent;
+    public string? keyEquivalent;
 }
 
 [Serializable]
 public class DialogOptions
 {
-    public string alertStyle;
+    public string? alertStyle;
     public bool showsSuppressionButton;
-    public string suppressionButtonTitle;
+    public string? suppressionButtonTitle;
 }
 
 public class MacDialogManager : MonoBehaviour
 {
-    private static MacDialogManager _instance;
+    private static MacDialogManager? _instance;
 
     public static MacDialogManager Instance
     {
@@ -44,12 +46,12 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
-    public event Action<string, int, bool, bool, string> AlertDialogResult;
-    public event Action<string[], int, string, bool, bool, string> FileDialogResult;
-    public event Action<string[], int, string, bool, bool, string> MultiFileDialogResult;
-    public event Action<string[], int, string, bool, bool, string> FolderDialogResult;
-    public event Action<string[], int, string, bool, bool, string> MultiFolderDialogResult;
-    public event Action<string, int, string, bool, bool, string> SaveFileDialogResult;
+    public event Action<string?, int, bool, bool, string?>? AlertDialogResult;                  // buttonTitle, buttonIndex, suppressionButtonState, isSuccess, errorMessage
+    public event Action<string[]?, int, string?, bool, bool, string?>? FileDialogResult;        // filePaths, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
+    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFileDialogResult;   // filePaths, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
+    public event Action<string[]?, int, string?, bool, bool, string?>? FolderDialogResult;      // folderPaths, folderCount, directoryURL, isCancelled, isSuccess, errorMessage
+    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFolderDialogResult; // folderPaths, folderCount, directoryURL, isCancelled, isSuccess, errorMessage
+    public event Action<string?, int, string?, bool, bool, string?>? SaveFileDialogResult;      // filePath, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
 
     private void Awake()
     {
@@ -67,7 +69,7 @@ public class MacDialogManager : MonoBehaviour
 
     // Objective-Cのコールバック型定義
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void DialogCallback(string buttonTitle, int buttonIndex, bool suppressionButtonState, bool success, string errorMessage);
+    public delegate void DialogCallback(string buttonTitle, int buttonIndex, bool suppressionButtonState, bool isSuccess, string errorMessage);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void FileDialogCallback(IntPtr filePaths, int fileCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
@@ -89,19 +91,19 @@ public class MacDialogManager : MonoBehaviour
     private static extern void showDialog(string title, string message, string buttonsJson, string optionsJson, DialogCallback callback);
 
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void showFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string directoryPath, FileDialogCallback callback);
+    private static extern void showFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, FileDialogCallback callback);
 
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void showMultiFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string directoryPath, MultiFileDialogCallback callback);
+    private static extern void showMultiFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, MultiFileDialogCallback callback);
 
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void showFolderDialog(string title, string message, string directoryPath, FolderDialogCallback callback);
+    private static extern void showFolderDialog(string title, string message, string? directoryPath, FolderDialogCallback callback);
 
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void showMultiFolderDialog(string title, string message, string directoryPath, MultiFolderDialogCallback callback);
+    private static extern void showMultiFolderDialog(string title, string message, string? directoryPath, MultiFolderDialogCallback callback);
 
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void showSaveFileDialog(string title, string message, string defaultFileName, IntPtr allowedContentTypes, int contentTypesCount, string directoryPath, SaveFileDialogCallback callback);
+    private static extern void showSaveFileDialog(string title, string message, string? defaultFileName, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, SaveFileDialogCallback callback);
 
     public void ShowDialog(string title, string message, DialogButton[] buttons, DialogOptions options)
     {
@@ -109,21 +111,21 @@ public class MacDialogManager : MonoBehaviour
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            AlertDialogResult?.Invoke("", -1, false, false, "Title cannot be null or empty.");
+            AlertDialogResult?.Invoke(null, -1, false, false, "Title cannot be null or empty.");
             return;
         }
 
         if (buttons == null || buttons.Length == 0)
         {
             Debug.LogError("No buttons provided for the dialog.");
-            AlertDialogResult?.Invoke("", -1, false, false, "No buttons provided for the dialog.");
+            AlertDialogResult?.Invoke(null, -1, false, false, "No buttons provided for the dialog.");
             return;
         }
 
         if (options == null)
         {
             Debug.LogError("No options provided for the dialog.");
-            AlertDialogResult?.Invoke("", -1, false, false, "No options provided for the dialog.");
+            AlertDialogResult?.Invoke(null, -1, false, false, "No options provided for the dialog.");
             return;
         }
 
@@ -135,13 +137,13 @@ public class MacDialogManager : MonoBehaviour
 
         UnityMainThreadDispatcher.Instance.Enqueue(() =>
         {
-            DialogCallback dialogCallback = (buttonTitle, buttonIndex, suppressionButtonState, success, errorMessage) =>
+            DialogCallback dialogCallback = (buttonTitle, buttonIndex, suppressionButtonState, isSuccess, errorMessage) =>
             {
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
                     {
-                        AlertDialogResult?.Invoke(buttonTitle, buttonIndex, suppressionButtonState, success, errorMessage);
+                        AlertDialogResult?.Invoke(buttonTitle, buttonIndex, suppressionButtonState, isSuccess, errorMessage);
                     }
                     catch (Exception ex)
                     {
@@ -153,18 +155,18 @@ public class MacDialogManager : MonoBehaviour
         });
     }
 
-    public void ShowFileDialog(string title, string message, string[] allowedContentTypes = null, string directoryPath = "")
+    public void ShowFileDialog(string title, string message, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            FileDialogResult?.Invoke(null, 0, "", false, false, "Title cannot be null or empty.");
+            FileDialogResult?.Invoke(null, -1, null, false, false, "Title cannot be null or empty.");
             return;
         }
 
         IntPtr contentTypesPtr = IntPtr.Zero;
-        IntPtr[] stringPointers = null;
+        IntPtr[]? stringPointers = null;
         int contentTypesCount = allowedContentTypes?.Length ?? 0;
 
         try
@@ -174,6 +176,10 @@ public class MacDialogManager : MonoBehaviour
                 stringPointers = new IntPtr[contentTypesCount];
                 for (int i = 0; i < contentTypesCount; i++)
                 {
+                    if (allowedContentTypes == null || allowedContentTypes[i] == null)
+                    {
+                        throw new ArgumentNullException($"allowedContentTypes[{i}] is null.");
+                    }
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
@@ -186,8 +192,12 @@ public class MacDialogManager : MonoBehaviour
             FileDialogCallback fileDialogCallback = (filePathsPtr, fileCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
                 // ポインタからC#のstring[]に即時変換
-                string[] filePaths = new string[fileCount];
-                if (filePathsPtr != IntPtr.Zero && fileCount > 0)
+                string[]? filePaths = null;
+                if (fileCount > 0)
+                {
+                    filePaths = new string[fileCount];
+                }
+                if (filePathsPtr != IntPtr.Zero && filePaths != null && fileCount > 0)
                 {
                     IntPtr[] ptrArray = new IntPtr[fileCount];
                     Marshal.Copy(filePathsPtr, ptrArray, 0, fileCount);
@@ -238,22 +248,22 @@ public class MacDialogManager : MonoBehaviour
                     if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
                 }
             }
-            FileDialogResult?.Invoke(null, 0, "", false, false, $"Internal error: {ex.Message}");
+            FileDialogResult?.Invoke(null, -1, null, false, false, $"Internal error: {ex.Message}");
         }
     }
 
-    public void ShowMultiFileDialog(string title, string message, string[] allowedContentTypes = null, string directoryPath = "")
+    public void ShowMultiFileDialog(string title, string message, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowMultiFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            MultiFileDialogResult?.Invoke(null, 0, "", false, false, "Title cannot be null or empty.");
+            MultiFileDialogResult?.Invoke(null, -1, null, false, false, "Title cannot be null or empty.");
             return;
         }
 
         IntPtr contentTypesPtr = IntPtr.Zero;
-        IntPtr[] stringPointers = null;
+        IntPtr[]? stringPointers = null;
         int contentTypesCount = allowedContentTypes?.Length ?? 0;
 
         try
@@ -263,6 +273,10 @@ public class MacDialogManager : MonoBehaviour
                 stringPointers = new IntPtr[contentTypesCount];
                 for (int i = 0; i < contentTypesCount; i++)
                 {
+                    if (allowedContentTypes == null || allowedContentTypes[i] == null)
+                    {
+                        throw new ArgumentNullException($"allowedContentTypes[{i}] is null.");
+                    }
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
@@ -275,8 +289,12 @@ public class MacDialogManager : MonoBehaviour
             MultiFileDialogCallback multiFileDialogCallback = (filePathsPtr, fileCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
                 // ポインタからC#のstring[]に即時変換
-                string[] filePaths = new string[fileCount];
-                if (filePathsPtr != IntPtr.Zero && fileCount > 0)
+                string[]? filePaths = null;
+                if (fileCount > 0)
+                {
+                    filePaths = new string[fileCount];
+                }
+                if (filePathsPtr != IntPtr.Zero && filePaths != null && fileCount > 0)
                 {
                     IntPtr[] ptrArray = new IntPtr[fileCount];
                     Marshal.Copy(filePathsPtr, ptrArray, 0, fileCount);
@@ -327,17 +345,17 @@ public class MacDialogManager : MonoBehaviour
                     if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
                 }
             }
-            MultiFileDialogResult?.Invoke(null, 0, "", false, false, $"Internal error: {ex.Message}");
+            MultiFileDialogResult?.Invoke(null, -1, null, false, false, $"Internal error: {ex.Message}");
         }
     }
 
-    public void ShowFolderDialog(string title, string message, string directoryPath = "")
+    public void ShowFolderDialog(string title, string message, string? directoryPath = null)
     {
         Debug.Log($"ShowFolderDialog called with title: {title}, message: {message}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            FolderDialogResult?.Invoke(null, 0, "", false, false, "Title cannot be null or empty.");
+            FolderDialogResult?.Invoke(null, -1, null, false, false, "Title cannot be null or empty.");
             return;
         }
 
@@ -346,8 +364,12 @@ public class MacDialogManager : MonoBehaviour
             FolderDialogCallback folderDialogCallback = (folderPathsPtr, folderCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
                 // ポインタからC#のstring[]に即時変換
-                string[] folderPaths = new string[folderCount];
-                if (folderPathsPtr != IntPtr.Zero && folderCount > 0)
+                string[]? folderPaths = null;
+                if (folderCount > 0)
+                {
+                    folderPaths = new string[folderCount];
+                }
+                if (folderPathsPtr != IntPtr.Zero && folderPaths != null && folderCount > 0)
                 {
                     IntPtr[] ptrArray = new IntPtr[folderCount];
                     Marshal.Copy(folderPathsPtr, ptrArray, 0, folderCount);
@@ -377,17 +399,17 @@ public class MacDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowFolderDialog error: {ex.Message}");
-            FolderDialogResult?.Invoke(null, 0, "", false, false, $"Internal error: {ex.Message}");
+            FolderDialogResult?.Invoke(null, -1, null, false, false, $"Internal error: {ex.Message}");
         }
     }
 
-    public void ShowMultiFolderDialog(string title, string message, string directoryPath = "")
+    public void ShowMultiFolderDialog(string title, string message, string? directoryPath = null)
     {
         Debug.Log($"ShowMultiFolderDialog called with title: {title}, message: {message}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            MultiFolderDialogResult?.Invoke(null, 0, "", false, false, "Title cannot be null or empty.");
+            MultiFolderDialogResult?.Invoke(null, -1, null, false, false, "Title cannot be null or empty.");
             return;
         }
 
@@ -396,8 +418,12 @@ public class MacDialogManager : MonoBehaviour
             MultiFolderDialogCallback multiFolderDialogCallback = (folderPathsPtr, folderCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
                 // ポインタからC#のstring[]に即時変換
-                string[] folderPaths = new string[folderCount];
-                if (folderPathsPtr != IntPtr.Zero && folderCount > 0)
+                string[]? folderPaths = null;
+                if (folderCount > 0)
+                {
+                    folderPaths = new string[folderCount];
+                }
+                if (folderPathsPtr != IntPtr.Zero && folderPaths != null && folderCount > 0)
                 {
                     IntPtr[] ptrArray = new IntPtr[folderCount];
                     Marshal.Copy(folderPathsPtr, ptrArray, 0, folderCount);
@@ -427,22 +453,22 @@ public class MacDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowMultiFolderDialog error: {ex.Message}");
-            MultiFolderDialogResult?.Invoke(null, 0, "", false, false, $"Internal error: {ex.Message}");
+            MultiFolderDialogResult?.Invoke(null, -1, null, false, false, $"Internal error: {ex.Message}");
         }
     }
 
-    public void ShowSaveFileDialog(string title, string message, string defaultFileName = "", string[] allowedContentTypes = null, string directoryPath = "")
+    public void ShowSaveFileDialog(string title, string message, string? defaultFileName = null, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowSaveFileDialog called with title: {title}, message: {message}, defaultFileName: {defaultFileName}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            SaveFileDialogResult?.Invoke("", 0, "", false, false, "Title cannot be null or empty.");
+            SaveFileDialogResult?.Invoke(null, -1, null, false, false, "Title cannot be null or empty.");
             return;
         }
 
         IntPtr contentTypesPtr = IntPtr.Zero;
-        IntPtr[] stringPointers = null;
+        IntPtr[]? stringPointers = null;
         int contentTypesCount = allowedContentTypes?.Length ?? 0;
 
         try
@@ -452,6 +478,10 @@ public class MacDialogManager : MonoBehaviour
                 stringPointers = new IntPtr[contentTypesCount];
                 for (int i = 0; i < contentTypesCount; i++)
                 {
+                    if (allowedContentTypes == null || allowedContentTypes[i] == null)
+                    {
+                        throw new ArgumentNullException($"allowedContentTypes[{i}] is null.");
+                    }
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
@@ -505,7 +535,7 @@ public class MacDialogManager : MonoBehaviour
                     if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
                 }
             }
-            SaveFileDialogResult?.Invoke("", 0, "", false, false, $"Internal error: {ex.Message}");
+            SaveFileDialogResult?.Invoke(null, -1, null, false, false, $"Internal error: {ex.Message}");
         }
     }
 }

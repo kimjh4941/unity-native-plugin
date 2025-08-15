@@ -16,7 +16,7 @@ public static class PostBuildProcessor
             UnityEngine.Debug.Log("macOSビルドの後処理を開始します。");
 
             // xcframeworkのコピー元とコピー先
-            string xcframeworkSrc = Path.Combine(UnityEngine.Application.dataPath, "Plugins/macOS/Dialog/UnityMacPlugin.xcframework");
+            string xcframeworkSrc = Path.Combine(UnityEngine.Application.dataPath, "Plugins/macOS/Library/UnityMacPlugin.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "unity-native-plugin/Frameworks");
             string xcframeworkDst = Path.Combine(frameworksDir, "UnityMacPlugin.xcframework");
 
