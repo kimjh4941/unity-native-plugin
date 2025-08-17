@@ -186,7 +186,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
             suppressionButtonTitle = null
         };
         MacDialogManager.Instance.ShowDialog("Hello macOS", "This is a native macOS alert.", buttons, options);
-#else
+#elif UNITY_EDITOR
         Debug.Log("[MacDialogManagerExampleController] ShowAlertDialog - Editor simulation");
         UnityEditor.EditorUtility.DisplayDialog("Hello macOS", "This is a native macOS alert.", "OK");
 #endif

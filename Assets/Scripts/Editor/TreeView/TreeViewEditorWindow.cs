@@ -601,8 +601,6 @@ public class TreeViewEditorWindow : EditorWindow
 
         Debug.Log($"[Editor] Windows Dialog Manager Example Controller not implemented yet for {gameObject.name}");
 
-        // 将来的にWindowsDialogManagerExampleControllerを実装する場合
-        /*
         var controller = gameObject.GetComponent<WindowsDialogManagerExampleController>();
         if (controller == null)
         {
@@ -620,7 +618,6 @@ public class TreeViewEditorWindow : EditorWindow
         {
             SetControllerUIDocument(controller, uiDocument);
         }
-        */
     }
 
     private void RemoveExistingControllers(GameObject gameObject)
@@ -647,15 +644,12 @@ public class TreeViewEditorWindow : EditorWindow
             Debug.Log($"[Editor] Removed existing MacDialogManagerExampleController from {gameObject.name}");
         }
 
-        // 将来的に他のプラットフォームコントローラーを追加する場合
-        /*
         var windowsController = gameObject.GetComponent<WindowsDialogManagerExampleController>();
         if (windowsController != null)
         {
             DestroyImmediate(windowsController);
             Debug.Log($"[Editor] Removed existing WindowsDialogManagerExampleController from {gameObject.name}");
         }
-        */
     }
 
     private PanelSettings? GetPanelSettings(TreeItemData? item)

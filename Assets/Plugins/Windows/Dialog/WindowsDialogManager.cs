@@ -1,3 +1,5 @@
+#nullable enable
+
 #if UNITY_STANDALONE_WIN
 using UnityEngine;
 using System.Runtime.InteropServices;
@@ -24,17 +26,17 @@ public class WindowsDialogManager : MonoBehaviour
         }
     }
 
-    public event Action<int, uint> AlertDialogResult;
+    public event Action<int?, bool, int?>? AlertDialogResult;                    // result, isSuccess, errorCode
 
-    public event Action<string, uint> FileDialogResult;
+    public event Action<string?, bool, bool, int?>? FileDialogResult;            // filePath, isCancelled, isSuccess, errorCode
 
-    public event Action<ArrayList, uint> MultiFileDialogResult;
+    public event Action<ArrayList?, bool, bool, int?>? MultiFileDialogResult;    // filePaths, isCancelled, isSuccess, errorCode
 
-    public event Action<string, uint> SaveFileDialogResult;
+    public event Action<string?, bool, bool, int?>? SaveFileDialogResult;        // filePath, isCancelled, isSuccess, errorCode
 
-    public event Action<string, uint> FolderDialogResult;
+    public event Action<string?, bool, bool, int?>? FolderDialogResult;          // folderPath, isCancelled, isSuccess, errorCode
 
-    public event Action<ArrayList, uint> MultiFolderDialogResult;
+    public event Action<ArrayList?, bool, bool, int?>? MultiFolderDialogResult;  // folderPaths, isCancelled, isSuccess, errorCode
 
     private void Awake()
     {
@@ -58,7 +60,7 @@ public class WindowsDialogManager : MonoBehaviour
         uint icon,
         uint defbutton,
         uint options,
-        out uint pError
+        out int pError
     );
 
     [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
@@ -66,7 +68,7 @@ public class WindowsDialogManager : MonoBehaviour
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
         uint buffer_size,
         [MarshalAs(UnmanagedType.LPWStr)] string filter,
-        out uint pError
+        out int pError
     );
 
     [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
@@ -74,7 +76,7 @@ public class WindowsDialogManager : MonoBehaviour
         IntPtr buffer,
         uint buffer_size,
         [MarshalAs(UnmanagedType.LPWStr)] string filter,
-        out uint pError
+        out int pError
     );
 
     [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
@@ -83,7 +85,7 @@ public class WindowsDialogManager : MonoBehaviour
         uint buffer_size,
         [MarshalAs(UnmanagedType.LPWStr)] string filter,
         [MarshalAs(UnmanagedType.LPWStr)] string def_ext,
-        out uint pError
+        out int pError
     );
 
     [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
@@ -91,7 +93,7 @@ public class WindowsDialogManager : MonoBehaviour
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
         uint buffer_size,
         [MarshalAs(UnmanagedType.LPWStr)] string title,
-        out uint pError
+        out int pError
     );
 
     [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
@@ -99,7 +101,7 @@ public class WindowsDialogManager : MonoBehaviour
         IntPtr buffer,
         uint buffer_size,
         [MarshalAs(UnmanagedType.LPWStr)] string title,
-        out uint pError
+        out int pError
     );
 
     public void ShowDialog(
@@ -126,21 +128,22 @@ public class WindowsDialogManager : MonoBehaviour
             icon,
             defbutton,
             options,
-            out uint errorCode
+            out int errorCode
         );
-        if (result == 0)
+        Debug.Log($"ShowDialog returned result: {result}, error code: 0x{errorCode:X8}");
+        if (errorCode == 0)
         {
-            Debug.LogError($"ShowDialog failed with result: {result}, error code: 0x{errorCode:X8}");
+            Debug.Log($"ShowDialog succeeded with result: {result}, error code: 0x{errorCode:X8}");
+            AlertDialogResult?.Invoke(result, true, null);
         }
         else
         {
-            Debug.Log($"ShowDialog succeeded with result: {result}, error code: 0x{errorCode:X8}");
+            Debug.LogError($"ShowDialog failed with result: {result}, error code: 0x{errorCode:X8}");
+            AlertDialogResult?.Invoke(result, false, errorCode);
         }
-        AlertDialogResult?.Invoke(result, errorCode);
     }
 
     public void ShowFileDialog(
-        StringBuilder buffer,
         uint buffer_size,
         string filter
     )
@@ -149,21 +152,29 @@ public class WindowsDialogManager : MonoBehaviour
             "buffer size: " + buffer_size +
             ", filter: " + filter
         );
+
+        var buffer = new StringBuilder((int)buffer_size * 2);
         // シングルファイル選択
         bool result = showFileDialog(
             buffer,
             buffer_size,
             filter,
-            out uint errorCode);
-        if (result)
+            out int errorCode);
+        Debug.Log($"ShowFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
+        if (errorCode == 0)
         {
             Debug.Log($"ShowFileDialog 選択ファイル: {buffer}, error code: 0x{errorCode:X8}");
-            FileDialogResult?.Invoke(buffer.ToString(), errorCode);
+            FileDialogResult?.Invoke(buffer.ToString(), false, true, null);
+        }
+        else if (errorCode == -1)
+        {
+            Debug.Log($"ShowFileDialog ファイル選択がキャンセルされました。error code: 0x{errorCode:X8}");
+            FileDialogResult?.Invoke(null, true, true, errorCode);
         }
         else
         {
             Debug.LogError($"ShowFileDialog ファイル選択でエラーが発生しました。error code: 0x{errorCode:X8}");
-            FileDialogResult?.Invoke(null, errorCode);
+            FileDialogResult?.Invoke(null, false, false, errorCode);
         }
     }
 
@@ -186,10 +197,10 @@ public class WindowsDialogManager : MonoBehaviour
                 unmanagedBuffer,
                 buffer_size,
                 filter,
-                out uint errorCode
+                out int errorCode
             );
-            Debug.Log("ShowMultiFileDialog returned count: " + count);
-            if (count > 0)
+            Debug.Log($"ShowMultiFileDialog returned count: {count}, error code: 0x{errorCode:X8}");
+            if (errorCode == 0)
             {
                 // バッファ全体をバイト配列として取得
                 byte[] raw = new byte[buffer_size * 2];
@@ -211,7 +222,7 @@ public class WindowsDialogManager : MonoBehaviour
                 {
                     Debug.Log("ShowMultiFileDialog 選択ファイル: " + parts[0]);
                     ArrayList selectedFiles = new ArrayList { parts[0] };
-                    MultiFileDialogResult?.Invoke(selectedFiles, errorCode);
+                    MultiFileDialogResult?.Invoke(selectedFiles, false, true, null);
                 }
                 else
                 {
@@ -223,21 +234,18 @@ public class WindowsDialogManager : MonoBehaviour
                         Debug.Log($"ShowMultiFileDialog 選択ファイル({i}): {folder}\\{parts[i]}");
                         selectedFiles.Add(folder + "\\" + parts[i]);
                     }
-                    MultiFileDialogResult?.Invoke(selectedFiles, errorCode);
+                    MultiFileDialogResult?.Invoke(selectedFiles, false, true, null);
                 }
+            }
+            else if (errorCode == -1)
+            {
+                Debug.Log($"ShowMultiFileDialog 複数ファイル選択がキャンセルされました。error code: 0x{errorCode:X8}");
+                MultiFileDialogResult?.Invoke(null, true, true, errorCode);
             }
             else
             {
-                if (count < 0)
-                {
-                    Debug.LogError($"ShowMultiFileDialog 複数ファイル選択でエラーが発生しました。error code: 0x{errorCode:X8}");
-                    MultiFileDialogResult?.Invoke(null, errorCode);
-                }
-                else
-                {
-                    Debug.Log($"ShowMultiFileDialog 複数ファイル選択がキャンセルされました。error code: 0x{errorCode:X8}");
-                    MultiFileDialogResult?.Invoke(new ArrayList(), errorCode);
-                }
+                Debug.LogError($"ShowMultiFileDialog 複数ファイル選択でエラーが発生しました。error code: 0x{errorCode:X8}");
+                MultiFileDialogResult?.Invoke(null, false, false, errorCode);
             }
         }
         finally
@@ -246,40 +254,7 @@ public class WindowsDialogManager : MonoBehaviour
         }
     }
 
-    public void ShowSaveFileDialog(
-        StringBuilder buffer,
-        uint buffer_size,
-        string filter,
-        string def_ext
-    )
-    {
-        Debug.Log("ShowSaveFileDialog called with " +
-            "buffer size: " + buffer_size +
-            ", filter: " + filter +
-            ", default extension: " + def_ext
-        );
-        // 名前を付けて保存
-        bool result = showSaveFileDialog(
-            buffer,
-            buffer_size,
-            filter,
-            def_ext,
-            out uint errorCode
-        );
-        if (result)
-        {
-            Debug.Log($"ShowSaveFileDialog 保存ファイル: {buffer}, error code: 0x{errorCode:X8}");
-            SaveFileDialogResult?.Invoke(buffer.ToString(), errorCode);
-        }
-        else
-        {
-            Debug.LogError($"ShowSaveFileDialog 保存ダイアログでエラーが発生しました。error code: 0x{errorCode:X8}");
-            SaveFileDialogResult?.Invoke(null, errorCode);
-        }
-    }
-
     public void ShowFolderDialog(
-        StringBuilder buffer,
         uint buffer_size,
         string title
     )
@@ -289,25 +264,32 @@ public class WindowsDialogManager : MonoBehaviour
             ", title: " + title
         );
 
+        var buffer = new StringBuilder((int)buffer_size * 2);
         // フォルダ選択
         bool result = showFolderDialog(
             buffer,
             buffer_size,
             title,
-            out uint errorCode
+            out int errorCode
         );
-        if (result)
+        Debug.Log($"ShowFolderDialog returned result: {result}, error code: 0x{errorCode:X8}");
+        if (errorCode == 0)
         {
             Debug.Log($"ShowFolderDialog 選択フォルダ: {buffer}, error code: 0x{errorCode:X8}");
-            FolderDialogResult?.Invoke(buffer.ToString(), errorCode);
+            FolderDialogResult?.Invoke(buffer.ToString(), false, true, null);
+        }
+        else if (errorCode == -1)
+        {
+            Debug.Log($"ShowFolderDialog フォルダ選択がキャンセルされました。error code: 0x{errorCode:X8}");
+            FolderDialogResult?.Invoke(null, true, true, errorCode);
         }
         else
         {
             Debug.LogError($"ShowFolderDialog フォルダ選択でエラーが発生しました。error code: 0x{errorCode:X8}");
-            FolderDialogResult?.Invoke(null, errorCode);
+            FolderDialogResult?.Invoke(null, false, false, errorCode);
         }
     }
-    
+
     public void ShowMultiFolderDialog(
         uint buffer_size,
         string title
@@ -327,10 +309,10 @@ public class WindowsDialogManager : MonoBehaviour
                 unmanagedBuffer,
                 buffer_size,
                 title,
-                out uint errorCode
+                out int errorCode
             );
-            Debug.Log("ShowMultiFolderDialog returned count: " + count);
-            if (count > 0)
+            Debug.Log($"ShowMultiFolderDialog returned count: {count}, error code: 0x{errorCode:X8}");
+            if (errorCode == 0)
             {
                 // バッファ全体をバイト配列として取得
                 byte[] raw = new byte[buffer_size * 2];
@@ -358,25 +340,61 @@ public class WindowsDialogManager : MonoBehaviour
                         selectedFolders.Add(parts[i]);
                     }
                 }
-                MultiFolderDialogResult?.Invoke(selectedFolders, errorCode);
+                MultiFolderDialogResult?.Invoke(selectedFolders, false, true, null);
+            }
+            else if (errorCode == -1)
+            {
+                Debug.Log($"ShowMultiFolderDialog 複数フォルダ選択がキャンセルされました。error code: 0x{errorCode:X8}");
+                MultiFolderDialogResult?.Invoke(null, true, true, errorCode);
             }
             else
             {
-                if (count < 0)
-                {
-                    Debug.LogError($"ShowMultiFolderDialog 複数フォルダ選択でエラーが発生しました。error code: 0x{errorCode:X8}");
-                    MultiFolderDialogResult?.Invoke(null, errorCode);
-                }
-                else
-                {
-                    Debug.Log($"ShowMultiFolderDialog 複数フォルダ選択がキャンセルされました。error code: 0x{errorCode:X8}");
-                    MultiFolderDialogResult?.Invoke(new ArrayList(), errorCode);
-                }
+                Debug.LogError($"ShowMultiFolderDialog 複数フォルダ選択でエラーが発生しました。error code: 0x{errorCode:X8}");
+                MultiFolderDialogResult?.Invoke(null, false, false, errorCode);
             }
         }
         finally
         {
             Marshal.FreeHGlobal(unmanagedBuffer);
+        }
+    }
+    
+    public void ShowSaveFileDialog(
+        uint buffer_size,
+        string filter,
+        string def_ext
+    )
+    {
+        Debug.Log("ShowSaveFileDialog called with " +
+            "buffer size: " + buffer_size +
+            ", filter: " + filter +
+            ", default extension: " + def_ext
+        );
+
+        var buffer = new StringBuilder((int)buffer_size * 2);
+        // 名前を付けて保存
+        bool result = showSaveFileDialog(
+            buffer,
+            buffer_size,
+            filter,
+            def_ext,
+            out int errorCode
+        );
+        Debug.Log($"ShowSaveFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
+        if (errorCode == 0)
+        {
+            Debug.Log($"ShowSaveFileDialog 保存ファイル: {buffer}, error code: 0x{errorCode:X8}");
+            SaveFileDialogResult?.Invoke(buffer.ToString(), false, true, null);
+        }
+        else if (errorCode == -1)
+        {
+            Debug.Log($"ShowSaveFileDialog 保存ダイアログがキャンセルされました。error code: 0x{errorCode:X8}");
+            SaveFileDialogResult?.Invoke(null, true, true, errorCode);
+        }
+        else
+        {
+            Debug.LogError($"ShowSaveFileDialog 保存ダイアログでエラーが発生しました。error code: 0x{errorCode:X8}");
+            SaveFileDialogResult?.Invoke(null, false, false, errorCode);
         }
     }
 }
