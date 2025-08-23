@@ -1,9 +1,21 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Scripts/Runtime/UI/iOS/Dialog/IosDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=13693ceda77d348b7a5737557d5893c2&amp;type=3#IosDialogManagerExampleStyle" />
+    <Style src="IosDialogManagerExampleStyle.uss" />
     <ui:VisualElement class="ios-safe-area-container">
-        <ui:VisualElement class="ios-dialog-content">
-            <ui:Label text="IosDialogManager Example" class="ios-dialog-title" />
-            <ui:ListView name="DialogListView" show-border="false" selection-type="Single" virtualization-method="DynamicHeight" class="ios-dialog-listview" style="flex-grow: 1;" />
-        </ui:VisualElement>
+        <ui:ScrollView class="ios-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="ios-dialog-content">
+                <ui:Label name="TitleTextBlock" text="IosDialogManager Example" class="ios-dialog-title" />
+
+                <ui:VisualElement class="ios-result-border">
+                    <ui:Label name="ResultTextBlock" text="Result will be displayed here" class="ios-result-text" />
+                </ui:VisualElement>
+
+                <ui:Button name="ShowDialogButton" class="ios-dialog-button" text="ShowDialog" />
+                <ui:Button name="ShowConfirmDialogButton" class="ios-dialog-button" text="ShowConfirmDialog" />
+                <ui:Button name="ShowDestructiveDialogButton" class="ios-dialog-button" text="ShowDestructiveDialog" />
+                <ui:Button name="ShowActionSheetButton" class="ios-dialog-button" text="ShowActionSheet" />
+                <ui:Button name="ShowTextInputDialogButton" class="ios-dialog-button" text="ShowTextInputDialog" />
+                <ui:Button name="ShowLoginDialogButton" class="ios-dialog-button" text="ShowLoginDialog" />
+            </ui:VisualElement>
+        </ui:ScrollView>
     </ui:VisualElement>
 </ui:UXML>

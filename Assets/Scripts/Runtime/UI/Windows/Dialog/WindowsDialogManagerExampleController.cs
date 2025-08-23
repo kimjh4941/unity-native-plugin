@@ -1,10 +1,10 @@
 #nullable enable
 
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 public class WindowsDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
@@ -22,6 +22,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     {
 #if UNITY_EDITOR
         Debug.Log("Running in Unity Editor - Windows simulation mode");
+        UnityEditor.EditorUtility.DisplayDialog(
+            "WindowsDialogManager Example",
+            "This is a simulation of the Windows dialog manager.\nAll events will not be triggered.\nRun in Windows player for full functionality.",
+            "OK");
 #elif UNITY_STANDALONE_WIN
         Debug.Log("Running on Windows player");
 #else
@@ -43,8 +47,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
             return;
         }
 
-    InitializeUI();
-    Debug.Log("[WindowsDialogManagerExampleController] Initialized successfully");
+        InitializeUI();
+        Debug.Log("[WindowsDialogManagerExampleController] Initialized successfully");
     }
 
     private void InitializeUI()
@@ -71,14 +75,14 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
 
         // Wire up clicks
-        _btnAlert.clicked += OnShowDialogClicked;
-        _btnFile.clicked += OnShowFileDialogClicked;
-        _btnMultiFile.clicked += OnShowMultiFileDialogClicked;
-        _btnFolder.clicked += OnShowFolderDialogClicked;
-        _btnMultiFolder.clicked += OnShowMultiFolderDialogClicked;
-        _btnSaveFile.clicked += OnShowSaveFileDialogClicked;
+        if (_btnAlert != null) _btnAlert.clicked += OnShowDialogClicked;
+        if (_btnFile != null) _btnFile.clicked += OnShowFileDialogClicked;
+        if (_btnMultiFile != null) _btnMultiFile.clicked += OnShowMultiFileDialogClicked;
+        if (_btnFolder != null) _btnFolder.clicked += OnShowFolderDialogClicked;
+        if (_btnMultiFolder != null) _btnMultiFolder.clicked += OnShowMultiFolderDialogClicked;
+        if (_btnSaveFile != null) _btnSaveFile.clicked += OnShowSaveFileDialogClicked;
 
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         WindowsDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
         WindowsDialogManager.Instance.FileDialogResult += OnFileDialogResult;
         WindowsDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
@@ -97,7 +101,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         if (_btnMultiFolder != null) _btnMultiFolder.clicked -= OnShowMultiFolderDialogClicked;
         if (_btnSaveFile != null) _btnSaveFile.clicked -= OnShowSaveFileDialogClicked;
 
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         WindowsDialogManager.Instance.AlertDialogResult -= OnAlertDialogResult;
         WindowsDialogManager.Instance.FileDialogResult -= OnFileDialogResult;
         WindowsDialogManager.Instance.MultiFileDialogResult -= OnMultiFileDialogResult;
@@ -111,21 +115,27 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     // Button actions
     private void OnShowDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        string title = "Native Windows Dialog";
+        string message = "This is a native Windows dialog!";
+        uint buttons = Win32MessageBox.MB_OKCANCEL;
+        uint icon = Win32MessageBox.MB_ICONINFORMATION;
+        uint defbutton = Win32MessageBox.MB_DEFBUTTON2;
+        uint options = Win32MessageBox.MB_APPLMODAL;
         WindowsDialogManager.Instance.ShowDialog(
-            "Native Windows Dialog",
-            "This is a native Windows dialog!",
-            Win32MessageBox.MB_OKCANCEL,
-            Win32MessageBox.MB_ICONINFORMATION,
-            Win32MessageBox.MB_DEFBUTTON2,
-            Win32MessageBox.MB_APPLMODAL
+            title,
+            message,
+            buttons,
+            icon,
+            defbutton,
+            options
         );
 #endif
     }
 
     private void OnShowFileDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 1024;
         string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
         WindowsDialogManager.Instance.ShowFileDialog(bufferSize, filter);
@@ -134,7 +144,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 
     private void OnShowMultiFileDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 4096;
         string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
         WindowsDialogManager.Instance.ShowMultiFileDialog(bufferSize, filter);
@@ -143,7 +153,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 
     private void OnShowFolderDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 1024;
         string title = "Select Folder";
         WindowsDialogManager.Instance.ShowFolderDialog(bufferSize, title);
@@ -152,7 +162,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 
     private void OnShowMultiFolderDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 4096;
         string title = "Select Folders";
         WindowsDialogManager.Instance.ShowMultiFolderDialog(bufferSize, title);
@@ -161,7 +171,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 
     private void OnShowSaveFileDialogClicked()
     {
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 1024;
         string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
         string defExt = "txt";
@@ -175,14 +185,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnAlertDialogResult -> result: {(result.HasValue ? result.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowDialog result: {(result.HasValue ? result.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowDialog result: {(result.HasValue ? result.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowDialog result: {(result.HasValue ? result.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {
@@ -195,14 +199,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnFileDialogResult -> filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {
@@ -216,14 +214,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnMultiFileDialogResult -> filePaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowMultiFileDialog filePaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowMultiFileDialog filePaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowMultiFileDialog filePaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {
@@ -236,14 +228,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnFolderDialogResult -> folderPath: {folderPath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowFolderDialog folderPath: {folderPath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowFolderDialog folderPath: {folderPath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowFolderDialog folderPath: {folderPath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {
@@ -257,14 +243,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnMultiFolderDialogResult -> folderPaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowMultiFolderDialog folderPaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowMultiFolderDialog folderPaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowMultiFolderDialog folderPaths: {list}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {
@@ -277,14 +257,8 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log($"[WindowsDialogManagerExampleController] OnSaveFileDialogResult -> filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
         if (_resultLabel != null)
         {
-            if (isSuccess)
-            {
-                _resultLabel.text = $"OK\n ShowSaveFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
-            else
-            {
-                _resultLabel.text = $"Error\n ShowSaveFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
-            }
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowSaveFileDialog filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}";
         }
         else
         {

@@ -7,17 +7,23 @@
     background-color: rgba(0, 0, 0, 1);
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
+}
+
+.ios-scroll {
+    flex-grow: 1;
 }
 
 .ios-dialog-content {
     flex-grow: 1;
     background-color: rgba(248, 248, 248, 1); /* iOS風の背景色 */
-    border-radius: 16px; /* iOS風の大きめの角丸 */
-    padding: 16px;
-    margin: 16px;
+    border-radius: 0px; /* iOS風の大きめの角丸 */
+    padding: 0px;
+    margin: 0px;
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
 }
 
@@ -28,105 +34,61 @@
     -unity-text-align: upper-center;
     margin-bottom: 20px;
     white-space: normal;
-    text-overflow: ellipsis;
 }
 
 /* ListView専用スタイル */
-.ios-dialog-listview {
-    flex-grow: 1;
-    overflow: visible;
-    background-color: transparent;
-    border-width: 0;
-    margin: 0;
-    padding: 0;
+
+.ios-result-border {
+    background-color: #E9E9EB; /* iOS風のグレー */
+    border-radius: 12px;
+    margin: 10px 0 20px 0;
 }
 
-/* ListViewアイテム（Label）スタイル - iOS風 */
-.ios-dialog-list-item {
-    background-color: #007AFF; /* iOS風のシステムブルー */
-    color: white;
-    -unity-font-style: normal; /* iOS風の通常フォント */
-    -unity-text-align: middle-center;
-    font-size: 14px;
-    height: 50px;
-    padding: 0 14px;
+.ios-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #1C1C1E;
+    -unity-text-align: upper-center;
     white-space: normal;
 }
 
-.ios-dialog-list-item:hover {
-    background-color: #0056D6; /* 濃いブルー */
+.ios-dialog-button {
+    background-color: #007AFF; /* iOSシステムブルー */
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 10px;
+    margin-bottom: 10px;
 }
 
-/* アイテム別の色分け - iOS風の色パレット */
-.show-dialog-item {
-    background-color: #007AFF; /* システムブルー */
-}
-
-.show-dialog-item:hover {
+.ios-dialog-button:hover {
     background-color: #0056D6;
 }
 
-.show-confirm-dialog-item {
-    background-color: #FF9500; /* システムオレンジ */
+.ios-dialog-button:active {
+    background-color: #0046AA;
 }
 
-.show-confirm-dialog-item:hover {
-    background-color: #D17A00;
-}
-
-.show-destructive-dialog-item {
-    background-color: #FF3B30; /* システムレッド */
-}
-
-.show-destructive-dialog-item:hover {
-    background-color: #D12B20;
-}
-
-.show-action-sheet-item {
-    background-color: #34C759; /* システムグリーン */
-}
-
-.show-action-sheet-item:hover {
-    background-color: #28A745;
-}
-
-.show-text-input-dialog-item {
-    background-color: #5856D6; /* システムパープル */
-}
-
-.show-text-input-dialog-item:hover {
-    background-color: #4339CA;
-}
-
-.show-login-dialog-item {
-    background-color: #FF2D92; /* システムピンク */
-}
-
-.show-login-dialog-item:hover {
-    background-color: #E5077A;
+.ios-dialog-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
 }
 
 /* 画面サイズ別スタイル - iOS風 */
-.small-screen .ios-dialog-list-item {
-    font-size: 12px;
-}
-
 .small-screen .ios-dialog-content {
-    margin: 8px;
+    margin: 0px;
     padding: 12px;
 }
 
 .small-screen .ios-dialog-title {
-    font-size: 18px;
+    font-size: 14px;
     margin-bottom: 16px;
 }
 
-.medium-screen .ios-dialog-list-item {
-    font-size: 14px;
-}
-
 .medium-screen .ios-dialog-content {
-    margin: 12px;
+    margin: 0px;
     padding: 16px;
 }
 
@@ -134,42 +96,25 @@
     font-size: 20px;
 }
 
-.large-screen .ios-dialog-list-item {
-    font-size: 16px;
-}
-
 .large-screen .ios-dialog-content {
-    margin: 16px;
+    margin: 0px;
     padding: 20px;
-    max-width: 500px;
     align-self: center;
 }
 
 .large-screen .ios-dialog-title {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 /* DPI別スタイル調整 */
-.low-dpi .ios-dialog-list-item {
-    font-size: 12px;
-}
-
 .low-dpi .ios-dialog-title {
-    font-size: 18px;
-}
-
-.medium-dpi .ios-dialog-list-item {
     font-size: 14px;
 }
 
 .medium-dpi .ios-dialog-title {
-    font-size: 20px;
-}
-
-.high-dpi .ios-dialog-list-item {
     font-size: 16px;
 }
 
 .high-dpi .ios-dialog-title {
-    font-size: 22px;
+    font-size: 18px;
 }

@@ -1,37 +1,30 @@
 #nullable enable
 
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
-using System.Collections.Generic;
-using System.Linq;
-
-[System.Serializable]
-public class MacDialogButtonData
-{
-    public string? text;
-    public string? action;
-    public string? buttonId;
-}
 
 public class MacDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
 
-    private ListView? dialogListView;
-    private readonly List<MacDialogButtonData> dialogButtons = new()
-    {
-        new MacDialogButtonData { text = "ShowAlertDialog", action = "ShowAlertDialog", buttonId = "ShowAlertDialog" },
-        new MacDialogButtonData { text = "ShowFileDialog", action = "ShowFileDialog", buttonId = "ShowFileDialog" },
-        new MacDialogButtonData { text = "ShowMultiFileDialog", action = "ShowMultiFileDialog", buttonId = "ShowMultiFileDialog" },
-        new MacDialogButtonData { text = "ShowFolderDialog", action = "ShowFolderDialog", buttonId = "ShowFolderDialog" },
-        new MacDialogButtonData { text = "ShowMultiFolderDialog", action = "ShowMultiFolderDialog", buttonId = "ShowMultiFolderDialog" },
-        new MacDialogButtonData { text = "ShowSaveFileDialog", action = "ShowSaveFileDialog", buttonId = "ShowSaveFileDialog" },
-    };
+    // UI refs
+    private Label? _resultLabel;
+    private Button? _btnAlert;
+    private Button? _btnFile;
+    private Button? _btnMultiFile;
+    private Button? _btnFolder;
+    private Button? _btnMultiFolder;
+    private Button? _btnSaveFile;
 
-    void Awake()
+    private void Awake()
     {
 #if UNITY_EDITOR
         Debug.Log("Running in Unity Editor - macOS simulation mode");
+        UnityEditor.EditorUtility.DisplayDialog(
+            "MacDialogManager Example",
+            "This is a simulation of the macOS dialog manager.\nAll events will not be triggered.\nRun in macOS player for full functionality.",
+            "OK");
 #elif UNITY_STANDALONE_OSX
         Debug.Log("Running on macOS player");
 #else
@@ -39,15 +32,13 @@ public class MacDialogManagerExampleController : MonoBehaviour
         gameObject.SetActive(false);
         return;
 #endif
-        Debug.Log("MacDialogManagerExampleController initialized.");
+        Debug.Log("[MacDialogManagerExampleController] initialized.");
     }
 
     private void Start()
     {
         if (uiDocument == null)
-        {
             uiDocument = GetComponent<UIDocument>();
-        }
 
         if (uiDocument == null)
         {
@@ -68,196 +59,47 @@ public class MacDialogManagerExampleController : MonoBehaviour
             return;
         }
 
-        dialogListView = root.Q<ListView>("DialogListView");
-        if (dialogListView == null)
+        _resultLabel = root.Q<Label>("ResultTextBlock");
+        _btnAlert = root.Q<Button>("ShowDialogButton");
+        _btnFile = root.Q<Button>("ShowFileDialogButton");
+        _btnMultiFile = root.Q<Button>("ShowMultiFileDialogButton");
+        _btnFolder = root.Q<Button>("ShowFolderDialogButton");
+        _btnMultiFolder = root.Q<Button>("ShowMultiFolderDialogButton");
+        _btnSaveFile = root.Q<Button>("ShowSaveFileDialogButton");
+
+        if (_btnAlert == null || _btnFile == null || _btnMultiFile == null || _btnFolder == null || _btnMultiFolder == null || _resultLabel == null || _btnSaveFile == null)
         {
-            Debug.LogError("[MacDialogManagerExampleController] DialogListView not found!");
+            Debug.LogError("[MacDialogManagerExampleController] One or more UI elements are missing in UXML.");
             return;
         }
 
-        SetupListView();
-        Debug.Log($"[MacDialogManagerExampleController] ListView initialized with {dialogButtons.Count} items");
-    }
+        // Wire up clicks
+        if (_btnAlert != null) _btnAlert.clicked += OnShowDialogClicked;
+        if (_btnFile != null) _btnFile.clicked += OnShowFileDialogClicked;
+        if (_btnMultiFile != null) _btnMultiFile.clicked += OnShowMultiFileDialogClicked;
+        if (_btnFolder != null) _btnFolder.clicked += OnShowFolderDialogClicked;
+        if (_btnMultiFolder != null) _btnMultiFolder.clicked += OnShowMultiFolderDialogClicked;
+        if (_btnSaveFile != null) _btnSaveFile.clicked += OnShowSaveFileDialogClicked;
 
-    private void SetupListView()
-    {
-        if (dialogListView == null) return;
-
-        dialogListView.itemsSource = dialogButtons;
-
-        dialogListView.makeItem = () =>
-        {
-            var label = new Label();
-            label.AddToClassList("mac-dialog-list-item");
-            return label;
-        };
-
-        dialogListView.bindItem = (element, index) =>
-        {
-            var buttonData = dialogButtons[index];
-            if (element is not Label label || buttonData == null)
-            {
-                Debug.LogError($"[MacDialogManagerExampleController] Invalid item at index {index}");
-                return;
-            }
-
-            label.text = buttonData.text;
-            label.name = buttonData.buttonId;
-
-            label.RemoveFromClassList("show-alert-dialog-item");
-            label.RemoveFromClassList("show-file-dialog-item");
-            label.RemoveFromClassList("show-multi-file-dialog-item");
-            label.RemoveFromClassList("show-folder-dialog-item");
-            label.RemoveFromClassList("show-multi-folder-dialog-item");
-            label.RemoveFromClassList("show-save-file-dialog-item");
-
-            label.AddToClassList(GetItemClassFromButtonId(buttonData.buttonId ?? string.Empty));
-
-            // Clickable を追加（単一クリックで実行）
-            var clickable = new Clickable(() =>
-            {
-                if (!string.IsNullOrEmpty(buttonData.action))
-                {
-                    OnDialogButtonClicked(buttonData.action);
-                }
-                else
-                {
-                    Debug.LogError("[MacDialogManagerExampleController] Button action is null or empty.");
-                }
-            });
-            label.AddManipulator(clickable);
-            // 後で解除するために保持
-            label.userData = clickable;
-        };
-
-        dialogListView.unbindItem = (element, index) =>
-        {
-            if (element is VisualElement ve && ve.userData is Clickable c)
-            {
-                ve.RemoveManipulator(c);
-                ve.userData = null;
-            }
-        };
-        dialogListView.Rebuild();
-    }
-
-    private string GetItemClassFromButtonId(string buttonId)
-    {
-        switch (buttonId)
-        {
-            case "ShowAlertDialog": return "show-alert-dialog-item";
-            case "ShowFileDialog": return "show-file-dialog-item";
-            case "ShowMultiFileDialog": return "show-multi-file-dialog-item";
-            case "ShowFolderDialog": return "show-folder-dialog-item";
-            case "ShowMultiFolderDialog": return "show-multi-folder-dialog-item";
-            case "ShowSaveFileDialog": return "show-save-file-dialog-item";
-            default: return "mac-dialog-list-item";
-        }
-    }
-
-    private void OnDialogButtonClicked(string action)
-    {
-        Debug.Log($"[MacDialogManagerExampleController] Action: {action}");
-        switch (action)
-        {
-            case "ShowAlertDialog": OnShowAlertDialogClicked(); break;
-            case "ShowFileDialog": OnShowFileDialogClicked(); break;
-            case "ShowMultiFileDialog": OnShowMultiFileDialogClicked(); break;
-            case "ShowFolderDialog": OnShowFolderDialogClicked(); break;
-            case "ShowMultiFolderDialog": OnShowMultiFolderDialogClicked(); break;
-            case "ShowSaveFileDialog": OnShowSaveFileDialogClicked(); break;
-            default: Debug.LogWarning($"Unknown action: {action}"); break;
-        }
-    }
-
-    // Dialog actions
-    private void OnShowAlertDialogClicked()
-    {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        var buttons = new DialogButton[]
-        {
-            new DialogButton{ title = "OK", isDefault = true, keyEquivalent = "return" },
-            new DialogButton{ title = "Cancel", isDefault = false, keyEquivalent = "escape" },
-        };
-        var options = new DialogOptions
-        {
-            alertStyle = "informational",
-            showsSuppressionButton = false,
-            suppressionButtonTitle = null
-        };
-        MacDialogManager.Instance.ShowDialog("Hello macOS", "This is a native macOS alert.", buttons, options);
-#elif UNITY_EDITOR
-        Debug.Log("[MacDialogManagerExampleController] ShowAlertDialog - Editor simulation");
-        UnityEditor.EditorUtility.DisplayDialog("Hello macOS", "This is a native macOS alert.", "OK");
+        MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
+        MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
+        MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
+        MacDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
+        MacDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
+        MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
 #endif
     }
 
-    private void OnShowFileDialogClicked()
+    private void OnDestroy()
     {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        string[] types = { "public.data", "public.image" }; // UTType identifiers
-        MacDialogManager.Instance.ShowFileDialog("Open File", "Choose a file to open", types, null);
-#else
-        Debug.Log("[MacDialogManagerExampleController] ShowFileDialog - Editor simulation");
-#endif
-    }
+        if (_btnAlert != null) _btnAlert.clicked -= OnShowDialogClicked;
+        if (_btnFile != null) _btnFile.clicked -= OnShowFileDialogClicked;
+        if (_btnMultiFile != null) _btnMultiFile.clicked -= OnShowMultiFileDialogClicked;
+        if (_btnFolder != null) _btnFolder.clicked -= OnShowFolderDialogClicked;
+        if (_btnMultiFolder != null) _btnMultiFolder.clicked -= OnShowMultiFolderDialogClicked;
+        if (_btnSaveFile != null) _btnSaveFile.clicked -= OnShowSaveFileDialogClicked;
 
-    private void OnShowMultiFileDialogClicked()
-    {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        string[] types = { "public.data", "public.image" };
-        MacDialogManager.Instance.ShowMultiFileDialog("Open Multiple Files", "Choose files to open", types, null);
-#else
-        Debug.Log("[MacDialogManagerExampleController] ShowMultiFileDialog - Editor simulation");
-#endif
-    }
-
-    private void OnShowFolderDialogClicked()
-    {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        MacDialogManager.Instance.ShowFolderDialog("Open Folder", "Choose a folder", null);
-#else
-        Debug.Log("[MacDialogManagerExampleController] ShowFolderDialog - Editor simulation");
-#endif
-    }
-
-    private void OnShowMultiFolderDialogClicked()
-    {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        MacDialogManager.Instance.ShowMultiFolderDialog("Open Folders", "Choose folders", null);
-#else
-        Debug.Log("[MacDialogManagerExampleController] ShowMultiFolderDialog - Editor simulation");
-#endif
-    }
-
-    private void OnShowSaveFileDialogClicked()
-    {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        string[] types = { "public.text" };
-        MacDialogManager.Instance.ShowSaveFileDialog("Save File", "Choose a destination", "untitled.txt", types, null);
-#else
-        Debug.Log("[MacDialogManagerExampleController] ShowSaveFileDialog - Editor simulation");
-#endif
-    }
-
-    // Event subscription
-    private void OnEnable()
-    {
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-        if (MacDialogManager.Instance != null)
-        {
-            MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
-            MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
-            MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
-            MacDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
-            MacDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
-            MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
-        }
-#endif
-    }
-
-    private void OnDisable()
-    {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         if (MacDialogManager.Instance != null)
         {
@@ -269,36 +111,201 @@ public class MacDialogManagerExampleController : MonoBehaviour
             MacDialogManager.Instance.SaveFileDialogResult -= OnSaveFileDialogResult;
         }
 #endif
+        Debug.Log("[MacDialogManagerExampleController] Destroyed and unsubscribed from all events.");
+    }
+
+    // Button actions
+    private void OnShowDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Hello from Unity";
+        string message = "This is a native macOS dialog!";
+        DialogButton[] buttons = {
+            new DialogButton { title = "OK", isDefault = true, keyEquivalent = "return" },
+            new DialogButton { title = "Cancel", keyEquivalent = "return" },
+            new DialogButton { title = "Delete", keyEquivalent = "d" }
+        };
+        DialogOptions options = new DialogOptions
+        {
+            alertStyle = "warning",
+            showsSuppressionButton = true,
+            suppressionButtonTitle = "Don't show this again",
+        };
+        MacDialogManager.Instance.ShowDialog(title, message, buttons, options);
+#endif
+    }
+
+    private void OnShowFileDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowFileDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Select a file";
+        string message = "Please select a file to open.";
+        string[] allowedContentTypes = { "public.text" };
+        string? directoryPath = null;
+        MacDialogManager.Instance.ShowFileDialog(
+            title,
+            message,
+            allowedContentTypes,
+            directoryPath
+        );
+#endif
+    }
+
+    private void OnShowMultiFileDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowMultiFileDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Select files";
+        string message = "Please select files to open.";
+        string[] allowedContentTypes = { "public.text" };
+        string? directoryPath = null;
+        MacDialogManager.Instance.ShowMultiFileDialog(
+            title,
+            message,
+            allowedContentTypes,
+            directoryPath
+        );
+#endif
+    }
+
+    private void OnShowFolderDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowFolderDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Select a folder";
+        string message = "Please select a folder to open.";
+        string? directoryPath = null;
+        MacDialogManager.Instance.ShowFolderDialog(
+            title,
+            message,
+            directoryPath
+        );
+#endif
+    }
+
+    private void OnShowMultiFolderDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowMultiFolderDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Select folders";
+        string message = "Please select folders to open.";
+        string? directoryPath = null;
+        MacDialogManager.Instance.ShowMultiFolderDialog(
+            title,
+            message,
+            directoryPath
+        );
+#endif
+    }
+
+    private void OnShowSaveFileDialogClicked()
+    {
+        Debug.Log("[MacDialogManagerExampleController] OnShowSaveFileDialogClicked triggered");
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+        string title = "Save File";
+        string message = "Choose a destination";
+        string defaultFileName = "default.txt";
+        string[] allowedContentTypes = { "public.text" };
+        string? directoryPath = null;
+        MacDialogManager.Instance.ShowSaveFileDialog(
+            title,
+            message,
+            defaultFileName,
+            allowedContentTypes,
+            directoryPath
+        );
+#endif
     }
 
     // Event handlers
     private void OnAlertDialogResult(string? buttonTitle, int buttonIndex, bool suppressionState, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] AlertDialogResult -> buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        Debug.Log($"[MacDialogManagerExampleController] OnAlertDialogResult -> buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowDialog buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 
     private void OnFileDialogResult(string[]? filePaths, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] FileDialogResult -> filePaths: {(filePaths == null ? "null" : string.Join(", ", filePaths))}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        var list = filePaths == null ? "null" : string.Join(", ", filePaths);
+        Debug.Log($"[MacDialogManagerExampleController] OnFileDialogResult -> filePaths: {list}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowFileDialog filePaths: {list}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 
     private void OnMultiFileDialogResult(string[]? filePaths, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] MultiFileDialogResult -> filePaths: {(filePaths == null ? "null" : string.Join(", ", filePaths))}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        var list = filePaths == null ? "null" : string.Join(", ", filePaths);
+        Debug.Log($"[MacDialogManagerExampleController] OnMultiFileDialogResult -> filePaths: {list}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowMultiFileDialog filePaths: {list}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 
     private void OnFolderDialogResult(string[]? folderPaths, int folderCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] FolderDialogResult -> folderPaths: {(folderPaths == null ? "null" : string.Join(", ", folderPaths))}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        var list = folderPaths == null ? "null" : string.Join(", ", folderPaths);
+        Debug.Log($"[MacDialogManagerExampleController] OnFolderDialogResult -> folderPaths: {list}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowFolderDialog folderPaths: {list}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 
     private void OnMultiFolderDialogResult(string[]? folderPaths, int folderCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] MultiFolderDialogResult -> folderPaths: {(folderPaths == null ? "null" : string.Join(", ", folderPaths))}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        var list = folderPaths == null ? "null" : string.Join(", ", folderPaths);
+        Debug.Log($"[MacDialogManagerExampleController] OnMultiFolderDialogResult -> folderPaths: {list}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowMultiFolderDialog folderPaths: {list}, folderCount: {folderCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 
     private void OnSaveFileDialogResult(string? filePath, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] SaveFileDialogResult -> filePath: {filePath ?? "null"}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        Debug.Log($"[MacDialogManagerExampleController] OnSaveFileDialogResult -> filePath: {filePath ?? "null"}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        if (_resultLabel != null)
+        {
+            _resultLabel.text = (isSuccess ? "OK" : "Error") +
+                                $"\nShowSaveFileDialog filePath: {filePath ?? "null"}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+        }
+        else
+        {
+            Debug.LogError("[MacDialogManagerExampleController] Result label is null!");
+        }
     }
 }
+#endif

@@ -8,6 +8,10 @@
     background-color: #2B2B2B; /* dark editor-like bg */
 }
 
+.mac-scroll {
+    flex-grow: 1;
+}
+
 .mac-dialog-content {
     flex-grow: 1;
     background-color: #F2F2F2; /* macOS light panel */
@@ -30,46 +34,40 @@
     text-overflow: ellipsis;
 }
 
-.mac-dialog-listview {
-    flex-grow: 1;
-    overflow: visible;
-    background-color: transparent;
-    border-width: 0;
-    margin: 0;
-    padding: 0;
+.mac-result-border {
+    background-color: #E5E5E5;
+    border-radius: 10px;
+    margin: 10px 0 20px 0;
 }
 
-/* List item base */
-.mac-dialog-list-item {
-    background-color: #5E7D9A; /* bluish */
-    color: white;
-    -unity-font-style: normal;
-    -unity-text-align: middle-center;
-    font-size: 14px;
-    height: 44px;
-    padding: 0 12px;
+.mac-result-text {
+    padding: 10px;
+    font-size: 16px;
+    color: #111;
+    -unity-text-align: upper-center;
     white-space: normal;
 }
 
-.mac-dialog-list-item:hover {
-    background-color: #4C6780;
+.mac-dialog-button {
+    background-color: #0A84FF; /* macOS accent blue */
+    color: white;
+    font-size: 18px;
+    height: 42px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 6px;
+    margin-bottom: 10px;
 }
 
-/* Per-item coloring */
-.show-alert-dialog-item            { background-color: #5E7D9A; }
-.show-alert-dialog-item:hover      { background-color: #4C6780; }
+.mac-dialog-button:hover {
+    background-color: #0060DF;
+}
 
-.show-file-dialog-item             { background-color: #3B82F6; }
-.show-file-dialog-item:hover       { background-color: #2563EB; }
+.mac-dialog-button:active {
+    background-color: #0049A6;
+}
 
-.show-multi-file-dialog-item       { background-color: #22C55E; }
-.show-multi-file-dialog-item:hover { background-color: #16A34A; }
-
-.show-folder-dialog-item           { background-color: #A855F7; }
-.show-folder-dialog-item:hover     { background-color: #7C3AED; }
-
-.show-multi-folder-dialog-item     { background-color: #F97316; }
-.show-multi-folder-dialog-item:hover { background-color: #EA580C; }
-
-.show-save-file-dialog-item        { background-color: #EF4444; }
-.show-save-file-dialog-item:hover  { background-color: #DC2626; }
+.mac-dialog-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}

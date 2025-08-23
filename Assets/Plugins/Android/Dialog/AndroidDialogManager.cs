@@ -45,6 +45,9 @@ public class AndroidDialogManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        // Dispatcher をメインスレッドで必ず生成しておく（以降は他スレッドから安全に Enqueue 可）
+        _ = UnityMainThreadDispatcher.Instance;
+
         Initialize();
     }
 
@@ -94,8 +97,11 @@ public class AndroidDialogManager : MonoBehaviour
 
         public void onDialog(string? buttonText, bool isSuccessful, string? errorMessage)
         {
-            Debug.Log($"onDialog: buttonText={buttonText}, isSuccessful={isSuccessful}, errorMessage={errorMessage}");
-            Instance.DialogResult?.Invoke(buttonText, isSuccessful, errorMessage);
+            Debug.Log($"onDialog: buttonText={buttonText ?? "null"}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
+            PostToMainThread(() =>
+            {
+                Instance.DialogResult?.Invoke(buttonText, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -105,8 +111,11 @@ public class AndroidDialogManager : MonoBehaviour
 
         public void onConfirmDialog(string? buttonText, bool isSuccessful, string? errorMessage)
         {
-            Debug.Log($"onConfirmDialog: buttonText={buttonText}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
-            Instance.ConfirmDialogResult?.Invoke(buttonText, isSuccessful, errorMessage);
+            Debug.Log($"onConfirmDialog: buttonText={buttonText ?? "null"}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
+            PostToMainThread(() =>
+            {
+                Instance.ConfirmDialogResult?.Invoke(buttonText, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -117,7 +126,10 @@ public class AndroidDialogManager : MonoBehaviour
         public void onSingleChoiceItemDialog(string? buttonText, int checkedItem, bool isSuccessful, string? errorMessage)
         {
             Debug.Log($"onSingleChoiceItemDialog: buttonText={buttonText ?? "null"}, checkedItem={checkedItem}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
-            Instance.SingleChoiceItemDialogResult?.Invoke(buttonText, checkedItem == -1 ? null : checkedItem, isSuccessful, errorMessage);
+            PostToMainThread(() =>
+            {
+                Instance.SingleChoiceItemDialogResult?.Invoke(buttonText, checkedItem == -1 ? null : checkedItem, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -128,7 +140,10 @@ public class AndroidDialogManager : MonoBehaviour
         public void onMultiChoiceItemDialog(string? buttonText, bool[]? checkedItems, bool isSuccessful, string? errorMessage)
         {
             Debug.Log($"onMultiChoiceItemDialog: buttonText={buttonText ?? "null"}, checkedItems={(checkedItems != null ? string.Join(", ", checkedItems) : "null")}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
-            Instance.MultiChoiceItemDialogResult?.Invoke(buttonText, checkedItems, isSuccessful, errorMessage);
+            PostToMainThread(() =>
+            {
+                Instance.MultiChoiceItemDialogResult?.Invoke(buttonText, checkedItems, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -139,7 +154,10 @@ public class AndroidDialogManager : MonoBehaviour
         public void onTextInputDialog(string? buttonText, string? inputText, bool isSuccessful, string? errorMessage)
         {
             Debug.Log($"onTextInputDialog: buttonText={buttonText ?? "null"}, inputText={inputText ?? "null"}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
-            Instance.TextInputDialogResult?.Invoke(buttonText, inputText, isSuccessful, errorMessage);
+            PostToMainThread(() =>
+            {
+                Instance.TextInputDialogResult?.Invoke(buttonText, inputText, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -150,7 +168,10 @@ public class AndroidDialogManager : MonoBehaviour
         public void onLoginDialog(string? buttonText, string? username, string? password, bool isSuccessful, string? errorMessage)
         {
             Debug.Log($"onLoginDialog: buttonText={buttonText ?? "null"}, username={username ?? "null"}, password={password ?? "null"}, isSuccessful={isSuccessful}, errorMessage={errorMessage ?? "null"}");
-            Instance.LoginDialogResult?.Invoke(buttonText, username, password, isSuccessful, errorMessage);
+            PostToMainThread(() =>
+            {
+                Instance.LoginDialogResult?.Invoke(buttonText, username, password, isSuccessful, errorMessage);
+            });
         }
     }
 
@@ -363,6 +384,19 @@ public class AndroidDialogManager : MonoBehaviour
         else
         {
             Debug.LogWarning("ShowLoginDialog can only be called on an Android device.");
+        }
+    }
+
+    private static void PostToMainThread(Action action)
+    {
+        try
+        {
+            // UnityMainThreadDispatcher は既にメインスレッドで生成しておく（Awake 参照）
+            UnityMainThreadDispatcher.Instance.Enqueue(action);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AndroidDialogManager] PostToMainThread failed: {ex}");
         }
     }
 }
