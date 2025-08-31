@@ -1,7 +1,15 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <ui:VisualElement name="tree-item-container" style="flex-direction: row; align-items: center; padding-left: 5px; padding-right: 5px; padding-top: 2px; padding-bottom: 2px;">
-        <ui:VisualElement name="item-icon" style="width: 16px; height: 16px; margin-right: 5px; background-color: rgb(128, 128, 128); border-radius: 2px;" />
-        <ui:Label name="item-label" text="Item Name" style="flex-grow: 1; color: rgb(255, 255, 255);" />
-        <ui:Label name="item-description" text="Description" style="color: rgb(180, 180, 180); font-size: 10px; margin-left: 10px;" />
+    <ui:VisualElement name="tree-item-container"
+                      class="unity-collection-view__item tree-item-container"
+                      style="flex-direction: row; align-items: center; padding-left: 4px; padding-right: 4px; padding-top: 2px; padding-bottom: 2px;">
+        <ui:VisualElement name="item-icon"
+                          class="unity-image item-icon"
+                          style="width: 16px; height: 16px; margin-right: 6px;" />
+        <ui:Label name="item-label"
+                  class="unity-label item-label"
+                  text="Item Name" />
+        <ui:Label name="item-description"
+                  class="item-description"
+                  text="Description" />
     </ui:VisualElement>
 </ui:UXML>

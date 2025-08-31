@@ -1,9 +1,12 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <ui:VisualElement style="flex-grow: 1; padding-left: 10px; padding-right: 10px; padding-top: 10px; padding-bottom: 10px; background-color: rgba(245, 235, 235, 0);">
-        <ui:Label text="Unity Native Toolkit Example" style="font-size: 18px; margin-bottom: 10px;" />
-        <ui:VisualElement style="flex-grow: 1; flex-direction: row;">
-            <ui:TreeView name="example-tree" style="flex-grow: 1; border-left-width: 1px; border-right-width: 1px; border-top-width: 1px; border-bottom-width: 1px; border-color: rgb(128, 128, 128); background-color: rgb(22, 20, 20);" />
-            <ui:VisualElement style="flex-grow: 1;">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1; padding-left: 10px; padding-right: 10px; padding-top: 10px; padding-bottom: 10px;">
+        <ui:Label text="Unity Native Toolkit Example" name="header-label" style="font-size: 18px; margin-bottom: 10px;" />
+        <!-- 分割ビューのホスト。左右ペインはプレースホルダーとして置く -->
+        <ui:VisualElement name="split-host" style="flex-grow: 1;">
+            <ui:VisualElement name="left-pane" style="flex-grow: 1;">
+                <ui:TreeView name="example-tree" style="flex-grow: 1;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="right-pane" style="flex-grow: 1; position: relative;">
                 <ui:VisualElement name="item-inspector" style="flex-grow: 1;">
                     <ui:Label text="Label" name="file-name" style="font-size: 20px;" />
                     <ui:Button text="Open" name="file-open" />

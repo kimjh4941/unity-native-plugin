@@ -3,14 +3,14 @@
 
 /* Root container styles */
 .unity-tree-view {
-    background-color: rgb(56, 56, 56);
-    border-color: rgb(35, 35, 35);
-    border-width: 1px;
+    background-color: transparent;
+    border-color: transparent;
+    border-width: 0;
 }
 
 /* TreeView scroll area */
 .unity-tree-view__scroll-view {
-    background-color: rgb(56, 56, 56);
+    background-color: transparent;
 }
 
 /* TreeView content container */
@@ -26,26 +26,13 @@
     padding-right: 0;
     padding-top: 0;
     padding-bottom: 0;
-    margin-left: 0;
-    margin-right: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    min-height: 25px;
+    margin: 0;
+    min-height: 0;
 }
 
 /* TreeView item hover state */
 .unity-tree-view__item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-/* TreeView item selected state */
-.unity-tree-view__item:selected {
-    background-color: rgba(58, 121, 187, 0.8);
-}
-
-/* TreeView item focused state */
-.unity-tree-view__item:focus {
-    background-color: rgba(58, 121, 187, 0.6);
+    background-color: transparent;
 }
 
 /* TreeView item toggle (expand/collapse) */
@@ -78,50 +65,47 @@
 }
 
 /* TreeView item indentation */
-.unity-tree-view__item--depth-0 {
-    padding-left: 16px;
-}
-
-.unity-tree-view__item--depth-1 {
-    padding-left: 32px;
-}
-
-.unity-tree-view__item--depth-2 {
-    padding-left: 48px;
-}
-
-.unity-tree-view__item--depth-3 {
-    padding-left: 64px;
-}
-
-.unity-tree-view__item--depth-4 {
-    padding-left: 80px;
-}
+.unity-tree-view__item--depth-0 { padding-left: 16px; }
+.unity-tree-view__item--depth-1 { padding-left: 32px; }
+.unity-tree-view__item--depth-2 { padding-left: 48px; }
+.unity-tree-view__item--depth-3 { padding-left: 64px; }
+.unity-tree-view__item--depth-4 { padding-left: 80px; }
 
 /* Custom TreeView item container */
 .tree-item-container {
-    flex-direction: row;
-    align-items: center;
-    padding-left: 5px;
-    padding-right: 5px;
-    padding-top: 3px;
-    padding-bottom: 3px;
-    min-height: 25px;
     background-color: transparent;
     border-color: transparent;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    min-height: 0;
+    flex-grow: 1;            /* 追加 */
+    width: 100%;             /* 追加 */
+    min-width: 0;            /* 追加（テキストの省略三点） */
+}
+
+/* Projectビュー風の選択ハイライト（透明な青帯） */
+.unity-collection-view__item:selected,
+.tree-item-container:selected {
+    background-color: rgba(58, 121, 187, 0.35);
+}
+
+/* TreeView（コレクション）にフォーカスが当たっているときは少し濃く */
+.unity-tree-view:focus-within .unity-collection-view__item:selected,
+.unity-tree-view:focus-within .tree-item-container:selected {
+    background-color: rgba(58, 121, 187, 0.55);
+}
+
+/* ホバーは控えめ（任意） */
+.unity-collection-view__item:hover .tree-item-container,
+.tree-item-container:hover {
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
 .tree-item-container:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: transparent;
     transition-duration: 0.1s;
-}
-
-.tree-item-container:selected {
-    background-color: rgba(58, 121, 187, 0.7);
-}
-
-.tree-item-container:focus {
-    background-color: rgba(58, 121, 187, 0.5);
 }
 
 /* Item icon */
@@ -129,89 +113,42 @@
     width: 16px;
     height: 16px;
     margin-right: 6px;
-    border-radius: 2px;
-    background-color: rgb(128, 128, 128);
+    border-radius: 0;
+    background-color: transparent;
     flex-shrink: 0;
-}
-
-.item-icon.folder {
-    background-color: rgb(255, 193, 7);
-}
-
-.item-icon.file {
-    background-color: rgb(0, 188, 212);
-}
-
-.item-icon.script {
-    background-color: rgb(76, 175, 80);
-}
-
-.item-icon.scene {
-    background-color: rgb(156, 39, 176);
-}
-
-.item-icon.texture {
-    background-color: rgb(255, 87, 34);
-}
-
-.item-icon.audio {
-    background-color: rgb(255, 152, 0);
-}
-
-.item-icon.prefab {
-    background-color: rgb(63, 81, 181);
 }
 
 /* Item label */
 .item-label {
     flex-grow: 1;
-    color: rgb(210, 210, 210);
-    font-size: 12px;
+    /* 色・サイズはテーマ継承に任せるため指定しない */
     -unity-text-align: middle-left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-left: 0;
-    margin-right: 5px;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    margin: 0 5px 0 0;
+    padding: 0;
 }
 
 .item-label.folder {
-    color: rgb(255, 255, 255);
     -unity-font-style: bold;
-}
-
-.item-label.selected {
-    color: rgb(255, 255, 255);
 }
 
 /* Item description */
 .item-description {
-    color: rgb(150, 150, 150);
+    /* 色は継承に任せる（color 指定を削除） */
     font-size: 10px;
     -unity-text-align: middle-left;
     margin-left: 8px;
     margin-right: 0;
     margin-top: 0;
     margin-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    padding: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 150px;
     flex-shrink: 1;
-}
-
-.item-description.selected {
-    color: rgb(220, 220, 220);
 }
 
 /* Header styles */
@@ -223,36 +160,24 @@
     padding-right: 10px;
     padding-top: 8px;
     padding-bottom: 8px;
-    margin-left: 0;
-    margin-right: 0;
-    margin-top: 0;
-    margin-bottom: 0;
+    margin: 0;
 }
 
 .tree-header .unity-label {
     color: rgb(255, 255, 255);
     font-size: 14px;
     -unity-font-style: bold;
-    margin-left: 0;
-    margin-right: 0;
-    margin-top: 0;
-    margin-bottom: 0;
+    margin: 0;
 }
 
 /* Main container */
 .tree-container {
     flex-grow: 1;
-    background-color: rgb(48, 48, 48);
-    border-color: rgb(35, 35, 35);
-    border-width: 1px;
-    margin-left: 0;
-    margin-right: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    background-color: transparent;
+    border-color: transparent;
+    border-width: 0;
+    margin: 0;
+    padding: 0;
 }
 
 /* Scrollbars */
@@ -287,81 +212,9 @@
     background-color: rgb(174, 174, 174);
 }
 
-/* Context menu related */
-.tree-item-container:focus {
-    outline-color: rgba(58, 121, 187, 0.8);
-    outline-width: 1px;
-}
-
 /* Animation and transitions */
 .tree-item-container {
     transition-property: background-color;
     transition-duration: 0.15s;
     transition-timing-function: ease-out;
-}
-
-.item-icon {
-    transition-property: background-color;
-    transition-duration: 0.2s;
-    transition-timing-function: ease-out;
-}
-
-/* Dark theme specific adjustments */
-:root {
-    --tree-background: rgb(56, 56, 56);
-    --tree-border: rgb(35, 35, 35);
-    --tree-text: rgb(210, 210, 210);
-    --tree-text-secondary: rgb(150, 150, 150);
-    --tree-hover: rgba(255, 255, 255, 0.08);
-    --tree-selected: rgba(58, 121, 187, 0.7);
-    --tree-focus: rgba(58, 121, 187, 0.5);
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-    .item-description {
-        display: none;
-    }
-    
-    .tree-item-container {
-        min-height: 30px;
-    }
-    
-    .item-icon {
-        width: 18px;
-        height: 18px;
-    }
-}
-
-/* High contrast mode */
-@media (prefers-contrast: high) {
-    .unity-tree-view__item:selected {
-        background-color: rgb(0, 120, 215);
-        border-color: rgb(255, 255, 255);
-        border-width: 1px;
-    }
-    
-    .item-label {
-        color: rgb(255, 255, 255);
-    }
-    
-    .item-description {
-        color: rgb(200, 200, 200);
-    }
-}
-
-/* Accessibility improvements */
-.unity-tree-view:focus-within .unity-tree-view__item:selected {
-    outline-color: rgb(255, 255, 255);
-    outline-width: 2px;
-    outline-offset: -2px;
-}
-
-/* Performance optimizations */
-.tree-item-container {
-    will-change: background-color;
-}
-
-.item-icon {
-    will-change: background-color;
 }

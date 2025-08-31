@@ -5,6 +5,8 @@ using UnityEditor;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 using UnityEditor.SceneManagement;
+using System.Linq;
+using UnityEditor.UIElements;
 
 public class TreeViewEditorWindow : EditorWindow
 {
@@ -18,7 +20,7 @@ public class TreeViewEditorWindow : EditorWindow
 
     private System.Action? _fileOpenHandler;
 
-    [MenuItem("Tools/TreeView Editor")]
+    [MenuItem("Tools/Native Toolkit/Example")]
     public static void ShowWindow()
     {
         TreeViewEditorWindow window = GetWindow<TreeViewEditorWindow>();
@@ -45,6 +47,33 @@ public class TreeViewEditorWindow : EditorWindow
         if (styleSheet != null)
         {
             rootVisualElement.styleSheets.Add(styleSheet);
+        }
+
+        // 分割ビューをコードで構築（UXMLの TwoPaneSplitView 使用不可対策）
+        var host = rootVisualElement.Q<VisualElement>("split-host");
+        var left = rootVisualElement.Q<VisualElement>("left-pane");
+        var right = rootVisualElement.Q<VisualElement>("right-pane");
+        if (host != null && left != null && right != null)
+        {
+            const string PrefKey = "TreeViewEditorWindow.Split.LeftWidth";
+            float initial = EditorPrefs.GetFloat(PrefKey, 280f);
+
+            var split = new TwoPaneSplitView(0, initial, TwoPaneSplitViewOrientation.Horizontal)
+            {
+                name = "main-split"
+            };
+
+            // 既存子を TwoPaneSplitView 配下に再配置
+            host.Clear();
+            host.Add(split);
+            split.Add(left);
+            split.Add(right);
+
+            // ドラッグ後の幅を保存
+            left.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                EditorPrefs.SetFloat(PrefKey, left.resolvedStyle.width);
+            });
         }
 
         InitializeTreeView();
@@ -116,13 +145,15 @@ public class TreeViewEditorWindow : EditorWindow
             return;
         }
 
-        // TreeViewアイテムの高さを設定
-        treeView.fixedItemHeight = 25f;
+        // Projectビューに近い行高
+        treeView.fixedItemHeight = EditorGUIUtility.singleLineHeight + 4f;
 
-        // Editor環境での設定
         treeView.focusable = true;
         treeView.pickingMode = PickingMode.Position;
         treeView.selectionType = SelectionType.Single;
+
+        // デフォルトテーマ適用（選択/ホバー等）
+        treeView.AddToClassList("unity-tree-view");
     }
 
     private void PopulateTreeView()
@@ -189,30 +220,32 @@ public class TreeViewEditorWindow : EditorWindow
         container.name = "tree-item-container";
         container.style.flexDirection = FlexDirection.Row;
         container.style.alignItems = Align.Center;
-        container.style.paddingLeft = 5;
-        container.style.paddingRight = 5;
-        container.style.paddingTop = 2;
-        container.style.paddingBottom = 2;
-        container.style.minHeight = 25;
+        container.style.paddingLeft = 4;
+        container.style.paddingRight = 4;
+        container.style.minHeight = EditorGUIUtility.singleLineHeight + 4f;
+
+        // Projectビュー風の選択スタイルを得る
+        container.AddToClassList("unity-collection-view__item");
 
         var icon = new VisualElement();
         icon.name = "item-icon";
         icon.style.width = 16;
         icon.style.height = 16;
-        icon.style.marginRight = 5;
-        // icon.style.borderRadius = 2;
-        icon.style.backgroundColor = Color.gray;
+        icon.style.marginRight = 4;
+        icon.style.backgroundColor = StyleKeyword.Null;
+        icon.AddToClassList("unity-image");
 
         var label = new Label();
         label.name = "item-label";
         label.style.flexGrow = 1;
-        label.style.color = Color.white;
+        label.style.color = StyleKeyword.Null;
+        label.AddToClassList("unity-label");
 
         var description = new Label();
         description.name = "item-description";
-        description.style.color = new Color(0.7f, 0.7f, 0.7f);
-        description.style.fontSize = 10;
-        description.style.marginLeft = 10;
+        description.style.color = StyleKeyword.Null;
+        description.style.fontSize = StyleKeyword.Null;
+        description.style.marginLeft = 8;
 
         container.Add(icon);
         container.Add(label);
@@ -233,6 +266,9 @@ public class TreeViewEditorWindow : EditorWindow
         if (label != null)
         {
             label.text = item.name;
+            // Editor既定フォント
+            var f = EditorStyles.label?.font;
+            if (f != null) label.style.unityFontDefinition = FontDefinition.FromFont(f);
         }
 
         if (description != null)
@@ -243,27 +279,42 @@ public class TreeViewEditorWindow : EditorWindow
 
         if (icon != null)
         {
-            // フォルダーかファイルかでアイコンの色を変更
-            if (item.children != null && item.children.Count > 0)
+            // 展開状態でフォルダアイコンを切替
+            bool isOpenFolder = item.isFolder && treeView != null &&
+                                (treeView.GetType().GetMethod("IsExpanded") != null
+                                    ? (bool)treeView.GetType().GetMethod("IsExpanded")!.Invoke(treeView, new object[] { item.id })!
+                                    : (treeView.GetType().GetMethod("IsExpanded") != null
+                                        ? (bool)treeView.GetType().GetMethod("IsExpanded")!.Invoke(treeView, new object[] { item.id })!
+                                        : false));
+
+            Texture2D? tex = item.isFolder ? GetFolderIcon(isOpenFolder) : GetDefaultFileIcon();
+            if (tex != null)
             {
-                icon.style.backgroundColor = new Color(1f, 0.8f, 0f); // フォルダー（黄色）
+                icon.style.backgroundImage = new StyleBackground(tex);
+                // ScaleMode.ScaleToFit is not available for icon.style.backgroundImage; ensure icon size is set appropriately
+                icon.style.backgroundColor = StyleKeyword.Null;
             }
             else
             {
-                icon.style.backgroundColor = new Color(0f, 0.8f, 1f); // ファイル（シアン）
+                icon.style.backgroundImage = default;
+                icon.style.backgroundColor = StyleKeyword.Null;
             }
         }
+    }
 
-        // ホバー効果
-        element.RegisterCallback<MouseEnterEvent>(evt =>
-        {
-            element.style.backgroundColor = new Color(1f, 1f, 1f, 0.1f);
-        });
+    // Built-in icon helpers
+    private static Texture2D? GetFolderIcon(bool opened = false)
+    {
+        string name = EditorGUIUtility.isProSkin
+            ? (opened ? "d_FolderOpened Icon" : "d_Folder Icon")
+            : (opened ? "FolderOpened Icon" : "Folder Icon");
+        return EditorGUIUtility.IconContent(name).image as Texture2D;
+    }
 
-        element.RegisterCallback<MouseLeaveEvent>(evt =>
-        {
-            element.style.backgroundColor = Color.clear;
-        });
+    private static Texture2D? GetDefaultFileIcon()
+    {
+        var name = EditorGUIUtility.isProSkin ? "d_DefaultAsset Icon" : "DefaultAsset Icon";
+        return EditorGUIUtility.IconContent(name).image as Texture2D;
     }
 
     private List<TreeItemData> CreateSampleData()
