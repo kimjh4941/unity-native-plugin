@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Resources/UI/NativeToolkitTreeViewStyles.uss?fileID=7433441132597879392&amp;guid=3e18c8641079c4197a6904fd504d6629&amp;type=3#NativeToolkitTreeViewStyles" />
+    <ui:VisualElement style="flex-grow: 1; padding-left: 10px; padding-right: 10px; padding-top: 10px; padding-bottom: 10px;">
+        <ui:Label text="Native Toolkit Example" name="header-label" style="font-size: 18px; margin-bottom: 10px;" />
+        <ui:VisualElement name="split-host" style="flex-grow: 1;">
+            <ui:VisualElement name="left-pane" style="flex-grow: 1;">
+                <ui:TreeView name="example-tree" style="flex-grow: 1;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="right-pane" style="flex-grow: 1; position: relative;">
+                <ui:VisualElement name="item-inspector" style="flex-grow: 1;">
+                    <ui:Label text="Label" name="file-name" style="font-size: 20px;" />
+                    <ui:Button text="Open" name="file-open" />
+                </ui:VisualElement>
+                <ui:VisualElement name="info-inspector" style="flex-grow: 1; position: absolute; width: 100%; height: 100%;">
+                    <ui:Label text="This folder is empty" name="message" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
