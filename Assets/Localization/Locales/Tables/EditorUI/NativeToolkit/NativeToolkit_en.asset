@@ -18,8 +18,20 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData:
-  - m_Id: 126683701248
-    m_Localized: 
+  - m_Id: 57708806922240
+    m_Localized: This folder is empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 57708819505152
+    m_Localized: TreeView Editor
+    m_Metadata:
+      m_Items: []
+  - m_Id: 57708815310848
+    m_Localized: This folder is {name}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 57708815310849
+    m_Localized: Open
     m_Metadata:
       m_Items: []
   references:
