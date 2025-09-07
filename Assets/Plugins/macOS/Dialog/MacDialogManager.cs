@@ -5,12 +5,20 @@ using UnityEngine;
 using System.Runtime.InteropServices;
 using System;
 
+/// <summary>
+/// Wrapper class for dialog button configuration in JSON serialization.
+/// Contains an array of DialogButton objects for complex dialog setups.
+/// </summary>
 [Serializable]
 public class DialogButtonsWrapper
 {
     public DialogButton[]? buttons;
 }
 
+/// <summary>
+/// Represents a single button configuration for macOS native dialogs.
+/// Defines button appearance, behavior, and keyboard shortcuts.
+/// </summary>
 [Serializable]
 public class DialogButton
 {
@@ -19,6 +27,10 @@ public class DialogButton
     public string? keyEquivalent;
 }
 
+/// <summary>
+/// Configuration options for macOS native dialog appearance and behavior.
+/// Controls alert style, suppression button, and other dialog-specific settings.
+/// </summary>
 [Serializable]
 public class DialogOptions
 {
@@ -27,10 +39,20 @@ public class DialogOptions
     public string? suppressionButtonTitle;
 }
 
+/// <summary>
+/// Singleton manager for macOS native dialog operations using Unity's native plugin interface.
+/// Provides a Unity-friendly API for showing various types of macOS native dialogs including
+/// alert dialogs, file selection dialogs, folder selection dialogs, and save dialogs.
+/// Uses P/Invoke to communicate with Objective-C native code and event-driven callbacks for results.
+/// </summary>
 public class MacDialogManager : MonoBehaviour
 {
     private static MacDialogManager? _instance;
 
+    /// <summary>
+    /// Singleton instance property for MacDialogManager.
+    /// Creates a new instance if none exists and ensures it persists across scene loads.
+    /// </summary>
     public static MacDialogManager Instance
     {
         get
@@ -45,13 +67,63 @@ public class MacDialogManager : MonoBehaviour
             return _instance;
         }
     }
+    /// <summary>
+    /// Raised when an alert dialog (standard macOS NSAlert) completes.
+    /// </summary>
+    /// <remarks>
+    /// Parameters:
+    /// buttonTitle = title of the pressed button (may be null if failure),
+    /// buttonIndex = zero-based index of pressed button in original provided array ( -1 on error ),
+    /// suppressionButtonState = state of the optional suppression checkbox (true if checked),
+    /// isSuccess = true if the native call succeeded, false if an error occurred prior to completion,
+    /// errorMessage = error description when <c>isSuccess == false</c> otherwise null.
+    /// </remarks>
+    public event Action<string?, int, bool, bool, string?>? AlertDialogResult;                  
 
-    public event Action<string?, int, bool, bool, string?>? AlertDialogResult;                  // buttonTitle, buttonIndex, suppressionButtonState, isSuccess, errorMessage
-    public event Action<string[]?, int, string?, bool, bool, string?>? FileDialogResult;        // filePaths, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
-    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFileDialogResult;   // filePaths, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
-    public event Action<string[]?, int, string?, bool, bool, string?>? FolderDialogResult;      // folderPaths, folderCount, directoryURL, isCancelled, isSuccess, errorMessage
-    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFolderDialogResult; // folderPaths, folderCount, directoryURL, isCancelled, isSuccess, errorMessage
-    public event Action<string?, int, string?, bool, bool, string?>? SaveFileDialogResult;      // filePath, fileCount, directoryURL, isCancelled, isSuccess, errorMessage
+    /// <summary>
+    /// Raised when a single-selection file open panel closes.
+    /// </summary>
+    /// <remarks>
+    /// Parameters:
+    /// filePaths = array containing the selected file path (null if none),
+    /// fileCount = number of returned paths ( -1 on error ),
+    /// directoryURL = directory path the panel was opened in, may be null,
+    /// isCancelled = true if the user cancelled, false otherwise,
+    /// isSuccess = false only if a native interop error occurred,
+    /// errorMessage = populated only when <c>isSuccess == false</c>.
+    /// </remarks>
+    public event Action<string[]?, int, string?, bool, bool, string?>? FileDialogResult;        
+
+    /// <summary>
+    /// Raised when a multi-file selection open panel closes.
+    /// </summary>
+    /// <remarks>See <see cref="FileDialogResult"/> for parameter semantics; filePaths can contain multiple entries.</remarks>
+    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFileDialogResult;   
+
+    /// <summary>
+    /// Raised when a single folder selection panel closes.
+    /// </summary>
+    /// <remarks>Parameters mirror <see cref="FileDialogResult"/> but represent folders instead of files.</remarks>
+    public event Action<string[]?, int, string?, bool, bool, string?>? FolderDialogResult;      
+
+    /// <summary>
+    /// Raised when a multi-folder selection panel closes.
+    /// </summary>
+    /// <remarks>Parameters mirror <see cref="MultiFileDialogResult"/> but represent folders instead of files.</remarks>
+    public event Action<string[]?, int, string?, bool, bool, string?>? MultiFolderDialogResult; 
+
+    /// <summary>
+    /// Raised when a save panel closes.
+    /// </summary>
+    /// <remarks>
+    /// filePath = resulting saved file path (null on cancel/error),
+    /// fileCount = always 1 when successful ( -1 on error ),
+    /// directoryURL = directory path containing the saved file (may be null),
+    /// isCancelled = true if the user cancelled,
+    /// isSuccess = false only if a native interop error occurred,
+    /// errorMessage = populated only when <c>isSuccess == false</c>.
+    /// </remarks>
+    public event Action<string?, int, string?, bool, bool, string?>? SaveFileDialogResult;      
 
     private void Awake()
     {
@@ -67,44 +139,107 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
-    // Objective-Cのコールバック型定義
+    // Native Objective-C callback delegate type definitions
+    /// <summary>
+    /// Callback signature for alert dialogs.
+    /// </summary>
+    /// <param name="buttonTitle">Title of the button pressed.</param>
+    /// <param name="buttonIndex">Zero-based index of the pressed button; -1 if an error occurred.</param>
+    /// <param name="suppressionButtonState">State of suppression checkbox (true if checked).</param>
+    /// <param name="isSuccess">True if the dialog completed successfully; false on internal/native failure.</param>
+    /// <param name="errorMessage">Error description when <c>isSuccess == false</c>; otherwise empty or null.</param>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void DialogCallback(string buttonTitle, int buttonIndex, bool suppressionButtonState, bool isSuccess, string errorMessage);
 
+    /// <summary>
+    /// Callback signature for single file selection dialogs.
+    /// </summary>
+    /// <param name="filePaths">Pointer to an array (UTF-8 string pointers) of selected file paths.</param>
+    /// <param name="fileCount">Number of selected files.</param>
+    /// <param name="directoryURL">Directory in which selection occurred.</param>
+    /// <param name="isCancelled">True if the user cancelled the panel.</param>
+    /// <param name="isSuccess">False only when a native failure occurred.</param>
+    /// <param name="errorMessage">Error message when <c>isSuccess == false</c>.</param>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void FileDialogCallback(IntPtr filePaths, int fileCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
 
+    /// <summary>
+    /// Callback signature for multi-file selection dialogs.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void MultiFileDialogCallback(IntPtr filePaths, int fileCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
 
+    /// <summary>
+    /// Callback signature for single folder selection dialogs.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void FolderDialogCallback(IntPtr folderPaths, int folderCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
 
+    /// <summary>
+    /// Callback signature for multi-folder selection dialogs.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void MultiFolderDialogCallback(IntPtr folderPaths, int folderCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
 
+    /// <summary>
+    /// Callback signature for save file dialogs.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void SaveFileDialogCallback(string filePath, int fileCount, string directoryURL, bool isCancelled, bool isSuccess, string errorMessage);
 
-    // Objective-Cの関数をインポート
+    // P/Invoke declarations bridging to Objective-C implementation inside the native macOS plugin.
+    /// <summary>
+    /// Displays a native macOS alert dialog.
+    /// </summary>
+    /// <param name="title">Window title of the alert.</param>
+    /// <param name="message">Primary informative text.</param>
+    /// <param name="buttonsJson">JSON describing button layout (<see cref="DialogButtonsWrapper"/>).</param>
+    /// <param name="optionsJson">JSON describing alert options (<see cref="DialogOptions"/>).</param>
+    /// <param name="callback">Callback fired when the alert completes.</param>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showDialog(string title, string message, string buttonsJson, string optionsJson, DialogCallback callback);
 
+    /// <summary>
+    /// Displays a native open file panel (single file selection).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, FileDialogCallback callback);
 
+    /// <summary>
+    /// Displays a native open file panel (multiple file selection).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showMultiFileDialog(string title, string message, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, MultiFileDialogCallback callback);
 
+    /// <summary>
+    /// Displays a native folder selection panel (single folder).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showFolderDialog(string title, string message, string? directoryPath, FolderDialogCallback callback);
 
+    /// <summary>
+    /// Displays a native folder selection panel (multiple folders).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showMultiFolderDialog(string title, string message, string? directoryPath, MultiFolderDialogCallback callback);
 
+    /// <summary>
+    /// Displays a native save file panel.
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showSaveFileDialog(string title, string message, string? defaultFileName, IntPtr allowedContentTypes, int contentTypesCount, string? directoryPath, SaveFileDialogCallback callback);
 
+    /// <summary>
+    /// Shows a native alert dialog using macOS NSAlert with custom buttons and options.
+    /// </summary>
+    /// <param name="title">Dialog title (required).</param>
+    /// <param name="message">Informative message displayed in the body of the alert.</param>
+    /// <param name="buttons">Array of buttons to display in order (must not be null or empty).</param>
+    /// <param name="options">Additional configuration such as alert style and suppression button.</param>
+    /// <remarks>
+    /// Execution: The native dialog is requested on the main thread via <see cref="UnityMainThreadDispatcher"/>.
+    /// Result: Completion is surfaced through <see cref="AlertDialogResult"/>. Errors pre-empt invocation with <c>isSuccess=false</c>.
+    /// </remarks>
     public void ShowDialog(string title, string message, DialogButton[] buttons, DialogOptions options)
     {
         Debug.Log($"ShowDialog called with title: {title}, message: {message} buttons: {buttons.Length}, options: {options}");
@@ -129,7 +264,7 @@ public class MacDialogManager : MonoBehaviour
             return;
         }
 
-        // Convert buttons and options to JSON
+    // Convert buttons and options to JSON for native consumption
         DialogButtonsWrapper wrapper = new DialogButtonsWrapper { buttons = buttons };
         string buttonsJson = JsonUtility.ToJson(wrapper);
         string optionsJson = JsonUtility.ToJson(options);
@@ -155,6 +290,17 @@ public class MacDialogManager : MonoBehaviour
         });
     }
 
+    /// <summary>
+    /// Shows a native open file panel allowing a single file selection.
+    /// </summary>
+    /// <param name="title">Panel title (required).</param>
+    /// <param name="message">Optional message displayed under the title.</param>
+    /// <param name="allowedContentTypes">Optional UTI / content type filters (UTF-8 marshalled to native). Pass null for no filtering.</param>
+    /// <param name="directoryPath">Optional initial directory path.</param>
+    /// <remarks>
+    /// Memory: Each content type string is marshalled manually to unmanaged UTF-8 and freed after the callback returns.
+    /// Result event: <see cref="FileDialogResult"/>.
+    /// </remarks>
     public void ShowFileDialog(string title, string message, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
@@ -183,7 +329,7 @@ public class MacDialogManager : MonoBehaviour
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
-                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // null終端文字
+                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // Null terminator
                 }
                 contentTypesPtr = Marshal.AllocHGlobal(IntPtr.Size * contentTypesCount);
                 Marshal.Copy(stringPointers, 0, contentTypesPtr, contentTypesCount);
@@ -191,7 +337,7 @@ public class MacDialogManager : MonoBehaviour
 
             FileDialogCallback fileDialogCallback = (filePathsPtr, fileCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
-                // ポインタからC#のstring[]に即時変換
+                // Convert unmanaged pointer array to managed string[] immediately
                 string[]? filePaths = null;
                 if (fileCount > 0)
                 {
@@ -207,7 +353,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                 }
 
-                // マネージドオブジェクト（C#のstring[]）をキューに入れる
+                // Queue managed array for invocation on Unity main thread
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
@@ -220,7 +366,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                     finally
                     {
-                        // ★重要：ここで引数用のメモリを解放する
+                        // IMPORTANT: Free unmanaged memory allocated for arguments here
                         if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
                         if (stringPointers != null)
                         {
@@ -239,7 +385,7 @@ public class MacDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowFileDialog error: {ex.Message}");
-            // エラー発生時にも確保したメモリを解放する
+            // Ensure allocated unmanaged memory is freed even when an error occurs
             if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
             if (stringPointers != null)
             {
@@ -252,6 +398,11 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows a native open file panel allowing multiple file selections.
+    /// </summary>
+    /// <inheritdoc cref="ShowFileDialog"/>
+    /// <remarks>Result event: <see cref="MultiFileDialogResult"/>.</remarks>
     public void ShowMultiFileDialog(string title, string message, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowMultiFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
@@ -280,7 +431,7 @@ public class MacDialogManager : MonoBehaviour
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
-                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // null終端文字
+                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // Null terminator
                 }
                 contentTypesPtr = Marshal.AllocHGlobal(IntPtr.Size * contentTypesCount);
                 Marshal.Copy(stringPointers, 0, contentTypesPtr, contentTypesCount);
@@ -288,7 +439,7 @@ public class MacDialogManager : MonoBehaviour
 
             MultiFileDialogCallback multiFileDialogCallback = (filePathsPtr, fileCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
-                // ポインタからC#のstring[]に即時変換
+                // Convert unmanaged pointer array to managed string[] immediately
                 string[]? filePaths = null;
                 if (fileCount > 0)
                 {
@@ -304,7 +455,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                 }
 
-                // マネージドオブジェクト（C#のstring[]）をキューに入れる
+                // Queue managed array for invocation on Unity main thread
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
@@ -317,7 +468,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                     finally
                     {
-                        // ★重要：ここで引数用のメモリを解放する
+                        // IMPORTANT: Free unmanaged memory allocated for arguments here
                         if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
                         if (stringPointers != null)
                         {
@@ -336,7 +487,7 @@ public class MacDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowMultiFileDialog error: {ex.Message}");
-            // エラー発生時にも確保したメモリを解放する
+            // Ensure allocated unmanaged memory is freed even when an error occurs
             if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
             if (stringPointers != null)
             {
@@ -349,6 +500,13 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows a native folder selection panel allowing the user to pick a single folder.
+    /// </summary>
+    /// <param name="title">Panel title (required).</param>
+    /// <param name="message">Optional informative message.</param>
+    /// <param name="directoryPath">Optional initial directory path.</param>
+    /// <remarks>Result event: <see cref="FolderDialogResult"/>.</remarks>
     public void ShowFolderDialog(string title, string message, string? directoryPath = null)
     {
         Debug.Log($"ShowFolderDialog called with title: {title}, message: {message}, directoryPath: {directoryPath}");
@@ -363,7 +521,7 @@ public class MacDialogManager : MonoBehaviour
         {
             FolderDialogCallback folderDialogCallback = (folderPathsPtr, folderCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
-                // ポインタからC#のstring[]に即時変換
+                // Convert unmanaged pointer array to managed string[] immediately
                 string[]? folderPaths = null;
                 if (folderCount > 0)
                 {
@@ -380,7 +538,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                 }
 
-                // マネージドオブジェクト（C#のstring[]）をキューに入れる
+                // Queue managed array for invocation on Unity main thread
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
@@ -403,6 +561,11 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows a native folder selection panel allowing the user to pick multiple folders.
+    /// </summary>
+    /// <inheritdoc cref="ShowFolderDialog"/>
+    /// <remarks>Result event: <see cref="MultiFolderDialogResult"/>.</remarks>
     public void ShowMultiFolderDialog(string title, string message, string? directoryPath = null)
     {
         Debug.Log($"ShowMultiFolderDialog called with title: {title}, message: {message}, directoryPath: {directoryPath}");
@@ -417,7 +580,7 @@ public class MacDialogManager : MonoBehaviour
         {
             MultiFolderDialogCallback multiFolderDialogCallback = (folderPathsPtr, folderCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
-                // ポインタからC#のstring[]に即時変換
+                // Convert unmanaged pointer array to managed string[] immediately
                 string[]? folderPaths = null;
                 if (folderCount > 0)
                 {
@@ -434,7 +597,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                 }
 
-                // マネージドオブジェクト（C#のstring[]）をキューに入れる
+                // Queue managed array for invocation on Unity main thread
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
@@ -457,6 +620,18 @@ public class MacDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows a native save file panel allowing the user to pick a location and optionally a file name.
+    /// </summary>
+    /// <param name="title">Panel title (required).</param>
+    /// <param name="message">Optional informative message.</param>
+    /// <param name="defaultFileName">Optional default file name pre-filled in the panel.</param>
+    /// <param name="allowedContentTypes">Optional content type (UTI) filters; marshalled manually to unmanaged memory.</param>
+    /// <param name="directoryPath">Optional initial directory path.</param>
+    /// <remarks>
+    /// Memory: Unmanaged buffers for content type filters are always released in the completion callback or error handler.
+    /// Result event: <see cref="SaveFileDialogResult"/>.
+    /// </remarks>
     public void ShowSaveFileDialog(string title, string message, string? defaultFileName = null, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
         Debug.Log($"ShowSaveFileDialog called with title: {title}, message: {message}, defaultFileName: {defaultFileName}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
@@ -485,7 +660,7 @@ public class MacDialogManager : MonoBehaviour
                     byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(allowedContentTypes[i]);
                     stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                     Marshal.Copy(utf8Bytes, 0, stringPointers[i], utf8Bytes.Length);
-                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // null終端文字
+                    Marshal.WriteByte(stringPointers[i], utf8Bytes.Length, 0); // Null terminator
                 }
                 contentTypesPtr = Marshal.AllocHGlobal(IntPtr.Size * contentTypesCount);
                 Marshal.Copy(stringPointers, 0, contentTypesPtr, contentTypesCount);
@@ -493,8 +668,7 @@ public class MacDialogManager : MonoBehaviour
 
             SaveFileDialogCallback saveFileDialogCallback = (filePath, fileCount, directoryURL, isCancelled, isSuccess, errorMessage) =>
             {
-                // ネイティブからのコールバックはメインスレッドではない可能性があるため、
-                // Unityのメインスレッドでイベント発行とメモリ解放を行う
+                // The native callback may arrive on a non-Unity thread; dispatch to the Unity main thread for event invocation & memory cleanup.
                 UnityMainThreadDispatcher.Instance.Enqueue(() =>
                 {
                     try
@@ -507,7 +681,7 @@ public class MacDialogManager : MonoBehaviour
                     }
                     finally
                     {
-                        // ★重要：ここで引数用のメモリを解放する
+                        // IMPORTANT: Free unmanaged memory allocated for arguments here
                         if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
                         if (stringPointers != null)
                         {
@@ -526,7 +700,7 @@ public class MacDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowSaveFileDialog error: {ex.Message}");
-            // エラー発生時にも確保したメモリを解放する
+            // Ensure allocated unmanaged memory is freed even when an error occurs
             if (contentTypesPtr != IntPtr.Zero) Marshal.FreeHGlobal(contentTypesPtr);
             if (stringPointers != null)
             {

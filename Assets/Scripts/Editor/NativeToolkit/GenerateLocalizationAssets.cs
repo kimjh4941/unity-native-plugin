@@ -9,16 +9,28 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
 
+/// <summary>
+/// Utility that (re)generates the Native Toolkit localization assets (Locales, StringTableCollection,
+/// and per-locale tables) from a CSV source file. Ensures directory layout:
+/// <c>Assets/Localization/Locales/Tables/EditorUI/NativeToolkit</c> as requested.
+/// </summary>
+/// <remarks>
+/// CSV schema: "key","en","ja" (header line is skipped). Existing entries are updated, new ones added.
+/// The generation process also relocates assets to the canonical directory if they were moved by the user.
+/// </remarks>
 public static class GenerateLocalizationAssets
 {
     private static string CSV_FILE => $"{CollectionTablesDir}/NativeToolkit.csv";
     private const string TableName = "NativeToolkit";
 
-    // 要望どおり: Locales 配下に Tables/EditorUI/NativeToolkit
+    // Layout requirement (as requested): Locales/Tables/EditorUI/NativeToolkit
     private const string LOCALES_DIR = "Assets/Localization/Locales";
     private static string TABLES_DIR => $"{LOCALES_DIR}/Tables/EditorUI";
     private static string CollectionTablesDir => $"{TABLES_DIR}/{TableName}";
 
+    /// <summary>
+    /// Menu command entry point. Creates / updates the localization collection and applies CSV entries.
+    /// </summary>
     [MenuItem("Tools/Native Toolkit/Localization/Generate Assets")]
     public static void Generate()
     {
@@ -45,7 +57,7 @@ public static class GenerateLocalizationAssets
             EnsureLocaleTables(collection, en, ja);
         }
 
-        // CSV からエントリを読み込み
+        // Load entries from CSV source (header skipped)
         var entries = LoadCsvEntries(CSV_FILE);
 
         foreach (var (key, enValue, jaValue) in entries)
@@ -55,21 +67,24 @@ public static class GenerateLocalizationAssets
 
         EditorUtility.SetDirty(collection.SharedData);
         AssetDatabase.SaveAssets();
-        // Localization Tables ウィンドウへ通知
+        // Notify Localization Tables window (initial immediate notification)
         // Notify editor that entries were modified (API no longer requires modification enum).
         LocalizationEditorSettings.EditorEvents.RaiseCollectionModified(null, collection);
-        // 遅延で再通知（ウィンドウ未初期化ケース）
+        // Re-notify on delay to cover case where window not yet initialized
         EditorApplication.delayCall += () =>
         {
             LocalizationEditorSettings.EditorEvents.RaiseCollectionModified(null, collection);
         };
 
-        // フォーカスを当てて UI 更新トリガ
+        // Focus to shared data asset to trigger UI refresh
         Selection.activeObject = collection.SharedData;
         AssetDatabase.Refresh();
         Debug.Log("[Localization] Generation complete.");
     }
 
+    /// <summary>
+    /// Ensures that a nested asset folder path exists by creating any missing intermediate folders.
+    /// </summary>
     private static void EnsureAssetDirectory(string targetPath)
     {
         if (AssetDatabase.IsValidFolder(targetPath)) return;
@@ -87,6 +102,9 @@ public static class GenerateLocalizationAssets
         }
     }
 
+    /// <summary>
+    /// Retrieves an existing locale (by IETF code) or creates and registers a new one.
+    /// </summary>
     private static Locale FindOrCreateLocale(string code)
     {
         var existing = LocalizationEditorSettings.GetLocale(new LocaleIdentifier(code));
@@ -104,12 +122,15 @@ public static class GenerateLocalizationAssets
         return locale;
     }
 
+    /// <summary>
+    /// Builds a friendly asset filename using English display name and the locale code.
+    /// </summary>
     private static string GetLocaleFileName(string code)
     {
         try
         {
             var ci = new CultureInfo(code);
-            // 例: English (en), Japanese (ja)
+            // Example: English (en), Japanese (ja)
             return $"{ci.EnglishName} ({code})";
         }
         catch
@@ -118,6 +139,10 @@ public static class GenerateLocalizationAssets
         }
     }
 
+    /// <summary>
+    /// Verifies that a string table exists for each provided locale; creates any missing tables
+    /// and relocates them into the canonical collection directory.
+    /// </summary>
     private static void EnsureLocaleTables(StringTableCollection collection, params Locale[] locales)
     {
         if (collection == null || collection.SharedData == null)
@@ -162,6 +187,9 @@ public static class GenerateLocalizationAssets
         }
     }
 
+    /// <summary>
+    /// Adds a key if missing and updates localized values for all tables in the collection.
+    /// </summary>
     private static void AddOrUpdateEntry(StringTableCollection collection, string key, string enValue, string jaValue)
     {
         var shared = collection.SharedData;
@@ -179,6 +207,9 @@ public static class GenerateLocalizationAssets
         }
     }
 
+    /// <summary>
+    /// Moves shared data and per-locale tables into the expected directory hierarchy if they have drifted.
+    /// </summary>
     private static void RelocateIfNeeded(StringTableCollection collection)
     {
         bool moved = false;
@@ -224,6 +255,9 @@ public static class GenerateLocalizationAssets
         }
     }
 
+    /// <summary>
+    /// Loads CSV entries (skipping header) returning a tuple list of (key, en, ja) values.
+    /// </summary>
     private static List<(string key, string en, string ja)> LoadCsvEntries(string csvPath)
     {
         var entries = new List<(string, string, string)>();
@@ -234,9 +268,9 @@ public static class GenerateLocalizationAssets
         }
 
         var lines = File.ReadAllLines(csvPath);
-        foreach (var line in lines.Skip(1))  // ヘッダー行を無視
+        foreach (var line in lines.Skip(1))  // Skip header line
         {
-            // CSV 形式: "key","en","ja"
+            // CSV schema: "key","en","ja"
             var parts = line.Split(',');
             if (parts.Length >= 3)
             {

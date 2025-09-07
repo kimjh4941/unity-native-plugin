@@ -4,10 +4,20 @@
 using UnityEngine;
 using System;
 
+/// <summary>
+/// Singleton manager for Android native dialog operations using Unity's AndroidJavaObject interface.
+/// Provides a Unity-friendly API for showing various types of Android native dialogs including
+/// basic alerts, confirmation dialogs, single/multi-choice dialogs, text input, and login dialogs.
+/// Uses event-driven callbacks to handle dialog results asynchronously.
+/// </summary>
 public class AndroidDialogManager : MonoBehaviour
 {
     private static AndroidDialogManager? _instance;
 
+    /// <summary>
+    /// Singleton instance property for AndroidDialogManager.
+    /// Creates a new instance if none exists and ensures it persists across scene loads.
+    /// </summary>
     public static AndroidDialogManager Instance
     {
         get
@@ -23,7 +33,7 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
-    // ダイアログ結果を受け取るためのイベント
+    // Event handlers for receiving dialog results
     public event Action<string?, bool, string?>? DialogResult; // buttonText, isSuccessful, errorMessage
     public event Action<string?, bool, string?>? ConfirmDialogResult; // buttonText, isSuccessful, errorMessage
     public event Action<string?, int?, bool, string?>? SingleChoiceItemDialogResult; // buttonText, checkedItem, isSuccessful, errorMessage
@@ -33,6 +43,10 @@ public class AndroidDialogManager : MonoBehaviour
 
     private AndroidJavaObject? pluginInstance;
 
+    /// <summary>
+    /// Initialize the singleton instance and set up the main thread dispatcher.
+    /// Ensures only one instance exists and persists across scene changes.
+    /// </summary>
     private void Awake()
     {
         Debug.Log("AndroidDialogManager Awake");
@@ -45,15 +59,19 @@ public class AndroidDialogManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        // Dispatcher をメインスレッドで必ず生成しておく（以降は他スレッドから安全に Enqueue 可）
+        // Ensure Dispatcher is created on main thread for safe cross-thread enqueueing
         _ = UnityMainThreadDispatcher.Instance;
 
         Initialize();
     }
 
+    /// <summary>
+    /// Initialize the native Android plugin interface and register event listeners.
+    /// Only initializes on Android platform, logs warning on other platforms.
+    /// </summary>
     public void Initialize()
     {
-        // Androidプラットフォームで実行されている場合のみ、ネイティブプラグインの初期化を行う
+        // Only initialize native plugin when running on Android platform
         if (Application.platform != RuntimePlatform.Android)
         {
             Debug.Log("Not running on an Android device. Skipping native plugin initialization.");
@@ -79,7 +97,7 @@ public class AndroidDialogManager : MonoBehaviour
             {
                 Debug.Log("pluginInstance initialized successfully.");
 
-                // 各種リスナーを登録
+                // Register various event listeners
                 pluginInstance.Call("setDialogListener", new DialogListener());
                 pluginInstance.Call("setConfirmDialogListener", new ConfirmDialogListener());
                 pluginInstance.Call("setSingleChoiceItemDialogListener", new SingleChoiceItemDialogListener());
@@ -91,6 +109,11 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     // Unity callback classes
+
+    /// <summary>
+    /// Proxy class for handling basic dialog callbacks from Android native code.
+    /// Receives dialog result and forwards to Unity event system via main thread dispatcher.
+    /// </summary>
     private class DialogListener : AndroidJavaProxy
     {
         public DialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$DialogListener") { }
@@ -105,6 +128,10 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Proxy class for handling confirmation dialog callbacks from Android native code.
+    /// Receives dialog result and forwards to Unity event system via main thread dispatcher.
+    /// </summary>
     private class ConfirmDialogListener : AndroidJavaProxy
     {
         public ConfirmDialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$ConfirmDialogListener") { }
@@ -119,6 +146,10 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Proxy class for handling single choice dialog callbacks from Android native code.
+    /// Receives dialog result with selected item index and forwards to Unity event system.
+    /// </summary>
     private class SingleChoiceItemDialogListener : AndroidJavaProxy
     {
         public SingleChoiceItemDialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$SingleChoiceItemDialogListener") { }
@@ -133,6 +164,10 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Proxy class for handling multi-choice dialog callbacks from Android native code.
+    /// Receives dialog result with array of selected items and forwards to Unity event system.
+    /// </summary>
     private class MultiChoiceItemDialogListener : AndroidJavaProxy
     {
         public MultiChoiceItemDialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$MultiChoiceItemDialogListener") { }
@@ -147,6 +182,10 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Proxy class for handling text input dialog callbacks from Android native code.
+    /// Receives dialog result with entered text and forwards to Unity event system.
+    /// </summary>
     private class TextInputDialogListener : AndroidJavaProxy
     {
         public TextInputDialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$TextInputDialogListener") { }
@@ -161,6 +200,10 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Proxy class for handling login dialog callbacks from Android native code.
+    /// Receives dialog result with entered credentials and forwards to Unity event system.
+    /// </summary>
     private class LoginDialogListener : AndroidJavaProxy
     {
         public LoginDialogListener() : base("android.unity.dialog.UnityAndroidDialogManager$LoginDialogListener") { }
@@ -178,8 +221,13 @@ public class AndroidDialogManager : MonoBehaviour
     // Public methods to show dialogs
 
     /// <summary>
-    /// 基本的なアラートダイアログを表示
+    /// Shows a basic Android alert dialog with a single button.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="message">Dialog message content</param>
+    /// <param name="buttonText">Text for the single button (default: "OK")</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowDialog(string title, string message, string buttonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowDialog called with title: {title}, message: {message}");
@@ -213,8 +261,14 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 確認ダイアログを表示（Yes/Noボタン）
+    /// Shows a confirmation dialog with Yes/No buttons.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="message">Dialog message content</param>
+    /// <param name="negativeButtonText">Text for the negative button (default: "No")</param>
+    /// <param name="positiveButtonText">Text for the positive button (default: "Yes")</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowConfirmDialog(string title, string message, string negativeButtonText = "No", string positiveButtonText = "Yes", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowConfirmDialog called with title: {title}, message: {message}");
@@ -248,8 +302,15 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 単一選択ダイアログを表示
+    /// Shows a single selection dialog with radio button options.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="singleChoiceItems">Array of items to choose from</param>
+    /// <param name="checkedItem">Index of initially selected item (default: 0)</param>
+    /// <param name="negativeButtonText">Text for the negative button (default: "Cancel")</param>
+    /// <param name="positiveButtonText">Text for the positive button (default: "OK")</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowSingleChoiceItemDialog(string title, string[] singleChoiceItems, int checkedItem = 0, string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowSingleChoiceItemDialog called with title: {title}, items: {singleChoiceItems?.Length}");
@@ -283,8 +344,15 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 複数選択ダイアログを表示
+    /// Shows a multi-selection dialog with checkbox options.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="multiChoiceItems">Array of items to choose from</param>
+    /// <param name="checkedItems">Array indicating initial selection state for each item</param>
+    /// <param name="negativeButtonText">Text for the negative button (default: "Cancel")</param>
+    /// <param name="positiveButtonText">Text for the positive button (default: "OK")</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowMultiChoiceItemDialog(string title, string[] multiChoiceItems, bool[] checkedItems, string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowMultiChoiceItemDialog called with title: {title}, items: {multiChoiceItems?.Length}");
@@ -318,8 +386,16 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// テキスト入力ダイアログを表示
+    /// Shows a text input dialog with a single text field.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="message">Dialog message content</param>
+    /// <param name="hint">Placeholder text for the input field (default: "")</param>
+    /// <param name="negativeButtonText">Text for the negative button (default: "Cancel")</param>
+    /// <param name="positiveButtonText">Text for the positive button (default: "OK")</param>
+    /// <param name="enablePositiveButtonWhenEmpty">Whether positive button is enabled when input is empty (default: false)</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowTextInputDialog(string title, string message, string hint = "", string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool enablePositiveButtonWhenEmpty = false, bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, enablePositiveButtonWhenEmpty: {enablePositiveButtonWhenEmpty}");
@@ -353,8 +429,17 @@ public class AndroidDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ログインダイアログを表示（ユーザー名・パスワード入力）
+    /// Shows a login dialog with username and password input fields.
     /// </summary>
+    /// <param name="title">Dialog title</param>
+    /// <param name="message">Dialog message content</param>
+    /// <param name="usernameHint">Placeholder text for the username field (default: "Username")</param>
+    /// <param name="passwordHint">Placeholder text for the password field (default: "Password")</param>
+    /// <param name="negativeButtonText">Text for the negative button (default: "Cancel")</param>
+    /// <param name="positiveButtonText">Text for the positive button (default: "OK")</param>
+    /// <param name="enablePositiveButtonWhenEmpty">Whether positive button is enabled when inputs are empty (default: false)</param>
+    /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
+    /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
     public void ShowLoginDialog(string title, string message, string usernameHint = "Username", string passwordHint = "Password", string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool enablePositiveButtonWhenEmpty = false, bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, enablePositiveButtonWhenEmpty: {enablePositiveButtonWhenEmpty}");
@@ -387,6 +472,11 @@ public class AndroidDialogManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Helper method to post actions to the main Unity thread safely.
+    /// Uses UnityMainThreadDispatcher to ensure UI operations happen on the correct thread.
+    /// </summary>
+    /// <param name="action">Action to execute on the main thread</param>
     private static void PostToMainThread(Action action)
     {
         try

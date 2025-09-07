@@ -6,25 +6,37 @@ using System;
 using System.IO;
 using System.Reflection;
 
+/// <summary>
+/// Custom editor for Readme ScriptableObjects that provides an enhanced Inspector experience.
+/// Automatically displays readme content when the project loads and provides interactive
+/// buttons for links and tutorial management. Includes functionality to remove tutorial assets.
+/// </summary>
 [CustomEditor(typeof(Readme))]
 [InitializeOnLoad]
 public class ReadmeEditor : Editor
 {
     static string s_ShowedReadmeSessionStateName = "ReadmeEditor.showedReadme";
-    
+
     static string s_ReadmeSourceDirectory = "Assets/TutorialInfo";
 
     const float k_Space = 16f;
 
+    /// <summary>
+    /// Static constructor that sets up automatic readme selection when Unity loads.
+    /// </summary>
     static ReadmeEditor()
     {
         EditorApplication.delayCall += SelectReadmeAutomatically;
     }
 
+    /// <summary>
+    /// Removes tutorial assets and readme files from the project.
+    /// Shows a confirmation dialog before deletion to prevent accidental removal.
+    /// </summary>
     static void RemoveTutorial()
     {
         if (EditorUtility.DisplayDialog("Remove Readme Assets",
-            
+
             $"All contents under {s_ReadmeSourceDirectory} will be removed, are you sure you want to proceed?",
             "Proceed",
             "Cancel"))

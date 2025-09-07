@@ -6,11 +6,17 @@ using UnityEngine.UIElements;
 using System.Collections;
 using System.Linq;
 
+/// <summary>
+/// Controller for the Android native dialog manager example UI.
+/// Provides functionality to demonstrate various types of Android native dialogs including
+/// basic dialogs, confirmation dialogs, single/multi-choice dialogs, text input, and login dialogs.
+/// Also handles responsive UI layout and safe area adaptation for Android devices.
+/// </summary>
 public class AndroidDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
 
-    // UI refs
+    // UI element references
     private Label? _resultLabel;
     private Button? _btnDialog;
     private Button? _btnConfirm;
@@ -26,12 +32,16 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     [SerializeField] private int manualLeftPadding = 0;
     [SerializeField] private int manualRightPadding = 0;
 
-    // 画面回転監視用
+    // Screen orientation monitoring variables
     private ScreenOrientation lastOrientation;
     private Vector2 lastScreenSize;
     private float orientationCheckInterval = 0.3f;
     private float lastOrientationCheckTime;
 
+    /// <summary>
+    /// Initialize component and platform-specific behavior on Awake.
+    /// Shows a simulation dialog in Editor mode and validates platform compatibility.
+    /// </summary>
     void Awake()
     {
 #if UNITY_EDITOR
@@ -50,6 +60,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         Debug.Log("AndroidDialogManagerExampleController initialized successfully.");
     }
 
+    /// <summary>
+    /// Initialize UI elements, safe area configuration, and responsive layout on Start.
+    /// Sets up event handlers and initial screen state monitoring.
+    /// </summary>
     private void Start()
     {
         if (uiDocument == null)
@@ -63,7 +77,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
             return;
         }
 
-        // 初期値を設定
+        // Set initial values
         lastOrientation = Screen.orientation;
         lastScreenSize = new Vector2(Screen.width, Screen.height);
 
@@ -74,9 +88,17 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         Debug.Log("[AndroidDialogManagerExampleController] Initialized successfully");
     }
 
+    /// <summary>
+    /// Monitor screen orientation and size changes for responsive layout updates.
+    /// Checks periodically to avoid excessive Update calls.
+    /// </summary>
+    /// <summary>
+    /// Monitor screen orientation and size changes for responsive layout updates.
+    /// Checks periodically to avoid excessive Update calls.
+    /// </summary>
     private void Update()
     {
-        // 効率的な画面サイズ変更チェック
+        // Efficient screen change detection
         if (Time.time - lastOrientationCheckTime > orientationCheckInterval)
         {
             lastOrientationCheckTime = Time.time;
@@ -84,6 +106,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Check for screen orientation or size changes and trigger layout updates if needed.
+    /// Compares current screen state with cached values to detect changes.
+    /// </summary>
     private void CheckForOrientationChange()
     {
         var currentOrientation = Screen.orientation;
@@ -103,6 +129,11 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Coroutine to update UI layout after screen orientation or size change.
+    /// Waits for frames to complete before applying responsive classes.
+    /// </summary>
+    /// <returns>Coroutine enumerator</returns>
     private IEnumerator UpdateLayoutAfterChange()
     {
         yield return new WaitForEndOfFrame();
@@ -112,6 +143,11 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         Debug.Log("[AndroidDialogManagerExampleController] Layout updated after screen change");
     }
 
+    /// <summary>
+    /// Initialize UI elements and wire up button event handlers.
+    /// Sets up references to UI components and registers event listeners for native dialog actions.
+    /// Also registers AndroidDialogManager event handlers on Android platform.
+    /// </summary>
     private void InitializeUI()
     {
         var root = uiDocument?.rootVisualElement;
@@ -147,6 +183,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Clean up event handlers when the component is destroyed.
+    /// Unregisters all button click events and AndroidDialogManager event handlers to prevent memory leaks.
+    /// </summary>
     void OnDestroy()
     {
         if (_btnDialog != null) _btnDialog.clicked -= OnShowDialogClicked;
@@ -168,6 +208,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     #region Dialog Event Handlers
 
+    /// <summary>
+    /// Handles the basic dialog button click event.
+    /// Shows a simple Android native dialog with a single OK button.
+    /// </summary>
     private void OnShowDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowDialogClicked triggered");
@@ -187,6 +231,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Handles the confirmation dialog button click event.
+    /// Shows an Android native dialog with Yes/No buttons for user confirmation.
+    /// </summary>
     private void OnShowConfirmDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowConfirmDialogClicked triggered");
@@ -208,6 +256,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Handles the single choice dialog button click event.
+    /// Shows an Android native dialog with radio button options for single selection.
+    /// </summary>
     private void OnShowSingleChoiceItemDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowSingleChoiceItemDialogClicked triggered");
@@ -231,6 +283,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Handles the multi-choice dialog button click event.
+    /// Shows an Android native dialog with checkboxes for multiple item selection.
+    /// </summary>
     private void OnShowMultiChoiceItemDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowMultiChoiceItemDialogClicked triggered");
@@ -254,6 +310,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Handles the text input dialog button click event.
+    /// Shows an Android native dialog with a text input field for user text entry.
+    /// </summary>
     private void OnShowTextInputDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowTextInputDialogClicked triggered");
@@ -279,6 +339,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Handles the login dialog button click event.
+    /// Shows an Android native dialog with username and password input fields for user authentication.
+    /// </summary>
     private void OnShowLoginDialogClicked()
     {
         Debug.Log("[AndroidDialogManagerExampleController] OnShowLoginDialogClicked triggered");
@@ -310,11 +374,20 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     #region Safe Area and Responsive Layout
 
+    /// <summary>
+    /// Applies Android-specific safe area configuration to the UI.
+    /// Initiates a coroutine to handle safe area padding after UI is fully initialized.
+    /// </summary>
     private void ApplyAndroidSafeArea()
     {
         StartCoroutine(ApplySafeAreaCoroutine());
     }
 
+    /// <summary>
+    /// Coroutine to apply safe area padding to the root UI element.
+    /// Waits for UI layout completion before applying manual or automatic safe area values.
+    /// </summary>
+    /// <returns>Coroutine enumerator</returns>
     private IEnumerator ApplySafeAreaCoroutine()
     {
         yield return new WaitForEndOfFrame();
@@ -358,6 +431,10 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         root.style.paddingRight = rightPadding;
     }
 
+    /// <summary>
+    /// Applies responsive CSS classes to the UI based on screen size and DPI.
+    /// Calculates DPI-adjusted screen dimensions and applies appropriate size and density classes.
+    /// </summary>
     private void ApplyResponsiveClasses()
     {
         var root = uiDocument?.rootVisualElement;
@@ -369,7 +446,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         var screenWidth = Screen.width;
         var dpi = Screen.dpi;
 
-        // 既存のクラスを削除
+        // Remove existing classes
         root.RemoveFromClassList("small-screen");
         root.RemoveFromClassList("medium-screen");
         root.RemoveFromClassList("large-screen");
@@ -377,17 +454,17 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         root.RemoveFromClassList("medium-dpi");
         root.RemoveFromClassList("high-dpi");
 
-        // DPIが無効な場合のデフォルト値
+        // Default value for invalid DPI
         if (dpi <= 0 || float.IsNaN(dpi))
         {
-            dpi = 160f; // Android標準DPI
+            dpi = 160f; // Android standard DPI
         }
 
-        // DPIに基づく調整係数を計算
-        float dpiScale = dpi / 160f; // 160dpiを基準（1.0）とする
-        float adjustedWidth = screenWidth / dpiScale; // DPIで正規化した幅
+        // Calculate DPI adjustment factor
+        float dpiScale = dpi / 160f; // Use 160dpi as reference (1.0)
+        float adjustedWidth = screenWidth / dpiScale; // DPI-normalized width
 
-        // 画面サイズクラスを追加（DPI調整済み）
+        // Add screen size classes (DPI-adjusted)
         if (adjustedWidth <= 480)
         {
             root.AddToClassList("small-screen");
@@ -401,7 +478,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
             root.AddToClassList("large-screen");
         }
 
-        // DPIクラスを追加
+        // Add DPI classes
         if (dpi <= 160)
         {
             root.AddToClassList("low-dpi");
@@ -424,6 +501,13 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     #region AndroidDialogManager Event Handlers
 
+    /// <summary>
+    /// Handles the result from a basic Android dialog.
+    /// Updates the result label with button text, success status, and any error message.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -438,6 +522,13 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles the result from an Android confirmation dialog.
+    /// Updates the result label with button selection, success status, and any error message.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed (positive/negative)</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnConfirmDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnConfirmDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -452,6 +543,14 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles the result from an Android single choice dialog.
+    /// Updates the result label with the selected item index, button text, and operation status.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed</param>
+    /// <param name="checkedItem">Index of the selected item (null if cancelled)</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnSingleChoiceItemDialogResult(string? buttonText, int? checkedItem, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnSingleChoiceItemDialogResult buttonText: {buttonText ?? "null"}, checkedItem: {(checkedItem.HasValue ? checkedItem.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -468,6 +567,14 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles the result from an Android multi-choice dialog.
+    /// Updates the result label with the selection state of all items, button text, and operation status.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed</param>
+    /// <param name="checkedItems">Array of boolean values indicating which items were selected</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnMultiChoiceItemDialogResult(string? buttonText, bool[]? checkedItems, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnMultiChoiceItemDialogResult buttonText: {buttonText ?? "null"}, " +
@@ -486,6 +593,14 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles the result from an Android text input dialog.
+    /// Updates the result label with the entered text, button selection, and operation status.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed</param>
+    /// <param name="inputText">Text entered by the user (null if cancelled)</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnTextInputDialogResult(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnTextInputDialogResult buttonText: {buttonText ?? "null"}, inputText: {inputText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -501,6 +616,15 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles the result from an Android login dialog.
+    /// Updates the result label with the entered credentials, button selection, and operation status.
+    /// </summary>
+    /// <param name="buttonText">Text of the button that was pressed</param>
+    /// <param name="username">Username entered by the user (null if cancelled)</param>
+    /// <param name="password">Password entered by the user (null if cancelled)</param>
+    /// <param name="isSuccess">Whether the dialog operation succeeded</param>
+    /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnLoginDialogResult(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnLoginDialogResult buttonText: {buttonText ?? "null"}, " +

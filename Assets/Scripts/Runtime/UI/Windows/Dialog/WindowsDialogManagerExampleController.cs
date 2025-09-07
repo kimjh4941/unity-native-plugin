@@ -5,11 +5,17 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 
+/// <summary>
+/// Controller for the Windows native dialog manager example UI.
+/// Provides functionality to demonstrate various types of Windows native dialogs including
+/// alert dialogs, file/folder selection dialogs, and save dialogs.
+/// Handles Windows-specific file system interactions and native dialog integration.
+/// </summary>
 public class WindowsDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
 
-    // UI refs
+    // UI element references
     private Label? _resultLabel;
     private Button? _btnAlert;
     private Button? _btnFile;
@@ -18,6 +24,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     private Button? _btnMultiFolder;
     private Button? _btnSaveFile;
 
+    /// <summary>
+    /// Initialize component and platform-specific behavior on Awake.
+    /// Shows a simulation dialog in Editor mode and validates platform compatibility.
+    /// </summary>
     private void Awake()
     {
 #if UNITY_EDITOR
@@ -36,6 +46,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log("[WindowsDialogManagerExampleController] initialized.");
     }
 
+    /// <summary>
+    /// Initialize UI elements and set up event handlers on Start.
+    /// Configures button references and registers click events for Windows dialog operations.
+    /// </summary>
     private void Start()
     {
         if (uiDocument == null)
@@ -51,6 +65,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         Debug.Log("[WindowsDialogManagerExampleController] Initialized successfully");
     }
 
+    /// <summary>
+    /// Resolves UI Toolkit element references, validates required elements, wires button click callbacks,
+    /// and (in a Windows standalone player) subscribes to native dialog result events from <see cref="WindowsDialogManager"/>.
+    /// </summary>
+    /// <remarks>
+    /// In the Unity Editor native dialogs are simulated and result events do not fire; clicking buttons only logs intent.
+    /// </remarks>
     private void InitializeUI()
     {
         var root = uiDocument?.rootVisualElement;
@@ -92,6 +113,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Unsubscribes all button callbacks and native dialog result events to prevent memory leaks or duplicate
+    /// callbacks after scene unload or domain reload.
+    /// </summary>
     private void OnDestroy()
     {
         if (_btnAlert != null) _btnAlert.clicked -= OnShowDialogClicked;
@@ -113,6 +138,12 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     }
 
     // Button actions
+    /// <summary>
+    /// Displays a native Windows MessageBox with OK / Cancel buttons, information icon, defaulting to the second button.
+    /// </summary>
+    /// <remarks>
+    /// The result (pressed button) and any error code are returned via <see cref="OnAlertDialogResult"/>.
+    /// </remarks>
     private void OnShowDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -133,6 +164,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens an Open File dialog allowing the user to pick a single file with optional filter.
+    /// </summary>
+    /// <remarks>
+    /// A double-null terminated filter string is used (e.g. "Text Files\0*.txt\0All Files\0*.*\0\0").
+    /// Result delivered via <see cref="OnFileDialogResult"/>.
+    /// </remarks>
     private void OnShowFileDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -142,6 +180,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens an Open File dialog permitting multiple file selection.
+    /// </summary>
+    /// <remarks>Result delivered via <see cref="OnMultiFileDialogResult"/> as an ArrayList of paths.</remarks>
     private void OnShowMultiFileDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -151,6 +193,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a single folder selection dialog using the Windows shell API.
+    /// </summary>
+    /// <remarks>Result delivered via <see cref="OnFolderDialogResult"/>.</remarks>
     private void OnShowFolderDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -160,6 +206,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a multi-folder selection dialog (if supported) allowing selection of multiple directories.
+    /// </summary>
+    /// <remarks>Result delivered via <see cref="OnMultiFolderDialogResult"/>.</remarks>
     private void OnShowMultiFolderDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -169,6 +219,10 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a Save File dialog pre-populated with a default extension and filter list.
+    /// </summary>
+    /// <remarks>Result delivered via <see cref="OnSaveFileDialogResult"/>.</remarks>
     private void OnShowSaveFileDialogClicked()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -180,6 +234,12 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     }
 
     // Event handlers (unsubscribe after one response to avoid duplicates)
+    /// <summary>
+    /// Callback for a completed Windows MessageBox dialog.
+    /// </summary>
+    /// <param name="result">The raw Win32 MessageBox result code (e.g. IDOK / IDCANCEL) or null on failure.</param>
+    /// <param name="isSuccess">True if the dialog call returned successfully.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name="isSuccess"/> is false.</param>
     private void OnAlertDialogResult(int? result, bool isSuccess, int? errorCode)
     {
         Debug.Log($"[WindowsDialogManagerExampleController] OnAlertDialogResult -> result: {(result.HasValue ? result.Value.ToString() : "null")}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
@@ -194,6 +254,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for a single file selection dialog completion.
+    /// </summary>
+    /// <param name="filePath">Selected file path or null if cancelled/failure.</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native API succeeded.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name=\"isSuccess\"/> is false.</param>
     private void OnFileDialogResult(string? filePath, bool isCancelled, bool isSuccess, int? errorCode)
     {
         Debug.Log($"[WindowsDialogManagerExampleController] OnFileDialogResult -> filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
@@ -208,6 +275,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for a multi-file selection dialog completion.
+    /// </summary>
+    /// <param name="filePaths">Collection of selected file paths (ArrayList for heterogeneity with P/Invoke marshalling) or null.</param>
+    /// <param name="isCancelled">True if the user cancelled.</param>
+    /// <param name="isSuccess">True if native call succeeded.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name=\"isSuccess\"/> is false.</param>
     private void OnMultiFileDialogResult(ArrayList? filePaths, bool isCancelled, bool isSuccess, int? errorCode)
     {
         var list = filePaths == null ? "null" : string.Join(", ", filePaths.ToArray());
@@ -223,6 +297,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for a single folder selection dialog completion.
+    /// </summary>
+    /// <param name="folderPath">Selected folder path or null if cancelled/failure.</param>
+    /// <param name="isCancelled">True if the user cancelled.</param>
+    /// <param name="isSuccess">True if native call succeeded.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name=\"isSuccess\"/> is false.</param>
     private void OnFolderDialogResult(string? folderPath, bool isCancelled, bool isSuccess, int? errorCode)
     {
         Debug.Log($"[WindowsDialogManagerExampleController] OnFolderDialogResult -> folderPath: {folderPath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");
@@ -237,6 +318,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for a multi-folder selection dialog completion.
+    /// </summary>
+    /// <param name="folderPaths">Collection of selected folder paths or null on failure.</param>
+    /// <param name="isCancelled">True if the operation was cancelled.</param>
+    /// <param name="isSuccess">True if native call succeeded.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name=\"isSuccess\"/> is false.</param>
     private void OnMultiFolderDialogResult(ArrayList? folderPaths, bool isCancelled, bool isSuccess, int? errorCode)
     {
         var list = folderPaths == null ? "null" : string.Join(", ", folderPaths.ToArray());
@@ -252,6 +340,13 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for a save file dialog completion.
+    /// </summary>
+    /// <param name="filePath">The chosen save path or null if cancelled/failure.</param>
+    /// <param name="isCancelled">True if the user cancelled.</param>
+    /// <param name="isSuccess">True if native call succeeded.</param>
+    /// <param name="errorCode">Win32 error code when <paramref name=\"isSuccess\"/> is false.</param>
     private void OnSaveFileDialogResult(string? filePath, bool isCancelled, bool isSuccess, int? errorCode)
     {
         Debug.Log($"[WindowsDialogManagerExampleController] OnSaveFileDialogResult -> filePath: {filePath ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorCode: {(errorCode.HasValue ? errorCode.Value.ToString() : "null")}");

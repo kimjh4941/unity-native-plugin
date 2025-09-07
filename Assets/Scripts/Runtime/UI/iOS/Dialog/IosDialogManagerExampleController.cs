@@ -5,11 +5,17 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 
+/// <summary>
+/// Controller for the iOS native dialog manager example UI.
+/// Provides functionality to demonstrate various types of iOS native dialogs including
+/// basic alerts, confirmation dialogs, destructive alerts, action sheets, text input, and login dialogs.
+/// Also handles responsive UI layout and safe area adaptation for iOS devices.
+/// </summary>
 public class IosDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
 
-    // UI refs
+    // UI element references
     private Label? _resultLabel;
     private Button? _btnDialog;
     private Button? _btnConfirm;
@@ -25,12 +31,16 @@ public class IosDialogManagerExampleController : MonoBehaviour
     [SerializeField] private int manualLeftPadding = 0;
     [SerializeField] private int manualRightPadding = 0;
 
-    // 画面回転監視用
+    // Screen orientation monitoring variables
     private ScreenOrientation lastOrientation;
     private Vector2 lastScreenSize;
     private float orientationCheckInterval = 0.3f;
     private float lastOrientationCheckTime;
 
+    /// <summary>
+    /// Initialize component and platform-specific behavior on Awake.
+    /// Shows a simulation dialog in Editor mode and validates platform compatibility.
+    /// </summary>
     void Awake()
     {
 #if UNITY_EDITOR
@@ -49,6 +59,10 @@ public class IosDialogManagerExampleController : MonoBehaviour
         Debug.Log("[IosDialogManagerExampleController] initialized.");
     }
 
+    /// <summary>
+    /// Initialize UI elements, safe area configuration, and responsive layout on Start.
+    /// Sets up event handlers and initial screen state monitoring.
+    /// </summary>
     private void Start()
     {
         if (uiDocument == null)
@@ -62,7 +76,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
             return;
         }
 
-        // 初期値を設定
+        // Set initial values
         lastOrientation = Screen.orientation;
         lastScreenSize = new Vector2(Screen.width, Screen.height);
 
@@ -73,9 +87,13 @@ public class IosDialogManagerExampleController : MonoBehaviour
         Debug.Log("[IosDialogManagerExampleController] Initialized successfully");
     }
 
+    /// <summary>
+    /// Monitor screen orientation and size changes for responsive layout updates.
+    /// Checks periodically to avoid excessive Update calls.
+    /// </summary>
     private void Update()
     {
-        // 効率的な画面サイズ変更チェック
+        // Efficient screen change detection
         if (Time.time - lastOrientationCheckTime > orientationCheckInterval)
         {
             lastOrientationCheckTime = Time.time;
@@ -83,6 +101,10 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Check for screen orientation or size changes and trigger layout updates if needed.
+    /// Compares current screen state with cached values to detect changes.
+    /// </summary>
     private void CheckForOrientationChange()
     {
         var currentOrientation = Screen.orientation;
@@ -102,6 +124,11 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Coroutine to update UI layout after screen orientation or size change.
+    /// Waits for frames to complete before applying responsive classes.
+    /// </summary>
+    /// <returns>Coroutine enumerator</returns>
     private IEnumerator UpdateLayoutAfterChange()
     {
         yield return new WaitForEndOfFrame();
@@ -111,6 +138,11 @@ public class IosDialogManagerExampleController : MonoBehaviour
         Debug.Log("[IosDialogManagerExampleController] Layout updated after screen change");
     }
 
+    /// <summary>
+    /// Initialize UI elements and wire up button event handlers.
+    /// Sets up references to UI components and registers event listeners for native dialog actions.
+    /// Also registers IosDialogManager event handlers on iOS platform.
+    /// </summary>
     private void InitializeUI()
     {
         var root = uiDocument?.rootVisualElement;
@@ -152,6 +184,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
 
     private void OnDestroy()
     {
+        // Unsubscribe button callbacks and native dialog events (to avoid leaks in domain reloads)
         if (_btnDialog != null) _btnDialog.clicked -= OnShowDialogClicked;
         if (_btnConfirm != null) _btnConfirm.clicked -= OnShowConfirmDialogClicked;
         if (_btnDestructive != null) _btnDestructive.clicked -= OnShowDestructiveDialogClicked;
@@ -171,6 +204,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 
     #region Dialog Event Handlers
 
+    /// <summary>
+    /// Button handler: shows a simple informational alert dialog on iOS.
+    /// </summary>
     private void OnShowDialogClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowDialogClicked triggered");
@@ -182,6 +218,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Button handler: shows a confirmation dialog with Yes / No options.
+    /// </summary>
     private void OnShowConfirmDialogClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowConfirmDialogClicked triggered");
@@ -194,6 +233,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Button handler: shows a destructive action dialog (e.g., delete resource) with confirmation.
+    /// </summary>
     private void OnShowDestructiveDialogClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowDestructiveDialogClicked triggered");
@@ -206,6 +248,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Button handler: shows an action sheet offering multiple mutually exclusive choices plus Cancel.
+    /// </summary>
     private void OnShowActionSheetClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowActionSheetClicked triggered");
@@ -218,6 +263,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Button handler: shows a single text input dialog with optional placeholder.
+    /// </summary>
     private void OnShowTextInputDialogClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowTextInputDialogClicked triggered");
@@ -232,6 +280,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Button handler: shows a login dialog capturing username and password.
+    /// </summary>
     private void OnShowLoginDialogClicked()
     {
         Debug.Log("[IosDialogManagerExampleController] OnShowLoginDialogClicked triggered");
@@ -256,6 +307,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
         StartCoroutine(ApplySafeAreaCoroutine());
     }
 
+    /// <summary>
+    /// Coroutine that applies iOS safe area (or manual overrides) after UI layout stabilization.
+    /// </summary>
     private IEnumerator ApplySafeAreaCoroutine()
     {
         yield return new WaitForEndOfFrame();
@@ -311,7 +365,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
             return;
         }
 
-        // 既存のクラスを削除
+        // Remove previously applied classes so we can re-classify
         root.RemoveFromClassList("small-screen");
         root.RemoveFromClassList("medium-screen");
         root.RemoveFromClassList("large-screen");
@@ -319,42 +373,42 @@ public class IosDialogManagerExampleController : MonoBehaviour
         root.RemoveFromClassList("medium-dpi");
         root.RemoveFromClassList("high-dpi");
 
-        // DPIが無効な場合のデフォルト値
+        // Provide a sensible default when DPI is unknown / invalid
         if (dpi <= 0 || float.IsNaN(dpi))
         {
-            dpi = 326f; // iOS Retina標準DPI
+            dpi = 326f; // Baseline iOS Retina DPI
         }
 
-        // DPIに基づく調整係数を計算
-        float dpiScale = dpi / 326f; // 326dpiを基準（1.0）とする
-        float adjustedWidth = screenWidth / dpiScale; // DPIで正規化した幅
+        // Normalize width by DPI scale (using 326 dpi as 1.0 baseline)
+        float dpiScale = dpi / 326f;
+        float adjustedWidth = screenWidth / dpiScale;
 
-        // 画面サイズクラスを追加（DPI調整済み）
-        if (adjustedWidth <= 390) // iPhone 12 Mini以下
+        // Apply screen size classes (DPI adjusted logical width)
+        if (adjustedWidth <= 390) // small phones
         {
             root.AddToClassList("small-screen");
         }
-        else if (adjustedWidth <= 428) // iPhone 12 Pro Max以下
+        else if (adjustedWidth <= 428) // large phones / phablets
         {
             root.AddToClassList("medium-screen");
         }
         else
         {
-            root.AddToClassList("large-screen"); // iPad等
+            root.AddToClassList("large-screen"); // tablets & beyond
         }
 
-        // DPIクラスを追加
-        if (dpi <= 264) // iPad等
+        // Apply DPI classes
+        if (dpi <= 264) // lower-density tablets
         {
             root.AddToClassList("low-dpi");
         }
-        else if (dpi <= 326) // iPhone標準
+        else if (dpi <= 326) // baseline Retina phones
         {
             root.AddToClassList("medium-dpi");
         }
         else
         {
-            root.AddToClassList("high-dpi"); // iPhone Plus/Pro Max等
+            root.AddToClassList("high-dpi"); // higher-density devices (Plus / Pro / Max)
         }
 
         Debug.Log($"[IosDialogManagerExampleController] Screen: {screenWidth}px, DPI: {dpi}, Adjusted Width: {adjustedWidth:F0}px, Applied classes: " +
@@ -366,6 +420,12 @@ public class IosDialogManagerExampleController : MonoBehaviour
 
     #region IosDialogManager Event Handlers
 
+    /// <summary>
+    /// Native dialog result callback for simple alert dialogs.
+    /// </summary>
+    /// <param name="buttonText">Pressed button text (may be null on error).</param>
+    /// <param name="isSuccess">True if native invocation succeeded.</param>
+    /// <param name="errorMessage">Error description if <c>isSuccess == false</c>.</param>
     private void OnDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -380,6 +440,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Native confirm dialog result callback.
+    /// </summary>
     private void OnConfirmDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnConfirmDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -394,6 +457,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Native destructive dialog result callback.
+    /// </summary>
     private void OnDestructiveDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnDestructiveDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -408,6 +474,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Native action sheet result callback.
+    /// </summary>
     private void OnActionSheetResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnActionSheetResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -422,6 +491,11 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Native text input dialog result callback.
+    /// </summary>
+    /// <param name="buttonText">Pressed button text.</param>
+    /// <param name="inputText">Entered user text (may be null on cancel/error).</param>
     private void OnTextInputDialogResult(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnTextInputDialogResult buttonText: {buttonText ?? "null"}, inputText: {inputText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -436,6 +510,12 @@ public class IosDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Native login dialog result callback.
+    /// </summary>
+    /// <param name="buttonText">Pressed button text.</param>
+    /// <param name="username">Entered username (may be null on cancel/error).</param>
+    /// <param name="password">Entered password (may be null on cancel/error).</param>
     private void OnLoginDialogResult(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnLoginDialogResult buttonText: {buttonText ?? "null"}, username: {username ?? "null"}, password: {password ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");

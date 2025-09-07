@@ -6,10 +6,20 @@ using System.Runtime.InteropServices;
 using System;
 using AOT;
 
+/// <summary>
+/// Singleton manager for iOS native dialog operations using Unity's native plugin interface.
+/// Provides a Unity-friendly API for showing various types of iOS native dialogs including
+/// basic alerts, confirmation dialogs, destructive alerts, action sheets, text input, and login dialogs.
+/// Uses P/Invoke to communicate with Objective-C native code and event-driven callbacks for results.
+/// </summary>
 public class IosDialogManager : MonoBehaviour
 {
     private static IosDialogManager? _instance;
 
+    /// <summary>
+    /// Singleton instance property for IosDialogManager.
+    /// Creates a new instance if none exists and ensures it persists across scene loads.
+    /// </summary>
     public static IosDialogManager Instance
     {
         get
@@ -25,7 +35,7 @@ public class IosDialogManager : MonoBehaviour
         }
     }
 
-    // ダイアログ結果を受け取るためのイベント（isSuccessとerrorMessageを追加）
+    // Event handlers for receiving dialog results (includes success status and error messages)
     public event Action<string?, bool, string?>? DialogResult; // buttonText, isSuccess, errorMessage
     public event Action<string?, bool, string?>? ConfirmDialogResult; // buttonText, isSuccess, errorMessage
     public event Action<string?, bool, string?>? DestructiveDialogResult; // buttonText, isSuccess, errorMessage
@@ -33,6 +43,9 @@ public class IosDialogManager : MonoBehaviour
     public event Action<string?, string?, bool, string?>? TextInputDialogResult; // buttonText, inputText, isSuccess, errorMessage
     public event Action<string?, string?, string?, bool, string?>? LoginDialogResult; // buttonText, username, password, isSuccess, errorMessage
 
+    /// <summary>
+    /// Initialize the singleton instance and ensure persistence across scene changes.
+    /// </summary>
     private void Awake()
     {
         Debug.Log("IosDialogManager Awake");
@@ -47,49 +60,88 @@ public class IosDialogManager : MonoBehaviour
         }
     }
 
-    // ネイティブコードとのインターフェース用デリゲート定義（IL2CPP対応）
+    // Native code interface delegate definitions (IL2CPP compatible)
+    /// <summary>
+    /// Callback signature for basic alert dialog results.
+    /// </summary>
+    /// <param name="buttonText">Pressed button text (may be null on failure)</param>
+    /// <param name="isSuccess">True if native dialog completed successfully</param>
+    /// <param name="errorMessage">Error details if <paramref name="isSuccess"/> is false</param>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void DialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
+    /// <summary>
+    /// Callback signature for confirmation dialog (OK / Cancel) results.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void ConfirmDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
+    /// <summary>
+    /// Callback signature for destructive confirmation dialog results.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void DestructiveDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
+    /// <summary>
+    /// Callback signature for action sheet selection results.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void ActionSheetCallback(string? buttonText, bool isSuccess, string? errorMessage);
 
+    /// <summary>
+    /// Callback signature for text input dialog results.
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void TextInputDialogCallback(string? buttonText, string? inputText, bool isSuccess, string? errorMessage);
 
+    /// <summary>
+    /// Callback signature for login dialog results (username + password).
+    /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void LoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage);
 
-    // ネイティブ関数のインポート（enableパラメータ追加）
+    // Native function imports (Objective-C side) – all use Cdecl for IL2CPP compatibility
+    /// <summary>
+    /// Shows a basic iOS alert dialog with a single button.
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showDialog(string title, string message, string buttonText, DialogCallback callback);
 
+    /// <summary>
+    /// Shows a confirmation dialog (OK / Cancel style).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showConfirmDialog(string title, string message, string confirmButtonText, string cancelButtonText, ConfirmDialogCallback callback);
 
+    /// <summary>
+    /// Shows a destructive confirmation dialog (e.g. Delete / Cancel).
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showDestructiveDialog(string title, string message, string destructiveButtonText, string cancelButtonText, DestructiveDialogCallback callback);
 
+    /// <summary>
+    /// Shows an action sheet with selectable options.
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showActionSheet(string title, string message, IntPtr options, int optionCount, string cancelButtonText, ActionSheetCallback callback);
 
+    /// <summary>
+    /// Shows a text input dialog with a single editable field.
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showTextInputDialog(string title, string message, string placeholder, string confirmButtonText, string cancelButtonText, bool enableConfirmWhenEmpty, TextInputDialogCallback callback);
 
+    /// <summary>
+    /// Shows a login dialog with username & password fields.
+    /// </summary>
     [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
     private static extern void showLoginDialog(string title, string message, string usernamePlaceholder, string passwordPlaceholder, string loginButtonText, string cancelButtonText, bool enableLoginWhenEmpty, LoginDialogCallback callback);
 
-    // ActionSheet用のメモリ管理（静的変数）
+    // Memory management for ActionSheet options (static to allow cleanup in callback)
     private static IntPtr s_optionsPtr = IntPtr.Zero;
     private static IntPtr[]? s_stringPointers = null;
 
-    // 静的コールバックメソッド群（IL2CPP対応）
+    // Static callback methods (IL2CPP compatible) – marshalled from native side
     [MonoPInvokeCallback(typeof(DialogCallback))]
     private static void OnDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
     {
@@ -153,7 +205,7 @@ public class IosDialogManager : MonoBehaviour
             }
             finally
             {
-                // ActionSheetのメモリ解放処理を直接記載
+                // Release unmanaged memory allocated for ActionSheet options
                 if (s_optionsPtr != IntPtr.Zero)
                 {
                     Marshal.FreeHGlobal(s_optionsPtr);
@@ -204,10 +256,10 @@ public class IosDialogManager : MonoBehaviour
         });
     }
 
-    // パブリックメソッド群（IL2CPP対応 - 静的コールバック使用）
+    // Public dialog API (IL2CPP friendly – uses static callbacks)
 
     /// <summary>
-    /// 基本的なアラートダイアログを表示
+    /// Shows a basic alert dialog with a single button.
     /// </summary>
     public void ShowDialog(string title, string message, string buttonText = "OK")
     {
@@ -231,7 +283,7 @@ public class IosDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 確認ダイアログを表示（OK/Cancelボタン）
+    /// Shows a confirmation dialog with confirm / cancel buttons.
     /// </summary>
     public void ShowConfirmDialog(string title, string message, string confirmButtonText = "OK", string cancelButtonText = "Cancel")
     {
@@ -255,7 +307,7 @@ public class IosDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 破壊的操作の確認ダイアログを表示（削除確認など）
+    /// Shows a destructive confirmation dialog (e.g. Delete confirmation).
     /// </summary>
     public void ShowDestructiveDialog(string title, string message, string destructiveButtonText = "Delete", string cancelButtonText = "Cancel")
     {
@@ -279,7 +331,7 @@ public class IosDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// アクションシートを表示（複数選択肢）
+    /// Shows an action sheet with multiple selectable options.
     /// </summary>
     public void ShowActionSheet(string title, string message, string[] options, string cancelButtonText = "Cancel")
     {
@@ -291,7 +343,7 @@ public class IosDialogManager : MonoBehaviour
             return;
         }
 
-        // 前回のメモリを解放
+    // Release previously allocated unmanaged memory (if any)
         if (s_optionsPtr != IntPtr.Zero)
         {
             Marshal.FreeHGlobal(s_optionsPtr);
@@ -310,14 +362,14 @@ public class IosDialogManager : MonoBehaviour
 
         try
         {
-            // 文字列配列をアンマネージドメモリに変換
+            // Convert managed string array to unmanaged UTF-8 buffer array
             s_stringPointers = new IntPtr[optionCount];
             for (int i = 0; i < optionCount; i++)
             {
                 byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(options[i]);
                 s_stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
                 Marshal.Copy(utf8Bytes, 0, s_stringPointers[i], utf8Bytes.Length);
-                Marshal.WriteByte(s_stringPointers[i], utf8Bytes.Length, 0); // null終端文字
+                Marshal.WriteByte(s_stringPointers[i], utf8Bytes.Length, 0); // null terminator
             }
             s_optionsPtr = Marshal.AllocHGlobal(IntPtr.Size * optionCount);
             Marshal.Copy(s_stringPointers, 0, s_optionsPtr, optionCount);
@@ -327,7 +379,7 @@ public class IosDialogManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"ShowActionSheet error: {ex.Message}");
-            // エラー時もメモリを解放
+            // Ensure memory is released on error
             if (s_optionsPtr != IntPtr.Zero)
             {
                 Marshal.FreeHGlobal(s_optionsPtr);
@@ -346,9 +398,9 @@ public class IosDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// テキスト入力ダイアログを表示
+    /// Shows a text input dialog with a single text field.
     /// </summary>
-    /// <param name="enableConfirmWhenEmpty">空の入力でもOKボタンを有効にするかどうか（デフォルト: false）</param>
+    /// <param name="enableConfirmWhenEmpty">If true the confirm button remains enabled when input is empty (default: false)</param>
     public void ShowTextInputDialog(string title, string message, string placeholder = "", string confirmButtonText = "OK", string cancelButtonText = "Cancel", bool enableConfirmWhenEmpty = false)
     {
         Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, enableConfirmWhenEmpty: {enableConfirmWhenEmpty}");
@@ -371,9 +423,9 @@ public class IosDialogManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ログインダイアログを表示（ユーザー名・パスワード入力）
+    /// Shows a login dialog requesting username and password.
     /// </summary>
-    /// <param name="enableLoginWhenEmpty">空の入力でもログインボタンを有効にするかどうか（デフォルト: false）</param>
+    /// <param name="enableLoginWhenEmpty">If true the login button remains enabled when fields are empty (default: false)</param>
     public void ShowLoginDialog(string title, string message, string usernamePlaceholder = "Username", string passwordPlaceholder = "Password", string loginButtonText = "Login", string cancelButtonText = "Cancel", bool enableLoginWhenEmpty = false)
     {
         Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, enableLoginWhenEmpty: {enableLoginWhenEmpty}");

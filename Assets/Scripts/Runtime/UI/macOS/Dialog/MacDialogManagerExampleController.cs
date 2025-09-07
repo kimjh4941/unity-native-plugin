@@ -4,11 +4,17 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
+/// <summary>
+/// Controller for the macOS native dialog manager example UI.
+/// Provides functionality to demonstrate various types of macOS native dialogs including
+/// alert dialogs, file/folder selection dialogs, and save dialogs.
+/// Handles macOS-specific file system interactions and native dialog integration.
+/// </summary>
 public class MacDialogManagerExampleController : MonoBehaviour
 {
     [SerializeField] private UIDocument? uiDocument;
 
-    // UI refs
+    // UI element references
     private Label? _resultLabel;
     private Button? _btnAlert;
     private Button? _btnFile;
@@ -17,6 +23,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
     private Button? _btnMultiFolder;
     private Button? _btnSaveFile;
 
+    /// <summary>
+    /// Initialize component and platform-specific behavior on Awake.
+    /// Shows a simulation dialog in Editor mode and validates platform compatibility.
+    /// </summary>
     private void Awake()
     {
 #if UNITY_EDITOR
@@ -35,6 +45,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
         Debug.Log("[MacDialogManagerExampleController] initialized.");
     }
 
+    /// <summary>
+    /// Initialize UI elements and set up event handlers on Start.
+    /// Configures button references and registers click events for macOS dialog operations.
+    /// </summary>
     private void Start()
     {
         if (uiDocument == null)
@@ -50,6 +64,14 @@ public class MacDialogManagerExampleController : MonoBehaviour
         Debug.Log("[MacDialogManagerExampleController] Initialized successfully");
     }
 
+    /// <summary>
+    /// Resolves and caches UI Toolkit element references, validates presence of required elements,
+    /// wires button click callbacks, and (in a macOS standalone player) subscribes to native dialog result events.
+    /// </summary>
+    /// <remarks>
+    /// In the Unity Editor we only simulate user interaction (native events are not fired). In a macOS standalone
+    /// build the <see cref="MacDialogManager"/> singleton dispatches results back to these handlers on the Unity main thread.
+    /// </remarks>
     private void InitializeUI()
     {
         var root = uiDocument?.rootVisualElement;
@@ -91,6 +113,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Cleans up button click handlers and unsubscribes from native dialog result events to prevent leaks or
+    /// duplicate callbacks after domain reload or scene unload.
+    /// </summary>
     private void OnDestroy()
     {
         if (_btnAlert != null) _btnAlert.clicked -= OnShowDialogClicked;
@@ -115,6 +141,13 @@ public class MacDialogManagerExampleController : MonoBehaviour
     }
 
     // Button actions
+    /// <summary>
+    /// Shows a native macOS alert dialog with multiple buttons (OK / Cancel / Delete) and a suppression checkbox.
+    /// </summary>
+    /// <remarks>
+    /// The suppression state and selected button are reported through <see cref="OnAlertDialogResult"/>.
+    /// In the editor this logic is simulated with an editor dialog and no native events are raised.
+    /// </remarks>
     private void OnShowDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowDialogClicked triggered");
@@ -136,6 +169,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a single file selection dialog restricted to the specified content types (UTI based filtering).
+    /// </summary>
+    /// <remarks>The result is delivered via <see cref="OnFileDialogResult"/>.</remarks>
     private void OnShowFileDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowFileDialogClicked triggered");
@@ -153,6 +190,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a multi-file selection dialog allowing the user to choose multiple files.
+    /// </summary>
+    /// <remarks>The result is delivered via <see cref="OnMultiFileDialogResult"/>.</remarks>
     private void OnShowMultiFileDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowMultiFileDialogClicked triggered");
@@ -170,6 +211,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a single folder selection dialog.
+    /// </summary>
+    /// <remarks>The result is delivered via <see cref="OnFolderDialogResult"/>.</remarks>
     private void OnShowFolderDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowFolderDialogClicked triggered");
@@ -185,6 +230,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a multi-folder selection dialog allowing the user to pick several directories.
+    /// </summary>
+    /// <remarks>The result is delivered via <see cref="OnMultiFolderDialogResult"/>.</remarks>
     private void OnShowMultiFolderDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowMultiFolderDialogClicked triggered");
@@ -200,6 +249,10 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Opens a save file dialog pre-populated with a default filename and optional content type filter.
+    /// </summary>
+    /// <remarks>The result is delivered via <see cref="OnSaveFileDialogResult"/>.</remarks>
     private void OnShowSaveFileDialogClicked()
     {
         Debug.Log("[MacDialogManagerExampleController] OnShowSaveFileDialogClicked triggered");
@@ -220,6 +273,14 @@ public class MacDialogManagerExampleController : MonoBehaviour
     }
 
     // Event handlers
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowDialog"/>.
+    /// </summary>
+    /// <param name="buttonTitle">The title text of the button pressed (null if unavailable on failure).</param>
+    /// <param name="buttonIndex">Zero-based index of the pressed button in the provided array.</param>
+    /// <param name="suppressionState">True if the suppression checkbox was checked.</param>
+    /// <param name="isSuccess">True if the native API call succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false; otherwise null.</param>
     private void OnAlertDialogResult(string? buttonTitle, int buttonIndex, bool suppressionState, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[MacDialogManagerExampleController] OnAlertDialogResult -> buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -234,6 +295,15 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowFileDialog"/>.
+    /// </summary>
+    /// <param name="filePaths">Array of selected file paths or null on failure.</param>
+    /// <param name="fileCount">Number of file paths returned (may be 0 if cancelled).</param>
+    /// <param name="directoryURL">Directory URL where selection occurred (may be null).</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native operation succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false.</param>
     private void OnFileDialogResult(string[]? filePaths, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
         var list = filePaths == null ? "null" : string.Join(", ", filePaths);
@@ -249,6 +319,15 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowMultiFileDialog"/>.
+    /// </summary>
+    /// <param name="filePaths">Array of selected file paths or null on failure.</param>
+    /// <param name="fileCount">Number of file paths returned (may be 0 if cancelled).</param>
+    /// <param name="directoryURL">Directory URL where selection occurred (may be null).</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native operation succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false.</param>
     private void OnMultiFileDialogResult(string[]? filePaths, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
         var list = filePaths == null ? "null" : string.Join(", ", filePaths);
@@ -264,6 +343,15 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowFolderDialog"/>.
+    /// </summary>
+    /// <param name="folderPaths">Array with a single selected folder path or null on failure.</param>
+    /// <param name="folderCount">Number of folder paths returned (0 if cancelled).</param>
+    /// <param name="directoryURL">Directory URL where selection occurred (may be null).</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native operation succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false.</param>
     private void OnFolderDialogResult(string[]? folderPaths, int folderCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
         var list = folderPaths == null ? "null" : string.Join(", ", folderPaths);
@@ -279,6 +367,15 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowMultiFolderDialog"/>.
+    /// </summary>
+    /// <param name="folderPaths">Array of selected folder paths or null on failure.</param>
+    /// <param name="folderCount">Number of folder paths returned (0 if cancelled).</param>
+    /// <param name="directoryURL">Directory URL where selection occurred (may be null).</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native operation succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false.</param>
     private void OnMultiFolderDialogResult(string[]? folderPaths, int folderCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
         var list = folderPaths == null ? "null" : string.Join(", ", folderPaths);
@@ -294,6 +391,15 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback for results of <see cref="MacDialogManager.ShowSaveFileDialog"/>.
+    /// </summary>
+    /// <param name="filePath">The chosen file path (null if cancelled or failed).</param>
+    /// <param name="fileCount">The number of returned paths (1 for success, 0 if cancelled).</param>
+    /// <param name="directoryURL">Directory URL where save occurred (may be null).</param>
+    /// <param name="isCancelled">True if the user cancelled the dialog.</param>
+    /// <param name="isSuccess">True if the native operation succeeded.</param>
+    /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false.</param>
     private void OnSaveFileDialogResult(string? filePath, int fileCount, string? directoryURL, bool isCancelled, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[MacDialogManagerExampleController] OnSaveFileDialogResult -> filePath: {filePath ?? "null"}, fileCount: {fileCount}, directoryURL: {directoryURL ?? "null"}, isCancelled: {isCancelled}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");

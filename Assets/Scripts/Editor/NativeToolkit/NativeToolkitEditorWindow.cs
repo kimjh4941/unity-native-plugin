@@ -9,6 +9,21 @@ using UnityEditor.SceneManagement;
 using System.Linq;
 using UnityEditor.Localization;
 
+/// <summary>
+/// Editor window that showcases Native Toolkit sample UI documents and allows applying
+/// platform‑specific UXML / USS plus controller components into the sample scene.
+/// Provides a localized tree view (driven by the <c>NativeToolkit</c> string table) and
+/// contextual actions for previewing runtime layouts inside the editor.
+/// </summary>
+/// <remarks>
+/// Responsibilities:
+/// 1. Ensure localization system is initialized and select the Project locale.
+/// 2. Build (or clone) the root UI, including a manually constructed TwoPaneSplitView fallback.
+/// 3. Populate and bind a TreeView of sample items (folders / files) without relying on asset GUIDs.
+/// 4. On selection, show either an informational inspector or file inspector with actions.
+/// 5. On file open, load/ensure the sample scene, apply UXML, PanelSettings, stylesheet, and controller.
+/// 6. Maintain separation between editor logic and runtime sample controllers by using reflection when needed.
+/// </remarks>
 public class NativeToolkitEditorWindow : EditorWindow
 {
     [SerializeField] private VisualTreeAsset? mainDocument;
@@ -51,12 +66,17 @@ public class NativeToolkitEditorWindow : EditorWindow
         window.Show();
     }
 
+    /// <summary>
+    /// Ensures <see cref="LocalizationSettings.SelectedLocale"/> matches the Project Locale Identifier
+    /// configured in Project Settings. Falls back to first available (preferring English) when the
+    /// project locale is not explicitly set.
+    /// </summary>
     private void EnsureSelectedLocale()
     {
         try
         {
-            // Project Settings の Project Locale Identifier に対応するロケール
-            var projectLocale = LocalizationSettings.ProjectLocale; // Project Settings の既定ロケール
+            // Locale corresponding to the Project Settings' Project Locale Identifier
+            var projectLocale = LocalizationSettings.ProjectLocale; // Default locale defined in Project Settings
             if (projectLocale != null)
             {
                 if (LocalizationSettings.SelectedLocale != projectLocale)
@@ -68,7 +88,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             else
             {
                 Debug.LogWarning("[Localization] ProjectLocale is not set.");
-                // フォールバック: 利用可能ロケール一覧から先頭 / en 優先
+                // Fallback: choose first available locale, preferring English variants
                 var avail = LocalizationSettings.AvailableLocales?.Locales;
                 if (avail != null && avail.Count > 0)
                 {
@@ -88,11 +108,18 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Helper to fetch a localized string from the specified table. Returns the key on failure
+    /// (graceful degradation) and logs detailed diagnostics when an entry is missing.
+    /// </summary>
+    /// <param name="table">String table collection name (e.g. "NativeToolkit").</param>
+    /// <param name="key">Entry key within the table.</param>
+    /// <returns>Localized string value or the key if not resolved.</returns>
     private string L(string table, string key)
     {
         try
         {
-            // 初期化待ち
+            // Await initialization
             if (!LocalizationSettings.InitializationOperation.IsDone)
             {
                 Debug.LogWarning("[Localization] L() called before LocalizationSettings initialized.");
@@ -109,7 +136,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             var value = LocalizationSettings.StringDatabase.GetLocalizedString(table, key);
             if (string.IsNullOrEmpty(value))
             {
-                // 詳細デバッグ（最初の一回だけで良ければ条件付け可）
+                // Detailed debug (could be gated if only needed once)
                 DebugLogEntryValues(table, key);
                 return key;
             }
@@ -122,6 +149,11 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Outputs per-locale values for a key to aid in diagnosing missing localization entries.
+    /// </summary>
+    /// <param name="table">String table collection name.</param>
+    /// <param name="key">Entry key.</param>
     private void DebugLogEntryValues(string table, string key)
     {
         var collection = LocalizationEditorSettings.GetStringTableCollection(table);
@@ -148,6 +180,10 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Unity callback invoked when the window's visual tree should be created / rebuilt.
+    /// Loads assets, constructs split view (code fallback), then initializes and populates the TreeView.
+    /// </summary>
     public void CreateGUI()
     {
         // Load assets from Resources or assign directly in inspector
@@ -169,7 +205,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             rootVisualElement.styleSheets.Add(styleSheet);
         }
 
-        // 分割ビューをコードで構築（UXMLの TwoPaneSplitView 使用不可対策）
+        // Build split view in code (fallback when UXML TwoPaneSplitView not available)
         var host = rootVisualElement.Q<VisualElement>("split-host");
         var left = rootVisualElement.Q<VisualElement>("left-pane");
         var right = rootVisualElement.Q<VisualElement>("right-pane");
@@ -183,13 +219,13 @@ public class NativeToolkitEditorWindow : EditorWindow
                 name = "main-split"
             };
 
-            // 既存子を TwoPaneSplitView 配下に再配置
+            // Re-parent existing children under the TwoPaneSplitView
             host.Clear();
             host.Add(split);
             split.Add(left);
             split.Add(right);
 
-            // ドラッグ後の幅を保存
+            // Persist left pane width after drag
             left.RegisterCallback<GeometryChangedEvent>(_ =>
             {
                 EditorPrefs.SetFloat(PrefKey, left.resolvedStyle.width);
@@ -202,6 +238,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         SetItemInspector();
     }
 
+    /// <summary>
+    /// Loads UXML / template / stylesheet assets from Resources if they are not assigned via inspector.
+    /// </summary>
     private void LoadAssets()
     {
         // Load assets from Resources folder if not assigned
@@ -221,6 +260,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Creates a minimal programmatic UI when the authored UXML document is not available.
+    /// </summary>
     private void CreateDefaultUI()
     {
         // Create UI programmatically if UXML is not available
@@ -255,6 +297,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         rootVisualElement.Add(container);
     }
 
+    /// <summary>
+    /// Locates and configures the TreeView element: sizing, focus, selection style classes.
+    /// </summary>
     private void InitializeTreeView()
     {
         treeView = rootVisualElement.Q<TreeView>("example-tree");
@@ -265,25 +310,28 @@ public class NativeToolkitEditorWindow : EditorWindow
             return;
         }
 
-        // Projectビューに近い行高
+        // Row height similar to Project window styling
         treeView.fixedItemHeight = EditorGUIUtility.singleLineHeight + 4f;
 
         treeView.focusable = true;
         treeView.pickingMode = PickingMode.Position;
         treeView.selectionType = SelectionType.Single;
 
-        // デフォルトテーマ適用（選択/ホバー等）
+        // Apply default theme classes (selection / hover etc.)
         treeView.AddToClassList("unity-tree-view");
     }
 
+    /// <summary>
+    /// Populates the TreeView with sample hierarchical data and assigns make/bind handlers.
+    /// </summary>
     private void PopulateTreeView()
     {
         if (treeView == null) return;
 
-        // サンプルデータの作成
+        // Build sample data model
         var rootData = CreateSampleData();
 
-        // TreeViewItemDataに直接変換
+        // Convert to TreeViewItemData directly
         var treeViewItems = new List<TreeViewItemData<TreeItemData>>();
         foreach (var rootItem in rootData)
         {
@@ -291,22 +339,25 @@ public class NativeToolkitEditorWindow : EditorWindow
             treeViewItems.Add(treeViewItem);
         }
 
-        // TreeViewにデータを設定
+        // Assign data to TreeView
         treeView.SetRootItems(treeViewItems);
 
-        // アイテム作成とバインド関数を設定
+        // Configure item factory & bind handlers
         treeView.makeItem = MakeTreeViewItem;
         treeView.bindItem = BindTreeViewItem;
 
-        // TreeViewを再構築
+        // Rebuild TreeView
         treeView.Rebuild();
     }
 
+    /// <summary>
+    /// Recursively converts a <see cref="TreeItemData"/> hierarchy into <see cref="TreeViewItemData{T}"/>.
+    /// </summary>
     private TreeViewItemData<TreeItemData> CreateTreeViewItemData(TreeItemData data)
     {
         var children = new List<TreeViewItemData<TreeItemData>>();
 
-        // 子要素がある場合は再帰的に処理
+        // Recursively process children if present
         if (data.children != null && data.children.Count > 0)
         {
             foreach (var child in data.children)
@@ -318,22 +369,28 @@ public class NativeToolkitEditorWindow : EditorWindow
         return new TreeViewItemData<TreeItemData>(data.id, data, children);
     }
 
+    /// <summary>
+    /// Factory method for TreeView rows. Instantiates a template (if provided) or builds a fallback element.
+    /// </summary>
     private VisualElement MakeTreeViewItem()
     {
         if (itemTemplate != null)
         {
-            // UI Builderテンプレートを使用
+            // Use UI Builder template
             var itemElement = itemTemplate.Instantiate();
             var container = itemElement.Q<VisualElement>("tree-item-container");
             return container ?? itemElement;
         }
         else
         {
-            // プログラムで作成
+            // Create programmatically
             return CreateTreeItemElement();
         }
     }
 
+    /// <summary>
+    /// Creates a fallback TreeView item visual element (icon + labels) mimicking Project window styling.
+    /// </summary>
     private VisualElement CreateTreeItemElement()
     {
         var container = new VisualElement();
@@ -344,7 +401,7 @@ public class NativeToolkitEditorWindow : EditorWindow
         container.style.paddingRight = 4;
         container.style.minHeight = EditorGUIUtility.singleLineHeight + 4f;
 
-        // Projectビュー風の選択スタイルを得る
+        // Apply Project window-like selection styling
         container.AddToClassList("unity-collection-view__item");
 
         var icon = new VisualElement();
@@ -374,6 +431,11 @@ public class NativeToolkitEditorWindow : EditorWindow
         return container;
     }
 
+    /// <summary>
+    /// Binds data (name / description / icon) to an instantiated TreeView row element.
+    /// </summary>
+    /// <param name="element">Row root element.</param>
+    /// <param name="index">Data index provided by TreeView.</param>
     private void BindTreeViewItem(VisualElement element, int index)
     {
         var item = treeView?.GetItemDataForIndex<TreeItemData>(index);
@@ -386,7 +448,7 @@ public class NativeToolkitEditorWindow : EditorWindow
         if (label != null)
         {
             label.text = item.name;
-            // Editor既定フォント
+            // Apply default editor font
             var f = EditorStyles.label?.font;
             if (f != null) label.style.unityFontDefinition = FontDefinition.FromFont(f);
         }
@@ -399,7 +461,7 @@ public class NativeToolkitEditorWindow : EditorWindow
 
         if (icon != null)
         {
-            // 展開状態でフォルダアイコンを切替
+            // Switch folder icon based on expansion state
             bool isOpenFolder = item.isFolder && treeView != null &&
                                 (treeView.GetType().GetMethod("IsExpanded") != null
                                     ? (bool)treeView.GetType().GetMethod("IsExpanded")!.Invoke(treeView, new object[] { item.id })!
@@ -423,6 +485,9 @@ public class NativeToolkitEditorWindow : EditorWindow
     }
 
     // Built-in icon helpers
+    /// <summary>
+    /// Returns built-in folder icon (open/closed) honoring editor skin.
+    /// </summary>
     private static Texture2D? GetFolderIcon(bool opened = false)
     {
         string name = EditorGUIUtility.isProSkin
@@ -431,23 +496,29 @@ public class NativeToolkitEditorWindow : EditorWindow
         return EditorGUIUtility.IconContent(name).image as Texture2D;
     }
 
+    /// <summary>
+    /// Returns built-in default asset icon honoring editor skin.
+    /// </summary>
     private static Texture2D? GetDefaultFileIcon()
     {
         var name = EditorGUIUtility.isProSkin ? "d_DefaultAsset Icon" : "DefaultAsset Icon";
         return EditorGUIUtility.IconContent(name).image as Texture2D;
     }
 
+    /// <summary>
+    /// Constructs in-memory sample data representing platform categories and dialog manager files.
+    /// </summary>
     private List<TreeItemData> CreateSampleData()
     {
         var data = new List<TreeItemData>();
 
-        // ルートアイテム1
+        // Root item 1 (Android)
         var folder1 = new TreeItemData(1, 1, true, "Android");
         var subfolder1 = new TreeItemData(2, 2, true, "Dialog");
         subfolder1.children.Add(new TreeItemData(3, 3, false, "AndroidDialogManager.cs"));
         folder1.children.Add(subfolder1);
 
-        // ルートアイテム2
+        // Root item 2 (iOS)
         var folder2 = new TreeItemData(4, 1, true, "iOS");
         var subfolder2 = new TreeItemData(5, 2, true, "Dialog");
         subfolder2.children.Add(new TreeItemData(6, 3, false, "IosDialogManager.cs"));
@@ -470,33 +541,39 @@ public class NativeToolkitEditorWindow : EditorWindow
         return data;
     }
 
+    /// <summary>
+    /// Wires selection, double-click, and context menu events for the TreeView.
+    /// </summary>
     private void SetupTreeViewEvents()
     {
         if (treeView == null) return;
 
-        // アイテム選択イベント
+        // Selection changed event
         treeView.selectionChanged += OnTreeViewSelectionChanged;
 
-        // アイテムダブルクリックイベント
+        // Double-click (items chosen) event
         treeView.itemsChosen += OnTreeViewItemsChosen;
 
-        // 右クリックコンテキストメニュー
+        // Right-click contextual menu
         treeView.RegisterCallback<ContextualMenuPopulateEvent>(OnContextualMenu);
     }
 
+    /// <summary>
+    /// Updates inspector panels depending on the current selection (folder info vs file inspector).
+    /// </summary>
     private void SetItemInspector(TreeItemData? item = null)
     {
         var itemInspector = rootVisualElement.Q<VisualElement>("item-inspector");
         var infoInspector = rootVisualElement.Q<VisualElement>("info-inspector");
 
-        // 要素が見つからない場合のエラーハンドリング
+        // Error handling if required inspector elements are missing
         if (itemInspector == null || infoInspector == null)
         {
             Debug.LogError("[Editor] Inspector elements not found in UI");
             return;
         }
 
-        // 何も選択されていない状態
+        // Nothing selected: show info panel
         if (item == null)
         {
             infoInspector.visible = true;
@@ -504,7 +581,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             return;
         }
 
-        // フォルダーの場合は情報インスペクターを表示
+        // Folder selected: show info inspector
         if (item != null && item.isFolder)
         {
             Debug.Log($"[Editor] Displaying info for folder: {item.name}");
@@ -515,7 +592,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             return;
         }
 
-        // アイテムがフォルダーで、子要素がない場合
+        // Folder selected with no children
         if (item != null && item.isFolder && item.children.Count == 0)
         {
             Debug.Log($"[Editor] Displaying info for folder: {item.name}");
@@ -526,7 +603,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             return;
         }
 
-        // アイテムがファイルを選択されている場合
+        // File item selected
         if (item != null && !item.isFolder)
         {
             Debug.Log($"[Editor] Displaying inspector for item: {item.name}");
@@ -534,7 +611,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             itemInspector.visible = true;
         }
 
-        // NativeToolkitExampleSceneが読み込まれている場合、GameObjectを探してInspectorに表示
+        // When sample scene loaded, expose file metadata & open actions
         var fileName = itemInspector.Q<Label>("file-name");
         var fileOpen = itemInspector.Q<Button>("file-open");
         if (fileName != null)
@@ -544,7 +621,7 @@ public class NativeToolkitEditorWindow : EditorWindow
 
         if (fileOpen != null)
         {
-            // ラムダ式は毎回新しいインスタンスになるため、解除・登録には変数で保持する必要があります
+            // Lambda creates a new delegate instance each time; store reference to properly unsubscribe before re-subscribing
             if (_fileOpenHandler != null)
             {
                 fileOpen.clicked -= _fileOpenHandler;
@@ -554,13 +631,17 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Handles the file open action: ensures scene is loaded, applies UXML, PanelSettings, stylesheet,
+    /// attaches the appropriate platform controller, and marks the scene dirty for saving.
+    /// </summary>
     private void OnFileOpenClicked(TreeItemData? item)
     {
         Debug.Log($"[Editor] Open file: {item?.name}");
 
         try
         {
-            // NativeToolkitSampleSceneが読み込まれていない場合、NativeToolkitSampleSceneを読み込む
+            // Load sample scene if it's not already the active scene
             if (!EditorSceneManager.GetActiveScene().path.Equals(NativeToolkitExampleScenePath))
             {
                 if (System.IO.File.Exists(NativeToolkitExampleScenePath))
@@ -575,7 +656,7 @@ public class NativeToolkitEditorWindow : EditorWindow
                 }
             }
 
-            // UXMLファイルのパスを動的に決定
+            // Resolve UXML file path dynamically based on selected item
             var uxmlPath = GetUXMLPathForItem(item);
             var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(uxmlPath);
 
@@ -587,7 +668,7 @@ public class NativeToolkitEditorWindow : EditorWindow
 
             Debug.Log($"[Editor] UXML found at path: {uxmlPath}");
 
-            // GameObjectを検索
+            // Find root UI GameObject
             var gameObject = FindUIGameObject("NativeToolkitExample");
             if (gameObject == null)
             {
@@ -595,7 +676,7 @@ public class NativeToolkitEditorWindow : EditorWindow
                 return;
             }
 
-            // UIDocumentコンポーネントを取得または追加
+            // Get or add UIDocument component
             var uiDocument = gameObject.GetComponent<UIDocument>();
             if (uiDocument == null)
             {
@@ -603,10 +684,10 @@ public class NativeToolkitEditorWindow : EditorWindow
                 Debug.Log($"[Editor] Added UIDocument component to {gameObject.name}");
             }
 
-            // UXMLをUIDocumentに適用
+            // Apply UXML to UIDocument
             uiDocument.visualTreeAsset = uxml;
 
-            // PanelSettingsを設定
+            // Configure PanelSettings if available
             var panelSettings = GetPanelSettings(item);
             if (panelSettings != null)
             {
@@ -614,22 +695,22 @@ public class NativeToolkitEditorWindow : EditorWindow
                 Debug.Log($"[Editor] Applied PanelSettings: {panelSettings.name}");
             }
 
-            // スタイルシートがある場合は適用
+            // Apply stylesheet if present
             ApplyStyleSheetIfExists(uiDocument, item);
 
-            // プラットフォーム固有のコントローラーを自動追加
+            // Add platform-specific controller automatically
             AddControllerComponent(gameObject, item);
 
             Debug.Log($"[Editor] Successfully applied UXML to GameObject: {gameObject.name}");
 
-            // 変更をシーンにマークして保存
+            // Mark scene dirty and save
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             SaveNativeToolkitExampleScene(prompt: false);
 
-            // GameObjectを選択してInspectorで確認できるようにする
+            // Select GameObject to expose in Inspector
             Selection.activeGameObject = gameObject;
 
-            // Scene Viewにフォーカスを当てる
+            // Focus Scene View
             EditorApplication.ExecuteMenuItem("Window/General/Scene");
         }
         catch (System.Exception ex)
@@ -638,6 +719,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Adds a platform‑specific example controller component based on the selected file name.
+    /// </summary>
     private void AddControllerComponent(GameObject gameObject, TreeItemData? item)
     {
         switch (item?.name)
@@ -664,9 +748,13 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Sets a UIDocument reference on a controller component by attempting public property first,
+    /// then falling back to a private field via reflection (editor convenience, not for runtime builds).
+    /// </summary>
     private void SetControllerUIDocument<T>(T controller, UIDocument uiDocument) where T : MonoBehaviour
     {
-        // publicプロパティを使用して設定を試行
+        // Attempt to set via public property first
         var propertyInfo = typeof(T).GetProperty("UIDocument");
         if (propertyInfo != null && propertyInfo.CanWrite)
         {
@@ -675,7 +763,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             return;
         }
 
-        // リフレクションを使用してprivateフィールドに値を設定
+        // Fallback: set private field via reflection
         var fieldInfo = typeof(T).GetField("uiDocument",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
@@ -690,12 +778,15 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Ensures only the Android example controller exists and wires its UIDocument.
+    /// </summary>
     private void AddAndroidDialogManagerExampleController(GameObject gameObject)
     {
-        // 既存のコントローラーを削除（重複回避）
+        // Remove existing controllers (avoid duplicates)
         RemoveExistingControllers(gameObject);
 
-        // AndroidDialogManagerExampleControllerを追加
+        // Add AndroidDialogManagerExampleController
         var controller = gameObject.GetComponent<AndroidDialogManagerExampleController>();
         if (controller == null)
         {
@@ -707,7 +798,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             Debug.Log($"[Editor] AndroidDialogManagerExampleController already exists on {gameObject.name}");
         }
 
-        // UIDocumentの参照を設定
+        // Wire UIDocument reference
         var uiDocument = gameObject.GetComponent<UIDocument>();
         if (uiDocument != null && controller != null)
         {
@@ -715,9 +806,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Ensures only the iOS example controller exists and wires its UIDocument.
+    /// </summary>
     private void AddIosDialogManagerExampleController(GameObject gameObject)
     {
-        // 既存のコントローラーを削除
+        // Remove existing controllers
         RemoveExistingControllers(gameObject);
 
         var controller = gameObject.GetComponent<IosDialogManagerExampleController>();
@@ -731,7 +825,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             Debug.Log($"[Editor] IosDialogManagerExampleController already exists on {gameObject.name}");
         }
 
-        // UIDocumentの参照を設定
+        // Wire UIDocument reference
         var uiDocument = gameObject.GetComponent<UIDocument>();
         if (uiDocument != null && controller != null)
         {
@@ -739,9 +833,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Ensures only the macOS example controller exists and wires its UIDocument.
+    /// </summary>
     private void AddMacDialogManagerExampleController(GameObject gameObject)
     {
-        // 既存のコントローラーを削除
+        // Remove existing controllers
         RemoveExistingControllers(gameObject);
 
         Debug.Log($"[Editor] macOS Dialog Manager Example Controller not implemented yet for {gameObject.name}");
@@ -757,7 +854,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             Debug.Log($"[Editor] MacDialogManagerExampleController already exists on {gameObject.name}");
         }
 
-        // UIDocumentの参照を設定
+        // Wire UIDocument reference
         var uiDocument = gameObject.GetComponent<UIDocument>();
         if (uiDocument != null && controller != null)
         {
@@ -765,9 +862,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Ensures only the Windows example controller exists and wires its UIDocument.
+    /// </summary>
     private void AddWindowsDialogManagerExampleController(GameObject gameObject)
     {
-        // 既存のコントローラーを削除
+        // Remove existing controllers
         RemoveExistingControllers(gameObject);
 
         Debug.Log($"[Editor] Windows Dialog Manager Example Controller not implemented yet for {gameObject.name}");
@@ -783,7 +883,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             Debug.Log($"[Editor] WindowsDialogManagerExampleController already exists on {gameObject.name}");
         }
 
-        // UIDocumentの参照を設定
+        // Wire UIDocument reference
         var uiDocument = gameObject.GetComponent<UIDocument>();
         if (uiDocument != null && controller != null)
         {
@@ -791,9 +891,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Removes any existing platform dialog controllers to avoid conflicting components.
+    /// </summary>
     private void RemoveExistingControllers(GameObject gameObject)
     {
-        // 既存のダイアログコントローラーを削除（プラットフォーム間の競合を防ぐ）
+        // Remove any existing dialog controllers (prevent cross-platform conflicts)
         var androidController = gameObject.GetComponent<AndroidDialogManagerExampleController>();
         if (androidController != null)
         {
@@ -823,9 +926,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Retrieves a dedicated PanelSettings asset for a file or falls back to a common/shared asset.
+    /// </summary>
     private PanelSettings? GetPanelSettings(TreeItemData? item)
     {
-        // アイテムに応じた専用のPanelSettingsパスを取得
+        // Compute dedicated PanelSettings path for the item
         var panelSettingsPath = GetPanelSettingsPathForItem(item);
         var panelSettings = AssetDatabase.LoadAssetAtPath<PanelSettings>(panelSettingsPath);
 
@@ -835,7 +941,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             return panelSettings;
         }
 
-        // 共通のPanelSettingsを試行
+        // Try common PanelSettings fallback
         var commonPanelSettingsPath = "Assets/Settings/UI/Common/CommonPanelSettings.asset";
         var commonPanelSettings = AssetDatabase.LoadAssetAtPath<PanelSettings>(commonPanelSettingsPath);
 
@@ -851,9 +957,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Resolves a PanelSettings asset path based on the selected file name.
+    /// </summary>
     private string GetPanelSettingsPathForItem(TreeItemData? item)
     {
-        // アイテム名に基づいてPanelSettingsのパスを決定
+        // Determine PanelSettings path based on item name
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
@@ -869,9 +978,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Resolves a UXML path for a selected item; returns a default path if not matched.
+    /// </summary>
     private string GetUXMLPathForItem(TreeItemData? item)
     {
-        // アイテム名に基づいてUXMLファイルのパスを決定
+        // Determine UXML file path based on item name
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
@@ -887,9 +999,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Finds an existing GameObject in the active scene by name (does not create a new one).
+    /// </summary>
     private GameObject? FindUIGameObject(string objectName)
     {
-        // 既存のGameObjectを検索
+        // Search for existing GameObject
         var existingObject = GameObject.Find(objectName);
         if (existingObject != null)
         {
@@ -899,15 +1014,18 @@ public class NativeToolkitEditorWindow : EditorWindow
         return null;
     }
 
+    /// <summary>
+    /// Clears existing style sheets from the UIDocument root and applies a platform‑specific one if present.
+    /// </summary>
     private void ApplyStyleSheetIfExists(UIDocument uiDocument, TreeItemData? item)
     {
-        // 対応するスタイルシートのパスを取得
+        // Get corresponding stylesheet path
         var stylePath = GetStyleSheetPathForItem(item);
         var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(stylePath);
 
         if (styleSheet != null)
         {
-            // 既存のスタイルシートをクリア
+            // Clear existing stylesheets before applying platform-specific one
             uiDocument.rootVisualElement.styleSheets.Clear();
             uiDocument.rootVisualElement.styleSheets.Add(styleSheet);
             Debug.Log($"[Editor] Applied stylesheet: {stylePath}");
@@ -918,9 +1036,12 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Resolves a USS stylesheet path for a selected item; returns a common stylesheet by default.
+    /// </summary>
     private string GetStyleSheetPathForItem(TreeItemData? item)
     {
-        // アイテム名に基づいてスタイルシートのパスを決定
+        // Determine stylesheet path based on item name
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
@@ -936,6 +1057,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Saves the active scene if it matches the example scene path and is dirty.
+    /// </summary>
     private static bool SaveNativeToolkitExampleScene(bool prompt = true)
     {
         var scene = EditorSceneManager.GetActiveScene();
@@ -965,6 +1089,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         return saved;
     }
 
+    /// <summary>
+    /// Selection change callback – updates inspector content based on selected items.
+    /// </summary>
     private void OnTreeViewSelectionChanged(IEnumerable<object> selectedItems)
     {
         foreach (TreeItemData item in selectedItems)
@@ -974,6 +1101,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Double‑click (itemsChosen) callback – currently logs chosen items (expansion point for future actions).
+    /// </summary>
     private void OnTreeViewItemsChosen(IEnumerable<object> chosenItems)
     {
         foreach (TreeItemData item in chosenItems)
@@ -982,6 +1112,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         }
     }
 
+    /// <summary>
+    /// Populates context menu with localized actions (Add / Delete / Refresh).
+    /// </summary>
     private void OnContextualMenu(ContextualMenuPopulateEvent evt)
     {
         Debug.Log("Contextual menu opened");
@@ -991,6 +1124,9 @@ public class NativeToolkitEditorWindow : EditorWindow
         evt.menu.AppendAction(L("NativeToolkit", "context.refresh"), (a) => PopulateTreeView());
     }
 
+    /// <summary>
+    /// Cleans up event subscriptions when the window is destroyed.
+    /// </summary>
     private void OnDestroy()
     {
         if (treeView != null)

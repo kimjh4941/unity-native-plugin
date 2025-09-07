@@ -5,66 +5,78 @@ using UnityEditor.iOS.Xcode;
 #endif
 using System.IO;
 
+/// <summary>
+/// Post-build processor that handles platform-specific setup after Unity builds complete.
+/// For macOS builds, copies XCFramework and modifies the Xcode project.
+/// For Android builds, adds Kotlin dependencies to generated Gradle files.
+/// For Windows builds, copies PDB files for debugging support.
+/// </summary>
 public static class PostBuildProcessor
 {
+    /// <summary>
+    /// Main entry point executed after the player build completes. Routes to platform-specific
+    /// post-processing based on the build target.
+    /// </summary>
+    /// <param name="target">The build target platform.</param>
+    /// <param name="pathToBuiltProject">Path to the built project.</param>
     [PostProcessBuild]
     public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
     {
 #if UNITY_EDITOR_OSX
         if (target == BuildTarget.StandaloneOSX)
         {
-            UnityEngine.Debug.Log("macOSビルドの後処理を開始します。");
+            UnityEngine.Debug.Log("[Build][macOS] Post-build steps started.");
 
-            // xcframeworkのコピー元とコピー先
+            // XCFramework source and destination paths
             string xcframeworkSrc = Path.Combine(UnityEngine.Application.dataPath, "Plugins/macOS/Library/UnityMacPlugin.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "unity-native-plugin/Frameworks");
             string xcframeworkDst = Path.Combine(frameworksDir, "UnityMacPlugin.xcframework");
 
-            // xcframeworkを.app内Frameworksにコピー
+            // Copy XCFramework to .app Frameworks folder
             if (Directory.Exists(xcframeworkDst))
                 Directory.Delete(xcframeworkDst, true);
             DirectoryCopy(xcframeworkSrc, xcframeworkDst, true);
 
-            // Xcodeプロジェクトファイルのパス
+            // Xcode project file path
             string pbxprojPath = Path.Combine(pathToBuiltProject, "Mac.xcodeproj", "project.pbxproj");
             if (!File.Exists(pbxprojPath))
             {
-                UnityEngine.Debug.LogError("Xcodeプロジェクトファイルが見つかりません: " + pbxprojPath);
+                UnityEngine.Debug.LogError("[Build][macOS] Xcode project file not found: " + pbxprojPath);
                 return;
             }
 
-            // PBXProjectを編集してxcframeworkを追加
+            // Edit PBXProject to add XCFramework
             var proj = new PBXProject();
             proj.ReadFromFile(pbxprojPath);
 
             string targetGuid = proj.GetUnityMainTargetGuid();
 
-            // xcframeworkをFrameworksに追加
+            // Add XCFramework to Frameworks
             string relativePath = "unity-native-plugin/Frameworks/UnityMacPlugin.xcframework";
             proj.AddFileToBuild(targetGuid, proj.AddFile(relativePath, relativePath, PBXSourceTree.Source));
 
             proj.WriteToFile(pbxprojPath);
 
-            UnityEngine.Debug.Log("UnityMacPlugin.xcframeworkをXcodeプロジェクトに追加しました。");
-            UnityEngine.Debug.Log("macOSビルドの後処理を終了しました。");
+            UnityEngine.Debug.Log("[Build][macOS] Added UnityMacPlugin.xcframework to Xcode project.");
+            UnityEngine.Debug.Log("[Build][macOS] Post-build steps completed.");
         }
 #endif
 
 #if UNITY_ANDROID
         if (target == BuildTarget.Android)
         {
-            UnityEngine.Debug.Log("Androidビルドの後処理を開始します。");
+            UnityEngine.Debug.Log("[Build][Android] Post-build steps started.");
             AddKotlinDependenciesToAndroidProject(pathToBuiltProject);
-            UnityEngine.Debug.Log("Androidビルドの後処理を終了しました。");
+            UnityEngine.Debug.Log("[Build][Android] Post-build steps completed.");
         }
 #endif
 
 #if UNITY_STANDALONE_WIN
         if (target == BuildTarget.StandaloneWindows64)
         {
-            UnityEngine.Debug.Log("Windowsビルドの後処理を開始します。");
+            UnityEngine.Debug.Log("[Build][Windows] Post-build steps started.");
 
-            // コピー元とコピー先
+            // Source and destination paths
             string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary.pdb";
             string pdbDst = Path.Combine(@"D:\Build\Windows\unity-native-plugin_Data", @"Plugins\x86_64\WindowsLibrary.pdb");
             
@@ -72,62 +84,63 @@ public static class PostBuildProcessor
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(pdbDst));
                 File.Copy(pdbSrc, pdbDst, true);
-                UnityEngine.Debug.Log("WindowsLibrary.pdb をコピーしました: " + pdbDst);
+                UnityEngine.Debug.Log("[Build][Windows] Copied WindowsLibrary.pdb to: " + pdbDst);
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogError("WindowsLibrary.pdb のコピーに失敗: " + ex.Message);
+                UnityEngine.Debug.LogError("[Build][Windows] Failed to copy WindowsLibrary.pdb: " + ex.Message);
             }
 
-            UnityEngine.Debug.Log("Windowsビルドの後処理を終了しました。");
+            UnityEngine.Debug.Log("[Build][Windows] Post-build steps completed.");
         }
 #endif
     }
 
     /// <summary>
-    /// AndroidプロジェクトにKotlin依存関係を追加
+    /// Adds Kotlin dependencies and configuration to the generated Android Gradle project.
     /// </summary>
+    /// <param name="pathToBuiltProject">Path to the built Android project.</param>
     private static void AddKotlinDependenciesToAndroidProject(string pathToBuiltProject)
     {
-        UnityEngine.Debug.Log("Kotlin依存関係の追加を開始します。");
+        UnityEngine.Debug.Log("[Build][Android] Adding Kotlin dependencies started.");
 
-        // ビルドされたAndroidプロジェクトのGradleファイルパス
+        // Generated Android project Gradle file paths
         string launcherBuildGradlePath = Path.Combine(pathToBuiltProject, "launcher", "build.gradle");
         string unityLibraryBuildGradlePath = Path.Combine(pathToBuiltProject, "unityLibrary", "build.gradle");
         string projectBuildGradlePath = Path.Combine(pathToBuiltProject, "build.gradle");
 
         try
         {
-            // 1. プロジェクトレベルでKotlinプラグインを追加
+            // 1. Add Kotlin plugin at project level
             ModifyProjectBuildGradle(projectBuildGradlePath);
-            // 2. unityLibraryモジュールにKotlin設定を追加
+            // 2. Add Kotlin configuration to unityLibrary module
             ModifyUnityLibraryBuildGradle(unityLibraryBuildGradlePath);
-            // 3. launcherモジュールにKotlin設定を追加
+            // 3. Add Kotlin configuration to launcher module
             ModifyLauncherBuildGradle(launcherBuildGradlePath);
 
-            UnityEngine.Debug.Log("Kotlin依存関係の追加が完了しました。");
+            UnityEngine.Debug.Log("[Build][Android] Kotlin dependencies addition completed.");
         }
         catch (System.Exception ex)
         {
-            UnityEngine.Debug.LogError($"Kotlin依存関係の追加に失敗: {ex.Message}");
+            UnityEngine.Debug.LogError($"[Build][Android] Failed to add Kotlin dependencies: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// プロジェクトレベルのbuild.gradleを修正
+    /// Modifies the project-level build.gradle file to add Kotlin plugin.
     /// </summary>
+    /// <param name="filePath">Path to the project build.gradle file.</param>
     private static void ModifyProjectBuildGradle(string filePath)
     {
         if (!File.Exists(filePath))
         {
-            UnityEngine.Debug.LogError($"プロジェクトbuild.gradleが見つかりません: {filePath}");
+            UnityEngine.Debug.LogError($"[Build][Android] Project build.gradle not found: {filePath}");
             return;
         }
 
         string content = File.ReadAllText(filePath);
 
-        // Kotlinプラグインを追加
-        // 既に存在する場合は追加しない
+        // Add Kotlin plugin - don't add if already exists
         if (!content.Contains("org.jetbrains.kotlin.android"))
         {
             if (content.Contains("id 'com.android.library'"))
@@ -137,45 +150,46 @@ public static class PostBuildProcessor
                     @"    id 'com.android.library' version '8.3.0' apply false
     id 'org.jetbrains.kotlin.android' version '2.0.21' apply false"
                 );
-                UnityEngine.Debug.Log("プロジェクトbuild.gradleにKotlinプラグインを追加しました。");
+                UnityEngine.Debug.Log("[Build][Android] Added Kotlin plugin to project build.gradle.");
             }
         }
         else
         {
-            UnityEngine.Debug.Log("プロジェクトbuild.gradleには既にKotlinプラグインが含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] Project build.gradle already contains Kotlin plugin.");
         }
 
         File.WriteAllText(filePath, content);
     }
 
     /// <summary>
-    /// unityLibraryモジュールのbuild.gradleを修正
+    /// Modifies the unityLibrary module's build.gradle file to add Kotlin configuration.
     /// </summary>
+    /// <param name="filePath">Path to the unityLibrary build.gradle file.</param>
     private static void ModifyUnityLibraryBuildGradle(string filePath)
     {
         if (!File.Exists(filePath))
         {
-            UnityEngine.Debug.LogError($"unityLibrary build.gradleが見つかりません: {filePath}");
+            UnityEngine.Debug.LogError($"[Build][Android] unityLibrary build.gradle not found: {filePath}");
             return;
         }
 
         string content = File.ReadAllText(filePath);
 
-        // Kotlinプラグインを追加
+        // Add Kotlin plugin
         if (!content.Contains("apply plugin: 'org.jetbrains.kotlin.android'"))
         {
             content = content.Replace(
                 "apply plugin: 'com.android.library'",
                 "apply plugin: 'com.android.library'\napply plugin: 'org.jetbrains.kotlin.android'"
             );
-            UnityEngine.Debug.Log("unityLibrary build.gradleにKotlinプラグインを追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added Kotlin plugin to unityLibrary build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("unityLibrary build.gradleには既にKotlinプラグインが含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] unityLibrary build.gradle already contains Kotlin plugin.");
         }
 
-        // 重複するKotlin依存関係を除外するconfigurationを追加
+        // Add configuration to exclude duplicate Kotlin dependencies
         if (!content.Contains("configurations.all"))
         {
             content = content.Replace(
@@ -187,14 +201,14 @@ public static class PostBuildProcessor
 
 dependencies {"
             );
-            UnityEngine.Debug.Log("unityLibrary build.gradleに重複除外の設定を追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added duplicate exclusion configuration to unityLibrary build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("unityLibrary build.gradleには既に重複除外の設定が含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] unityLibrary build.gradle already contains duplicate exclusion configuration.");
         }
 
-        // Kotlin依存関係を追加（既存のdependenciesブロックに追加）
+        // Add Kotlin dependencies (to existing dependencies block)
         if (!content.Contains("kotlin-stdlib"))
         {
             content = content.Replace(
@@ -203,14 +217,14 @@ dependencies {"
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
     implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'"
             );
-            UnityEngine.Debug.Log("unityLibrary build.gradleにKotlin 2.0.21依存関係を追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added Kotlin 2.0.21 dependencies to unityLibrary build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("unityLibrary build.gradleには既にKotlin依存関係が含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] unityLibrary build.gradle already contains Kotlin dependencies.");
         }
 
-        // kotlinOptionsを追加
+        // Add kotlinOptions
         if (!content.Contains("tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile)"))
         {
             content += @"
@@ -221,44 +235,45 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         freeCompilerArgs += ['-Xjvm-default=all']
     }
 }";
-            UnityEngine.Debug.Log("unityLibrary build.gradleにkotlinOptionsを追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added kotlinOptions to unityLibrary build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("unityLibrary build.gradleには既にkotlinOptionsが含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] unityLibrary build.gradle already contains kotlinOptions.");
         }
 
         File.WriteAllText(filePath, content);
     }
 
     /// <summary>
-    /// launcherモジュールのbuild.gradleを修正
+    /// Modifies the launcher module's build.gradle file to add Kotlin configuration.
     /// </summary>
+    /// <param name="filePath">Path to the launcher build.gradle file.</param>
     private static void ModifyLauncherBuildGradle(string filePath)
     {
         if (!File.Exists(filePath))
         {
-            UnityEngine.Debug.LogError($"launcher build.gradleが見つかりません: {filePath}");
+            UnityEngine.Debug.LogError($"[Build][Android] launcher build.gradle not found: {filePath}");
             return;
         }
 
         string content = File.ReadAllText(filePath);
 
-        // Kotlinプラグインを適用
+        // Apply Kotlin plugin
         if (!content.Contains("apply plugin: 'org.jetbrains.kotlin.android'"))
         {
             content = content.Replace(
                 "apply plugin: 'com.android.application'",
                 "apply plugin: 'com.android.application'\napply plugin: 'org.jetbrains.kotlin.android'"
             );
-            UnityEngine.Debug.Log("launcher build.gradleにKotlinプラグインを追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added Kotlin plugin to launcher build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("launcher build.gradleには既にKotlinプラグインが含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] launcher build.gradle already contains Kotlin plugin.");
         }
 
-        // 重複するKotlin依存関係を除外するconfigurationを追加
+        // Add configuration to exclude duplicate Kotlin dependencies
         if (!content.Contains("configurations.all"))
         {
             content = content.Replace(
@@ -270,14 +285,14 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 
 dependencies {"
             );
-            UnityEngine.Debug.Log("launcher build.gradleに重複除外の設定を追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added duplicate exclusion configuration to launcher build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("launcher build.gradleには既に重複除外の設定が含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] launcher build.gradle already contains duplicate exclusion configuration.");
         }
 
-        // Kotlin依存関係を追加（既存のdependenciesブロックに追加）
+        // Add Kotlin dependencies (to existing dependencies block)
         if (!content.Contains("kotlin-stdlib"))
         {
             content = content.Replace(
@@ -286,14 +301,14 @@ dependencies {"
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
     implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'"
             );
-            UnityEngine.Debug.Log("launcher build.gradleにKotlin 2.0.21依存関係を追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added Kotlin 2.0.21 dependencies to launcher build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("launcher build.gradleには既にKotlin依存関係が含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] launcher build.gradle already contains Kotlin dependencies.");
         }
 
-        // ファイルの最後にkotlinOptionsを追加
+        // Add kotlinOptions at the end of the file
         if (!content.Contains("tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile)"))
         {
             content += @"
@@ -304,17 +319,25 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         freeCompilerArgs += ['-Xjvm-default=all']
     }
 }";
-            UnityEngine.Debug.Log("launcher build.gradleにkotlinOptionsを追加しました。");
+            UnityEngine.Debug.Log("[Build][Android] Added kotlinOptions to launcher build.gradle.");
         }
         else
         {
-            UnityEngine.Debug.Log("launcher build.gradleには既にkotlinOptionsが含まれています。");
+            UnityEngine.Debug.Log("[Build][Android] launcher build.gradle already contains kotlinOptions.");
         }
 
         File.WriteAllText(filePath, content);
+        UnityEngine.Debug.Log("[Build][Android] Modified launcher build.gradle to include Kotlin dependencies.");
     }
 
-    // ディレクトリコピーのヘルパー
+    /// <summary>
+    /// Helper method to recursively copy directories and their contents.
+    /// Creates the destination directory if it doesn't exist and copies all files.
+    /// Optionally copies subdirectories recursively.
+    /// </summary>
+    /// <param name="sourceDir">Source directory path to copy from</param>
+    /// <param name="destDir">Destination directory path to copy to</param>
+    /// <param name="copySubDirs">Whether to recursively copy subdirectories</param>
     private static void DirectoryCopy(string sourceDir, string destDir, bool copySubDirs)
     {
         DirectoryInfo dir = new DirectoryInfo(sourceDir);
