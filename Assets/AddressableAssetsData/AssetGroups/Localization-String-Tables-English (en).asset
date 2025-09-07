@@ -15,7 +15,7 @@ MonoBehaviour:
   m_GroupName: Localization-String-Tables-English (en)
   m_GUID: 07d535f5f4f164077b82da27ca9ba9ae
   m_SerializeEntries:
-  - m_GUID: 0975f1cffe01d4522a4fc85fa1adf746
+  - m_GUID: bbdc04c6ec15f40a6859afa3ee013263
     m_Address: NativeToolkit_en
     m_ReadOnly: 1
     m_SerializedLabels:

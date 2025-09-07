@@ -10,35 +10,51 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
-  m_Name: NativeToolkit.SharedData
+  m_Name: NativeToolkit Shared Data
   m_EditorClassIdentifier: 
   m_TableCollectionName: NativeToolkit
-  m_TableCollectionNameGuidString: 43baa2e3f7119474cbedce96783708a9
+  m_TableCollectionNameGuidString: 20ef6680bb09c49109bb116520ab0ee4
   m_Entries:
-  - m_Id: 57708806922240
+  - m_Id: 288350208
     m_Key: folder.empty
     m_Metadata:
       m_Items: []
-  - m_Id: 57708815310848
+  - m_Id: 309321728
     m_Key: folder.template
     m_Metadata:
       m_Items: []
-  - m_Id: 57708815310849
+  - m_Id: 313516032
     m_Key: button.open
     m_Metadata:
       m_Items: []
-  - m_Id: 57708819505152
+  - m_Id: 313516033
     m_Key: window.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 313516034
+    m_Key: header.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 313516035
+    m_Key: context.add
+    m_Metadata:
+      m_Items: []
+  - m_Id: 313516036
+    m_Key: context.delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 313516037
+    m_Key: context.refresh
     m_Metadata:
       m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
-    rid: 204194840800657619
+    rid: 204194861596278784
   references:
     version: 2
     RefIds:
-    - rid: 204194840800657619
+    - rid: 204194861596278784
       type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
       data:
-        m_CustomEpoch: 1757127606637
+        m_CustomEpoch: 1757205530365

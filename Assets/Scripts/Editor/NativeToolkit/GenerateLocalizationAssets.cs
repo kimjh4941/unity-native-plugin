@@ -4,8 +4,6 @@ using UnityEditor;
 using UnityEditor.Localization;
 using UnityEngine;
 using UnityEngine.Localization;
-using UnityEditor.Localization.Reporting;
-using UnityEngine.Localization.Tables;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -13,6 +11,7 @@ using System.Globalization;
 
 public static class GenerateLocalizationAssets
 {
+    private static string CSV_FILE => $"{CollectionTablesDir}/NativeToolkit.csv";
     private const string TableName = "NativeToolkit";
 
     // 要望どおり: Locales 配下に Tables/EditorUI/NativeToolkit
@@ -46,10 +45,13 @@ public static class GenerateLocalizationAssets
             EnsureLocaleTables(collection, en, ja);
         }
 
-        AddOrUpdateEntry(collection, "folder.empty", "This folder is empty", "このフォルダーは空です");
-        AddOrUpdateEntry(collection, "folder.template", "This folder is {name}", "このフォルダーは{name}です");
-        AddOrUpdateEntry(collection, "button.open", "Open", "開く");
-        AddOrUpdateEntry(collection, "window.title", "TreeView Editor", "ツリービュー エディター");
+        // CSV からエントリを読み込み
+        var entries = LoadCsvEntries(CSV_FILE);
+
+        foreach (var (key, enValue, jaValue) in entries)
+        {
+            AddOrUpdateEntry(collection, key, enValue, jaValue);
+        }
 
         EditorUtility.SetDirty(collection.SharedData);
         AssetDatabase.SaveAssets();
@@ -78,6 +80,7 @@ public static class GenerateLocalizationAssets
             var next = $"{current}/{segments[i]}";
             if (!AssetDatabase.IsValidFolder(next))
             {
+                Debug.Log($"[Localization] Creating folder: {next}");
                 AssetDatabase.CreateFolder(current, segments[i]);
             }
             current = next;
@@ -87,8 +90,11 @@ public static class GenerateLocalizationAssets
     private static Locale FindOrCreateLocale(string code)
     {
         var existing = LocalizationEditorSettings.GetLocale(new LocaleIdentifier(code));
-        if (existing != null) return existing;
-
+        if (existing != null)
+        {
+            Debug.Log($"[Localization] Found existing locale: {code}");
+            return existing;
+        }
         var locale = Locale.CreateLocale(code);
         var fileName = GetLocaleFileName(code);
         var assetPath = $"{LOCALES_DIR}/{fileName}.asset";
@@ -182,7 +188,7 @@ public static class GenerateLocalizationAssets
         if (shared != null)
         {
             var sharedPath = AssetDatabase.GetAssetPath(shared);
-            var targetSharedPath = $"{CollectionTablesDir}/{TableName}.SharedData.asset";
+            var targetSharedPath = $"{CollectionTablesDir}/{TableName} Shared Data.asset";
             if (!string.IsNullOrEmpty(sharedPath) && sharedPath != targetSharedPath)
             {
                 var r = AssetDatabase.MoveAsset(sharedPath, targetSharedPath);
@@ -216,5 +222,31 @@ public static class GenerateLocalizationAssets
         {
             AssetDatabase.SaveAssets();
         }
+    }
+
+    private static List<(string key, string en, string ja)> LoadCsvEntries(string csvPath)
+    {
+        var entries = new List<(string, string, string)>();
+        if (!File.Exists(csvPath))
+        {
+            Debug.LogWarning($"[Localization] CSV file not found: {csvPath}");
+            return entries;
+        }
+
+        var lines = File.ReadAllLines(csvPath);
+        foreach (var line in lines.Skip(1))  // ヘッダー行を無視
+        {
+            // CSV 形式: "key","en","ja"
+            var parts = line.Split(',');
+            if (parts.Length >= 3)
+            {
+                var key = parts[0].Trim('"');
+                var en = parts[1].Trim('"');
+                var ja = parts[2].Trim('"');
+                entries.Add((key, en, ja));
+            }
+        }
+        Debug.Log($"[Localization] Loaded {entries.Count} entries from CSV.");
+        return entries;
     }
 }

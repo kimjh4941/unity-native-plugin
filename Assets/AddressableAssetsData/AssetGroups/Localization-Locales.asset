@@ -15,13 +15,13 @@ MonoBehaviour:
   m_GroupName: Localization-Locales
   m_GUID: 92025ed50624b41179b97ca61ea8980f
   m_SerializeEntries:
-  - m_GUID: 6bd5acb2108d84ca2b7786b81bb77192
+  - m_GUID: 5d5192d70e6b747378b2ccd36aa37b5c
     m_Address: English (en)
     m_ReadOnly: 1
     m_SerializedLabels:
     - Locale
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 86702c0d9510c4ea891694282f9c1837
+  - m_GUID: add88d711b29d437b96c4dc74c713203
     m_Address: Japanese (ja)
     m_ReadOnly: 1
     m_SerializedLabels:

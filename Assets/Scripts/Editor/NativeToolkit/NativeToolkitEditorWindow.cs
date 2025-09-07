@@ -3,10 +3,11 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
+using UnityEngine.Localization.Settings;
 using System.Collections.Generic;
 using UnityEditor.SceneManagement;
 using System.Linq;
-using UnityEditor.UIElements;
+using UnityEditor.Localization;
 
 public class NativeToolkitEditorWindow : EditorWindow
 {
@@ -23,9 +24,128 @@ public class NativeToolkitEditorWindow : EditorWindow
     [MenuItem("Tools/Native Toolkit/Example")]
     public static void ShowWindow()
     {
-        NativeToolkitEditorWindow window = GetWindow<NativeToolkitEditorWindow>();
+        var window = GetWindow<NativeToolkitEditorWindow>();
         window.titleContent = new GUIContent("Native Toolkit");
+        void ApplyTitle()
+        {
+            var title = window.L("NativeToolkit", "window.title");
+            window.titleContent = new GUIContent(string.IsNullOrEmpty(title) ? "Native Toolkit" : title);
+        }
+
+        if (!LocalizationSettings.InitializationOperation.IsDone)
+        {
+            Debug.Log("[Localization] Waiting for Initialization...");
+            LocalizationSettings.InitializationOperation.Completed += _ =>
+            {
+                window.EnsureSelectedLocale();
+                ApplyTitle();
+            };
+        }
+        else
+        {
+            Debug.Log("[Localization] Initialization completed");
+            window.EnsureSelectedLocale();
+            ApplyTitle();
+        }
+
         window.Show();
+    }
+
+    private void EnsureSelectedLocale()
+    {
+        try
+        {
+            // Project Settings の Project Locale Identifier に対応するロケール
+            var projectLocale = LocalizationSettings.ProjectLocale; // Project Settings の既定ロケール
+            if (projectLocale != null)
+            {
+                if (LocalizationSettings.SelectedLocale != projectLocale)
+                {
+                    LocalizationSettings.SelectedLocale = projectLocale;
+                    Debug.Log($"[Localization] SelectedLocale set from ProjectLocale: {projectLocale.Identifier.Code}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[Localization] ProjectLocale is not set.");
+                // フォールバック: 利用可能ロケール一覧から先頭 / en 優先
+                var avail = LocalizationSettings.AvailableLocales?.Locales;
+                if (avail != null && avail.Count > 0)
+                {
+                    var en = avail.FirstOrDefault(l => l.Identifier.Code == "en" || l.Identifier.Code.StartsWith("en-"));
+                    LocalizationSettings.SelectedLocale = en ?? avail[0];
+                    Debug.Log($"[Localization] SelectedLocale fallback: {LocalizationSettings.SelectedLocale.Identifier.Code}");
+                }
+                else
+                {
+                    Debug.LogWarning("[Localization] No available locales.");
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[Localization] EnsureSelectedLocale failed: {ex.Message}");
+        }
+    }
+
+    private string L(string table, string key)
+    {
+        try
+        {
+            // 初期化待ち
+            if (!LocalizationSettings.InitializationOperation.IsDone)
+            {
+                Debug.LogWarning("[Localization] L() called before LocalizationSettings initialized.");
+                return key;
+            }
+
+            var collection = LocalizationEditorSettings.GetStringTableCollection(table);
+            if (collection == null)
+            {
+                Debug.LogError($"[Localization] Collection not found: {table}");
+                return key;
+            }
+
+            var value = LocalizationSettings.StringDatabase.GetLocalizedString(table, key);
+            if (string.IsNullOrEmpty(value))
+            {
+                // 詳細デバッグ（最初の一回だけで良ければ条件付け可）
+                DebugLogEntryValues(table, key);
+                return key;
+            }
+            return value;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[Localization] L() failed table={table} key={key} : {ex.Message}");
+            return key;
+        }
+    }
+
+    private void DebugLogEntryValues(string table, string key)
+    {
+        var collection = LocalizationEditorSettings.GetStringTableCollection(table);
+        if (collection == null)
+        {
+            Debug.LogError($"[Localization] Collection not found: {table}");
+            return;
+        }
+
+        var shared = collection.SharedData;
+        var sharedEntry = shared.GetEntry(key);
+        if (sharedEntry == null)
+        {
+            Debug.LogError($"[Localization] Key '{key}' not in SharedData. Existing keys: {string.Join(", ", shared.Entries.Select(e => e.Key))}");
+            return;
+        }
+
+        foreach (var t in collection.StringTables)
+        {
+            if (t == null) continue;
+            var entry = t.GetEntry(sharedEntry.Id);
+            var val = entry?.Value ?? "<null>";
+            Debug.Log($"[Localization] TableLocale={t.LocaleIdentifier.Code} key={key} value='{val}'");
+        }
     }
 
     public void CreateGUI()
@@ -112,7 +232,7 @@ public class NativeToolkitEditorWindow : EditorWindow
         container.style.paddingTop = 10;
         container.style.paddingBottom = 10;
 
-        var header = new Label("TreeView Editor");
+        var header = new Label(L("NativeToolkit", "header.title"));
         header.name = "header-label";
         header.style.fontSize = 18;
         header.style.marginBottom = 10;
@@ -391,7 +511,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             infoInspector.visible = true;
             itemInspector.visible = false;
 
-            infoInspector.Q<Label>("message").text = $"This folder is {item.name}";
+            infoInspector.Q<Label>("message").text = L("NativeToolkit", "folder.template").Replace("{name}", item.name);
             return;
         }
 
@@ -402,7 +522,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             infoInspector.visible = true;
             itemInspector.visible = false;
 
-            infoInspector.Q<Label>("message").text = $"This folder is empty";
+            infoInspector.Q<Label>("message").text = L("NativeToolkit", "folder.empty");
             return;
         }
 
@@ -865,10 +985,10 @@ public class NativeToolkitEditorWindow : EditorWindow
     private void OnContextualMenu(ContextualMenuPopulateEvent evt)
     {
         Debug.Log("Contextual menu opened");
-        evt.menu.AppendAction("Add Item", (a) => Debug.Log("Add Item clicked"));
-        evt.menu.AppendAction("Delete Item", (a) => Debug.Log("Delete Item clicked"));
+        evt.menu.AppendAction(L("NativeToolkit", "context.add"), (a) => Debug.Log("Add Item clicked"));
+        evt.menu.AppendAction(L("NativeToolkit", "context.delete"), (a) => Debug.Log("Delete Item clicked"));
         evt.menu.AppendSeparator();
-        evt.menu.AppendAction("Refresh", (a) => PopulateTreeView());
+        evt.menu.AppendAction(L("NativeToolkit", "context.refresh"), (a) => PopulateTreeView());
     }
 
     private void OnDestroy()

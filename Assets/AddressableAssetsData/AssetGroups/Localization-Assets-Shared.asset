@@ -15,8 +15,9 @@ MonoBehaviour:
   m_GroupName: Localization-Assets-Shared
   m_GUID: fc13394296b174de090a29adab2c93d0
   m_SerializeEntries:
-  - m_GUID: 43baa2e3f7119474cbedce96783708a9
-    m_Address: Assets/Localization/Locales/Tables/EditorUI/NativeToolkit Shared Data.asset
+  - m_GUID: 20ef6680bb09c49109bb116520ab0ee4
+    m_Address: Assets/Localization/Locales/Tables/EditorUI/NativeToolkit/NativeToolkit
+      Shared Data.asset
     m_ReadOnly: 1
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
