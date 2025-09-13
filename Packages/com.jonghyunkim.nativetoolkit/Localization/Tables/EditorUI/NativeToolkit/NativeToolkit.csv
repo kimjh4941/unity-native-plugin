@@ -1,0 +1,9 @@
+Key,English(en),Japanese(ja)
+"folder.empty","This folder is empty","このフォルダーは空です"
+"folder.template","This folder is {name}","このフォルダーは{name}です"
+"button.open","Open","開く"
+"window.title","Native Toolkit","ネイティブ ツールキット"
+"header.title","TreeView Editor","ツリービュー エディター"
+"context.add","Add Item","項目を追加"
+"context.delete","Delete Item","項目を削除"
+"context.refresh","Refresh","更新"

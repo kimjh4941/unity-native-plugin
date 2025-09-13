@@ -1,5 +1,14 @@
 {
   "dependencies": {
+    "com.jonghyunkim.nativetoolkit": {
+      "version": "file:com.jonghyunkim.nativetoolkit",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.localization": "1.5.7",
+        "com.unity.inputsystem": "1.7.0"
+      }
+    },
     "com.unity.addressables": {
       "version": "2.3.16",
       "depth": 1,

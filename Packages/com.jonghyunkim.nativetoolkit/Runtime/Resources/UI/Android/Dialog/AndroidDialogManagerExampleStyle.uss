@@ -1,0 +1,120 @@
+/* Android Safe Area対応USS */
+:root {
+}
+
+.android-safe-area-container {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.android-scroll {
+    flex-grow: 1;
+}
+
+.android-dialog-content {
+    flex-grow: 1;
+    background-color: rgba(255, 255, 255, 1);
+    border-radius: 0px;
+    padding: 0px;
+    margin: 0px;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.android-dialog-title {
+    font-size: 20px;
+    color: #212121;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-bottom: 20px;
+    white-space: normal;
+}
+
+.android-result-border {
+    background-color: #EEEEEE;
+    border-radius: 8px;
+    margin: 10px 0 20px 0;
+}
+
+.android-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #212121;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.android-dialog-button {
+    background-color: #2196F3;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    white-space: normal;
+}
+
+.android-dialog-button:hover {
+    background-color: #1976D2;
+}
+
+.android-dialog-button:active {
+    background-color: #0D47A1;
+}
+
+.android-dialog-button:disabled {
+    background-color: #BDBDBD;
+    color: #757575;
+}
+
+/* 画面サイズ別スタイル */
+.small-screen .android-dialog-content {
+    margin: 0px;
+    padding: 12px;
+}
+
+.small-screen .android-dialog-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+}
+
+.medium-screen .android-dialog-content {
+    margin: 0px;
+    padding: 16px;
+}
+
+.medium-screen .android-dialog-title {
+    font-size: 20px;
+}
+
+.large-screen .android-dialog-content {
+    margin: 0px;
+    padding: 20px;
+    max-width: 500px;
+    align-self: center;
+}
+
+.large-screen .android-dialog-title {
+    font-size: 24px;
+}
+
+/* DPI別スタイル調整 */
+.low-dpi .android-dialog-title {
+    font-size: 18px;
+}
+
+.medium-dpi .android-dialog-title {
+    font-size: 20px;
+}
+
+.high-dpi .android-dialog-title {
+    font-size: 22px;
+}

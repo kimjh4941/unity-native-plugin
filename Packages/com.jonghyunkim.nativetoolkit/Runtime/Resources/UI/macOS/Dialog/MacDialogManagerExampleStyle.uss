@@ -1,0 +1,73 @@
+:root { }
+
+.mac-dialog-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: #2B2B2B; /* dark editor-like bg */
+}
+
+.mac-scroll {
+    flex-grow: 1;
+}
+
+.mac-dialog-content {
+    flex-grow: 1;
+    background-color: #F2F2F2; /* macOS light panel */
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.mac-dialog-title {
+    font-size: 18px;
+    color: #111111;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-bottom: 16px;
+    white-space: normal;
+    text-overflow: ellipsis;
+}
+
+.mac-result-border {
+    background-color: #E5E5E5;
+    border-radius: 10px;
+    margin: 10px 0 20px 0;
+}
+
+.mac-result-text {
+    padding: 10px;
+    font-size: 16px;
+    color: #111;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.mac-dialog-button {
+    background-color: #0A84FF; /* macOS accent blue */
+    color: white;
+    font-size: 18px;
+    height: 42px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.mac-dialog-button:hover {
+    background-color: #0060DF;
+}
+
+.mac-dialog-button:active {
+    background-color: #0049A6;
+}
+
+.mac-dialog-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}

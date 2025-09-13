@@ -1,0 +1,69 @@
+:root { }
+
+.win-dialog-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: #1E1E1E; /* VS-like dark bg */
+}
+
+.win-scroll {
+    flex-grow: 1;
+}
+
+.win-dialog-content {
+    flex-grow: 1;
+    background-color: #F3F3F3;
+    border-radius: 8px;
+    padding: 30px;
+    margin: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.win-dialog-title {
+    font-size: 30px;
+    color: #111111;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+}
+
+.win-result-border {
+    background-color: #D3D3D3;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.win-result-text {
+    padding: 10px;
+    font-size: 24px;
+    color: #111;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+/* Button style similar to DialogButtonStyle */
+.win-dialog-button {
+    background-color: #0078D4;
+    color: white;
+    font-size: 24px;
+    height: 50px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.win-dialog-button:hover {
+    background-color: #005A9E;
+}
+
+.win-dialog-button:active {
+    background-color: #003E73;
+}
+
+.win-dialog-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}

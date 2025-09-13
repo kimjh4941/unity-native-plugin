@@ -1,0 +1,120 @@
+/* iOS Safe Area対応USS */
+:root {
+}
+
+.ios-safe-area-container {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.ios-scroll {
+    flex-grow: 1;
+}
+
+.ios-dialog-content {
+    flex-grow: 1;
+    background-color: rgba(248, 248, 248, 1); /* iOS風の背景色 */
+    border-radius: 0px; /* iOS風の大きめの角丸 */
+    padding: 0px;
+    margin: 0px;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.ios-dialog-title {
+    font-size: 20px;
+    color: #1C1C1E; /* iOS風のダークテキスト */
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-bottom: 20px;
+    white-space: normal;
+}
+
+/* ListView専用スタイル */
+
+.ios-result-border {
+    background-color: #E9E9EB; /* iOS風のグレー */
+    border-radius: 12px;
+    margin: 10px 0 20px 0;
+}
+
+.ios-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #1C1C1E;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.ios-dialog-button {
+    background-color: #007AFF; /* iOSシステムブルー */
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.ios-dialog-button:hover {
+    background-color: #0056D6;
+}
+
+.ios-dialog-button:active {
+    background-color: #0046AA;
+}
+
+.ios-dialog-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
+
+/* 画面サイズ別スタイル - iOS風 */
+.small-screen .ios-dialog-content {
+    margin: 0px;
+    padding: 12px;
+}
+
+.small-screen .ios-dialog-title {
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.medium-screen .ios-dialog-content {
+    margin: 0px;
+    padding: 16px;
+}
+
+.medium-screen .ios-dialog-title {
+    font-size: 20px;
+}
+
+.large-screen .ios-dialog-content {
+    margin: 0px;
+    padding: 20px;
+    align-self: center;
+}
+
+.large-screen .ios-dialog-title {
+    font-size: 20px;
+}
+
+/* DPI別スタイル調整 */
+.low-dpi .ios-dialog-title {
+    font-size: 14px;
+}
+
+.medium-dpi .ios-dialog-title {
+    font-size: 16px;
+}
+
+.high-dpi .ios-dialog-title {
+    font-size: 18px;
+}

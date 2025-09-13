@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="IosDialogManagerExampleStyle.uss" />
+    <ui:VisualElement class="ios-safe-area-container">
+        <ui:ScrollView class="ios-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="ios-dialog-content">
+                <ui:Label name="TitleTextBlock" text="IosDialogManager Example" class="ios-dialog-title" />
+
+                <ui:VisualElement class="ios-result-border">
+                    <ui:Label name="ResultTextBlock" text="Result will be displayed here" class="ios-result-text" />
+                </ui:VisualElement>
+
+                <ui:Button name="ShowDialogButton" class="ios-dialog-button" text="ShowDialog" />
+                <ui:Button name="ShowConfirmDialogButton" class="ios-dialog-button" text="ShowConfirmDialog" />
+                <ui:Button name="ShowDestructiveDialogButton" class="ios-dialog-button" text="ShowDestructiveDialog" />
+                <ui:Button name="ShowActionSheetButton" class="ios-dialog-button" text="ShowActionSheet" />
+                <ui:Button name="ShowTextInputDialogButton" class="ios-dialog-button" text="ShowTextInputDialog" />
+                <ui:Button name="ShowLoginDialogButton" class="ios-dialog-button" text="ShowLoginDialog" />
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

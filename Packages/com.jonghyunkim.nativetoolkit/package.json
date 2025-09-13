@@ -1,0 +1,26 @@
+{
+  "name": "com.jonghyunkim.nativetoolkit",
+  "displayName": "Native Toolkit",
+  "description": "Cross-platform native dialogs and editor utilities with localization for Unity 6.",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "unityRelease": "0f1",
+  "type": "library",
+  "author": {
+    "name": "Jonghyun Kim"
+  },
+  "documentationUrl": "Documentation/index.md",
+  "changelogUrl": "CHANGELOG.md",
+  "licensesUrl": "LICENSE",
+  "keywords": [
+    "native",
+    "dialogs",
+    "localization",
+    "editor",
+    "toolkit"
+  ],
+  "dependencies": {
+    "com.unity.localization": "1.5.7",
+    "com.unity.inputsystem": "1.7.0"
+  }
+}
