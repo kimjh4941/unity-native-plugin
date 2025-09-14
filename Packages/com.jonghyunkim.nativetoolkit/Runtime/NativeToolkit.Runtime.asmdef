@@ -1,6 +1,6 @@
 {
   "name": "NativeToolkit.Runtime",
-  "rootNamespace": "Jonghyunkim.NativeToolkit",
+  "rootNamespace": "Jonghyunkim.NativeToolkit.Runtime",
   "references": [
     "Unity.Localization",
     "Unity.InputSystem"

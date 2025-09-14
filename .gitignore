@@ -72,3 +72,9 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Native Toolkit Documentation (ignore generated outputs)
+/Packages/com.jonghyunkim.nativetoolkit/Documentation~/api/*
+/Packages/com.jonghyunkim.nativetoolkit/Documentation~/obj/*
+/Packages/com.jonghyunkim.nativetoolkit/Documentation~/site/*
+/Packages/com.jonghyunkim.nativetoolkit/Editor/build/*
