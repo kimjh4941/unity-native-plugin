@@ -23,5 +23,12 @@
     "com.unity.localization": "1.5.7",
     "com.unity.inputsystem": "1.7.0",
     "com.unity.addressables": "1.21.21"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Native Toolkit Example",
+      "description": "A sample showcasing native toolkit functionalities.",
+      "path": "Samples~"
+    }
+  ]
 }

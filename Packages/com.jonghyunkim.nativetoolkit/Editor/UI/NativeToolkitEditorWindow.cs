@@ -26,13 +26,16 @@ using UnityEditor.Localization;
 /// </remarks>
 public class NativeToolkitEditorWindow : EditorWindow
 {
+    // Package-rooted paths only
+    private const string PackageRoot = "Packages/com.jonghyunkim.nativetoolkit";
+    private const string RuntimeUIRoot = PackageRoot + "/Runtime/Resources/UI";
+    private const string NativeToolkitExampleScenePath = "Assets/Samples/Native Toolkit/1.0.0/Native Toolkit Example/NativeToolkitExampleScene.unity";
+
     [SerializeField] private VisualTreeAsset? mainDocument;
     [SerializeField] private VisualTreeAsset? itemTemplate;
     [SerializeField] private StyleSheet? styleSheet;
 
     private TreeView? treeView;
-
-    private const string NativeToolkitExampleScenePath = "Assets/Scenes/NativeToolkitExampleScene.unity";
 
     private System.Action? _fileOpenHandler;
 
@@ -931,30 +934,26 @@ public class NativeToolkitEditorWindow : EditorWindow
     /// </summary>
     private PanelSettings? GetPanelSettings(TreeItemData? item)
     {
-        // Compute dedicated PanelSettings path for the item
+        // Package-only dedicated PanelSettings
         var panelSettingsPath = GetPanelSettingsPathForItem(item);
         var panelSettings = AssetDatabase.LoadAssetAtPath<PanelSettings>(panelSettingsPath);
-
         if (panelSettings != null)
         {
-            Debug.Log($"[Editor] Found existing PanelSettings: {panelSettingsPath}");
+            Debug.Log($"[Editor] Found PanelSettings: {panelSettingsPath}");
             return panelSettings;
         }
 
-        // Try common PanelSettings fallback
-        var commonPanelSettingsPath = "Assets/Settings/UI/Common/CommonPanelSettings.asset";
+        // Package-only common fallback inside package
+        var commonPanelSettingsPath = $"{RuntimeUIRoot}/Common/CommonPanelSettings.asset";
         var commonPanelSettings = AssetDatabase.LoadAssetAtPath<PanelSettings>(commonPanelSettingsPath);
-
         if (commonPanelSettings != null)
         {
             Debug.Log($"[Editor] Using common PanelSettings: {commonPanelSettingsPath}");
             return commonPanelSettings;
         }
-        else
-        {
-            Debug.LogError($"[Editor] PanelSettings not found at path: {panelSettingsPath} or {commonPanelSettingsPath}");
-            return null;
-        }
+
+        Debug.LogError($"[Editor] PanelSettings not found at path: {panelSettingsPath} or {commonPanelSettingsPath}");
+        return null;
     }
 
     /// <summary>
@@ -962,19 +961,19 @@ public class NativeToolkitEditorWindow : EditorWindow
     /// </summary>
     private string GetPanelSettingsPathForItem(TreeItemData? item)
     {
-        // Determine PanelSettings path based on item name
+        // Package-only PanelSettings paths
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
-                return "Assets/Settings/UI/Android/AndroidDialogPanelSettings.asset";
+                return $"{RuntimeUIRoot}/Android/AndroidDialogPanelSettings.asset";
             case "IosDialogManager.cs":
-                return "Assets/Settings/UI/iOS/IosDialogPanelSettings.asset";
+                return $"{RuntimeUIRoot}/iOS/IosDialogPanelSettings.asset";
             case "MacDialogManager.cs":
-                return "Assets/Settings/UI/macOS/MacDialogPanelSettings.asset";
+                return $"{RuntimeUIRoot}/macOS/MacDialogPanelSettings.asset";
             case "WindowsDialogManager.cs":
-                return "Assets/Settings/UI/Windows/WindowsDialogPanelSettings.asset";
+                return $"{RuntimeUIRoot}/Windows/WindowsDialogPanelSettings.asset";
             default:
-                return "Assets/Settings/UI/Common/DefaultPanelSettings.asset";
+                return $"{RuntimeUIRoot}/Common/DefaultPanelSettings.asset";
         }
     }
 
@@ -983,19 +982,19 @@ public class NativeToolkitEditorWindow : EditorWindow
     /// </summary>
     private string GetUXMLPathForItem(TreeItemData? item)
     {
-        // Determine UXML file path based on item name
+        // Package-only UXML paths
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExample.uxml";
+                return $"{RuntimeUIRoot}/Android/Dialog/AndroidDialogManagerExample.uxml";
             case "IosDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/iOS/Dialog/IosDialogManagerExample.uxml";
+                return $"{RuntimeUIRoot}/iOS/Dialog/IosDialogManagerExample.uxml";
             case "MacDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/macOS/Dialog/MacDialogManagerExample.uxml";
+                return $"{RuntimeUIRoot}/macOS/Dialog/MacDialogManagerExample.uxml";
             case "WindowsDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/Windows/Dialog/WindowsDialogManagerExample.uxml";
+                return $"{RuntimeUIRoot}/Windows/Dialog/WindowsDialogManagerExample.uxml";
             default:
-                return "Assets/Scripts/Runtime/UI/Default/DefaultExample.uxml";
+                return $"{RuntimeUIRoot}/Default/DefaultExample.uxml";
         }
     }
 
@@ -1041,19 +1040,19 @@ public class NativeToolkitEditorWindow : EditorWindow
     /// </summary>
     private string GetStyleSheetPathForItem(TreeItemData? item)
     {
-        // Determine stylesheet path based on item name
+        // Package-only USS paths
         switch (item?.name)
         {
             case "AndroidDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss";
+                return $"{RuntimeUIRoot}/Android/Dialog/AndroidDialogManagerExampleStyle.uss";
             case "IosDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/iOS/Dialog/IosDialogManagerExampleStyle.uss";
+                return $"{RuntimeUIRoot}/iOS/Dialog/IosDialogManagerExampleStyle.uss";
             case "MacDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/macOS/Dialog/MacDialogManagerExampleStyle.uss";
+                return $"{RuntimeUIRoot}/macOS/Dialog/MacDialogManagerExampleStyle.uss";
             case "WindowsDialogManager.cs":
-                return "Assets/Scripts/Runtime/UI/Windows/Dialog/WindowsDialogManagerExampleStyle.uss";
+                return $"{RuntimeUIRoot}/Windows/Dialog/WindowsDialogManagerExampleStyle.uss";
             default:
-                return "Assets/Scripts/Runtime/UI/Common/CommonStyles.uss";
+                return $"{RuntimeUIRoot}/Common/CommonStyles.uss";
         }
     }
 

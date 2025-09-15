@@ -516,6 +516,7 @@ GameObject:
   - component: {fileID: 1368476704}
   - component: {fileID: 1368476705}
   - component: {fileID: 1368476706}
+  - component: {fileID: 1368476707}
   m_Layer: 0
   m_Name: NativeToolkitExample
   m_TagString: Untagged
@@ -550,9 +551,9 @@ MonoBehaviour:
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_PanelSettings: {fileID: 11400000, guid: d8fc422bc0cd240c28938dabb00331a8, type: 2}
+  m_PanelSettings: {fileID: 11400000, guid: 746ba459843b540c7b4aeaa771b82147, type: 2}
   m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: 116e14efe74484ccfab797655e777f76, type: 3}
+  sourceAsset: {fileID: 9197481963319205126, guid: 832ba7b1c68f24805a08fa308e1f137b, type: 3}
   m_SortingOrder: 0
   m_WorldSpaceSizeMode: 1
   m_WorldSpaceWidth: 1920
@@ -575,6 +576,19 @@ MonoBehaviour:
   manualBottomPadding: 0
   manualLeftPadding: 0
   manualRightPadding: 0
+--- !u!114 &1368476707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1368476703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c8fb180d7d2340fd88d732d9a382164, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiDocument: {fileID: 1368476705}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

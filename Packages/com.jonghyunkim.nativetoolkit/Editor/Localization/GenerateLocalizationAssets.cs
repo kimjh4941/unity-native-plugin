@@ -20,7 +20,7 @@ using System.Globalization;
 /// </remarks>
 public static class GenerateLocalizationAssets
 {
-    private static string CSV_FILE => $"{CollectionTablesDir}/NativeToolkit.csv";
+    private static string CSV_FILE => "Packages/com.jonghyunkim.nativetoolkit/Localization/Tables/EditorUI/NativeToolkit/NativeToolkit.csv";
     private const string TableName = "NativeToolkit";
 
     // Layout requirement (as requested): Locales/Tables/EditorUI/NativeToolkit
