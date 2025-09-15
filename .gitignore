@@ -77,4 +77,4 @@ crashlytics-build.properties
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/api/*
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/obj/*
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/site/*
-/Packages/com.jonghyunkim.nativetoolkit/Editor/build/*
+/Packages/com.jonghyunkim.nativetoolkit/Editor/Build/obj/*

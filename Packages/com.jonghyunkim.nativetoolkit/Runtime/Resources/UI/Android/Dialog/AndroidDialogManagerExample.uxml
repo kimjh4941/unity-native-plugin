@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/Scripts/Runtime/UI/Android/Dialog/AndroidDialogManagerExampleStyle.uss?fileID=7433441132597879392&amp;guid=8f8eb420530eb450f8a0ac787cb158d8&amp;type=3#AndroidDialogManagerExampleStyle" />
+    <Style src="AndroidDialogManagerExampleStyle.uss" />
     <ui:VisualElement class="android-safe-area-container">
         <ui:ScrollView class="android-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="android-dialog-content">
