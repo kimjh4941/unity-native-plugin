@@ -143,18 +143,30 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :android_library:assemble{config}");
         RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :unity_android_plugin:assemble{config}");
 
-        // Artifact names: -debug.aar / -release.aar
+        // suffix = debug / release
         string suffix = config.ToLowerInvariant();
-        string aarSrc1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", $"android_library-{suffix}.aar");
-        string aarSrc2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", $"unity_android_plugin-{suffix}.aar");
 
-        string destDir = Path.Combine(Application.dataPath, "Plugins/Android/Library");
-        Directory.CreateDirectory(destDir);
+        // original artifact paths produced by Gradle
+        string builtAar1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", $"android_library-{suffix}.aar");
+        string builtAar2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", $"unity_android_plugin-{suffix}.aar");
 
-        RunShellCommand($"cp -f \"{aarSrc1}\" \"{destDir}\"");
-        RunShellCommand($"cp -f \"{aarSrc2}\" \"{destDir}\"");
+        // desired names
+        string desiredAar1 = Path.Combine(Path.GetDirectoryName(builtAar1)!, $"android_nativetoolkit-{suffix}.aar");
+        string desiredAar2 = Path.Combine(Path.GetDirectoryName(builtAar2)!, $"unity_android_nativetoolkit-{suffix}.aar");
 
-        UnityEngine.Debug.Log($"[Build][Android] Copied AARs (config={config}) to Plugins/Android/Library");
+        // destination directory in Unity project
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
+
+        // rename if exists
+        RunShellCommand($"if [ -f \"{builtAar1}\" ]; then mv \"{builtAar1}\" \"{desiredAar1}\"; fi");
+        RunShellCommand($"if [ -f \"{builtAar2}\" ]; then mv \"{builtAar2}\" \"{desiredAar2}\"; fi");
+
+        // copy to package plugin folder (example)
+        RunShellCommand($"cp -f \"{desiredAar1}\" \"{destDir}\"");
+        RunShellCommand($"cp -f \"{desiredAar2}\" \"{destDir}\"");
+
+        UnityEngine.Debug.Log($"[Build][Android] Copied AARs (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][Android] Pre-build steps completed.");
     }
 
@@ -173,7 +185,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcarchive";
         RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
 
-        string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcframework";
+        string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosNativeToolkit.xcframework";
         if (Directory.Exists(xcframeworkPath))
         {
             Directory.Delete(xcframeworkPath, true);
@@ -181,11 +193,13 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityIosPlugin.framework -output \"{xcframeworkPath}\"");
 
-        string destDir = Path.Combine(Application.dataPath, "Plugins/iOS/Library");
-        Directory.CreateDirectory(destDir);
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
+
+        RunShellCommand($"rm -rf \"{destDir}\"/*");
         RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosPlugin.xcframework (config={config}) to Plugins/iOS/Library");
+        UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosNativeToolkit.xcframework (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][iOS] Pre-build steps completed.");
     }
 
@@ -197,14 +211,15 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         UnityEngine.Debug.Log($"[Build][Windows] Pre-build steps started. Config={config}");
 
         string dllSrc = $@"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\{config}\WindowsLibraryExample\AppX\WindowsLibrary.dll";
-        string destDir = Path.Combine(Application.dataPath, "Plugins/Windows/Library");
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
         string dllDst = Path.Combine(destDir, "WindowsLibrary.dll");
 
         try
         {
-            Directory.CreateDirectory(destDir);
+            RunShellCommand($"rm -rf \"{destDir}\"/*");
             File.Copy(dllSrc, dllDst, true);
-            UnityEngine.Debug.Log($"[Build][Windows] Copied WindowsLibrary.dll (config={config}) to Plugins/Windows/Library");
+            UnityEngine.Debug.Log($"[Build][Windows] Copied WindowsLibrary.dll (config={config}) to {destDir}");
         }
         catch (System.Exception ex)
         {
@@ -229,7 +244,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacPlugin.xcarchive";
         RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk macosx -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
 
-        string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacPlugin.xcframework";
+        string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacNativeToolkit.xcframework";
         if (Directory.Exists(xcframeworkPath))
         {
             Directory.Delete(xcframeworkPath, true);
@@ -237,11 +252,12 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityMacPlugin.framework -output \"{xcframeworkPath}\"");
 
-        string destDir = Path.Combine(Application.dataPath, "Plugins/macOS/Library");
-        Directory.CreateDirectory(destDir);
+        string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
+        RunShellCommand($"rm -rf \"{destDir}\"/*");
         RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log($"[Build][macOS] Copied UnityMacPlugin.xcframework (config={config}) to Plugins/macOS/Library");
+        UnityEngine.Debug.Log($"[Build][macOS] Copied UnityMacNativeToolkit.xcframework (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][macOS] Pre-build steps completed.");
     }
 
