@@ -1,0 +1,8 @@
+{
+  "name": "NativeToolkit.BuildTools.Editor",
+  "rootNamespace": "Jonghyunkim.NativeToolkit.Editor.Build.Tools",
+  "includePlatforms": [ "Editor" ],
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

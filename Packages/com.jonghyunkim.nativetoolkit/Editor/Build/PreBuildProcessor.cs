@@ -14,6 +14,10 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 {
     public int callbackOrder => 0;
 
+    // Determine config from build options
+    private static string GetConfigName(BuildReport report)
+        => (report.summary.options & BuildOptions.Development) != 0 ? "Debug" : "Release";
+
     /// <summary>
     /// Entry point executed before the player build starts. Routes to platform‑specific native
     /// build helpers after cleaning up unrelated plugin folders.
@@ -23,26 +27,28 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         // Temporarily disable libraries for non-target platforms before building
         CleanupOtherPlatformLibraries(report.summary.platform);
 
+        var config = GetConfigName(report);
+        UnityEngine.Debug.Log($"[Build] Configuration: {config}");
+
         if (report.summary.platform == BuildTarget.Android)
         {
-            BuildAndroidLibraries();
+            BuildAndroidLibraries(config);
         }
         else if (report.summary.platform == BuildTarget.iOS)
         {
-            BuildiOSLibraries();
+            BuildiOSLibraries(config);
         }
         else if (report.summary.platform == BuildTarget.StandaloneWindows64)
         {
-            BuildWindowsLibraries();
+            BuildWindowsLibraries(config);
         }
         else if (report.summary.platform == BuildTarget.StandaloneOSX)
         {
 #if UNITY_2021_3_OR_NEWER
-            // Unity 6: Disable player log for macOS if still available in this version
             PlayerSettings.usePlayerLog = false;
             UnityEngine.Debug.Log("[Build] Set PlayerSettings.usePlayerLog = false for macOS");
 #endif
-            BuildmacOSLibraries();
+            BuildmacOSLibraries(config);
         }
     }
 
@@ -123,92 +129,74 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Builds Android AAR libraries by executing Gradle commands in the native toolkit project
-    /// and copies the resulting artifacts to the Unity Plugins folder.
+    /// Builds Android AAR libraries (Debug/Release) and copies them to Plugins/Android/Library.
     /// </summary>
-    private void BuildAndroidLibraries()
+    private void BuildAndroidLibraries(string config)
     {
-        UnityEngine.Debug.Log("[Build][Android] Pre-build steps started.");
+        UnityEngine.Debug.Log($"[Build][Android] Pre-build steps started. Config={config}");
 
-        // 1. Gradle wrapper is located in android/AndroidLibraryExample directory
         string androidRootProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/AndroidLibraryExample";
-
-        // 2. Build android_library-debug.aar
         string androidLibraryProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/android_library";
-        RunShellCommand(
-            $"cd \"{androidRootProjectPath}\" && ./gradlew :android_library:assembleDebug"
-        );
-        string aarSrc1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", "android_library-debug.aar");
-
-        // 3. Build unity_android_plugin-debug.aar
         string unityAndroidPluginProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin";
-        RunShellCommand(
-            $"cd \"{androidRootProjectPath}\" && ./gradlew :unity_android_plugin:assembleDebug"
-        );
-        string aarSrc2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", "unity_android_plugin-debug.aar");
 
-        // 4. Copy to Plugins/Android/Library folder
+        // assembleDebug or assembleRelease
+        RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :android_library:assemble{config}");
+        RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :unity_android_plugin:assemble{config}");
+
+        // Artifact names: -debug.aar / -release.aar
+        string suffix = config.ToLowerInvariant();
+        string aarSrc1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", $"android_library-{suffix}.aar");
+        string aarSrc2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", $"unity_android_plugin-{suffix}.aar");
+
         string destDir = Path.Combine(Application.dataPath, "Plugins/Android/Library");
         Directory.CreateDirectory(destDir);
 
         RunShellCommand($"cp -f \"{aarSrc1}\" \"{destDir}\"");
         RunShellCommand($"cp -f \"{aarSrc2}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log("[Build][Android] Copied android_library-debug.aar & unity_android_plugin-debug.aar to Plugins/Android/Library");
+        UnityEngine.Debug.Log($"[Build][Android] Copied AARs (config={config}) to Plugins/Android/Library");
         UnityEngine.Debug.Log("[Build][Android] Pre-build steps completed.");
     }
 
     /// <summary>
-    /// Builds iOS XCFramework library by executing Xcode commands and copies the resulting
-    /// framework to the Unity Plugins folder.
+    /// Builds iOS XCFramework (Debug/Release) and copies it to Plugins/iOS/Library.
     /// </summary>
-    private void BuildiOSLibraries()
+    private void BuildiOSLibraries(string config)
     {
-        UnityEngine.Debug.Log("[Build][iOS] Pre-build steps started.");
+        UnityEngine.Debug.Log($"[Build][iOS] Pre-build steps started. Config={config}");
 
-        // 1. Execute Xcode clean command
         string workspacePath = "/Users/jonghyunkim/Desktop/native-toolkit/ios/IosWorkspace.xcworkspace";
         string scheme = "UnityIosPlugin";
-        RunShellCommand(
-            $"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\""
-        );
 
-        // 2. Create UnityIosPlugin library archive
+        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\" -configuration {config}");
+
         string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcarchive";
-        RunShellCommand(
-            $"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk iphoneos SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES"
-        );
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
 
-        // 3. Create XCFramework
         string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcframework";
-
-        // 4. Remove existing XCFramework before creating new one
         if (Directory.Exists(xcframeworkPath))
         {
             Directory.Delete(xcframeworkPath, true);
         }
-        RunShellCommand(
-            $"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityIosPlugin.framework -output \"{xcframeworkPath}\""
-        );
 
-        // 5. Copy XCFramework to Unity Plugins/iOS/Library folder
+        RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityIosPlugin.framework -output \"{xcframeworkPath}\"");
+
         string destDir = Path.Combine(Application.dataPath, "Plugins/iOS/Library");
         Directory.CreateDirectory(destDir);
         RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log("[Build][iOS] Copied UnityIosPlugin.xcframework to Plugins/iOS/Library");
+        UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosPlugin.xcframework (config={config}) to Plugins/iOS/Library");
         UnityEngine.Debug.Log("[Build][iOS] Pre-build steps completed.");
     }
 
     /// <summary>
-    /// Builds Windows DLL library and copies it to the Unity Plugins folder.
+    /// Copies Windows DLL built for Debug/Release to Plugins/Windows/Library.
     /// </summary>
-    private void BuildWindowsLibraries()
+    private void BuildWindowsLibraries(string config)
     {
-        UnityEngine.Debug.Log("[Build][Windows] Pre-build steps started.");
+        UnityEngine.Debug.Log($"[Build][Windows] Pre-build steps started. Config={config}");
 
-        // Source and destination paths
-        string dllSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary.dll";
+        string dllSrc = $@"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\{config}\WindowsLibraryExample\AppX\WindowsLibrary.dll";
         string destDir = Path.Combine(Application.dataPath, "Plugins/Windows/Library");
         string dllDst = Path.Combine(destDir, "WindowsLibrary.dll");
 
@@ -216,7 +204,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         {
             Directory.CreateDirectory(destDir);
             File.Copy(dllSrc, dllDst, true);
-            UnityEngine.Debug.Log("[Build][Windows] Copied WindowsLibrary.dll to Plugins/Windows/Library");
+            UnityEngine.Debug.Log($"[Build][Windows] Copied WindowsLibrary.dll (config={config}) to Plugins/Windows/Library");
         }
         catch (System.Exception ex)
         {
@@ -227,44 +215,33 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Builds macOS XCFramework library by executing Xcode commands and copies the resulting
-    /// framework to the Unity Plugins folder.
+    /// Builds macOS XCFramework (Debug/Release) and copies it to Plugins/macOS/Library.
     /// </summary>
-    private void BuildmacOSLibraries()
+    private void BuildmacOSLibraries(string config)
     {
-        UnityEngine.Debug.Log("[Build][macOS] Pre-build steps started.");
+        UnityEngine.Debug.Log($"[Build][macOS] Pre-build steps started. Config={config}");
 
-        // 1. Execute Xcode clean command
         string workspacePath = "/Users/jonghyunkim/Desktop/native-toolkit/mac/MacWorkspace.xcworkspace";
         string scheme = "UnityMacPlugin";
-        RunShellCommand(
-            $"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\""
-        );
 
-        // 2. Create UnityMacPlugin library archive
+        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\" -configuration {config}");
+
         string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacPlugin.xcarchive";
-        RunShellCommand(
-            $"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk macosx SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES"
-        );
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk macosx -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
 
-        // 3. Create XCFramework
         string xcframeworkPath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacPlugin.xcframework";
-
-        // 4. Remove existing XCFramework before creating new one
         if (Directory.Exists(xcframeworkPath))
         {
             Directory.Delete(xcframeworkPath, true);
         }
-        RunShellCommand(
-            $"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityMacPlugin.framework -output \"{xcframeworkPath}\""
-        );
 
-        // 5. Copy XCFramework to Unity Plugins/macOS/Library folder
+        RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityMacPlugin.framework -output \"{xcframeworkPath}\"");
+
         string destDir = Path.Combine(Application.dataPath, "Plugins/macOS/Library");
         Directory.CreateDirectory(destDir);
         RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log("[Build][macOS] Copied UnityMacPlugin.xcframework to Plugins/macOS/Library");
+        UnityEngine.Debug.Log($"[Build][macOS] Copied UnityMacPlugin.xcframework (config={config}) to Plugins/macOS/Library");
         UnityEngine.Debug.Log("[Build][macOS] Pre-build steps completed.");
     }
 
