@@ -201,6 +201,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosNativeToolkit.xcframework (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][iOS] Pre-build steps completed.");
+
+        // Apply plugin import settings (enable only for iOS)
+        ConfigureIosXcframeworkImporter("Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework");
     }
 
     /// <summary>
@@ -259,6 +262,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         UnityEngine.Debug.Log($"[Build][macOS] Copied UnityMacNativeToolkit.xcframework (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][macOS] Pre-build steps completed.");
+
+        // Apply plugin import settings (enable only for macOS)
+        ConfigureMacXcframeworkImporter("Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/UnityMacNativeToolkit.xcframework");
     }
 
     /// <summary>
@@ -287,5 +293,51 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         {
             UnityEngine.Debug.Log(output);
         }
+    }
+
+    // Enable only iOS for the given .xcframework; disable others
+    private static void ConfigureIosXcframeworkImporter(string assetPath)
+    {
+        AssetDatabase.Refresh();
+        var importer = AssetImporter.GetAtPath(assetPath) as PluginImporter;
+        if (importer == null)
+        {
+            UnityEngine.Debug.LogWarning($"[Build][iOS] PluginImporter not found for: {assetPath}");
+            return;
+        }
+
+        importer.SetCompatibleWithAnyPlatform(false);
+        importer.SetCompatibleWithEditor(false);
+        importer.SetCompatibleWithPlatform(BuildTarget.iOS, true);
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, false);
+        importer.SetCompatibleWithPlatform(BuildTarget.Android, false);
+#if UNITY_2021_3_OR_NEWER
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
+#endif
+        importer.SaveAndReimport();
+        UnityEngine.Debug.Log($"[Build][iOS] Import settings updated (iOS only): {assetPath}");
+    }
+
+    // Enable only macOS for the given .xcframework; disable others
+    private static void ConfigureMacXcframeworkImporter(string assetPath)
+    {
+        AssetDatabase.Refresh();
+        var importer = AssetImporter.GetAtPath(assetPath) as PluginImporter;
+        if (importer == null)
+        {
+            UnityEngine.Debug.LogWarning($"[Build][macOS] PluginImporter not found for: {assetPath}");
+            return;
+        }
+
+        importer.SetCompatibleWithAnyPlatform(false);
+        importer.SetCompatibleWithEditor(false);
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, true);
+        importer.SetCompatibleWithPlatform(BuildTarget.iOS, false);
+        importer.SetCompatibleWithPlatform(BuildTarget.Android, false);
+#if UNITY_2021_3_OR_NEWER
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, false);
+#endif
+        importer.SaveAndReimport();
+        UnityEngine.Debug.Log($"[Build][macOS] Import settings updated (macOS only): {assetPath}");
     }
 }
