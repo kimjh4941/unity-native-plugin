@@ -26,8 +26,8 @@
   ],
   "build": {
     "content": [
-      { "files": [ "api/**.yml" ] },
-      { "files": [ "index.md", "getting-started.md", "api.md", "samples.md", "troubleshooting.md" ], "dest": "." }
+  { "files": [ "api/**.yml" ] },
+  { "files": [ "index.md", "index.ja.md" ], "dest": "." }
     ],
     "resource": [
       { "files": [ "images/**" ] }

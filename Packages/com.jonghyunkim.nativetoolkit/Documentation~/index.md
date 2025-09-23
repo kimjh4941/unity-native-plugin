@@ -1,5 +1,7 @@
 # Native Toolkit (Unity 6)
 
+[日本語](index.ja.md)
+
 Cross‑platform native dialogs and editor utilities with localization.
 
 Version: 1.0.0
