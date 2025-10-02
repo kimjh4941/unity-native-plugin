@@ -3,7 +3,8 @@
   "rootNamespace": "Jonghyunkim.NativeToolkit.Runtime",
   "references": [
     "Unity.Localization",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.ResourceManager"
   ],
   "optionalUnityReferences": [],
   "includePlatforms": [],

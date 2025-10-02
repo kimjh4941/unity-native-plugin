@@ -46,7 +46,7 @@ public class NativeToolkitEditorWindow : EditorWindow
         window.titleContent = new GUIContent("Native Toolkit");
         void ApplyTitle()
         {
-            var title = window.L("NativeToolkit", "window.title");
+            var title = LocalizationUtil.L("NativeToolkit", "window.title");
             window.titleContent = new GUIContent(string.IsNullOrEmpty(title) ? "Native Toolkit" : title);
         }
 
@@ -108,78 +108,6 @@ public class NativeToolkitEditorWindow : EditorWindow
         catch (System.Exception ex)
         {
             Debug.LogError($"[Localization] EnsureSelectedLocale failed: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Helper to fetch a localized string from the specified table. Returns the key on failure
-    /// (graceful degradation) and logs detailed diagnostics when an entry is missing.
-    /// </summary>
-    /// <param name="table">String table collection name (e.g. "NativeToolkit").</param>
-    /// <param name="key">Entry key within the table.</param>
-    /// <returns>Localized string value or the key if not resolved.</returns>
-    private string L(string table, string key)
-    {
-        try
-        {
-            // Await initialization
-            if (!LocalizationSettings.InitializationOperation.IsDone)
-            {
-                Debug.LogWarning("[Localization] L() called before LocalizationSettings initialized.");
-                return key;
-            }
-
-            var collection = LocalizationEditorSettings.GetStringTableCollection(table);
-            if (collection == null)
-            {
-                Debug.LogError($"[Localization] Collection not found: {table}");
-                return key;
-            }
-
-            var value = LocalizationSettings.StringDatabase.GetLocalizedString(table, key);
-            if (string.IsNullOrEmpty(value))
-            {
-                // Detailed debug (could be gated if only needed once)
-                DebugLogEntryValues(table, key);
-                return key;
-            }
-            return value;
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"[Localization] L() failed table={table} key={key} : {ex.Message}");
-            return key;
-        }
-    }
-
-    /// <summary>
-    /// Outputs per-locale values for a key to aid in diagnosing missing localization entries.
-    /// </summary>
-    /// <param name="table">String table collection name.</param>
-    /// <param name="key">Entry key.</param>
-    private void DebugLogEntryValues(string table, string key)
-    {
-        var collection = LocalizationEditorSettings.GetStringTableCollection(table);
-        if (collection == null)
-        {
-            Debug.LogError($"[Localization] Collection not found: {table}");
-            return;
-        }
-
-        var shared = collection.SharedData;
-        var sharedEntry = shared.GetEntry(key);
-        if (sharedEntry == null)
-        {
-            Debug.LogError($"[Localization] Key '{key}' not in SharedData. Existing keys: {string.Join(", ", shared.Entries.Select(e => e.Key))}");
-            return;
-        }
-
-        foreach (var t in collection.StringTables)
-        {
-            if (t == null) continue;
-            var entry = t.GetEntry(sharedEntry.Id);
-            var val = entry?.Value ?? "<null>";
-            Debug.Log($"[Localization] TableLocale={t.LocaleIdentifier.Code} key={key} value='{val}'");
         }
     }
 
@@ -277,7 +205,7 @@ public class NativeToolkitEditorWindow : EditorWindow
         container.style.paddingTop = 10;
         container.style.paddingBottom = 10;
 
-        var header = new Label(L("NativeToolkit", "header.title"));
+        var header = new Label(LocalizationUtil.L("NativeToolkit", "header.title"));
         header.name = "header-label";
         header.style.fontSize = 18;
         header.style.marginBottom = 10;
@@ -591,7 +519,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             infoInspector.visible = true;
             itemInspector.visible = false;
 
-            infoInspector.Q<Label>("message").text = L("NativeToolkit", "folder.template").Replace("{name}", item.name);
+            infoInspector.Q<Label>("message").text = LocalizationUtil.L("NativeToolkit", "folder.template").Replace("{name}", item.name);
             return;
         }
 
@@ -602,7 +530,7 @@ public class NativeToolkitEditorWindow : EditorWindow
             infoInspector.visible = true;
             itemInspector.visible = false;
 
-            infoInspector.Q<Label>("message").text = L("NativeToolkit", "folder.empty");
+            infoInspector.Q<Label>("message").text = LocalizationUtil.L("NativeToolkit", "folder.empty");
             return;
         }
 
@@ -1117,10 +1045,10 @@ public class NativeToolkitEditorWindow : EditorWindow
     private void OnContextualMenu(ContextualMenuPopulateEvent evt)
     {
         Debug.Log("Contextual menu opened");
-        evt.menu.AppendAction(L("NativeToolkit", "context.add"), (a) => Debug.Log("Add Item clicked"));
-        evt.menu.AppendAction(L("NativeToolkit", "context.delete"), (a) => Debug.Log("Delete Item clicked"));
+        evt.menu.AppendAction(LocalizationUtil.L("NativeToolkit", "context.add"), (a) => Debug.Log("Add Item clicked"));
+        evt.menu.AppendAction(LocalizationUtil.L("NativeToolkit", "context.delete"), (a) => Debug.Log("Delete Item clicked"));
         evt.menu.AppendSeparator();
-        evt.menu.AppendAction(L("NativeToolkit", "context.refresh"), (a) => PopulateTreeView());
+        evt.menu.AppendAction(LocalizationUtil.L("NativeToolkit", "context.refresh"), (a) => PopulateTreeView());
     }
 
     /// <summary>
