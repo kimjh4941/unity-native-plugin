@@ -96,19 +96,26 @@ public static class PostBuildProcessor
         {
             UnityEngine.Debug.Log("[Build][Windows] Post-build steps started.");
 
+            bool isDevelopmentBuild = EditorUserBuildSettings.development;
+            if (!isDevelopmentBuild)
+            {
+                UnityEngine.Debug.Log("[Build][Windows] Skipping PDB copy for non-development build.");
+                UnityEngine.Debug.Log("[Build][Windows] Post-build steps completed.");
+                return;
+            }
             // Source and destination paths
-            string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary.pdb";
-            string pdbDst = Path.Combine(@"D:\Build\Windows\unity-native-plugin_Data", @"Plugins\x86_64\WindowsLibrary.pdb");
+            string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary-Debug.pdb";
+            string pdbDst = Path.Combine(@"D:\Build\Windows\unity-native-plugin_Data", @"Plugins\x86_64\WindowsLibrary-Debug.pdb");
             
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(pdbDst));
                 File.Copy(pdbSrc, pdbDst, true);
-                UnityEngine.Debug.Log("[Build][Windows] Copied WindowsLibrary.pdb to: " + pdbDst);
+                UnityEngine.Debug.Log("[Build][Windows] Copied WindowsLibrary-Debug.pdb to: " + pdbDst);
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogError("[Build][Windows] Failed to copy WindowsLibrary.pdb: " + ex.Message);
+                UnityEngine.Debug.LogError("[Build][Windows] Failed to copy WindowsLibrary-Debug.pdb: " + ex.Message);
             }
 
             UnityEngine.Debug.Log("[Build][Windows] Post-build steps completed.");

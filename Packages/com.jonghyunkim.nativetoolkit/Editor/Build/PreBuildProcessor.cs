@@ -213,20 +213,36 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     {
         UnityEngine.Debug.Log($"[Build][Windows] Pre-build steps started. Config={config}");
 
-        string dllSrc = $@"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\{config}\WindowsLibraryExample\AppX\WindowsLibrary.dll";
+        const string baseDir = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64";
+        var dllFileName = config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
+            ? "WindowsLibrary-Debug.dll"
+            : "WindowsLibrary.dll";
+        string dllSrc = Path.Combine(baseDir, config, "WindowsLibraryExample", "AppX", dllFileName);
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
-        string dllDst = Path.Combine(destDir, "WindowsLibrary.dll");
+        string dllDst = Path.Combine(
+            destDir,
+            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
+                ? "UnityWindowsNativeToolkit-Debug.dll"
+                : "UnityWindowsNativeToolkit.dll");
 
         try
         {
-            RunShellCommand($"rm -rf \"{destDir}\"/*");
+            if (Directory.Exists(destDir))
+            {
+                Directory.Delete(destDir, true);
+            }
+            Directory.CreateDirectory(destDir);
             File.Copy(dllSrc, dllDst, true);
-            UnityEngine.Debug.Log($"[Build][Windows] Copied WindowsLibrary.dll (config={config}) to {destDir}");
+            UnityEngine.Debug.Log($"[Build][Windows] Copied {Path.GetFileName(dllDst)} (config={config}) to {destDir}");
+
+            // Apply plugin import settings (enable only for Windows)
+            string assetPath = $"Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/{Path.GetFileName(dllDst)}";
+            ConfigureWindowsPluginImporter(assetPath);
         }
         catch (System.Exception ex)
         {
-            UnityEngine.Debug.LogWarning("[Build][Windows] Failed to copy WindowsLibrary.dll: " + ex.Message);
+            UnityEngine.Debug.LogError($"[Build][Windows] Failed to copy {Path.GetFileName(dllDst)}: " + ex.Message);
         }
 
         UnityEngine.Debug.Log("[Build][Windows] Pre-build steps completed.");
@@ -339,5 +355,29 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 #endif
         importer.SaveAndReimport();
         UnityEngine.Debug.Log($"[Build][macOS] Import settings updated (macOS only): {assetPath}");
+    }
+
+    // Enable only Windows for the given plugin DLL; disable others
+    private static void ConfigureWindowsPluginImporter(string assetPath)
+    {
+        AssetDatabase.Refresh();
+        var importer = AssetImporter.GetAtPath(assetPath) as PluginImporter;
+        if (importer == null)
+        {
+            UnityEngine.Debug.LogWarning($"[Build][Windows] PluginImporter not found for: {assetPath}");
+            return;
+        }
+
+        importer.SetCompatibleWithAnyPlatform(false);
+        importer.SetCompatibleWithEditor(false);
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneWindows64, true);
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, false);
+        importer.SetCompatibleWithPlatform(BuildTarget.iOS, false);
+        importer.SetCompatibleWithPlatform(BuildTarget.Android, false);
+#if UNITY_2021_3_OR_NEWER
+        importer.SetCompatibleWithPlatform(BuildTarget.StandaloneLinux64, false);
+#endif
+        importer.SaveAndReimport();
+        UnityEngine.Debug.Log($"[Build][Windows] Import settings updated (Windows only): {assetPath}");
     }
 }

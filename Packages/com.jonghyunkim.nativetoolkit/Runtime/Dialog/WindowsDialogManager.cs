@@ -15,6 +15,12 @@ using System.Collections;
 /// </summary>
 public class WindowsDialogManager : MonoBehaviour
 {
+#if DEVELOPMENT_BUILD
+    private const string DLL_NAME = "UnityWindowsNativeToolkit-Debug.dll";
+#else
+    private const string DLL_NAME = "UnityWindowsNativeToolkit.dll";
+#endif
+
     private static WindowsDialogManager _instance;
 
     /// <summary>
@@ -110,7 +116,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <param name="options">Additional option flags (top-most, etc.).</param>
     /// <param name="pError">Outputs 0 on success, -1 on cancel (if defined by implementation), or another error code.</param>
     /// <returns>Win32 MessageBox style result indicating which button was pressed.</returns>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern int showAlertDialog(
         [MarshalAs(UnmanagedType.LPWStr)] string title,
         [MarshalAs(UnmanagedType.LPWStr)] string message,
@@ -129,7 +135,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <param name="filter">Filter string in Win32 format: "Description\0Pattern\0...\0\0".</param>
     /// <param name="pError">0 success, -1 cancelled, other value = failure.</param>
     /// <returns>true if the native dialog executed (even if cancelled), false on internal failure.</returns>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern bool showFileDialog(
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
         uint buffer_size,
@@ -145,7 +151,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <param name="filter">Filter string (see <see cref="showFileDialog"/>).</param>
     /// <param name="pError">0 success, -1 cancelled, other value = failure.</param>
     /// <returns>Number of selected items; interpretation depends on implementation (first element may be folder).</returns>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern int showMultiFileDialog(
         IntPtr buffer,
         uint buffer_size,
@@ -156,7 +162,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <summary>
     /// Native P/Invoke for save file dialog.
     /// </summary>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern bool showSaveFileDialog(
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
         uint buffer_size,
@@ -168,7 +174,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <summary>
     /// Native P/Invoke for single folder selection dialog.
     /// </summary>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern bool showFolderDialog(
         [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
         uint buffer_size,
@@ -179,7 +185,7 @@ public class WindowsDialogManager : MonoBehaviour
     /// <summary>
     /// Native P/Invoke for multi-folder selection dialog.
     /// </summary>
-    [DllImport("WindowsLibrary.dll", CharSet = CharSet.Unicode)]
+    [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
     private static extern int showMultiFolderDialog(
         IntPtr buffer,
         uint buffer_size,

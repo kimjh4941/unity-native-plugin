@@ -1,3 +1,4 @@
+#if UNITY_EDITOR_OSX
 using UnityEditor;
 using UnityEngine;
 using System.IO;
@@ -98,3 +99,4 @@ public class MacConfigureProjectWindow : EditorWindow
         return new Rect(0, 0, Screen.currentResolution.width, Screen.currentResolution.height);
     }
 }
+#endif

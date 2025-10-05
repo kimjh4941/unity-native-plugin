@@ -1,7 +1,9 @@
+#if UNITY_EDITOR_OSX
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.iOS.Xcode;
+using UnityEditor.iOS.Xcode.Extensions;
 
 /// <summary>
 /// Utility to apply macOS XCFramework copy and Xcode project linking
@@ -89,3 +91,4 @@ public static class MacFrameworkPatcher
         }
     }
 }
+#endif

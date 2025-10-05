@@ -1,0 +1,1340 @@
+id: cs.temp.dll
+language: CSharp
+name:
+  Default: cs.temp.dll
+qualifiedName:
+  Default: cs.temp.dll
+type: Assembly
+modifiers: {}
+items:
+- id: NativeToolkit
+  language: CSharp
+  name:
+    CSharp: NativeToolkit
+    VB: ''
+  nameWithType:
+    CSharp: NativeToolkit
+    VB: ''
+  qualifiedName:
+    CSharp: NativeToolkit
+    VB: ''
+  type: Namespace
+  assemblies:
+  - cs.temp.dll
+  modifiers: {}
+  items:
+  - id: NativeToolkit.UnityMainThreadDispatcher
+    commentId: T:NativeToolkit.UnityMainThreadDispatcher
+    language: CSharp
+    name:
+      CSharp: UnityMainThreadDispatcher
+      VB: UnityMainThreadDispatcher
+    nameWithType:
+      CSharp: UnityMainThreadDispatcher
+      VB: UnityMainThreadDispatcher
+    qualifiedName:
+      CSharp: UnityMainThreadDispatcher
+      VB: UnityMainThreadDispatcher
+    type: Class
+    assemblies:
+    - cs.temp.dll
+    namespace: NativeToolkit
+    source:
+      id: UnityMainThreadDispatcher
+      path: ''
+      startLine: 12
+    summary: "\nThread-safe dispatcher for executing actions on Unity&apos;s main thread.\nProvides a mechanism for background threads to safely invoke Unity API calls\nby queuing actions that are executed during the main thread&apos;s Update cycle.\nEssential for native plugin callbacks that originate from non-Unity threads.\n"
+    example: []
+    syntax:
+      content:
+        CSharp: 'public class UnityMainThreadDispatcher : MonoBehaviour'
+        VB: >-
+          Public Class UnityMainThreadDispatcher
+
+              Inherits MonoBehaviour
+    inheritance:
+    - System.Object
+    modifiers:
+      CSharp:
+      - public
+      - class
+      VB:
+      - Public
+      - Class
+    items:
+    - id: NativeToolkit.UnityMainThreadDispatcher.Instance
+      commentId: P:NativeToolkit.UnityMainThreadDispatcher.Instance
+      language: CSharp
+      name:
+        CSharp: Instance
+        VB: Instance
+      nameWithType:
+        CSharp: UnityMainThreadDispatcher.Instance
+        VB: UnityMainThreadDispatcher.Instance
+      qualifiedName:
+        CSharp: UnityMainThreadDispatcher.Instance
+        VB: UnityMainThreadDispatcher.Instance
+      type: Property
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: Instance
+        path: ''
+        startLine: 21
+      summary: "\nSingleton instance property for UnityMainThreadDispatcher.\nCreates a new instance if none exists and ensures it persists across scene loads.\n"
+      example: []
+      syntax:
+        content:
+          CSharp: public static UnityMainThreadDispatcher Instance { get; }
+          VB: Public Shared ReadOnly Property Instance As UnityMainThreadDispatcher
+        parameters: []
+        return:
+          type: NativeToolkit.UnityMainThreadDispatcher
+      overload: NativeToolkit.UnityMainThreadDispatcher.Instance*
+      modifiers:
+        CSharp:
+        - public
+        - static
+        - get
+        VB:
+        - Public
+        - Shared
+        - ReadOnly
+    - id: NativeToolkit.UnityMainThreadDispatcher.Enqueue(System.Action)
+      commentId: M:NativeToolkit.UnityMainThreadDispatcher.Enqueue(System.Action)
+      language: CSharp
+      name:
+        CSharp: Enqueue(Action)
+        VB: Enqueue(Action)
+      nameWithType:
+        CSharp: UnityMainThreadDispatcher.Enqueue(Action)
+        VB: UnityMainThreadDispatcher.Enqueue(Action)
+      qualifiedName:
+        CSharp: UnityMainThreadDispatcher.Enqueue(System.Action)
+        VB: UnityMainThreadDispatcher.Enqueue(System.Action)
+      type: Method
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: Enqueue
+        path: ''
+        startLine: 40
+      summary: "\nEnqueues an action to be executed on the main Unity thread.\nThread-safe method that can be called from any thread.\n"
+      example: []
+      syntax:
+        content:
+          CSharp: public void Enqueue(Action action)
+          VB: Public Sub Enqueue(action As Action)
+        parameters:
+        - id: action
+          type: System.Action
+          description: Action to execute on the main thread
+      overload: NativeToolkit.UnityMainThreadDispatcher.Enqueue*
+      modifiers:
+        CSharp:
+        - public
+        VB:
+        - Public
+  - id: NativeToolkit.Win32MessageBox
+    commentId: T:NativeToolkit.Win32MessageBox
+    language: CSharp
+    name:
+      CSharp: Win32MessageBox
+      VB: Win32MessageBox
+    nameWithType:
+      CSharp: Win32MessageBox
+      VB: Win32MessageBox
+    qualifiedName:
+      CSharp: Win32MessageBox
+      VB: Win32MessageBox
+    type: Class
+    assemblies:
+    - cs.temp.dll
+    namespace: NativeToolkit
+    source:
+      id: Win32MessageBox
+      path: ''
+      startLine: 1730
+    summary: "\nStatic class containing Win32 MessageBox constants for comprehensive native dialog configuration.\nProvides constants for button types, icon styles, default button selection, and modal behavior.\nUsed by WindowsDialogManager for native Win32 API MessageBox calls.\n"
+    example: []
+    syntax:
+      content:
+        CSharp: public static class Win32MessageBox
+        VB: Public Module Win32MessageBox
+    inheritance:
+    - System.Object
+    inheritedMembers:
+    - System.Object.ToString
+    - System.Object.Equals(System.Object)
+    - System.Object.Equals(System.Object,System.Object)
+    - System.Object.ReferenceEquals(System.Object,System.Object)
+    - System.Object.GetHashCode
+    - System.Object.GetType
+    - System.Object.MemberwiseClone
+    modifiers:
+      CSharp:
+      - public
+      - static
+      - class
+      VB:
+      - Public
+      - Module
+    items:
+    - id: NativeToolkit.Win32MessageBox.MB_OK
+      commentId: F:NativeToolkit.Win32MessageBox.MB_OK
+      language: CSharp
+      name:
+        CSharp: MB_OK
+        VB: MB_OK
+      nameWithType:
+        CSharp: Win32MessageBox.MB_OK
+        VB: Win32MessageBox.MB_OK
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_OK
+        VB: Win32MessageBox.MB_OK
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_OK
+        path: ''
+        startLine: 1733
+      syntax:
+        content:
+          CSharp: public const uint MB_OK = 0U
+          VB: Public Const MB_OK As UInteger = 0UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_OKCANCEL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_OKCANCEL
+      language: CSharp
+      name:
+        CSharp: MB_OKCANCEL
+        VB: MB_OKCANCEL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_OKCANCEL
+        VB: Win32MessageBox.MB_OKCANCEL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_OKCANCEL
+        VB: Win32MessageBox.MB_OKCANCEL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_OKCANCEL
+        path: ''
+        startLine: 1734
+      syntax:
+        content:
+          CSharp: public const uint MB_OKCANCEL = 1U
+          VB: Public Const MB_OKCANCEL As UInteger = 1UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ABORTRETRYIGNORE
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ABORTRETRYIGNORE
+      language: CSharp
+      name:
+        CSharp: MB_ABORTRETRYIGNORE
+        VB: MB_ABORTRETRYIGNORE
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ABORTRETRYIGNORE
+        VB: Win32MessageBox.MB_ABORTRETRYIGNORE
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ABORTRETRYIGNORE
+        VB: Win32MessageBox.MB_ABORTRETRYIGNORE
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ABORTRETRYIGNORE
+        path: ''
+        startLine: 1735
+      syntax:
+        content:
+          CSharp: public const uint MB_ABORTRETRYIGNORE = 2U
+          VB: Public Const MB_ABORTRETRYIGNORE As UInteger = 2UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_YESNOCANCEL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_YESNOCANCEL
+      language: CSharp
+      name:
+        CSharp: MB_YESNOCANCEL
+        VB: MB_YESNOCANCEL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_YESNOCANCEL
+        VB: Win32MessageBox.MB_YESNOCANCEL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_YESNOCANCEL
+        VB: Win32MessageBox.MB_YESNOCANCEL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_YESNOCANCEL
+        path: ''
+        startLine: 1736
+      syntax:
+        content:
+          CSharp: public const uint MB_YESNOCANCEL = 3U
+          VB: Public Const MB_YESNOCANCEL As UInteger = 3UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_YESNO
+      commentId: F:NativeToolkit.Win32MessageBox.MB_YESNO
+      language: CSharp
+      name:
+        CSharp: MB_YESNO
+        VB: MB_YESNO
+      nameWithType:
+        CSharp: Win32MessageBox.MB_YESNO
+        VB: Win32MessageBox.MB_YESNO
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_YESNO
+        VB: Win32MessageBox.MB_YESNO
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_YESNO
+        path: ''
+        startLine: 1737
+      syntax:
+        content:
+          CSharp: public const uint MB_YESNO = 4U
+          VB: Public Const MB_YESNO As UInteger = 4UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_RETRYCANCEL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_RETRYCANCEL
+      language: CSharp
+      name:
+        CSharp: MB_RETRYCANCEL
+        VB: MB_RETRYCANCEL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_RETRYCANCEL
+        VB: Win32MessageBox.MB_RETRYCANCEL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_RETRYCANCEL
+        VB: Win32MessageBox.MB_RETRYCANCEL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_RETRYCANCEL
+        path: ''
+        startLine: 1738
+      syntax:
+        content:
+          CSharp: public const uint MB_RETRYCANCEL = 5U
+          VB: Public Const MB_RETRYCANCEL As UInteger = 5UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_CANCELTRYCONTINUE
+      commentId: F:NativeToolkit.Win32MessageBox.MB_CANCELTRYCONTINUE
+      language: CSharp
+      name:
+        CSharp: MB_CANCELTRYCONTINUE
+        VB: MB_CANCELTRYCONTINUE
+      nameWithType:
+        CSharp: Win32MessageBox.MB_CANCELTRYCONTINUE
+        VB: Win32MessageBox.MB_CANCELTRYCONTINUE
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_CANCELTRYCONTINUE
+        VB: Win32MessageBox.MB_CANCELTRYCONTINUE
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_CANCELTRYCONTINUE
+        path: ''
+        startLine: 1739
+      syntax:
+        content:
+          CSharp: public const uint MB_CANCELTRYCONTINUE = 6U
+          VB: Public Const MB_CANCELTRYCONTINUE As UInteger = 6UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONHAND
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONHAND
+      language: CSharp
+      name:
+        CSharp: MB_ICONHAND
+        VB: MB_ICONHAND
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONHAND
+        VB: Win32MessageBox.MB_ICONHAND
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONHAND
+        VB: Win32MessageBox.MB_ICONHAND
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONHAND
+        path: ''
+        startLine: 1742
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONHAND = 16U
+          VB: Public Const MB_ICONHAND As UInteger = 16UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONQUESTION
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONQUESTION
+      language: CSharp
+      name:
+        CSharp: MB_ICONQUESTION
+        VB: MB_ICONQUESTION
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONQUESTION
+        VB: Win32MessageBox.MB_ICONQUESTION
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONQUESTION
+        VB: Win32MessageBox.MB_ICONQUESTION
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONQUESTION
+        path: ''
+        startLine: 1743
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONQUESTION = 32U
+          VB: Public Const MB_ICONQUESTION As UInteger = 32UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONEXCLAMATION
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONEXCLAMATION
+      language: CSharp
+      name:
+        CSharp: MB_ICONEXCLAMATION
+        VB: MB_ICONEXCLAMATION
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONEXCLAMATION
+        VB: Win32MessageBox.MB_ICONEXCLAMATION
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONEXCLAMATION
+        VB: Win32MessageBox.MB_ICONEXCLAMATION
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONEXCLAMATION
+        path: ''
+        startLine: 1744
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONEXCLAMATION = 48U
+          VB: Public Const MB_ICONEXCLAMATION As UInteger = 48UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONWARNING
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONWARNING
+      language: CSharp
+      name:
+        CSharp: MB_ICONWARNING
+        VB: MB_ICONWARNING
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONWARNING
+        VB: Win32MessageBox.MB_ICONWARNING
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONWARNING
+        VB: Win32MessageBox.MB_ICONWARNING
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONWARNING
+        path: ''
+        startLine: 1745
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONWARNING = 48U
+          VB: Public Const MB_ICONWARNING As UInteger = 48UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONASTERISK
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONASTERISK
+      language: CSharp
+      name:
+        CSharp: MB_ICONASTERISK
+        VB: MB_ICONASTERISK
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONASTERISK
+        VB: Win32MessageBox.MB_ICONASTERISK
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONASTERISK
+        VB: Win32MessageBox.MB_ICONASTERISK
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONASTERISK
+        path: ''
+        startLine: 1746
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONASTERISK = 64U
+          VB: Public Const MB_ICONASTERISK As UInteger = 64UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_ICONINFORMATION
+      commentId: F:NativeToolkit.Win32MessageBox.MB_ICONINFORMATION
+      language: CSharp
+      name:
+        CSharp: MB_ICONINFORMATION
+        VB: MB_ICONINFORMATION
+      nameWithType:
+        CSharp: Win32MessageBox.MB_ICONINFORMATION
+        VB: Win32MessageBox.MB_ICONINFORMATION
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_ICONINFORMATION
+        VB: Win32MessageBox.MB_ICONINFORMATION
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_ICONINFORMATION
+        path: ''
+        startLine: 1747
+      syntax:
+        content:
+          CSharp: public const uint MB_ICONINFORMATION = 64U
+          VB: Public Const MB_ICONINFORMATION As UInteger = 64UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_DEFBUTTON1
+      commentId: F:NativeToolkit.Win32MessageBox.MB_DEFBUTTON1
+      language: CSharp
+      name:
+        CSharp: MB_DEFBUTTON1
+        VB: MB_DEFBUTTON1
+      nameWithType:
+        CSharp: Win32MessageBox.MB_DEFBUTTON1
+        VB: Win32MessageBox.MB_DEFBUTTON1
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_DEFBUTTON1
+        VB: Win32MessageBox.MB_DEFBUTTON1
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_DEFBUTTON1
+        path: ''
+        startLine: 1750
+      syntax:
+        content:
+          CSharp: public const uint MB_DEFBUTTON1 = 0U
+          VB: Public Const MB_DEFBUTTON1 As UInteger = 0UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_DEFBUTTON2
+      commentId: F:NativeToolkit.Win32MessageBox.MB_DEFBUTTON2
+      language: CSharp
+      name:
+        CSharp: MB_DEFBUTTON2
+        VB: MB_DEFBUTTON2
+      nameWithType:
+        CSharp: Win32MessageBox.MB_DEFBUTTON2
+        VB: Win32MessageBox.MB_DEFBUTTON2
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_DEFBUTTON2
+        VB: Win32MessageBox.MB_DEFBUTTON2
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_DEFBUTTON2
+        path: ''
+        startLine: 1751
+      syntax:
+        content:
+          CSharp: public const uint MB_DEFBUTTON2 = 256U
+          VB: Public Const MB_DEFBUTTON2 As UInteger = 256UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_DEFBUTTON3
+      commentId: F:NativeToolkit.Win32MessageBox.MB_DEFBUTTON3
+      language: CSharp
+      name:
+        CSharp: MB_DEFBUTTON3
+        VB: MB_DEFBUTTON3
+      nameWithType:
+        CSharp: Win32MessageBox.MB_DEFBUTTON3
+        VB: Win32MessageBox.MB_DEFBUTTON3
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_DEFBUTTON3
+        VB: Win32MessageBox.MB_DEFBUTTON3
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_DEFBUTTON3
+        path: ''
+        startLine: 1752
+      syntax:
+        content:
+          CSharp: public const uint MB_DEFBUTTON3 = 512U
+          VB: Public Const MB_DEFBUTTON3 As UInteger = 512UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_DEFBUTTON4
+      commentId: F:NativeToolkit.Win32MessageBox.MB_DEFBUTTON4
+      language: CSharp
+      name:
+        CSharp: MB_DEFBUTTON4
+        VB: MB_DEFBUTTON4
+      nameWithType:
+        CSharp: Win32MessageBox.MB_DEFBUTTON4
+        VB: Win32MessageBox.MB_DEFBUTTON4
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_DEFBUTTON4
+        VB: Win32MessageBox.MB_DEFBUTTON4
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_DEFBUTTON4
+        path: ''
+        startLine: 1753
+      syntax:
+        content:
+          CSharp: public const uint MB_DEFBUTTON4 = 768U
+          VB: Public Const MB_DEFBUTTON4 As UInteger = 768UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_APPLMODAL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_APPLMODAL
+      language: CSharp
+      name:
+        CSharp: MB_APPLMODAL
+        VB: MB_APPLMODAL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_APPLMODAL
+        VB: Win32MessageBox.MB_APPLMODAL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_APPLMODAL
+        VB: Win32MessageBox.MB_APPLMODAL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_APPLMODAL
+        path: ''
+        startLine: 1756
+      syntax:
+        content:
+          CSharp: public const uint MB_APPLMODAL = 0U
+          VB: Public Const MB_APPLMODAL As UInteger = 0UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_SYSTEMMODAL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_SYSTEMMODAL
+      language: CSharp
+      name:
+        CSharp: MB_SYSTEMMODAL
+        VB: MB_SYSTEMMODAL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_SYSTEMMODAL
+        VB: Win32MessageBox.MB_SYSTEMMODAL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_SYSTEMMODAL
+        VB: Win32MessageBox.MB_SYSTEMMODAL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_SYSTEMMODAL
+        path: ''
+        startLine: 1757
+      syntax:
+        content:
+          CSharp: public const uint MB_SYSTEMMODAL = 4096U
+          VB: Public Const MB_SYSTEMMODAL As UInteger = 4096UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_TASKMODAL
+      commentId: F:NativeToolkit.Win32MessageBox.MB_TASKMODAL
+      language: CSharp
+      name:
+        CSharp: MB_TASKMODAL
+        VB: MB_TASKMODAL
+      nameWithType:
+        CSharp: Win32MessageBox.MB_TASKMODAL
+        VB: Win32MessageBox.MB_TASKMODAL
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_TASKMODAL
+        VB: Win32MessageBox.MB_TASKMODAL
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_TASKMODAL
+        path: ''
+        startLine: 1758
+      syntax:
+        content:
+          CSharp: public const uint MB_TASKMODAL = 8192U
+          VB: Public Const MB_TASKMODAL As UInteger = 8192UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_TOPMOST
+      commentId: F:NativeToolkit.Win32MessageBox.MB_TOPMOST
+      language: CSharp
+      name:
+        CSharp: MB_TOPMOST
+        VB: MB_TOPMOST
+      nameWithType:
+        CSharp: Win32MessageBox.MB_TOPMOST
+        VB: Win32MessageBox.MB_TOPMOST
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_TOPMOST
+        VB: Win32MessageBox.MB_TOPMOST
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_TOPMOST
+        path: ''
+        startLine: 1759
+      syntax:
+        content:
+          CSharp: public const uint MB_TOPMOST = 262144U
+          VB: Public Const MB_TOPMOST As UInteger = 262144UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_RIGHT
+      commentId: F:NativeToolkit.Win32MessageBox.MB_RIGHT
+      language: CSharp
+      name:
+        CSharp: MB_RIGHT
+        VB: MB_RIGHT
+      nameWithType:
+        CSharp: Win32MessageBox.MB_RIGHT
+        VB: Win32MessageBox.MB_RIGHT
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_RIGHT
+        VB: Win32MessageBox.MB_RIGHT
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_RIGHT
+        path: ''
+        startLine: 1760
+      syntax:
+        content:
+          CSharp: public const uint MB_RIGHT = 524288U
+          VB: Public Const MB_RIGHT As UInteger = 524288UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+    - id: NativeToolkit.Win32MessageBox.MB_RTLREADING
+      commentId: F:NativeToolkit.Win32MessageBox.MB_RTLREADING
+      language: CSharp
+      name:
+        CSharp: MB_RTLREADING
+        VB: MB_RTLREADING
+      nameWithType:
+        CSharp: Win32MessageBox.MB_RTLREADING
+        VB: Win32MessageBox.MB_RTLREADING
+      qualifiedName:
+        CSharp: Win32MessageBox.MB_RTLREADING
+        VB: Win32MessageBox.MB_RTLREADING
+      type: Field
+      assemblies:
+      - cs.temp.dll
+      namespace: NativeToolkit
+      source:
+        id: MB_RTLREADING
+        path: ''
+        startLine: 1761
+      syntax:
+        content:
+          CSharp: public const uint MB_RTLREADING = 1048576U
+          VB: Public Const MB_RTLREADING As UInteger = 1048576UI
+        return:
+          type: System.UInt32
+      modifiers:
+        CSharp:
+        - public
+        - const
+        VB:
+        - Public
+        - Const
+references:
+  NativeToolkit.UnityMainThreadDispatcher:
+    name:
+      CSharp:
+      - id: NativeToolkit.UnityMainThreadDispatcher
+        name: UnityMainThreadDispatcher
+        nameWithType: UnityMainThreadDispatcher
+        qualifiedName: UnityMainThreadDispatcher
+      VB:
+      - id: NativeToolkit.UnityMainThreadDispatcher
+        name: UnityMainThreadDispatcher
+        nameWithType: UnityMainThreadDispatcher
+        qualifiedName: UnityMainThreadDispatcher
+    isDefinition: true
+    commentId: T:NativeToolkit.UnityMainThreadDispatcher
+  NativeToolkit.UnityMainThreadDispatcher.Instance*:
+    name:
+      CSharp:
+      - id: NativeToolkit.UnityMainThreadDispatcher.Instance*
+        name: Instance
+        nameWithType: UnityMainThreadDispatcher.Instance
+        qualifiedName: UnityMainThreadDispatcher.Instance
+      VB:
+      - id: NativeToolkit.UnityMainThreadDispatcher.Instance*
+        name: Instance
+        nameWithType: UnityMainThreadDispatcher.Instance
+        qualifiedName: UnityMainThreadDispatcher.Instance
+    isDefinition: true
+    commentId: Overload:NativeToolkit.UnityMainThreadDispatcher.Instance
+  System:
+    name:
+      CSharp:
+      - name: System
+        nameWithType: System
+        qualifiedName: System
+        isExternal: true
+      VB:
+      - name: System
+        nameWithType: System
+        qualifiedName: System
+    isDefinition: true
+    commentId: N:System
+  System.Action:
+    name:
+      CSharp:
+      - id: System.Action
+        name: Action
+        nameWithType: Action
+        qualifiedName: System.Action
+        isExternal: true
+      VB:
+      - id: System.Action
+        name: Action
+        nameWithType: Action
+        qualifiedName: System.Action
+        isExternal: true
+    isDefinition: true
+    parent: System
+    commentId: T:System.Action
+  NativeToolkit.UnityMainThreadDispatcher.Enqueue*:
+    name:
+      CSharp:
+      - id: NativeToolkit.UnityMainThreadDispatcher.Enqueue*
+        name: Enqueue
+        nameWithType: UnityMainThreadDispatcher.Enqueue
+        qualifiedName: UnityMainThreadDispatcher.Enqueue
+      VB:
+      - id: NativeToolkit.UnityMainThreadDispatcher.Enqueue*
+        name: Enqueue
+        nameWithType: UnityMainThreadDispatcher.Enqueue
+        qualifiedName: UnityMainThreadDispatcher.Enqueue
+    isDefinition: true
+    commentId: Overload:NativeToolkit.UnityMainThreadDispatcher.Enqueue
+  System.Object:
+    name:
+      CSharp:
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      VB:
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+    isDefinition: true
+    parent: System
+    commentId: T:System.Object
+  System.Object.ToString:
+    name:
+      CSharp:
+      - id: System.Object.ToString
+        name: ToString
+        nameWithType: Object.ToString
+        qualifiedName: System.Object.ToString
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.ToString
+        name: ToString
+        nameWithType: Object.ToString
+        qualifiedName: System.Object.ToString
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.ToString
+  System.Object.Equals(System.Object):
+    name:
+      CSharp:
+      - id: System.Object.Equals(System.Object)
+        name: Equals
+        nameWithType: Object.Equals
+        qualifiedName: System.Object.Equals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.Equals(System.Object)
+        name: Equals
+        nameWithType: Object.Equals
+        qualifiedName: System.Object.Equals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.Equals(System.Object)
+  System.Object.Equals(System.Object,System.Object):
+    name:
+      CSharp:
+      - id: System.Object.Equals(System.Object,System.Object)
+        name: Equals
+        nameWithType: Object.Equals
+        qualifiedName: System.Object.Equals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: ', '
+        nameWithType: ', '
+        qualifiedName: ', '
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.Equals(System.Object,System.Object)
+        name: Equals
+        nameWithType: Object.Equals
+        qualifiedName: System.Object.Equals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: ', '
+        nameWithType: ', '
+        qualifiedName: ', '
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.Equals(System.Object,System.Object)
+  System.Object.ReferenceEquals(System.Object,System.Object):
+    name:
+      CSharp:
+      - id: System.Object.ReferenceEquals(System.Object,System.Object)
+        name: ReferenceEquals
+        nameWithType: Object.ReferenceEquals
+        qualifiedName: System.Object.ReferenceEquals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: ', '
+        nameWithType: ', '
+        qualifiedName: ', '
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.ReferenceEquals(System.Object,System.Object)
+        name: ReferenceEquals
+        nameWithType: Object.ReferenceEquals
+        qualifiedName: System.Object.ReferenceEquals
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: ', '
+        nameWithType: ', '
+        qualifiedName: ', '
+      - id: System.Object
+        name: Object
+        nameWithType: Object
+        qualifiedName: System.Object
+        isExternal: true
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.ReferenceEquals(System.Object,System.Object)
+  System.Object.GetHashCode:
+    name:
+      CSharp:
+      - id: System.Object.GetHashCode
+        name: GetHashCode
+        nameWithType: Object.GetHashCode
+        qualifiedName: System.Object.GetHashCode
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.GetHashCode
+        name: GetHashCode
+        nameWithType: Object.GetHashCode
+        qualifiedName: System.Object.GetHashCode
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.GetHashCode
+  System.Object.GetType:
+    name:
+      CSharp:
+      - id: System.Object.GetType
+        name: GetType
+        nameWithType: Object.GetType
+        qualifiedName: System.Object.GetType
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.GetType
+        name: GetType
+        nameWithType: Object.GetType
+        qualifiedName: System.Object.GetType
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.GetType
+  System.Object.MemberwiseClone:
+    name:
+      CSharp:
+      - id: System.Object.MemberwiseClone
+        name: MemberwiseClone
+        nameWithType: Object.MemberwiseClone
+        qualifiedName: System.Object.MemberwiseClone
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+      VB:
+      - id: System.Object.MemberwiseClone
+        name: MemberwiseClone
+        nameWithType: Object.MemberwiseClone
+        qualifiedName: System.Object.MemberwiseClone
+        isExternal: true
+      - name: (
+        nameWithType: (
+        qualifiedName: (
+      - name: )
+        nameWithType: )
+        qualifiedName: )
+    isDefinition: true
+    parent: System.Object
+    commentId: M:System.Object.MemberwiseClone
+  System.UInt32:
+    name:
+      CSharp:
+      - id: System.UInt32
+        name: UInt32
+        nameWithType: UInt32
+        qualifiedName: System.UInt32
+        isExternal: true
+      VB:
+      - id: System.UInt32
+        name: UInt32
+        nameWithType: UInt32
+        qualifiedName: System.UInt32
+        isExternal: true
+    isDefinition: true
+    parent: System
+    commentId: T:System.UInt32
+  NativeToolkit.Win32MessageBox:
+    name:
+      CSharp:
+      - id: NativeToolkit.Win32MessageBox
+        name: Win32MessageBox
+        nameWithType: Win32MessageBox
+        qualifiedName: Win32MessageBox
+      VB:
+      - id: NativeToolkit.Win32MessageBox
+        name: Win32MessageBox
+        nameWithType: Win32MessageBox
+        qualifiedName: Win32MessageBox
+    isDefinition: true
+    commentId: T:NativeToolkit.Win32MessageBox
+  NativeToolkit:
+    name:
+      CSharp:
+      - name: NativeToolkit
+        nameWithType: NativeToolkit
+        qualifiedName: NativeToolkit
+      VB:
+      - name: ''
+        nameWithType: ''
+        qualifiedName: ''
+    isDefinition: true

@@ -1,6 +1,7 @@
-# Native Toolkit (Unity 6)
+# Unity Native Toolkit (Unity 6)
 
 クロスプラットフォーム対応のネイティブ機能を提供します。
+
 バージョン: 1.0.0
 
 # 機能一覧
@@ -1122,5 +1123,288 @@ private void OnSaveFileDialogResult(
   bool isCancelled,
   bool isSuccess,
   string? errorMessage
+)
+```
+
+## WindowsDialogManager
+
+### ShowDialog - 基本ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// タイトルを設定します。
+string title = "Native Windows Dialog";
+// メッセージを設定します。
+string message = "This is a native Windows dialog!";
+// OK/キャンセルボタン
+uint buttons = Win32MessageBox.MB_OKCANCEL;
+// 情報アイコン
+uint icon = Win32MessageBox.MB_ICONINFORMATION;
+// 2番目のボタンをデフォルト
+uint defbutton = Win32MessageBox.MB_DEFBUTTON2;
+// アプリケーションモーダル
+uint options = Win32MessageBox.MB_APPLMODAL;
+WindowsDialogManager.Instance.ShowDialog(
+  title,
+  message,
+  buttons,
+  icon,
+  defbutton,
+  options
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowDialog.png" alt="Example_WindowsDialogManager_ShowDialog" width="300" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// result: 押下したボタンの識別子を取得します。エラーの場合、null を返します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。成功の場合、null を返します。
+
+private void OnAlertDialogResult(
+  int? result,
+  bool isSuccess,
+  int? errorCode
+)
+```
+
+### ShowFileDialog - ファイル選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.FileDialogResult += OnFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// バッファサイズを設定します。
+uint bufferSize = 1024;
+// フィルタを設定します。各フィルタはヌル文字 (\0) で区切り、最後に二重のヌル文字で終了します。
+string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+WindowsDialogManager.Instance.ShowFileDialog(
+  bufferSize,
+  filter
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowFileDialog.png" alt="Example_WindowsDialogManager_ShowFileDialog" width="1000" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// filePath: 選択されたファイルパスを取得します。キャンセルや失敗の場合は null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。成功の場合、null を返します。
+
+private void OnFileDialogResult(
+  string? filePath,
+  bool isCancelled,
+  bool isSuccess,
+  int? errorCode
+)
+```
+
+### ShowMultiFileDialog - 複数ファイル選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// バッファサイズを設定します。
+uint bufferSize = 4096;
+// フィルタを設定します。各フィルタはヌル文字 (\0) で区切り、最後に二重のヌル文字で終了します。
+string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+WindowsDialogManager.Instance.ShowMultiFileDialog(
+  bufferSize,
+  filter
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowMultiFileDialog.png" alt="Example_WindowsDialogManager_ShowMultiFileDialog" width="1000" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// filePaths: 選択されたファイルパスの ArrayList を取得します。キャンセルや失敗の場合は null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。成功の場合、null を返します。
+
+private void OnMultiFileDialogResult(
+  ArrayList? filePaths,
+  bool isCancelled,
+  bool isSuccess,
+  int? errorCode
+)
+```
+
+### ShowFolderDialog - フォルダ選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// バッファサイズを設定します。
+uint bufferSize = 1024;
+// タイトルを設定します。
+string title = "Select Folder";
+WindowsDialogManager.Instance.ShowFolderDialog(
+  bufferSize,
+  title
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowFolderDialog.png" alt="Example_WindowsDialogManager_ShowFolderDialog" width="1000" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// folderPath: 選択されたフォルダパスを取得します。キャンセルや失敗の場合は null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。成功の場合、null を返します。
+
+private void OnFolderDialogResult(
+  string? folderPath,
+  bool isCancelled,
+  bool isSuccess,
+  int? errorCode
+)
+```
+
+### ShowMultiFolderDialog - 複数フォルダ選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
+#endif
+```
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// バッファサイズを設定します。
+uint bufferSize = 4096;
+// タイトルを設定します。
+string title = "Select Folders";
+WindowsDialogManager.Instance.ShowMultiFolderDialog(
+  bufferSize,
+  title
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowMultiFolderDialog.png" alt="Example_WindowsDialogManager_ShowMultiFolderDialog" width="1000" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// folderPaths: 選択されたフォルダパスの ArrayList を取得します。キャンセルや失敗の場合は null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。成功の場合、null を返します。
+
+private void OnMultiFolderDialogResult(
+  ArrayList? folderPaths,
+  bool isCancelled,
+  bool isSuccess,
+  int? errorCode
+)
+```
+
+### ShowSaveFileDialog - ファイル保存ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// バッファサイズを設定します。
+uint bufferSize = 1024;
+// フィルタを設定します。各フィルタはヌル文字 (\0) で区切り、最後に二重のヌル文字で終了します。
+string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+// デフォルトの拡張子を設定します。
+string defExt = "txt";
+WindowsDialogManager.Instance.ShowSaveFileDialog(
+  bufferSize,
+  filter,
+  defExt
+);
+#endif
+```
+
+<img src="images/windows/Example_WindowsDialogManager_ShowSaveFileDialog.png" alt="Example_WindowsDialogManager_ShowSaveFileDialog" width="1000" />
+
+- 結果はイベントで受け取ります。
+
+```csharp
+// filePath: 保存先のファイルパスを取得します。キャンセルや失敗の場合は null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorCode: エラーが発生した場合、エラーコードを取得します。 成功の場合、null を返します。
+
+private void OnSaveFileDialogResult(
+  string? filePath,
+  bool isCancelled,
+  bool isSuccess,
+  int? errorCode
 )
 ```

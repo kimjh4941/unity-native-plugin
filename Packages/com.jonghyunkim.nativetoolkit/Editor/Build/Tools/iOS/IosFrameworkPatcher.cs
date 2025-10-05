@@ -1,3 +1,4 @@
+#if UNITY_IOS
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -100,3 +101,4 @@ public static class IosFrameworkPatcher
         }
     }
 }
+#endif
