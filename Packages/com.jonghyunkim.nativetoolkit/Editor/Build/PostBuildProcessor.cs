@@ -5,6 +5,8 @@ using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
 #endif
 using System.IO;
+using System.Diagnostics;
+using UnityEditor.Build;
 
 /// <summary>
 /// Post-build processor that handles platform-specific setup after Unity builds complete.
@@ -37,12 +39,12 @@ public static class PostBuildProcessor
         {
             UnityEngine.Debug.Log("[Build][iOS] Post-build steps started.");
 
+            bool isDevelopmentBuild = EditorUserBuildSettings.development;
             // XCFramework source and destination paths
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework");
-
+            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string xcframeworkDst = Path.Combine(frameworksDir, "UnityIosNativeToolkit.xcframework");
+            string xcframeworkDst = Path.Combine(frameworksDir, isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
 
             if (!Directory.Exists(xcframeworkSrc))
             {
@@ -50,10 +52,13 @@ public static class PostBuildProcessor
                 return;
             }
 
-            // Copy XCFramework to Xcode Frameworks folder
+            // Ensure clean destination
             if (Directory.Exists(xcframeworkDst))
+            {
                 Directory.Delete(xcframeworkDst, true);
+            }
             Directory.CreateDirectory(frameworksDir);
+            // Copy XCFramework into project
             DirectoryCopy(xcframeworkSrc, xcframeworkDst, true);
 
             // Edit Xcode project to link and embed the XCFramework
@@ -127,15 +132,26 @@ public static class PostBuildProcessor
         {
             UnityEngine.Debug.Log("[Build][macOS] Post-build steps started.");
 
+            bool isDevelopmentBuild = EditorUserBuildSettings.development;
             // XCFramework source and destination paths
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/UnityMacNativeToolkit.xcframework");
+            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/", isDevelopmentBuild ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "unity-native-plugin/Frameworks");
-            string xcframeworkDst = Path.Combine(frameworksDir, "UnityMacNativeToolkit.xcframework");
+            string xcframeworkDst = Path.Combine(frameworksDir, isDevelopmentBuild ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
 
-            // Copy XCFramework to .app Frameworks folder
+            if (!Directory.Exists(xcframeworkSrc))
+            {
+                UnityEngine.Debug.LogError("[Build][macOS] Source xcframework not found: " + xcframeworkSrc);
+                return;
+            }
+
+            // Ensure clean destination
             if (Directory.Exists(xcframeworkDst))
+            {
                 Directory.Delete(xcframeworkDst, true);
+            }
+            Directory.CreateDirectory(frameworksDir);
+            // Copy XCFramework into app Frameworks folder
             DirectoryCopy(xcframeworkSrc, xcframeworkDst, true);
 
             // Xcode project file path
@@ -426,6 +442,34 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
                 string tempPath = Path.Combine(destDir, subdir.Name);
                 DirectoryCopy(subdir.FullName, tempPath, copySubDirs);
             }
+        }
+    }
+
+    /// <summary>
+    /// Executes a shell command and throws a <see cref="BuildFailedException"/> if the command fails.
+    /// </summary>
+    /// <param name="command">The shell command to execute.</param>
+    private static void RunShellCommand(string command)
+    {
+        var process = new Process();
+        process.StartInfo.FileName = "/bin/bash";
+        process.StartInfo.Arguments = $"-c \"{command}\"";
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+        process.Start();
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new BuildFailedException($"Command failed: {command}\n{error}");
+        }
+        else
+        {
+            UnityEngine.Debug.Log(output);
         }
     }
 }
