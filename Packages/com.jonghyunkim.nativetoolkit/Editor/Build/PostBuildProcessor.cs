@@ -137,7 +137,7 @@ public static class PostBuildProcessor
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/", isDevelopmentBuild ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "unity-native-plugin/Frameworks");
-            string xcframeworkDst = Path.Combine(frameworksDir, isDevelopmentBuild ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
+            string xcframeworkDst = Path.Combine(frameworksDir, "UnityMacNativeToolkit.xcframework");
 
             if (!Directory.Exists(xcframeworkSrc))
             {

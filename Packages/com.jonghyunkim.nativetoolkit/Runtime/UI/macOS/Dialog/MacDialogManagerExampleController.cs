@@ -3,6 +3,7 @@
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 /// <summary>
 /// Controller for the macOS native dialog manager example UI.
@@ -155,16 +156,25 @@ public class MacDialogManagerExampleController : MonoBehaviour
         string title = "Hello from Unity";
         string message = "This is a native macOS dialog!";
         DialogButton[] buttons = {
-            new DialogButton { title = "OK", isDefault = true, keyEquivalent = "return" },
-            new DialogButton { title = "Cancel", keyEquivalent = "return" },
-            new DialogButton { title = "Delete", keyEquivalent = "d" }
+            new DialogButton(title: "OK", isDefault: true),
+            new DialogButton(title: "Cancel", keyEquivalent: "\u001b"),
+            new DialogButton(title: "Delete", keyEquivalent: "d")
         };
-        DialogOptions options = new DialogOptions
-        {
-            alertStyle = "warning",
-            showsSuppressionButton = true,
-            suppressionButtonTitle = "Don't show this again",
-        };
+        DialogOptions options = new DialogOptions(
+            alertStyle: DialogOptions.AlertStyle.Informational,
+            showsHelp: true,
+            showsSuppressionButton: true,
+            suppressionButtonTitle: "Don't show this again",
+            icon: new IconConfiguration(
+                type: IconConfiguration.IconType.SystemSymbol,
+                value: "info.square.fill",
+                mode: IconConfiguration.RenderingMode.Palette,
+                colors: new List<string> { "white", "systemblue", "systemblue" },
+                size: 64f,
+                weight: IconConfiguration.Weight.Regular,
+                scale: IconConfiguration.Scale.Medium
+            )
+        );
         MacDialogManager.Instance.ShowDialog(title, message, buttons, options);
 #endif
     }
@@ -279,15 +289,16 @@ public class MacDialogManagerExampleController : MonoBehaviour
     /// <param name="buttonTitle">The title text of the button pressed (null if unavailable on failure).</param>
     /// <param name="buttonIndex">Zero-based index of the pressed button in the provided array.</param>
     /// <param name="suppressionState">True if the suppression checkbox was checked.</param>
+    /// <param name="helpButtonPressed">True if the help button was pressed (if present).</param>
     /// <param name="isSuccess">True if the native API call succeeded.</param>
     /// <param name="errorMessage">Error description when <paramref name="isSuccess"/> is false; otherwise null.</param>
-    private void OnAlertDialogResult(string? buttonTitle, int buttonIndex, bool suppressionState, bool isSuccess, string? errorMessage)
+    private void OnAlertDialogResult(string? buttonTitle, int buttonIndex, bool suppressionState, bool helpButtonPressed, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[MacDialogManagerExampleController] OnAlertDialogResult -> buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        Debug.Log($"[MacDialogManagerExampleController] OnAlertDialogResult -> buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, helpButtonPressed: {helpButtonPressed}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
         if (_resultLabel != null)
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
-                                $"\nShowDialog buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+                                $"\nShowDialog buttonTitle: {buttonTitle ?? "null"}, buttonIndex: {buttonIndex}, suppressionState: {suppressionState}, helpButtonPressed: {helpButtonPressed}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
         }
         else
         {

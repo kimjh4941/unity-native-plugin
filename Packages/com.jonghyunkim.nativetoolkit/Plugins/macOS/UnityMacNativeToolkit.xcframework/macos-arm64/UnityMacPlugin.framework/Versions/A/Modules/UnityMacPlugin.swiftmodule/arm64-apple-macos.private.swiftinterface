@@ -11,11 +11,11 @@ import _StringProcessing
 import _SwiftConcurrencyShims
 @objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers public class UnityMacDialogManager : ObjectiveC.NSObject {
   @objc public static let shared: UnityMacPlugin.UnityMacDialogManager
-  @objc public func showDialog(title: Swift.String, message: Swift.String, buttonsJson: Swift.String, optionsJson: Swift.String, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
-  @objc public func showFileDialog(title: Swift.String, message: Swift.String, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL?, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
-  @objc public func showMultiFileDialog(title: Swift.String, message: Swift.String, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL?, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
-  @objc public func showFolderDialog(title: Swift.String, message: Swift.String, directoryURL: Foundation.URL?, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
-  @objc public func showMultiFolderDialog(title: Swift.String, message: Swift.String, directoryURL: Foundation.URL?, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
-  @objc public func showSaveFileDialog(title: Swift.String, message: Swift.String, nameFieldStringValue: Swift.String, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL?, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showDialog(title: Swift.String, message: Swift.String? = nil, buttonsJson: Swift.String, optionsJson: Swift.String, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showFileDialog(title: Swift.String, message: Swift.String? = nil, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL? = nil, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showMultiFileDialog(title: Swift.String, message: Swift.String? = nil, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL? = nil, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showFolderDialog(title: Swift.String, message: Swift.String? = nil, directoryURL: Foundation.URL? = nil, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showMultiFolderDialog(title: Swift.String, message: Swift.String? = nil, directoryURL: Foundation.URL? = nil, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
+  @objc public func showSaveFileDialog(title: Swift.String, message: Swift.String? = nil, nameFieldStringValue: Swift.String, allowedContentTypes: [Swift.String], directoryURL: Foundation.URL? = nil, completion: @escaping (Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)
   @objc deinit
 }

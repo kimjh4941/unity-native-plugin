@@ -1,6 +1,8 @@
 # Unity Native Toolkit (Unity 6)
 
-クロスプラットフォーム対応のネイティブ機能を提供します。
+- Unity6 以降でクロスプラットフォーム対応のネイティブ機能を提供するツールキットです。
+- パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
+- Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
 
 バージョン: 1.0.0
 
@@ -49,9 +51,9 @@
 
 ## 追加予定機能
 
+- シェア機能
 - クリップボード連携
 - 通知
-- シェア機能
 
 # はじめに
 
@@ -67,8 +69,11 @@
 ## サンプル
 
 - Unity6 を起動します。
+- Window → Package Manager を選択します。
+- Unity Package Manager → Native Toolkit → Samples → Import を選択します。
 - Tools → Native Toolkit → Example を選択します。
   <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
+
 - Android サンプル
 
   - Android - Dialog - AndroidDialogManager.cs を選択します。
@@ -80,6 +85,7 @@
   - 「Browse」ボタンを押下して、Export した Android Project を指定します。
   - 「Run: Add Kotlin Dependencies」ボタンを押下して、Kotlin ライブラリを追加します。
   - Android Studio からサンプルアプリをインストールしてください。
+    - <a href="https://developer.android.com/studio?hl=ja" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - iOS サンプル
 
@@ -92,6 +98,7 @@
   - 「Browse」ボタンを押下して、Build した iOS Project を指定します。
   - 「Run: Add/Embed UnityIosNativeToolkit.xcframework」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
+    - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - Windows サンプル
 
@@ -99,6 +106,7 @@
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Windows Profile」→ Build を実行します。
+  - Build 出力先にある「Unity NativeToolkit.exe」を実行してください。
 
 - Mac サンプル
 
@@ -111,8 +119,9 @@
   - 「Browse」ボタンを押下して、Build した macOS Project を指定します。
   - 「Run: Add UnityMacNativeToolkit.xcframework」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
+    - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
-# API
+# API 使用方法
 
 ## ダイアログ
 
@@ -812,19 +821,95 @@ MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
 string title = "Hello from Unity";
 // メッセージを設定します。
 string message = "This is a native macOS dialog!";
-// ボタンを設定します。isDefault やキーショートカット (keyEquivalent) も指定できます。
+// ボタンを設定します。最低1個のボタンが必要です。
 DialogButton[] buttons = {
-  new DialogButton { title = "OK", isDefault = true, keyEquivalent = "return" },
-  new DialogButton { title = "Cancel", keyEquivalent = "escape" },
-  new DialogButton { title = "Delete", keyEquivalent = "d" }
+  // title: ボタンのタイトルを設定します。必須項目です。
+  // isDefault: デフォルトボタンに設定する場合、true を指定します。省略時は false です。1個のダイアログにつき、1つのデフォルトボタンのみ設定可能です。
+  // keyEquivalent: ボタンのキーショートカットを設定します。省略時は null です。isDefault が true の場合、自動的に Enter キーが割り当てられます。
+  new DialogButton(title: "OK", isDefault: true),
+  new DialogButton(title: "Cancel", keyEquivalent: "\u001b"),
+  new DialogButton(title: "Delete", keyEquivalent: "d")
 };
-// オプションを設定します (警告スタイルやサプレッションチェックボックスなど)。
-DialogOptions options = new DialogOptions
-{
-  alertStyle = "warning",
-  showsSuppressionButton = true,
-  suppressionButtonTitle = "Don't show this again",
-};
+// オプションを設定します。必須項目です。
+DialogOptions options = new DialogOptions(
+  // alertStyle: ダイアログのスタイルを設定します。必須項目です。
+  alertStyle: DialogOptions.AlertStyle.Informational,
+  // showsHelp: ヘルプボタンを表示する場合、true を指定します。省略時は false です。
+  showsHelp: true,
+  // showsSuppressionButton: サプレッションチェックボックスを表示する場合、true を指定します。省略時は false です。
+  showsSuppressionButton: true,
+  // suppressionButtonTitle: サプレッションチェックボックスのタイトルを設定します。省略時は OSデフォルトのタイトルが使用されます。showsSuppressionButton が false の場合、無視されます。
+  suppressionButtonTitle: "Don't show this again",
+  //  icon: ダイアログに表示するアイコンを設定します。
+  icon: new IconConfiguration(
+    // 以下はアイコンのタイプごとの設定方法例です。必要に応じて設定してください。
+    ...
+  )
+);
+
+// アイコンのタイプがシステムシンボルアイコンの例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがシステムシンボルです。必須項目です。
+    type: IconConfiguration.IconType.SystemSymbol,
+    // value: システムシンボルの名前を設定します。必須項目です。
+    value: "info.square.fill",
+    // mode: アイコンのレンダリングモードを設定します。必須項目です。
+    mode: IconConfiguration.RenderingMode.Palette,
+    // colors: アイコンのカラー配列を設定します。レンダリングモードが Palette の場合、1～3色を指定可能で必須です。レンダリングモードが Hierarchical の場合、1色が指定可能です。色は #RRGGBB または colorname 形式で指定します。
+    colors: new List<string> { "white", "systemblue", "systemblue" },
+    // size: アイコンのサイズをポイント単位で設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
+    size: 64f,
+    // weight: アイコンのウェイトを設定します。省略時は OSデフォルト値が使用されます。
+    weight: IconConfiguration.Weight.Regular,
+    // scale: アイコンのスケールを設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
+    scale: IconConfiguration.Scale.Medium
+  )
+);
+
+// アイコンのタイプがファイルパスの場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがファイルパスです。必須項目です。
+    type: IconConfiguration.IconType.FilePath,
+    // value: ファイルパスを設定します。必須項目です。
+    value: "/Users/user/Downloads/test.png"
+  )
+);
+
+// アイコンのタイプが名前付き画像の場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプが名前付き画像です。必須項目です。
+    type: IconConfiguration.IconType.NamedImage,
+    // value: 名前付き画像の名前を設定します。必須項目です。
+    value: "test-image"
+  )
+);
+
+// アイコンのタイプがアプリアイコンの場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがアプリアイコンです。必須項目です。
+    type: IconConfiguration.IconType.AppIcon
+  )
+);
+
+// アイコンのタイプがシステム画像の場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがシステム画像です。必須項目です。
+    type: IconConfiguration.IconType.SystemImage,
+    // value: システム画像の名前を設定します。必須項目です。
+    value: "cautionName"
+  )
+);
+
 MacDialogManager.Instance.ShowDialog(
   title,
   message,
@@ -870,7 +955,7 @@ MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Select a file";
 // メッセージを設定します。
 string message = "Please select a file to open.";
@@ -925,7 +1010,7 @@ MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Select files";
 // メッセージを設定します。
 string message = "Please select files to open.";
@@ -980,7 +1065,7 @@ MacDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Select a folder";
 // メッセージを設定します。
 string message = "Please select a folder to open.";
@@ -1032,7 +1117,7 @@ MacDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Select folders";
 // メッセージを設定します。
 string message = "Please select folders to open.";
@@ -1084,7 +1169,7 @@ MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Save File";
 // メッセージを設定します。
 string message = "Choose a destination";

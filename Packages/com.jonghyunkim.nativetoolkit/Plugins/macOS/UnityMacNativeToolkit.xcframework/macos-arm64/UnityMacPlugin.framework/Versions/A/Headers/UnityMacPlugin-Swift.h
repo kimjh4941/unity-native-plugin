@@ -314,12 +314,12 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 + (UnityMacDialogManager * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
-- (void)showDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message buttonsJson:(NSString * _Nonnull)buttonsJson optionsJson:(NSString * _Nonnull)optionsJson completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
-- (void)showFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
-- (void)showMultiFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
-- (void)showFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
-- (void)showMultiFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
-- (void)showSaveFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message nameFieldStringValue:(NSString * _Nonnull)nameFieldStringValue allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message buttonsJson:(NSString * _Nonnull)buttonsJson optionsJson:(NSString * _Nonnull)optionsJson completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showMultiFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showMultiFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showSaveFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message nameFieldStringValue:(NSString * _Nonnull)nameFieldStringValue allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 @end
 
 #endif
