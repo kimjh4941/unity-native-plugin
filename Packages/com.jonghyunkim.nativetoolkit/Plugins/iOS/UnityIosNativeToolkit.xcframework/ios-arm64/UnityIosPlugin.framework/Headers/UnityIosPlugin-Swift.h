@@ -415,7 +415,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityIosDial
 ///
 /// \param handler <code>(selectedOptionOrCancel, true, nil)</code> or <code>(nil, false, error)</code> if presentation failed.
 ///
-- (void)showActionSheetWithTitle:(NSString * _Nullable)title message:(NSString * _Nullable)message options:(NSArray<NSString *> * _Nonnull)options cancelButtonText:(NSString * _Nonnull)cancelButtonText handler:(void (^ _Nullable)(NSString * _Nullable, BOOL, NSString * _Nullable))handler;
+- (void)showActionSheetWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message options:(NSArray<NSString *> * _Nonnull)options cancelButtonText:(NSString * _Nonnull)cancelButtonText handler:(void (^ _Nullable)(NSString * _Nullable, BOOL, NSString * _Nullable))handler;
 /// Shows a single text input dialog.
 /// \param title Dialog title.
 ///
@@ -436,7 +436,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityIosDial
 ///   </li>
 /// </ul>
 ///
-- (void)showTextInputDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message placeholder:(NSString * _Nullable)placeholder confirmButtonText:(NSString * _Nonnull)confirmButtonText cancelButtonText:(NSString * _Nonnull)cancelButtonText enableConfirmWhenEmpty:(BOOL)enableConfirmWhenEmpty handler:(void (^ _Nullable)(NSString * _Nullable, NSString * _Nullable, BOOL, NSString * _Nullable))handler;
+- (void)showTextInputDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message placeholder:(NSString * _Nonnull)placeholder confirmButtonText:(NSString * _Nonnull)confirmButtonText cancelButtonText:(NSString * _Nonnull)cancelButtonText enableConfirmWhenEmpty:(BOOL)enableConfirmWhenEmpty handler:(void (^ _Nullable)(NSString * _Nullable, NSString * _Nullable, BOOL, NSString * _Nullable))handler;
 /// Shows a login dialog (username + password).
 /// warning:
 /// Do not persist plaintext passwords in logs or analytics.
@@ -456,7 +456,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityIosDial
 ///
 /// \param handler <code>(buttonTitle, username, password, isSuccess, errorMessage)</code>; username / password only present on login success.
 ///
-- (void)showLoginDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message usernamePlaceholder:(NSString * _Nonnull)usernamePlaceholder passwordPlaceholder:(NSString * _Nonnull)passwordPlaceholder loginButtonText:(NSString * _Nonnull)loginButtonText cancelButtonText:(NSString * _Nonnull)cancelButtonText enableLoginWhenEmpty:(BOOL)enableLoginWhenEmpty handler:(void (^ _Nullable)(NSString * _Nullable, NSString * _Nullable, NSString * _Nullable, BOOL, NSString * _Nullable))handler;
+- (void)showLoginDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nonnull)message usernamePlaceholder:(NSString * _Nonnull)usernamePlaceholder passwordPlaceholder:(NSString * _Nonnull)passwordPlaceholder loginButtonText:(NSString * _Nonnull)loginButtonText cancelButtonText:(NSString * _Nonnull)cancelButtonText enableLoginWhenEmpty:(BOOL)enableLoginWhenEmpty handler:(void (^ _Nullable)(NSString * _Nullable, NSString * _Nullable, NSString * _Nullable, BOOL, NSString * _Nullable))handler;
 @end
 
 #endif

@@ -44,7 +44,7 @@ public static class PostBuildProcessor
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
             string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string xcframeworkDst = Path.Combine(frameworksDir, isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
+            string xcframeworkDst = Path.Combine(frameworksDir, "UnityIosNativeToolkit.xcframework");
 
             if (!Directory.Exists(xcframeworkSrc))
             {

@@ -10,7 +10,7 @@
 		</data>
 		<key>Frameworks/IosLibrary.framework/IosLibrary</key>
 		<data>
-		ofK+YM5r8F1qYEQfr4nQupvXE34=
+		oCk24VaK1XrxEd5ElLgMBQ+Z9Dc=
 		</data>
 		<key>Frameworks/IosLibrary.framework/_CodeSignature/CodeResources</key>
 		<data>
@@ -18,7 +18,7 @@
 		</data>
 		<key>Headers/UnityIosPlugin-Swift.h</key>
 		<data>
-		+Ru+udslTmgDqCtpZYnwdgJafZM=
+		sZVg4McrFnejZOirkYWcGFhn5A8=
 		</data>
 		<key>Headers/UnityIosPlugin.h</key>
 		<data>
@@ -30,11 +30,11 @@
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
 		<data>
-		Gjmj/KanJCcZ8Q7xnL1NiO4pia8=
+		6Quh5K+Qp0T+ehpPd9gG4TL0xOk=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<data>
-		fBT5Ok+1VPr0xsnsGp/lCz54ZOw=
+		p0ncJwZ5GonG55oJeT0P/zfTkX8=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
 		<data>
@@ -42,11 +42,11 @@
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
 		<data>
-		fBT5Ok+1VPr0xsnsGp/lCz54ZOw=
+		p0ncJwZ5GonG55oJeT0P/zfTkX8=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftmodule</key>
 		<data>
-		+IP377okshOskQHz9ZbjI1hE1OM=
+		mOBPpM6OAyZhWTx7ECirFDXTwE8=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -66,7 +66,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			G6ne6bFhYu3t1df9ZgguLfthUV6lsMULRh/cqlRI1cs=
+			0MfuphuFj4lHUHKbJCmrFBzgyeBWz64baDYx6sxq3/o=
 			</data>
 		</dict>
 		<key>Frameworks/IosLibrary.framework/_CodeSignature/CodeResources</key>
@@ -80,7 +80,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			6oZoZz8Bp2XhBSXFttBmsVoqkzWBmJR8QlZjDk9ijVE=
+			pfbbNR6kjQSwj4/kiPpZZ0JRfiOBdPatTpr4p8+KGvE=
 			</data>
 		</dict>
 		<key>Headers/UnityIosPlugin.h</key>
@@ -94,14 +94,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			XgO+hyYrgE1KBITGwLFohg+sC26I2bSHn99lUekL0A8=
+			qrb6EsZPgvau7qg0Lfo5OzEvlqrLZqpMgar1qQR02kU=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			xzEMe3w25qzIJOql7T/2k0ESNia3S258bK9r6p63Ec0=
+			uK+i0R9+BBJunq6U9SGMGwD2WcXg2PBkc0R/tYsH7Og=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
@@ -115,14 +115,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			xzEMe3w25qzIJOql7T/2k0ESNia3S258bK9r6p63Ec0=
+			uK+i0R9+BBJunq6U9SGMGwD2WcXg2PBkc0R/tYsH7Og=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			fVnIw0Xn28Ba0MKlTR1NK+1TfacNwL35BCqRoQrZU6E=
+			L6/6AcRZ5AXdLgmAsHXE2KWtjuhocwyNTVXaI50YLpo=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

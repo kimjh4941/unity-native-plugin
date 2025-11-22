@@ -503,11 +503,11 @@ IosDialogManager.Instance.DialogResult += OnDialogResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Hello from Unity";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "This is a native iOS dialog!";
-// ボタンのテキストを設定します。
+// ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string buttonText = "OK";
 IosDialogManager.Instance.ShowDialog(
   title,
@@ -549,13 +549,13 @@ IosDialogManager.Instance.ConfirmDialogResult += OnConfirmDialogResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Confirm Action";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Are you sure you want to proceed?";
-// 確認ボタンのテキストを設定します。
+// 確認ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string confirmButtonText = "Yes";
-// キャンセルボタンのテキストを設定します。
+// キャンセルボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string cancelButtonText = "No";
 IosDialogManager.Instance.ShowConfirmDialog(
   title,
@@ -598,13 +598,13 @@ IosDialogManager.Instance.DestructiveDialogResult += OnDestructiveDialogResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Delete File";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "This action cannot be undone. Are you sure?";
-// 破壊的操作の確認ボタンのテキストを設定します。
+// 破壊的操作の確認ボタンのテキストを設定します。未設定の場合、"Delete" が使用されます。
 string destructiveButtonText = "Delete";
-// キャンセルボタンのテキストを設定します。
+// キャンセルボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string cancelButtonText = "Cancel";
 IosDialogManager.Instance.ShowDestructiveDialog(
   title,
@@ -647,13 +647,13 @@ IosDialogManager.Instance.ActionSheetResult += OnActionSheetResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Select Source";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Choose where to get the file from";
-// 選択肢を設定します。
+// 選択肢を設定します。必須項目です。
 string[] options = { "Camera", "Photo Library", "Documents" };
-// キャンセルボタンのテキストを設定します。
+// キャンセルボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string cancelButtonText = "Cancel";
 IosDialogManager.Instance.ShowActionSheet(
   title,
@@ -696,17 +696,17 @@ IosDialogManager.Instance.TextInputDialogResult += OnTextInputDialogResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Enter Name";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Please enter your name";
-// プレースホルダーを設定します。
+// プレースホルダーを設定します。未設定の場合、空文字列が使用されます。
 string placeholder = "Your name here";
-// 確認ボタンのテキストを設定します。
+// 確認ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string confirmButtonText = "OK";
-// キャンセルボタンのテキストを設定します。
+// キャンセルボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string cancelButtonText = "Cancel";
-// 入力値が空の場合、確認ボタンが有効になるかを設定します。
+// 入力値が空の場合、確認ボタンが有効になるかを設定します。未設定の場合、false が使用されます。
 bool enableConfirmWhenEmpty = false;
 IosDialogManager.Instance.ShowTextInputDialog(
   title,
@@ -753,19 +753,19 @@ IosDialogManager.Instance.LoginDialogResult += OnLoginDialogResult;
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Login Required";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Please enter your credentials";
-// ユーザ名のプレースホルダーを設定します。
+// ユーザ名のプレースホルダーを設定します。未設定の場合、"Username" が使用されます。
 string usernamePlaceholder = "Username";
-// パスワードのプレースホルダーを設定します。
+// パスワードのプレースホルダーを設定します。未設定の場合、"Password" が使用されます。
 string passwordPlaceholder = "Password";
-// ログインボタンのテキストを設定します。
+// ログインボタンのテキストを設定します。未設定の場合、"Login" が使用されます。
 string loginButtonText = "Login";
-// キャンセルボタンのテキストを設定します。
+// キャンセルボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string cancelButtonText = "Cancel";
-// 入力値が空の場合、ログインボタンが有効になるかを設定します。
+// 入力値が空の場合、ログインボタンが有効になるかを設定します。未設定の場合、false が使用されます。
 bool enableLoginWhenEmpty = false;
 IosDialogManager.Instance.ShowLoginDialog(
   title,

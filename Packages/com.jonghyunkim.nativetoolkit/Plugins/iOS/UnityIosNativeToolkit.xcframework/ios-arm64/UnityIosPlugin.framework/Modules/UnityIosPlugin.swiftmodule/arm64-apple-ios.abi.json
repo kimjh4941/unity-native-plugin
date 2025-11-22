@@ -412,31 +412,15 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Optional",
-                "printedName": "Swift.String?",
-                "children": [
-                  {
-                    "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
-                  }
-                ],
-                "usr": "s:Sq"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
-                "name": "Optional",
-                "printedName": "Swift.String?",
-                "children": [
-                  {
-                    "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
-                  }
-                ],
-                "usr": "s:Sq"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
@@ -523,7 +507,7 @@
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityIosPlugin@objc(cs)UnityIosDialogManager(im)showActionSheetWithTitle:message:options:cancelButtonText:handler:",
-            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC15showActionSheet5title7message7options16cancelButtonText7handlerySSSg_AJSaySSGSSyAJ_SbAJtcSgtF",
+            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC15showActionSheet5title7message7options16cancelButtonText7handlerySS_SSSaySSGSSySSSg_SbAKtcSgtF",
             "moduleName": "UnityIosPlugin",
             "declAttributes": [
               "AccessControl",
@@ -550,31 +534,16 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Optional",
-                "printedName": "Swift.String?",
-                "children": [
-                  {
-                    "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
-                  }
-                ],
-                "usr": "s:Sq"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
-                "name": "Optional",
-                "printedName": "Swift.String?",
-                "children": [
-                  {
-                    "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
-                  }
-                ],
-                "usr": "s:Sq"
+                "name": "String",
+                "printedName": "Swift.String",
+                "hasDefaultArg": true,
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
@@ -675,7 +644,7 @@
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityIosPlugin@objc(cs)UnityIosDialogManager(im)showTextInputDialogWithTitle:message:placeholder:confirmButtonText:cancelButtonText:enableConfirmWhenEmpty:handler:",
-            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC013showTextInputD05title7message11placeholder013confirmButtonG006cancelmG022enableConfirmWhenEmpty7handlerySS_SSSgALS2SSbyAL_ALSbALtcSgtF",
+            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC013showTextInputD05title7message11placeholder013confirmButtonG006cancelmG022enableConfirmWhenEmpty7handlerySS_S4SSbySSSg_ALSbALtcSgtF",
             "moduleName": "UnityIosPlugin",
             "declAttributes": [
               "AccessControl",
@@ -702,17 +671,9 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Optional",
-                "printedName": "Swift.String?",
-                "children": [
-                  {
-                    "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
-                  }
-                ],
-                "usr": "s:Sq"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
@@ -841,7 +802,7 @@
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityIosPlugin@objc(cs)UnityIosDialogManager(im)showLoginDialogWithTitle:message:usernamePlaceholder:passwordPlaceholder:loginButtonText:cancelButtonText:enableLoginWhenEmpty:handler:",
-            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC09showLoginD05title7message19usernamePlaceholder08passwordK015loginButtonText06cancelnO006enableG9WhenEmpty7handlerySS_SSSgS4SSbyAM_A2MSbAMtcSgtF",
+            "mangledName": "$s14UnityIosPlugin0aB13DialogManagerC09showLoginD05title7message19usernamePlaceholder08passwordK015loginButtonText06cancelnO006enableG9WhenEmpty7handlerySS_S5SSbySSSg_A2MSbAMtcSgtF",
             "moduleName": "UnityIosPlugin",
             "declAttributes": [
               "AccessControl",
@@ -954,93 +915,100 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 3720,
+      "offset": 3769,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 3761,
+      "offset": 3810,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 5131,
+      "offset": 5351,
       "length": 8,
       "value": "\"Delete\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 5176,
+      "offset": 5396,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 6623,
+      "offset": 7020,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 8592,
+      "offset": 9078,
+      "length": 2,
+      "value": "\"\""
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
+      "kind": "StringLiteral",
+      "offset": 9118,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 8633,
+      "offset": 9159,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 8682,
-      "length": 4,
-      "value": "true"
+      "offset": 9208,
+      "length": 5,
+      "value": "false"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10322,
+      "offset": 11099,
       "length": 10,
       "value": "\"Username\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10372,
+      "offset": 11149,
       "length": 10,
       "value": "\"Password\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10418,
+      "offset": 11195,
       "length": 7,
       "value": "\"Login\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10462,
+      "offset": 11239,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 10509,
-      "length": 4,
-      "value": "true"
+      "offset": 11286,
+      "length": 5,
+      "value": "false"
     }
   ]
 }

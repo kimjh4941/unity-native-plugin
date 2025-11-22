@@ -261,15 +261,24 @@ public class IosDialogManager : MonoBehaviour
     /// <summary>
     /// Shows a basic alert dialog with a single button.
     /// </summary>
-    public void ShowDialog(string title, string message, string buttonText = "OK")
+    public void ShowDialog(string title, string message, string? buttonText = "OK")
     {
-        Debug.Log($"ShowDialog called with title: {title}, message: {message}");
+        Debug.Log($"ShowDialog called with title: {title}, message: {message}, buttonText: {buttonText}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            DialogResult?.Invoke("Error: Title cannot be null or empty.", false, "Title validation failed");
+            DialogResult?.Invoke(null, false, "Title cannot be null or empty.");
             return;
         }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            DialogResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        buttonText ??= "OK";
 
         try
         {
@@ -285,15 +294,25 @@ public class IosDialogManager : MonoBehaviour
     /// <summary>
     /// Shows a confirmation dialog with confirm / cancel buttons.
     /// </summary>
-    public void ShowConfirmDialog(string title, string message, string confirmButtonText = "OK", string cancelButtonText = "Cancel")
+    public void ShowConfirmDialog(string title, string message, string? confirmButtonText = "OK", string? cancelButtonText = "Cancel")
     {
-        Debug.Log($"ShowConfirmDialog called with title: {title}, message: {message}");
+        Debug.Log($"ShowConfirmDialog called with title: {title}, message: {message}, confirmButtonText: {confirmButtonText}, cancelButtonText: {cancelButtonText}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            ConfirmDialogResult?.Invoke("Error: Title cannot be null or empty.", false, "Title validation failed");
+            ConfirmDialogResult?.Invoke(null, false, "Title cannot be null or empty.");
             return;
         }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            ConfirmDialogResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        confirmButtonText ??= "OK";
+        cancelButtonText ??= "Cancel";
 
         try
         {
@@ -309,15 +328,25 @@ public class IosDialogManager : MonoBehaviour
     /// <summary>
     /// Shows a destructive confirmation dialog (e.g. Delete confirmation).
     /// </summary>
-    public void ShowDestructiveDialog(string title, string message, string destructiveButtonText = "Delete", string cancelButtonText = "Cancel")
+    public void ShowDestructiveDialog(string title, string message, string? destructiveButtonText = "Delete", string? cancelButtonText = "Cancel")
     {
-        Debug.Log($"ShowDestructiveDialog called with title: {title}, message: {message}");
+        Debug.Log($"ShowDestructiveDialog called with title: {title}, message: {message}, destructiveButtonText: {destructiveButtonText}, cancelButtonText: {cancelButtonText}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            DestructiveDialogResult?.Invoke("Error: Title cannot be null or empty.", false, "Title validation failed");
+            DestructiveDialogResult?.Invoke(null, false, "Title cannot be null or empty.");
             return;
         }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            DestructiveDialogResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        destructiveButtonText ??= "Delete";
+        cancelButtonText ??= "Cancel";
 
         try
         {
@@ -333,17 +362,34 @@ public class IosDialogManager : MonoBehaviour
     /// <summary>
     /// Shows an action sheet with multiple selectable options.
     /// </summary>
-    public void ShowActionSheet(string title, string message, string[] options, string cancelButtonText = "Cancel")
+    public void ShowActionSheet(string title, string message, string[] options, string? cancelButtonText = "Cancel")
     {
-        Debug.Log($"ShowActionSheet called with title: {title}, message: {message}, options: {options?.Length}, cancelButtonText: {cancelButtonText}");
-        if (options == null || options.Length == 0)
+        var optionsList = options == null ? "[]" : $"[{string.Join(", ", options)}]";
+        Debug.Log($"ShowActionSheet called with title: {title}, message: {message}, options: {optionsList}, cancelButtonText: {cancelButtonText}");
+        if (string.IsNullOrEmpty(title))
         {
-            Debug.LogError("Options cannot be null or empty.");
-            ActionSheetResult?.Invoke("Error: Options cannot be null or empty.", false, "Options validation failed");
+            Debug.LogError("Title cannot be null or empty.");
+            ActionSheetResult?.Invoke(null, false, "Title cannot be null or empty.");
             return;
         }
 
-    // Release previously allocated unmanaged memory (if any)
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            ActionSheetResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        if (options == null || options.Length == 0)
+        {
+            Debug.LogError("Options cannot be null or empty.");
+            ActionSheetResult?.Invoke(null, false, "Options cannot be null or empty.");
+            return;
+        }
+
+        cancelButtonText ??= "Cancel";
+
+        // Release previously allocated unmanaged memory (if any)
         if (s_optionsPtr != IntPtr.Zero)
         {
             Marshal.FreeHGlobal(s_optionsPtr);
@@ -401,15 +447,26 @@ public class IosDialogManager : MonoBehaviour
     /// Shows a text input dialog with a single text field.
     /// </summary>
     /// <param name="enableConfirmWhenEmpty">If true the confirm button remains enabled when input is empty (default: false)</param>
-    public void ShowTextInputDialog(string title, string message, string placeholder = "", string confirmButtonText = "OK", string cancelButtonText = "Cancel", bool enableConfirmWhenEmpty = false)
+    public void ShowTextInputDialog(string title, string message, string? placeholder = "", string? confirmButtonText = "OK", string? cancelButtonText = "Cancel", bool enableConfirmWhenEmpty = false)
     {
-        Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, enableConfirmWhenEmpty: {enableConfirmWhenEmpty}");
+        Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, placeholder: {placeholder}, confirmButtonText: {confirmButtonText}, cancelButtonText: {cancelButtonText}, enableConfirmWhenEmpty: {enableConfirmWhenEmpty}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            TextInputDialogResult?.Invoke("Error", "Title cannot be null or empty.", false, "Title validation failed");
+            TextInputDialogResult?.Invoke(null, null, false, "Title cannot be null or empty.");
             return;
         }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            TextInputDialogResult?.Invoke(null, null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        placeholder ??= "";
+        confirmButtonText ??= "OK";
+        cancelButtonText ??= "Cancel";
 
         try
         {
@@ -426,15 +483,27 @@ public class IosDialogManager : MonoBehaviour
     /// Shows a login dialog requesting username and password.
     /// </summary>
     /// <param name="enableLoginWhenEmpty">If true the login button remains enabled when fields are empty (default: false)</param>
-    public void ShowLoginDialog(string title, string message, string usernamePlaceholder = "Username", string passwordPlaceholder = "Password", string loginButtonText = "Login", string cancelButtonText = "Cancel", bool enableLoginWhenEmpty = false)
+    public void ShowLoginDialog(string title, string message, string? usernamePlaceholder = "Username", string? passwordPlaceholder = "Password", string? loginButtonText = "Login", string? cancelButtonText = "Cancel", bool enableLoginWhenEmpty = false)
     {
-        Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, enableLoginWhenEmpty: {enableLoginWhenEmpty}");
+        Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, usernamePlaceholder: {usernamePlaceholder}, passwordPlaceholder: {passwordPlaceholder}, loginButtonText: {loginButtonText}, cancelButtonText: {cancelButtonText}, enableLoginWhenEmpty: {enableLoginWhenEmpty}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
-            LoginDialogResult?.Invoke("Error", "Title cannot be null or empty.", "", false, "Title validation failed");
+            LoginDialogResult?.Invoke(null, null, null, false, "Title cannot be null or empty.");
             return;
         }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            LoginDialogResult?.Invoke(null, null, null, false, "Message cannot be null or empty.");
+            return;
+        }
+
+        usernamePlaceholder ??= "Username";
+        passwordPlaceholder ??= "Password";
+        loginButtonText ??= "Login";
+        cancelButtonText ??= "Cancel";
 
         try
         {
