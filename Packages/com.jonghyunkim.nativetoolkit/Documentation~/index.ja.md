@@ -143,15 +143,15 @@ AndroidDialogManager.Instance.DialogResult += OnDialogResult;
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Hello from Unity";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "This is a native Android dialog!";
-// ボタンのテキストを設定します。
+// ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string buttonText = "OK";
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowDialog(
   title,
@@ -195,17 +195,17 @@ AndroidDialogManager.Instance.ConfirmDialogResult += OnConfirmDialogResult;
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Confirmation";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Do you want to proceed with this action?";
-// 否定ボタンのテキストを設定します。
+// 否定ボタンのテキストを設定します。未設定の場合、"No" が使用されます。
 string negativeButtonText = "No";
-// 肯定ボタンのテキストを設定します。
+// 肯定ボタンのテキストを設定します。未設定の場合、"Yes" が使用されます。
 string positiveButtonText = "Yes";
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowConfirmDialog(
   title,
@@ -250,19 +250,19 @@ AndroidDialogManager.Instance.SingleChoiceItemDialogResult += OnSingleChoiceItem
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Please select one";
-// 選択肢を設定します。
+// 選択肢を設定します。必須項目です。
 string[] singleChoiceItems = { "Option 1", "Option 2", "Option 3" };
-// デフォルト選択項目のindex番号を設定します。
+// デフォルト選択項目のindex番号を設定します。未設定の場合、0 が使用されます。
 int checkedItem = 0;
-// 否定ボタンのテキストを設定します。
+// 否定ボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string negativeButtonText = "Cancel";
-// 肯定ボタンのテキストを設定します。
+// 肯定ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string positiveButtonText = "OK";
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowSingleChoiceItemDialog(
   title,
@@ -310,19 +310,19 @@ AndroidDialogManager.Instance.MultiChoiceItemDialogResult += OnMultiChoiceItemDi
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Multiple Selection";
-// 選択肢を設定します。
+// 選択肢を設定します。必須項目です。
 string[] multiChoiceItems = { "Item 1", "Item 2", "Item 3", "Item 4" };
-// デフォルト選択項目の選択状態を設定します。
+// デフォルト選択項目の選択状態を設定します。未設定の場合、すべて false が使用されます。
 bool[] checkedItems = { false, true, false, true };
-// 否定ボタンのテキストを設定します。
+// 否定ボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string negativeButtonText = "Cancel";
-// 肯定ボタンのテキストを設定します。
+// 肯定ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string positiveButtonText = "OK";
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowMultiChoiceItemDialog(
   title,
@@ -370,21 +370,21 @@ AndroidDialogManager.Instance.TextInputDialogResult += OnTextInputDialogResult;
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Text Input";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Please enter your name";
-// プレースホルダーを設定します。
+// プレースホルダーを設定します。未設定の場合、空文字列が使用されます。
 string placeholder = "Enter here...";
-// 否定ボタンのテキストを設定します。
+// 否定ボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string negativeButtonText = "Cancel";
-// 肯定ボタンのテキストを設定します。
+// 肯定ボタンのテキストを設定します。未設定の場合、"OK" が使用されます。
 string positiveButtonText = "OK";
-// 入力値が空の場合、肯定ボタンが有効になるかを設定します。
+// 入力値が空の場合、肯定ボタンが有効になるかを設定します。未設定の場合、false が使用されます。
 bool enablePositiveButtonWhenEmpty = false;
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowTextInputDialog(
   title,
@@ -433,23 +433,23 @@ AndroidDialogManager.Instance.LoginDialogResult += OnLoginDialogResult;
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Login";
-// メッセージを設定します。
+// メッセージを設定します。必須項目です。
 string message = "Please enter your credentials";
-// ユーザ名のプレースホルダーを設定します。
+// ユーザ名のプレースホルダーを設定します。未設定の場合、"Username" が使用されます。
 string usernameHint = "Username";
-// パスワードのプレースホルダーを設定します。
+// パスワードのプレースホルダーを設定します。未設定の場合、"Password" が使用されます。
 string passwordHint = "Password";
-// 否定ボタンのテキストを設定します。
+// 否定ボタンのテキストを設定します。未設定の場合、"Cancel" が使用されます。
 string negativeButtonText = "Cancel";
-// 肯定ボタンのテキストを設定します。
+// 肯定ボタンのテキストを設定します。未設定の場合、"Login" が使用されます。
 string positiveButtonText = "Login";
-// 入力値が空の場合、肯定ボタンが有効になるかを設定します。
+// 入力値が空の場合、肯定ボタンが有効になるかを設定します。未設定の場合、false が使用されます。
 bool enablePositiveButtonWhenEmpty = false;
-// ダイアログの外をタップした場合、キャンセル可能かを設定します。
+// ダイアログの外をタップした場合、キャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelableOnTouchOutside = false;
-// バックキーなどでダイアログがキャンセル可能かを設定します。
+// バックキーなどでダイアログがキャンセル可能かを設定します。未設定の場合、true が使用されます。
 bool cancelable = false;
 AndroidDialogManager.Instance.ShowLoginDialog(
   title,

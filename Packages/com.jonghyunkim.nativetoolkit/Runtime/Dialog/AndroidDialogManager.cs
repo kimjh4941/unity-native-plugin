@@ -231,6 +231,20 @@ public class AndroidDialogManager : MonoBehaviour
     public void ShowDialog(string title, string message, string buttonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowDialog called with title: {title}, message: {message}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            DialogResult?.Invoke(null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            DialogResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
@@ -272,6 +286,20 @@ public class AndroidDialogManager : MonoBehaviour
     public void ShowConfirmDialog(string title, string message, string negativeButtonText = "No", string positiveButtonText = "Yes", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowConfirmDialog called with title: {title}, message: {message}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            ConfirmDialogResult?.Invoke(null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            ConfirmDialogResult?.Invoke(null, false, "Message cannot be null or empty.");
+            return;
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
@@ -314,6 +342,20 @@ public class AndroidDialogManager : MonoBehaviour
     public void ShowSingleChoiceItemDialog(string title, string[] singleChoiceItems, int checkedItem = 0, string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowSingleChoiceItemDialog called with title: {title}, items: {singleChoiceItems?.Length}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            SingleChoiceItemDialogResult?.Invoke(null, null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (singleChoiceItems == null || singleChoiceItems.Length == 0)
+        {
+            Debug.LogError("singleChoiceItems cannot be null or empty.");
+            SingleChoiceItemDialogResult?.Invoke(null, null, false, "singleChoiceItems cannot be null or empty.");
+            return;
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
@@ -356,6 +398,29 @@ public class AndroidDialogManager : MonoBehaviour
     public void ShowMultiChoiceItemDialog(string title, string[] multiChoiceItems, bool[] checkedItems, string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowMultiChoiceItemDialog called with title: {title}, items: {multiChoiceItems?.Length}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            MultiChoiceItemDialogResult?.Invoke(null, null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (multiChoiceItems == null || multiChoiceItems.Length == 0)
+        {
+            Debug.LogError("multiChoiceItems cannot be null or empty.");
+            MultiChoiceItemDialogResult?.Invoke(null, null, false, "multiChoiceItems cannot be null or empty.");
+            return;
+        }
+
+        if (checkedItems == null || checkedItems.Length == 0)
+        {
+            checkedItems = new bool[multiChoiceItems.Length];
+            for (int i = 0; i < checkedItems.Length; i++)
+            {
+                checkedItems[i] = false;
+            }
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
@@ -399,6 +464,20 @@ public class AndroidDialogManager : MonoBehaviour
     public void ShowTextInputDialog(string title, string message, string hint = "", string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool enablePositiveButtonWhenEmpty = false, bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, enablePositiveButtonWhenEmpty: {enablePositiveButtonWhenEmpty}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            TextInputDialogResult?.Invoke(null, null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            TextInputDialogResult?.Invoke(null, null, false, "Message cannot be null or empty.");
+            return;
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
@@ -440,9 +519,23 @@ public class AndroidDialogManager : MonoBehaviour
     /// <param name="enablePositiveButtonWhenEmpty">Whether positive button is enabled when inputs are empty (default: false)</param>
     /// <param name="cancelableOnTouchOutside">Whether dialog can be cancelled by touching outside (default: true)</param>
     /// <param name="cancelable">Whether dialog can be cancelled by back button (default: true)</param>
-    public void ShowLoginDialog(string title, string message, string usernameHint = "Username", string passwordHint = "Password", string negativeButtonText = "Cancel", string positiveButtonText = "OK", bool enablePositiveButtonWhenEmpty = false, bool cancelableOnTouchOutside = true, bool cancelable = true)
+    public void ShowLoginDialog(string title, string message, string usernameHint = "Username", string passwordHint = "Password", string negativeButtonText = "Cancel", string positiveButtonText = "Login", bool enablePositiveButtonWhenEmpty = false, bool cancelableOnTouchOutside = true, bool cancelable = true)
     {
         Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, enablePositiveButtonWhenEmpty: {enablePositiveButtonWhenEmpty}");
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            LoginDialogResult?.Invoke(null, null, null, false, "Title cannot be null or empty.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            LoginDialogResult?.Invoke(null, null, null, false, "Message cannot be null or empty.");
+            return;
+        }
+
         if (Application.platform == RuntimePlatform.Android)
         {
             if (pluginInstance == null)
