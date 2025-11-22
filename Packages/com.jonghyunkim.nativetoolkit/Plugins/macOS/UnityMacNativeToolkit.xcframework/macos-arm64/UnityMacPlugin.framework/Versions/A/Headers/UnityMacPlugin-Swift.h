@@ -314,11 +314,105 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 + (UnityMacDialogManager * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+/// Presents an <code>NSAlert</code> configured via JSON button/option payloads and bridges the result
+/// back to Objective-C/Unity as <code>(NSDictionary?, NSError?)</code>.
+/// Expected JSON payloads:
+/// \code
+/// // buttonsJson
+/// {
+///   "buttons": [
+///     { "title": "OK", "isDefault": true, "keyEquivalent": "\r" },
+///     { "title": "Cancel", "keyEquivalent": "\u001b" }
+///   ]
+/// }
+///
+/// // optionsJson (all fields optional)
+/// {
+///   "alertStyle": "informational|warning|critical",
+///   "showsHelp": true,
+///   "showsSuppressionButton": true,
+///   "suppressionButtonTitle": "Do not show again",
+///   "icon": {
+///     "type": "systemSymbol|filePath|namedImage|appIcon|systemImage",
+///     "value": "exclamationmark.octagon.fill",
+///     "style": "monochrome|hierarchical|palette|multicolor",
+///     "colors": ["white", "systemRed"],
+///     "size": 64,
+///     "weight": "ultraLight|thin|light|regular|medium|semibold|bold|heavy|black",
+///     "scale": "small|medium|large"
+///   }
+/// }
+///
+/// \endcode\param title Dialog title text.
+///
+/// \param message Optional informative message.
+///
+/// \param buttonsJson JSON describing the button array (see example above).
+///
+/// \param optionsJson JSON configuring alert style, suppression button, and optional icon.
+///
+/// \param completion Called on completion with <code>NSDictionary</code> containing <code>buttonTitle</code>,
+/// <code>buttonIndex</code>, <code>suppressionButtonState</code>, <code>helpButtonPressed</code>, or an <code>NSError</code>.
+///
 - (void)showDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message buttonsJson:(NSString * _Nonnull)buttonsJson optionsJson:(NSString * _Nonnull)optionsJson completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+/// Presents a single-selection open panel restricted to files.
+/// \param title Panel window title displayed in the sheet.
+///
+/// \param message Optional informative text shown beneath the title.
+///
+/// \param allowedContentTypes Filename extensions (without dot) to filter; empty means no filtering.
+///
+/// \param directoryURL Initial directory from which browsing starts.
+///
+/// \param completion Invoked with the file selection dictionary or an NSError.
+///
 - (void)showFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+/// Presents a multi-selection open panel restricted to files.
+/// \param title Panel window title displayed in the sheet.
+///
+/// \param message Optional informative text shown beneath the title.
+///
+/// \param allowedContentTypes Filename extensions allowed for selection.
+///
+/// \param directoryURL Initial directory from which browsing starts.
+///
+/// \param completion Invoked with the selection dictionary or error.
+///
 - (void)showMultiFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+/// Presents a single-selection folder picker (no files allowed).
+/// \param title Panel window title displayed in the sheet.
+///
+/// \param message Optional descriptive text shown inside the panel.
+///
+/// \param directoryURL Initial directory to display.
+///
+/// \param completion Invoked with the folder selection dictionary or error.
+///
 - (void)showFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+/// Presents a multi-selection folder picker.
+/// \param title Panel window title displayed in the sheet.
+///
+/// \param message Optional descriptive text shown inside the panel.
+///
+/// \param directoryURL Initial directory to display.
+///
+/// \param completion Invoked with the folder selection dictionary or error.
+///
 - (void)showMultiFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+/// Presents an <code>NSSavePanel</code> and reports the saved path back to Unity.
+/// \param title Save panel window title.
+///
+/// \param message Optional descriptive text shown in the panel.
+///
+/// \param nameFieldStringValue Default filename pre-filled in the save panel.
+///
+/// \param allowedContentTypes Allowed extensions (empty = unrestricted).
+///
+/// \param directoryURL Optional starting directory.
+///
+/// \param completion Dictionary with <code>filePath</code>, <code>fileCount</code>, <code>directoryURL</code>, <code>isCancelled</code>,
+/// <code>isSuccess</code>, or an error.
+///
 - (void)showSaveFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message nameFieldStringValue:(NSString * _Nonnull)nameFieldStringValue allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 @end
 

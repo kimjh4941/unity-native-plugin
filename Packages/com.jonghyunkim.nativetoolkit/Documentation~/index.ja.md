@@ -817,7 +817,7 @@ MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
 ```csharp
 // 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。
+// タイトルを設定します。必須項目です。
 string title = "Hello from Unity";
 // メッセージを設定します。
 string message = "This is a native macOS dialog!";
@@ -840,7 +840,7 @@ DialogOptions options = new DialogOptions(
   showsSuppressionButton: true,
   // suppressionButtonTitle: サプレッションチェックボックスのタイトルを設定します。省略時は OSデフォルトのタイトルが使用されます。showsSuppressionButton が false の場合、無視されます。
   suppressionButtonTitle: "Don't show this again",
-  //  icon: ダイアログに表示するアイコンを設定します。
+  // icon: ダイアログに表示するアイコンを設定します。
   icon: new IconConfiguration(
     // 以下はアイコンのタイプごとの設定方法例です。必要に応じて設定してください。
     ...

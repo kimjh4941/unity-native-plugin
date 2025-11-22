@@ -458,7 +458,8 @@ public class MacDialogManager : MonoBehaviour
     /// </remarks>
     public void ShowFileDialog(string title, string? message = null, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
-        Debug.Log($"ShowFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
+        var allowedContentTypesList = allowedContentTypes != null ? string.Join(", ", allowedContentTypes) : "null";
+        Debug.Log($"ShowFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypesList}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
@@ -560,7 +561,8 @@ public class MacDialogManager : MonoBehaviour
     /// <remarks>Result event: <see cref="MultiFileDialogResult"/>.</remarks>
     public void ShowMultiFileDialog(string title, string? message = null, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
-        Debug.Log($"ShowMultiFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
+        var allowedContentTypesList = allowedContentTypes != null ? string.Join(", ", allowedContentTypes) : "null";
+        Debug.Log($"ShowMultiFileDialog called with title: {title}, message: {message}, allowedContentTypes: {allowedContentTypesList}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");
@@ -789,7 +791,8 @@ public class MacDialogManager : MonoBehaviour
     /// </remarks>
     public void ShowSaveFileDialog(string title, string? message = null, string? defaultFileName = null, string[]? allowedContentTypes = null, string? directoryPath = null)
     {
-        Debug.Log($"ShowSaveFileDialog called with title: {title}, message: {message}, defaultFileName: {defaultFileName}, allowedContentTypes: {allowedContentTypes?.Length}, directoryPath: {directoryPath}");
+        var allowedContentTypesList = allowedContentTypes != null ? string.Join(", ", allowedContentTypes) : "null";
+        Debug.Log($"ShowSaveFileDialog called with title: {title}, message: {message}, defaultFileName: {defaultFileName}, allowedContentTypes: {allowedContentTypesList}, directoryPath: {directoryPath}");
         if (string.IsNullOrEmpty(title))
         {
             Debug.LogError("Title cannot be null or empty.");

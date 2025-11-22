@@ -176,6 +176,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
@@ -294,6 +295,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
@@ -412,6 +414,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
@@ -516,6 +519,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
@@ -620,6 +624,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
@@ -744,6 +749,7 @@
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
+              "RawDocComment",
               "ObjC"
             ],
             "funcSelfKind": "NonMutating"
