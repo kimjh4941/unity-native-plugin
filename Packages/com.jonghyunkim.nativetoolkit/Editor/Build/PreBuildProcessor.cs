@@ -4,6 +4,7 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 /// <summary>
 /// Pre-build processor that (1) temporarily disables libraries for non-target platforms to keep
@@ -220,6 +221,14 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     {
         UnityEngine.Debug.Log($"[Build][Windows] Pre-build steps started. Config={config}");
 
+        // Step 1: Build WindowsLibrary.dll using MSBuild
+        if (!BuildWindowsLibraryDll(config))
+        {
+            UnityEngine.Debug.LogError("[Build][Windows] Aborting pre-build due to build failure.");
+            return;
+        }
+
+        // Step 2: Copy the built DLL to Unity Plugins folder
         const string baseDir = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64";
         var dllFileName = config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
             ? "WindowsLibrary-Debug.dll"
@@ -253,6 +262,148 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
 
         UnityEngine.Debug.Log("[Build][Windows] Pre-build steps completed.");
+    }
+
+    /// <summary>
+    /// Builds WindowsLibrary.dll using MSBuild.
+    /// </summary>
+    private bool BuildWindowsLibraryDll(string config)
+    {
+        UnityEngine.Debug.Log($"[Build][Windows] Building WindowsLibrary.dll (config={config})...");
+
+        // MSBuild path (Visual Studio 2022)
+        string msbuildPath = FindMSBuildPath();
+        if (string.IsNullOrEmpty(msbuildPath))
+        {
+            UnityEngine.Debug.LogError("[Build][Windows] MSBuild.exe not found. Please install Visual Studio 2022.");
+            return false;
+        }
+
+        // Solution file path
+        string solutionPath = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\WindowsLibraryExample.sln";
+        if (!File.Exists(solutionPath))
+        {
+            UnityEngine.Debug.LogError($"[Build][Windows] Solution file not found: {solutionPath}");
+            return false;
+        }
+
+        // MSBuild arguments
+        string configuration = config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "Debug" : "Release";
+        string arguments = $"\"{solutionPath}\" /p:Configuration={configuration} /p:Platform=x64 /t:WindowsLibrary /m";
+
+        try
+        {
+            // Start MSBuild process
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = msbuildPath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            TryApplyShiftJisEncoding(processStartInfo);
+
+            using (var process = Process.Start(processStartInfo))
+            {
+                if (process == null)
+                {
+                    UnityEngine.Debug.LogError("[Build][Windows] Failed to start MSBuild process.");
+                    return false;
+                }
+
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                bool buildSucceeded = process.ExitCode == 0;
+                if (!buildSucceeded && ContainsRegsvrFailure(output, error))
+                {
+                    UnityEngine.Debug.LogWarning("[Build][Windows] MSBuild post-build regsvr32 step failed; skipping COM registration.");
+                    buildSucceeded = true;
+                }
+
+                if (buildSucceeded)
+                {
+                    UnityEngine.Debug.Log($"[Build][Windows] WindowsLibrary.dll built successfully (config={configuration}).");
+                    UnityEngine.Debug.Log($"[Build][Windows] MSBuild output:\n{output}");
+                    return true;
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild failed with exit code {process.ExitCode}.");
+                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild output:\n{output}");
+                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild error:\n{error}");
+                    return false;
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            UnityEngine.Debug.LogError($"[Build][Windows] Exception during MSBuild: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Finds MSBuild.exe path (Visual Studio 2022).
+    /// </summary>
+    private string FindMSBuildPath()
+    {
+        // Common MSBuild paths for Visual Studio 2022
+        string[] possiblePaths = new string[]
+        {
+            @"D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
+        };
+
+        foreach (string path in possiblePaths)
+        {
+            if (File.Exists(path))
+            {
+                UnityEngine.Debug.Log($"[Build][Windows] Found MSBuild.exe: {path}");
+                return path;
+            }
+        }
+
+        // Try to find MSBuild using vswhere.exe
+        string vswherePath = @"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe";
+        if (File.Exists(vswherePath))
+        {
+            try
+            {
+                var processStartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = vswherePath,
+                    Arguments = "-latest -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using (var process = System.Diagnostics.Process.Start(processStartInfo))
+                {
+                    if (process != null)
+                    {
+                        string output = process.StandardOutput.ReadToEnd().Trim();
+                        process.WaitForExit();
+
+                        if (!string.IsNullOrEmpty(output) && File.Exists(output))
+                        {
+                            UnityEngine.Debug.Log($"[Build][Windows] Found MSBuild.exe via vswhere: {output}");
+                            return output;
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[Build][Windows] Failed to run vswhere.exe: {ex.Message}");
+            }
+        }
+
+        UnityEngine.Debug.LogError("[Build][Windows] MSBuild.exe not found. Please install Visual Studio 2022.");
+        return null;
     }
 
     /// <summary>
@@ -387,5 +538,28 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 #endif
         importer.SaveAndReimport();
         UnityEngine.Debug.Log($"[Build][Windows] Import settings updated (Windows only): {assetPath}");
+    }
+
+    // Sets Shift_JIS encoding for MSBuild process output to handle Japanese characters.
+    private void TryApplyShiftJisEncoding(ProcessStartInfo startInfo)
+    {
+        try
+        {
+            var sjis = Encoding.GetEncoding(932);
+            startInfo.StandardOutputEncoding = sjis;
+            startInfo.StandardErrorEncoding = sjis;
+        }
+        catch (System.Exception ex)
+        {
+            UnityEngine.Debug.LogError($"[Build][Windows] Failed to set Shift_JIS encoding for MSBuild logs: {ex.Message}");
+        }
+    }
+
+    // Checks if the MSBuild output or error contains regsvr32 failure indication.
+    private bool ContainsRegsvrFailure(string output, string error)
+    {
+        const string token = "regsvr32";
+        return (!string.IsNullOrEmpty(output) && output.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0)
+            || (!string.IsNullOrEmpty(error) && error.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0);
     }
 }

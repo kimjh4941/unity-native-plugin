@@ -175,7 +175,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 1024;
-        string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+        string filter = "All Files\0*.*\0\0";
         WindowsDialogManager.Instance.ShowFileDialog(bufferSize, filter);
 #endif
     }
@@ -188,7 +188,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 4096;
-        string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+        string filter = "All Files\0*.*\0\0";
         WindowsDialogManager.Instance.ShowMultiFileDialog(bufferSize, filter);
 #endif
     }
@@ -227,7 +227,7 @@ public class WindowsDialogManagerExampleController : MonoBehaviour
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         uint bufferSize = 1024;
-        string filter = "Text Files\0*.txt\0All Files\0*.*\0\0";
+        string filter = "All Files\0*.*\0\0";
         string defExt = "txt";
         WindowsDialogManager.Instance.ShowSaveFileDialog(bufferSize, filter, defExt);
 #endif

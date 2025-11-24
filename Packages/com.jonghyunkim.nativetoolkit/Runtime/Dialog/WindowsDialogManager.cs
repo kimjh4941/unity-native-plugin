@@ -21,7 +21,7 @@ public class WindowsDialogManager : MonoBehaviour
     private const string DLL_NAME = "UnityWindowsNativeToolkit.dll";
 #endif
 
-    private static WindowsDialogManager _instance;
+    private static WindowsDialogManager? _instance;
 
     /// <summary>
     /// Singleton instance property for WindowsDialogManager.
@@ -206,20 +206,37 @@ public class WindowsDialogManager : MonoBehaviour
     public void ShowDialog(
         string title,
         string message,
-        uint buttons,
-        uint icon,
-        uint defbutton,
-        uint options
+        uint? buttons = Win32MessageBox.MB_OK,
+        uint? icon = Win32MessageBox.MB_ICONINFORMATION,
+        uint? defbutton = Win32MessageBox.MB_DEFBUTTON1,
+        uint? options = Win32MessageBox.MB_APPLMODAL
     )
     {
     Debug.Log("ShowDialog called with title: " + title + ", message: " + message + ", buttons: " + buttons + ", icon: " + icon + ", defbutton: " + defbutton + ", options: " + options);
+        if (string.IsNullOrEmpty(title))
+        {
+            Debug.LogError("Title cannot be null or empty.");
+            AlertDialogResult?.Invoke(null, false, null);
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            Debug.LogError("Message cannot be null or empty.");
+            AlertDialogResult?.Invoke(null, false, null);
+        }
+
+        uint actualButtons = buttons ?? Win32MessageBox.MB_OK;
+        uint actualIcon = icon ?? Win32MessageBox.MB_ICONINFORMATION;
+        uint actualDefbutton = defbutton ?? Win32MessageBox.MB_DEFBUTTON1;
+        uint actualOptions = options ?? Win32MessageBox.MB_APPLMODAL;
+
         int result = showAlertDialog(
             title,
             message,
-            buttons,
-            icon,
-            defbutton,
-            options,
+            actualButtons,
+            actualIcon,
+            actualDefbutton,
+            actualOptions,
             out int errorCode
         );
         Debug.Log($"ShowDialog returned result: {result}, error code: 0x{errorCode:X8}");
@@ -244,8 +261,8 @@ public class WindowsDialogManager : MonoBehaviour
     /// Emits <see cref="FileDialogResult"/>. On cancel errorCode is -1 but isSuccess remains true to indicate no failure.
     /// </remarks>
     public void ShowFileDialog(
-        uint buffer_size,
-        string filter
+        uint? buffer_size = 1024,
+        string? filter = "All Files\0*.*\0\0"
     )
     {
         Debug.Log("ShowFileDialog called with " +
@@ -253,12 +270,15 @@ public class WindowsDialogManager : MonoBehaviour
             ", filter: " + filter
         );
 
-        var buffer = new StringBuilder((int)buffer_size * 2);
+        uint actualBufferSize = buffer_size ?? 1024;
+        string actualFilter = filter ?? "All Files\0*.*\0\0";
+
+        var buffer = new StringBuilder((int)actualBufferSize * 2);
         // Single file selection
         bool result = showFileDialog(
             buffer,
-            buffer_size,
-            filter,
+            actualBufferSize,
+            actualFilter,
             out int errorCode);
         Debug.Log($"ShowFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
         if (errorCode == 0)
@@ -288,8 +308,8 @@ public class WindowsDialogManager : MonoBehaviour
     /// Emits <see cref="MultiFileDialogResult"/>. Memory is always freed via try/finally.
     /// </remarks>
     public void ShowMultiFileDialog(
-        uint buffer_size,
-        string filter
+        uint? buffer_size = 4096,
+        string? filter = "All Files\0*.*\0\0"
     )
     {
         Debug.Log("ShowMultiFileDialog called with " +
@@ -297,22 +317,25 @@ public class WindowsDialogManager : MonoBehaviour
             ", filter: " + filter
         );
 
+        uint actualBufferSize = buffer_size ?? 4096;
+        string actualFilter = filter ?? "All Files\0*.*\0\0";
+
         // Allocate unmanaged buffer sized in WCHAR units * 2 bytes per char
-        IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)buffer_size * 2);
+        IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)actualBufferSize * 2);
         try
         {
             // Perform multi-file selection
             int count = showMultiFileDialog(
                 unmanagedBuffer,
-                buffer_size,
-                filter,
+                actualBufferSize,
+                actualFilter,
                 out int errorCode
             );
             Debug.Log($"ShowMultiFileDialog returned count: {count}, error code: 0x{errorCode:X8}");
             if (errorCode == 0)
             {
                 // Copy unmanaged buffer into managed byte[]
-                byte[] raw = new byte[buffer_size * 2];
+                byte[] raw = new byte[actualBufferSize * 2];
                 Marshal.Copy(unmanagedBuffer, raw, 0, raw.Length);
 
                 // Decode as UTF-16 (Unicode) string containing null separators
@@ -370,8 +393,8 @@ public class WindowsDialogManager : MonoBehaviour
     /// <param name="title">Dialog title text.</param>
     /// <remarks>Emits <see cref="FolderDialogResult"/>.</remarks>
     public void ShowFolderDialog(
-        uint buffer_size,
-        string title
+        uint? buffer_size = 1024,
+        string? title = "Select Folder"
     )
     {
         Debug.Log("ShowFolderDialog called with " +
@@ -379,12 +402,15 @@ public class WindowsDialogManager : MonoBehaviour
             ", title: " + title
         );
 
-        var buffer = new StringBuilder((int)buffer_size * 2);
+        uint actualBufferSize = buffer_size ?? 1024;
+        string actualTitle = title ?? "Select Folder";
+
+        var buffer = new StringBuilder((int)actualBufferSize * 2);
         // Folder selection
         bool result = showFolderDialog(
             buffer,
-            buffer_size,
-            title,
+            actualBufferSize,
+            actualTitle,
             out int errorCode
         );
         Debug.Log($"ShowFolderDialog returned result: {result}, error code: 0x{errorCode:X8}");
@@ -414,8 +440,8 @@ public class WindowsDialogManager : MonoBehaviour
     /// Parses a double-null terminated UTF-16 list. Each element is a folder path. Emits <see cref="MultiFolderDialogResult"/>.
     /// </remarks>
     public void ShowMultiFolderDialog(
-        uint buffer_size,
-        string title
+        uint? buffer_size = 4096,
+        string? title = "Select Folders"
     )
     {
         Debug.Log("ShowMultiFolderDialog called with " +
@@ -423,22 +449,25 @@ public class WindowsDialogManager : MonoBehaviour
             ", title: " + title
         );
 
+        uint actualBufferSize = buffer_size ?? 4096;
+        string actualTitle = title ?? "Select Folders";
+
         // Allocate unmanaged buffer sized in WCHAR units * 2 bytes per char
-        IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)buffer_size * 2);
+        IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)actualBufferSize * 2);
         try
         {
             // Perform multi-folder selection
             int count = showMultiFolderDialog(
                 unmanagedBuffer,
-                buffer_size,
-                title,
+                actualBufferSize,
+                actualTitle,
                 out int errorCode
             );
             Debug.Log($"ShowMultiFolderDialog returned count: {count}, error code: 0x{errorCode:X8}");
             if (errorCode == 0)
             {
                 // Copy unmanaged buffer into managed byte[]
-                byte[] raw = new byte[buffer_size * 2];
+                byte[] raw = new byte[actualBufferSize * 2];
                 Marshal.Copy(unmanagedBuffer, raw, 0, raw.Length);
 
                 // Decode as UTF-16 (Unicode) string containing null separators
@@ -490,9 +519,9 @@ public class WindowsDialogManager : MonoBehaviour
     /// <param name="def_ext">Default extension (without leading dot).</param>
     /// <remarks>Emits <see cref="SaveFileDialogResult"/>.</remarks>
     public void ShowSaveFileDialog(
-        uint buffer_size,
-        string filter,
-        string def_ext
+        uint? buffer_size = 1024,
+        string? filter = "All Files\0*.*\0\0",
+        string? def_ext = "txt"
     )
     {
         Debug.Log("ShowSaveFileDialog called with " +
@@ -500,14 +529,18 @@ public class WindowsDialogManager : MonoBehaviour
             ", filter: " + filter +
             ", default extension: " + def_ext
         );
+        
+        uint actualBufferSize = buffer_size ?? 1024;
+        string actualFilter = filter ?? "All Files\0*.*\0\0";
+        string actualDefExt = def_ext ?? "txt";
 
-        var buffer = new StringBuilder((int)buffer_size * 2);
+        var buffer = new StringBuilder((int)actualBufferSize * 2);
         // Save file selection
         bool result = showSaveFileDialog(
             buffer,
-            buffer_size,
-            filter,
-            def_ext,
+            actualBufferSize,
+            actualFilter,
+            actualDefExt,
             out int errorCode
         );
         Debug.Log($"ShowSaveFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
