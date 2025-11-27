@@ -799,418 +799,6 @@ private void OnLoginDialogResult(
 )
 ```
 
-## MacDialogManager
-
-### ShowDialog - 基本ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Hello from Unity";
-// メッセージを設定します。
-string message = "This is a native macOS dialog!";
-// ボタンを設定します。最低1個のボタンが必要です。
-DialogButton[] buttons = {
-  // title: ボタンのタイトルを設定します。必須項目です。
-  // isDefault: デフォルトボタンに設定する場合、true を指定します。省略時は false です。1個のダイアログにつき、1つのデフォルトボタンのみ設定可能です。
-  // keyEquivalent: ボタンのキーショートカットを設定します。省略時は null です。isDefault が true の場合、自動的に Enter キーが割り当てられます。
-  new DialogButton(title: "OK", isDefault: true),
-  new DialogButton(title: "Cancel", keyEquivalent: "\u001b"),
-  new DialogButton(title: "Delete", keyEquivalent: "d")
-};
-// オプションを設定します。必須項目です。
-DialogOptions options = new DialogOptions(
-  // alertStyle: ダイアログのスタイルを設定します。必須項目です。
-  alertStyle: DialogOptions.AlertStyle.Informational,
-  // showsHelp: ヘルプボタンを表示する場合、true を指定します。省略時は false です。
-  showsHelp: true,
-  // showsSuppressionButton: サプレッションチェックボックスを表示する場合、true を指定します。省略時は false です。
-  showsSuppressionButton: true,
-  // suppressionButtonTitle: サプレッションチェックボックスのタイトルを設定します。省略時は OSデフォルトのタイトルが使用されます。showsSuppressionButton が false の場合、無視されます。
-  suppressionButtonTitle: "Don't show this again",
-  // icon: ダイアログに表示するアイコンを設定します。
-  icon: new IconConfiguration(
-    // 以下はアイコンのタイプごとの設定方法例です。必要に応じて設定してください。
-    ...
-  )
-);
-
-// アイコンのタイプがシステムシンボルアイコンの例です。
-DialogOptions options = new DialogOptions(
-  ...
-  icon: new IconConfiguration(
-    // type: アイコンのタイプがシステムシンボルです。必須項目です。
-    type: IconConfiguration.IconType.SystemSymbol,
-    // value: システムシンボルの名前を設定します。必須項目です。
-    value: "info.square.fill",
-    // mode: アイコンのレンダリングモードを設定します。必須項目です。
-    mode: IconConfiguration.RenderingMode.Palette,
-    // colors: アイコンのカラー配列を設定します。レンダリングモードが Palette の場合、1～3色を指定可能で必須です。レンダリングモードが Hierarchical の場合、1色が指定可能です。色は #RRGGBB または colorname 形式で指定します。
-    colors: new List<string> { "white", "systemblue", "systemblue" },
-    // size: アイコンのサイズをポイント単位で設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
-    size: 64f,
-    // weight: アイコンのウェイトを設定します。省略時は OSデフォルト値が使用されます。
-    weight: IconConfiguration.Weight.Regular,
-    // scale: アイコンのスケールを設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
-    scale: IconConfiguration.Scale.Medium
-  )
-);
-
-// アイコンのタイプがファイルパスの場合の例です。
-DialogOptions options = new DialogOptions(
-  ...
-  icon: new IconConfiguration(
-    // type: アイコンのタイプがファイルパスです。必須項目です。
-    type: IconConfiguration.IconType.FilePath,
-    // value: ファイルパスを設定します。必須項目です。
-    value: "/Users/user/Downloads/test.png"
-  )
-);
-
-// アイコンのタイプが名前付き画像の場合の例です。
-DialogOptions options = new DialogOptions(
-  ...
-  icon: new IconConfiguration(
-    // type: アイコンのタイプが名前付き画像です。必須項目です。
-    type: IconConfiguration.IconType.NamedImage,
-    // value: 名前付き画像の名前を設定します。必須項目です。
-    value: "test-image"
-  )
-);
-
-// アイコンのタイプがアプリアイコンの場合の例です。
-DialogOptions options = new DialogOptions(
-  ...
-  icon: new IconConfiguration(
-    // type: アイコンのタイプがアプリアイコンです。必須項目です。
-    type: IconConfiguration.IconType.AppIcon
-  )
-);
-
-// アイコンのタイプがシステム画像の場合の例です。
-DialogOptions options = new DialogOptions(
-  ...
-  icon: new IconConfiguration(
-    // type: アイコンのタイプがシステム画像です。必須項目です。
-    type: IconConfiguration.IconType.SystemImage,
-    // value: システム画像の名前を設定します。必須項目です。
-    value: "cautionName"
-  )
-);
-
-MacDialogManager.Instance.ShowDialog(
-  title,
-  message,
-  buttons,
-  options
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowDialog.png" alt="Example_MacDialogManager_ShowDialog" width="400" />
-
-- ボタン押下時の結果はイベントで受け取ります。
-
-```csharp
-// buttonTitle: 押下したボタンのタイトルを取得します。エラーの場合、null を返します。
-// buttonIndex: 押下したボタンの index を取得します。
-// suppressionState: サプレッションチェックボックスの状態を取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnAlertDialogResult(
-  string? buttonTitle,
-  int buttonIndex,
-  bool suppressionState,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
-### ShowFileDialog - ファイル選択ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Select a file";
-// メッセージを設定します。
-string message = "Please select a file to open.";
-// 許可するコンテンツタイプ (UTI) を設定します。
-string[] allowedContentTypes = { "public.text" };
-// 初期ディレクトリを設定します。null の場合はシステム既定が使用されます。
-string? directoryPath = null;
-MacDialogManager.Instance.ShowFileDialog(
-  title,
-  message,
-  allowedContentTypes,
-  directoryPath
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowFileDialog.png" alt="Example_MacDialogManager_ShowFileDialog" width="1000" />
-
-- 選択結果はイベントで受け取ります。
-
-```csharp
-// filePaths: 選択されたファイルパスの配列を取得します。エラーの場合、null を返します。
-// fileCount: 返却されたファイル数を取得します。キャンセルされた場合は 0 です。
-// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
-// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnFileDialogResult(
-  string[]? filePaths,
-  int fileCount,
-  string? directoryURL,
-  bool isCancelled,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
-### ShowMultiFileDialog - 複数ファイル選択ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Select files";
-// メッセージを設定します。
-string message = "Please select files to open.";
-// 許可するコンテンツタイプ (UTI) を設定します。
-string[] allowedContentTypes = { "public.text" };
-// 初期ディレクトリを設定します。null の場合はシステム既定が使用されます。
-string? directoryPath = null;
-MacDialogManager.Instance.ShowMultiFileDialog(
-  title,
-  message,
-  allowedContentTypes,
-  directoryPath
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowMultiFileDialog.png" alt="Example_MacDialogManager_ShowMultiFileDialog" width="1000" />
-
-- 選択結果はイベントで受け取ります。
-
-```csharp
-// filePaths: 選択されたファイルパスの配列を取得します。エラーの場合、null を返します。
-// fileCount: 返却されたファイル数を取得します。キャンセルされた場合は 0 です。
-// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
-// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnMultiFileDialogResult(
-  string[]? filePaths,
-  int fileCount,
-  string? directoryURL,
-  bool isCancelled,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
-### ShowFolderDialog - フォルダ選択ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Select a folder";
-// メッセージを設定します。
-string message = "Please select a folder to open.";
-// 初期ディレクトリを設定します。null の場合はシステム既定が使用されます。
-string? directoryPath = null;
-MacDialogManager.Instance.ShowFolderDialog(
-  title,
-  message,
-  directoryPath
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowFolderDialog.png" alt="Example_MacDialogManager_ShowFolderDialog" width="1000" />
-
-- 選択結果はイベントで受け取ります。
-
-```csharp
-// folderPaths: 選択されたフォルダパスの配列を取得します。エラーの場合、null を返します。
-// folderCount: 返却されたフォルダ数を取得します。キャンセルされた場合は 0 です。
-// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
-// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnFolderDialogResult(
-  string[]? folderPaths,
-  int folderCount,
-  string? directoryURL,
-  bool isCancelled,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
-### ShowMultiFolderDialog - 複数フォルダ選択ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Select folders";
-// メッセージを設定します。
-string message = "Please select folders to open.";
-// 初期ディレクトリを設定します。null の場合はシステム既定が使用されます。
-string? directoryPath = null;
-MacDialogManager.Instance.ShowMultiFolderDialog(
-  title,
-  message,
-  directoryPath
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowMultiFolderDialog.png" alt="Example_MacDialogManager_ShowMultiFolderDialog" width="1000" />
-
-- 選択結果はイベントで受け取ります。
-
-```csharp
-// folderPaths: 選択されたフォルダパスの配列を取得します。エラーの場合、null を返します。
-// folderCount: 返却されたフォルダ数を取得します。キャンセルされた場合は 0 です。
-// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
-// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnMultiFolderDialogResult(
-  string[]? folderPaths,
-  int folderCount,
-  string? directoryURL,
-  bool isCancelled,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
-### ShowSaveFileDialog - ファイル保存ダイアログ
-
-- イベントを登録します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
-#endif
-```
-
-- ダイアログを表示します。
-
-```csharp
-// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
-#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
-// タイトルを設定します。必須項目です。
-string title = "Save File";
-// メッセージを設定します。
-string message = "Choose a destination";
-// デフォルトのファイル名を設定します。
-string defaultFileName = "default.txt";
-// 許可するコンテンツタイプ (UTI) を設定します。
-string[] allowedContentTypes = { "public.text" };
-// 初期ディレクトリを設定します。null の場合はシステム既定が使用されます。
-string? directoryPath = null;
-MacDialogManager.Instance.ShowSaveFileDialog(
-  title,
-  message,
-  defaultFileName,
-  allowedContentTypes,
-  directoryPath
-);
-#endif
-```
-
-<img src="images/mac/Example_MacDialogManager_ShowSaveFileDialog.png" alt="Example_MacDialogManager_ShowSaveFileDialog" width="600" />
-
-- 保存結果はイベントで受け取ります。
-
-```csharp
-// filePath: 保存先のファイルパスを取得します。キャンセルや失敗の場合は null を返します。
-// fileCount: 返却されたパス数を取得します。成功時は 1、キャンセル時は 0 です。
-// directoryURL: 保存が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
-// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
-// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
-// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
-
-private void OnSaveFileDialogResult(
-  string? filePath,
-  int fileCount,
-  string? directoryURL,
-  bool isCancelled,
-  bool isSuccess,
-  string? errorMessage
-)
-```
-
 ## WindowsDialogManager
 
 ### ShowDialog - 基本ダイアログ
@@ -1491,5 +1079,417 @@ private void OnSaveFileDialogResult(
   bool isCancelled,
   bool isSuccess,
   int? errorCode
+)
+```
+
+## MacDialogManager
+
+### ShowDialog - 基本ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.AlertDialogResult += OnAlertDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Hello from Unity";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "This is a native macOS dialog!";
+// ボタンを設定します。最低1個のボタンが必要です。
+DialogButton[] buttons = {
+  // title: ボタンのタイトルを設定します。必須項目です。
+  // isDefault: デフォルトボタンに設定する場合、true を指定します。省略時は false です。1個のダイアログにつき、1つのデフォルトボタンのみ設定可能です。
+  // keyEquivalent: ボタンのキーショートカットを設定します。省略時は null です。isDefault が true の場合、自動的に Enter キーが割り当てられます。
+  new DialogButton(title: "OK", isDefault: true),
+  new DialogButton(title: "Cancel", keyEquivalent: "\u001b"),
+  new DialogButton(title: "Delete", keyEquivalent: "d")
+};
+// オプションを設定します。必須項目です。
+DialogOptions options = new DialogOptions(
+  // alertStyle: ダイアログのスタイルを設定します。必須項目です。
+  alertStyle: DialogOptions.AlertStyle.Informational,
+  // showsHelp: ヘルプボタンを表示する場合、true を指定します。省略時は false です。
+  showsHelp: true,
+  // showsSuppressionButton: サプレッションチェックボックスを表示する場合、true を指定します。省略時は false です。
+  showsSuppressionButton: true,
+  // suppressionButtonTitle: サプレッションチェックボックスのタイトルを設定します。省略時は OSデフォルトのタイトルが使用されます。showsSuppressionButton が false の場合、無視されます。
+  suppressionButtonTitle: "Don't show this again",
+  // icon: ダイアログに表示するアイコンを設定します。
+  icon: new IconConfiguration(
+    // 以下はアイコンのタイプごとの設定方法例です。必要に応じて設定してください。
+    ...
+  )
+);
+
+// アイコンのタイプがシステムシンボルアイコンの例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがシステムシンボルです。必須項目です。
+    type: IconConfiguration.IconType.SystemSymbol,
+    // value: システムシンボルの名前を設定します。必須項目です。
+    value: "info.square.fill",
+    // mode: アイコンのレンダリングモードを設定します。必須項目です。
+    mode: IconConfiguration.RenderingMode.Palette,
+    // colors: アイコンのカラー配列を設定します。レンダリングモードが Palette の場合、1～3色を指定可能で必須です。レンダリングモードが Hierarchical の場合、1色が指定可能です。色は #RRGGBB または colorname 形式で指定します。
+    colors: new List<string> { "white", "systemblue", "systemblue" },
+    // size: アイコンのサイズをポイント単位で設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
+    size: 64f,
+    // weight: アイコンのウェイトを設定します。省略時は OSデフォルト値が使用されます。
+    weight: IconConfiguration.Weight.Regular,
+    // scale: アイコンのスケールを設定します。省略時は OSデフォルト値が使用されます。ダイアログでは制限により設定しても無効です。
+    scale: IconConfiguration.Scale.Medium
+  )
+);
+
+// アイコンのタイプがファイルパスの場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがファイルパスです。必須項目です。
+    type: IconConfiguration.IconType.FilePath,
+    // value: ファイルパスを設定します。必須項目です。
+    value: "/Users/user/Downloads/test.png"
+  )
+);
+
+// アイコンのタイプが名前付き画像の場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプが名前付き画像です。必須項目です。
+    type: IconConfiguration.IconType.NamedImage,
+    // value: 名前付き画像の名前を設定します。必須項目です。
+    value: "test-image"
+  )
+);
+
+// アイコンのタイプがアプリアイコンの場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがアプリアイコンです。必須項目です。
+    type: IconConfiguration.IconType.AppIcon
+  )
+);
+
+// アイコンのタイプがシステム画像の場合の例です。
+DialogOptions options = new DialogOptions(
+  ...
+  icon: new IconConfiguration(
+    // type: アイコンのタイプがシステム画像です。必須項目です。
+    type: IconConfiguration.IconType.SystemImage,
+    // value: システム画像の名前を設定します。必須項目です。
+    value: "cautionName"
+  )
+);
+
+MacDialogManager.Instance.ShowDialog(
+  title,
+  message,
+  buttons,
+  options
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowDialog.png" alt="Example_MacDialogManager_ShowDialog" width="400" />
+
+- ボタン押下時の結果はイベントで受け取ります。
+
+```csharp
+// buttonTitle: 押下したボタンのタイトルを取得します。エラーの場合、null を返します。
+// buttonIndex: 押下したボタンの index を取得します。
+// suppressionState: サプレッションチェックボックスの状態を取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnAlertDialogResult(
+  string? buttonTitle,
+  int buttonIndex,
+  bool suppressionState,
+  bool isSuccess,
+  string? errorMessage
+)
+```
+
+### ShowFileDialog - ファイル選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Select a file";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "Please select a file to open.";
+// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "public.text" };
+// 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
+string? directoryPath = null;
+MacDialogManager.Instance.ShowFileDialog(
+  title,
+  message,
+  allowedContentTypes,
+  directoryPath
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowFileDialog.png" alt="Example_MacDialogManager_ShowFileDialog" width="1000" />
+
+- 選択結果はイベントで受け取ります。
+
+```csharp
+// filePaths: 選択されたファイルパスの配列を取得します。エラーの場合、null を返します。
+// fileCount: 返却されたファイル数を取得します。キャンセルされた場合は 0 です。
+// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnFileDialogResult(
+  string[]? filePaths,
+  int fileCount,
+  string? directoryURL,
+  bool isCancelled,
+  bool isSuccess,
+  string? errorMessage
+)
+```
+
+### ShowMultiFileDialog - 複数ファイル選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Select files";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "Please select files to open.";
+// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "public.text" };
+// 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
+string? directoryPath = null;
+MacDialogManager.Instance.ShowMultiFileDialog(
+  title,
+  message,
+  allowedContentTypes,
+  directoryPath
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowMultiFileDialog.png" alt="Example_MacDialogManager_ShowMultiFileDialog" width="1000" />
+
+- 選択結果はイベントで受け取ります。
+
+```csharp
+// filePaths: 選択されたファイルパスの配列を取得します。エラーの場合、null を返します。
+// fileCount: 返却されたファイル数を取得します。キャンセルされた場合は 0 です。
+// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnMultiFileDialogResult(
+  string[]? filePaths,
+  int fileCount,
+  string? directoryURL,
+  bool isCancelled,
+  bool isSuccess,
+  string? errorMessage
+)
+```
+
+### ShowFolderDialog - フォルダ選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.FolderDialogResult += OnFolderDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Select a folder";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "Please select a folder to open.";
+// 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
+string? directoryPath = null;
+MacDialogManager.Instance.ShowFolderDialog(
+  title,
+  message,
+  directoryPath
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowFolderDialog.png" alt="Example_MacDialogManager_ShowFolderDialog" width="1000" />
+
+- 選択結果はイベントで受け取ります。
+
+```csharp
+// folderPaths: 選択されたフォルダパスの配列を取得します。エラーの場合、null を返します。
+// folderCount: 返却されたフォルダ数を取得します。キャンセルされた場合は 0 です。
+// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnFolderDialogResult(
+  string[]? folderPaths,
+  int folderCount,
+  string? directoryURL,
+  bool isCancelled,
+  bool isSuccess,
+  string? errorMessage
+)
+```
+
+### ShowMultiFolderDialog - 複数フォルダ選択ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Select folders";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "Please select folders to open.";
+// 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
+string? directoryPath = null;
+MacDialogManager.Instance.ShowMultiFolderDialog(
+  title,
+  message,
+  directoryPath
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowMultiFolderDialog.png" alt="Example_MacDialogManager_ShowMultiFolderDialog" width="1000" />
+
+- 選択結果はイベントで受け取ります。
+
+```csharp
+// folderPaths: 選択されたフォルダパスの配列を取得します。エラーの場合、null を返します。
+// folderCount: 返却されたフォルダ数を取得します。キャンセルされた場合は 0 です。
+// directoryURL: 選択が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnMultiFolderDialogResult(
+  string[]? folderPaths,
+  int folderCount,
+  string? directoryURL,
+  bool isCancelled,
+  bool isSuccess,
+  string? errorMessage
+)
+```
+
+### ShowSaveFileDialog - ファイル保存ダイアログ
+
+- イベントを登録します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
+#endif
+```
+
+- ダイアログを表示します。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// タイトルを設定します。必須項目です。
+string title = "Save File";
+// メッセージを設定します。未設定の場合、表示されません。
+string message = "Choose a destination";
+// デフォルトのファイル名を設定します。未設定の場合、OS
+string defaultFileName = "default.txt";
+// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "public.text" };
+// 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
+string? directoryPath = null;
+MacDialogManager.Instance.ShowSaveFileDialog(
+  title,
+  message,
+  defaultFileName,
+  allowedContentTypes,
+  directoryPath
+);
+#endif
+```
+
+<img src="images/mac/Example_MacDialogManager_ShowSaveFileDialog.png" alt="Example_MacDialogManager_ShowSaveFileDialog" width="600" />
+
+- 保存結果はイベントで受け取ります。
+
+```csharp
+// filePath: 保存先のファイルパスを取得します。キャンセルや失敗の場合は null を返します。
+// fileCount: 返却されたパス数を取得します。成功時は 1、キャンセル時は 0 です。
+// directoryURL: 保存が行われたディレクトリ URL を取得します。エラーの場合、null を返します。
+// isCancelled: ユーザがダイアログをキャンセルしたかどうかを取得します。
+// isSuccess: ダイアログ表示成功のフラグを取得します。成功の場合、true を返します。
+// errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
+
+private void OnSaveFileDialogResult(
+  string? filePath,
+  int fileCount,
+  string? directoryURL,
+  bool isCancelled,
+  bool isSuccess,
+  string? errorMessage
 )
 ```
