@@ -1,10 +1,19 @@
 # Unity Native Toolkit (Unity 6)
 
-- Unity6 以降でクロスプラットフォーム対応のネイティブ機能を提供するツールキットです。
+- Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
 - Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
 
-バージョン: 1.0.0
+# バージョン
+
+## 1.0.0
+
+# 対応 OS バージョン
+
+- Android 12 以降
+- iOS 18 以降
+- Windows 11 以降
+- macOS 15 以降
 
 # 機能一覧
 
@@ -129,6 +138,15 @@
 
 ### ShowDialog - 基本ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -180,6 +198,15 @@ private void OnDialogResult(
 ```
 
 ### ShowConfirmDialog - 確認ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -235,6 +262,15 @@ private void OnConfirmDialogResult(
 ```
 
 ### ShowSingleChoiceDialog - シングル選択ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -296,6 +332,15 @@ private void OnSingleChoiceItemDialogResult(
 
 ### ShowMultiChoiceDialog - マルチ選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -355,6 +400,15 @@ private void OnMultiChoiceItemDialogResult(
 ```
 
 ### ShowInputDialog - 入力ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -418,6 +472,15 @@ private void OnTextInputDialogResult(
 ```
 
 ### ShowLoginDialog - ログインダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -489,6 +552,15 @@ private void OnLoginDialogResult(
 
 ### ShowDialog - 基本ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -534,6 +606,15 @@ private void OnDialogResult(
 ```
 
 ### ShowConfirmDialog - 確認ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -584,6 +665,15 @@ private void OnConfirmDialogResult(
 
 ### ShowDestructiveDialog - ディストラクティブなダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -633,6 +723,15 @@ private void OnDestructiveDialogResult(
 
 ### ShowActionSheet - アクションシート
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -681,6 +780,15 @@ private void OnActionSheetResult(
 ```
 
 ### ShowTextInputDialog - 入力ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -738,6 +846,15 @@ private void OnTextInputDialogResult(
 ```
 
 ### ShowLoginDialog - ログインダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -803,6 +920,15 @@ private void OnLoginDialogResult(
 
 ### ShowDialog - 基本ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -858,6 +984,15 @@ private void OnAlertDialogResult(
 
 ### ShowFileDialog - ファイル選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -902,6 +1037,15 @@ private void OnFileDialogResult(
 ```
 
 ### ShowMultiFileDialog - 複数ファイル選択ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -948,6 +1092,15 @@ private void OnMultiFileDialogResult(
 
 ### ShowFolderDialog - フォルダ選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -993,6 +1146,15 @@ private void OnFolderDialogResult(
 
 ### ShowMultiFolderDialog - 複数フォルダ選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -1001,6 +1163,8 @@ private void OnFolderDialogResult(
 WindowsDialogManager.Instance.MultiFolderDialogResult += OnMultiFolderDialogResult;
 #endif
 ```
+
+- ダイアログを表示します。
 
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
@@ -1035,6 +1199,15 @@ private void OnMultiFolderDialogResult(
 ```
 
 ### ShowSaveFileDialog - ファイル保存ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -1085,6 +1258,15 @@ private void OnSaveFileDialogResult(
 ## MacDialogManager
 
 ### ShowDialog - 基本ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -1224,6 +1406,15 @@ private void OnAlertDialogResult(
 
 ### ShowFileDialog - ファイル選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -1278,6 +1469,15 @@ private void OnFileDialogResult(
 ```
 
 ### ShowMultiFileDialog - 複数ファイル選択ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 
@@ -1334,6 +1534,15 @@ private void OnMultiFileDialogResult(
 
 ### ShowFolderDialog - フォルダ選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -1386,6 +1595,15 @@ private void OnFolderDialogResult(
 
 ### ShowMultiFolderDialog - 複数フォルダ選択ダイアログ
 
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
+
 - イベントを登録します。
 
 ```csharp
@@ -1437,6 +1655,15 @@ private void OnMultiFolderDialogResult(
 ```
 
 ### ShowSaveFileDialog - ファイル保存ダイアログ
+
+- 名前空間をインポートします。
+
+```csharp
+// 実行ガード: macOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
+```
 
 - イベントを登録します。
 

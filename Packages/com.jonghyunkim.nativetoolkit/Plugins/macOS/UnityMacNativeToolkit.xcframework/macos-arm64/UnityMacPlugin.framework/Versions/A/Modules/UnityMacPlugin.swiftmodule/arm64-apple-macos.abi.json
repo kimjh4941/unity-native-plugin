@@ -123,56 +123,65 @@
                 "usr": "s:SS"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showDialogWithTitle:message:buttonsJson:optionsJson:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC04showD05title7message11buttonsJson07optionsJ010completionySS_SSSgS2SySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC04showD05title7message11buttonsJson07optionsJ010completionySS_SSSgS2SySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
@@ -214,17 +223,26 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Array",
-                "printedName": "[Swift.String]",
+                "name": "Optional",
+                "printedName": "[Swift.String]?",
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
+                    "name": "Array",
+                    "printedName": "[Swift.String]",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sa"
                   }
                 ],
-                "usr": "s:Sa"
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               },
               {
                 "kind": "TypeNominal",
@@ -242,56 +260,65 @@
                 "usr": "s:Sq"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showFileDialogWithTitle:message:allowedContentTypes:directoryURL:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC08showFileD05title7message19allowedContentTypes12directoryURL10completionySS_SSSgSaySSG10Foundation0N0VSgySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC08showFileD05title7message19allowedContentTypes12directoryURL10completionySS_SSSgSaySSGSg10Foundation0N0VSgySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
@@ -333,17 +360,26 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Array",
-                "printedName": "[Swift.String]",
+                "name": "Optional",
+                "printedName": "[Swift.String]?",
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "String",
-                    "printedName": "Swift.String",
-                    "usr": "s:SS"
+                    "name": "Array",
+                    "printedName": "[Swift.String]",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sa"
                   }
                 ],
-                "usr": "s:Sa"
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               },
               {
                 "kind": "TypeNominal",
@@ -361,56 +397,65 @@
                 "usr": "s:Sq"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showMultiFileDialogWithTitle:message:allowedContentTypes:directoryURL:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC013showMultiFileD05title7message19allowedContentTypes12directoryURL10completionySS_SSSgSaySSG10Foundation0O0VSgySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC013showMultiFileD05title7message19allowedContentTypes12directoryURL10completionySS_SSSgSaySSGSg10Foundation0O0VSgySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
@@ -466,56 +511,65 @@
                 "usr": "s:Sq"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showFolderDialogWithTitle:message:directoryURL:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC010showFolderD05title7message12directoryURL10completionySS_SSSg10Foundation0K0VSgySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC010showFolderD05title7message12directoryURL10completionySS_SSSg10Foundation0K0VSgySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
@@ -571,56 +625,65 @@
                 "usr": "s:Sq"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showMultiFolderDialogWithTitle:message:directoryURL:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC015showMultiFolderD05title7message12directoryURL10completionySS_SSSg10Foundation0L0VSgySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC015showMultiFolderD05title7message12directoryURL10completionySS_SSSg10Foundation0L0VSgySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",
@@ -662,14 +725,8 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "String",
-                "printedName": "Swift.String",
-                "usr": "s:SS"
-              },
-              {
-                "kind": "TypeNominal",
-                "name": "Array",
-                "printedName": "[Swift.String]",
+                "name": "Optional",
+                "printedName": "Swift.String?",
                 "children": [
                   {
                     "kind": "TypeNominal",
@@ -678,7 +735,31 @@
                     "usr": "s:SS"
                   }
                 ],
-                "usr": "s:Sa"
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "[Swift.String]?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Array",
+                    "printedName": "[Swift.String]",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sa"
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               },
               {
                 "kind": "TypeNominal",
@@ -696,56 +777,65 @@
                 "usr": "s:Sq"
               },
               {
-                "kind": "TypeFunc",
-                "name": "Function",
-                "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Foundation.NSDictionary?, Foundation.NSError?) -> ())?",
                 "children": [
                   {
-                    "kind": "TypeNominal",
-                    "name": "Void",
-                    "printedName": "()"
-                  },
-                  {
-                    "kind": "TypeNominal",
-                    "name": "Tuple",
-                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Foundation.NSDictionary?, Foundation.NSError?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSDictionary?",
-                        "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "NSDictionary",
-                            "printedName": "Foundation.NSDictionary",
-                            "usr": "c:objc(cs)NSDictionary"
-                          }
-                        ],
-                        "usr": "s:Sq"
+                        "name": "Void",
+                        "printedName": "()"
                       },
                       {
                         "kind": "TypeNominal",
-                        "name": "Optional",
-                        "printedName": "Foundation.NSError?",
+                        "name": "Tuple",
+                        "printedName": "(Foundation.NSDictionary?, Foundation.NSError?)",
                         "children": [
                           {
                             "kind": "TypeNominal",
-                            "name": "NSError",
-                            "printedName": "Foundation.NSError",
-                            "usr": "c:objc(cs)NSError"
+                            "name": "Optional",
+                            "printedName": "Foundation.NSDictionary?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSDictionary",
+                                "printedName": "Foundation.NSDictionary",
+                                "usr": "c:objc(cs)NSDictionary"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Foundation.NSError?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "NSError",
+                                "printedName": "Foundation.NSError",
+                                "usr": "c:objc(cs)NSError"
+                              }
+                            ],
+                            "usr": "s:Sq"
                           }
-                        ],
-                        "usr": "s:Sq"
+                        ]
                       }
                     ]
                   }
-                ]
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
             "usr": "c:@M@UnityMacPlugin@objc(cs)UnityMacDialogManager(im)showSaveFileDialogWithTitle:message:nameFieldStringValue:allowedContentTypes:directoryURL:completion:",
-            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC012showSaveFileD05title7message20nameFieldStringValue19allowedContentTypes12directoryURL10completionySS_SSSgSSSaySSG10Foundation0S0VSgySo12NSDictionaryCSg_So7NSErrorCSgtctF",
+            "mangledName": "$s14UnityMacPlugin0aB13DialogManagerC012showSaveFileD05title7message20nameFieldStringValue19allowedContentTypes12directoryURL10completionySS_SSSgAKSaySSGSg10Foundation0S0VSgySo12NSDictionaryCSg_So7NSErrorCSgtcSgtF",
             "moduleName": "UnityMacPlugin",
             "declAttributes": [
               "AccessControl",

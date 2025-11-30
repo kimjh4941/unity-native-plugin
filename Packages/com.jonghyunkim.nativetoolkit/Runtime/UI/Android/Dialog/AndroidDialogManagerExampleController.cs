@@ -5,6 +5,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 using System.Linq;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
 
 /// <summary>
 /// Controller for the Android native dialog manager example UI.

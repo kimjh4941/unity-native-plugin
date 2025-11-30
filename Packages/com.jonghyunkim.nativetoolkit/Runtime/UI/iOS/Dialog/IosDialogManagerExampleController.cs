@@ -4,6 +4,9 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
 
 /// <summary>
 /// Controller for the iOS native dialog manager example UI.

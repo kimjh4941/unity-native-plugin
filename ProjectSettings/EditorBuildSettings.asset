@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Samples/Native Toolkit/1.0.0/Native Toolkit Example/NativeToolkitExampleScene.unity
     guid: 8d26ece7d9cba4abd9af000204633586
+  - enabled: 1
+    path: Assets/Scenes/NativeToolkitTestScene.unity
+    guid: a718a9423cb4645f9adbd1ce38b019c2
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 567abc935205647aea79b9b37e07cd4b, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

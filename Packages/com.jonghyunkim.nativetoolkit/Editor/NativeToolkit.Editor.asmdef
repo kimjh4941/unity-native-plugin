@@ -1,6 +1,6 @@
 {
   "name": "NativeToolkit.Editor",
-  "rootNamespace": "Jonghyunkim.NativeToolkit.Editor",
+  "rootNamespace": "JonghyunKim.NativeToolkit.Editor",
   "references": [
     "NativeToolkit.Runtime",
     "Unity.Localization",

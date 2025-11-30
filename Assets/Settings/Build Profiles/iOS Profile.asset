@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 15003, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: "New Android\u2122 Profile"
+  m_Name: iOS Profile
   m_EditorClassIdentifier: 
   m_AssetVersion: 1
-  m_BuildTarget: 13
+  m_BuildTarget: 9
   m_Subtarget: 0
-  m_PlatformId: b9b35072a6f44c2e863f17467ea3dc13
+  m_PlatformId: ad48d16a66894befa4d8181998c3cb09
   m_PlatformBuildProfile:
-    rid: 1814277055799623680
+    rid: 1289854982266290177
   m_OverrideGlobalSceneList: 1
   m_Scenes:
   - m_enabled: 1
@@ -194,15 +194,15 @@ MonoBehaviour:
     - line: '|   applicationIdentifier:'
     - line: '|     Android: com.UnityTechnologies.com.unity.template.urpblank'
     - line: '|     Standalone: com.Unity-Technologies.com.unity.template.urp-blank'
-    - line: '|     iPhone: com.Unity-Technologies.com.unity.template.urp-blank'
+    - line: '|     iPhone: unity.ios.plugin.UnityIosPluginExample'
     - line: '|   buildNumber:'
     - line: '|     Standalone: 0'
     - line: '|     VisionOS: 0'
-    - line: '|     iPhone: 0'
+    - line: '|     iPhone: 1'
     - line: '|     tvOS: 0'
     - line: '|   overrideDefaultApplicationIdentifier: 1'
     - line: '|   AndroidBundleVersionCode: 1'
-    - line: '|   AndroidMinSdkVersion: 29'
+    - line: '|   AndroidMinSdkVersion: 23'
     - line: '|   AndroidTargetSdkVersion: 0'
     - line: '|   AndroidPreferredInstallLocation: 1'
     - line: '|   aotOptions: '
@@ -219,7 +219,7 @@ MonoBehaviour:
     - line: '|   VertexChannelCompressionMask: 4054'
     - line: '|   iPhoneSdkVersion: 988'
     - line: '|   iOSSimulatorArchitecture: 0'
-    - line: '|   iOSTargetOSVersionString: 13.0'
+    - line: '|   iOSTargetOSVersionString: 18.0'
     - line: '|   tvOSSdkVersion: 0'
     - line: '|   tvOSSimulatorArchitecture: 0'
     - line: '|   tvOSRequireExtendedGameController: 0'
@@ -269,14 +269,14 @@ MonoBehaviour:
     - line: '|   metalCompileShaderBinary: 0'
     - line: '|   iOSRenderExtraFrameOnPause: 0'
     - line: '|   iosCopyPluginsCodeInsteadOfSymlink: 0'
-    - line: '|   appleDeveloperTeamID: '
+    - line: '|   appleDeveloperTeamID: 545GVBT238'
     - line: '|   iOSManualSigningProvisioningProfileID: '
     - line: '|   tvOSManualSigningProvisioningProfileID: '
     - line: '|   VisionOSManualSigningProvisioningProfileID: '
     - line: '|   iOSManualSigningProvisioningProfileType: 0'
     - line: '|   tvOSManualSigningProvisioningProfileType: 0'
     - line: '|   VisionOSManualSigningProvisioningProfileType: 0'
-    - line: '|   appleEnableAutomaticSigning: 0'
+    - line: '|   appleEnableAutomaticSigning: 1'
     - line: '|   iOSRequireARKit: 0'
     - line: '|   iOSAutomaticallyDetectAndAddCapabilities: 1'
     - line: '|   appleEnableProMotion: 0'
@@ -418,78 +418,6 @@ MonoBehaviour:
     - line: '|       m_SubKind: App Store'
     - line: '|   - m_BuildTarget: Android'
     - line: '|     m_Icons:'
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 192'
-    - line: '|       m_Height: 192'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 144'
-    - line: '|       m_Height: 144'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 96'
-    - line: '|       m_Height: 96'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 72'
-    - line: '|       m_Height: 72'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 48'
-    - line: '|       m_Height: 48'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 36'
-    - line: '|       m_Height: 36'
-    - line: '|       m_Kind: 0'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 192'
-    - line: '|       m_Height: 192'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 144'
-    - line: '|       m_Height: 144'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 96'
-    - line: '|       m_Height: 96'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 72'
-    - line: '|       m_Height: 72'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 48'
-    - line: '|       m_Height: 48'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
-    - line: '|     - m_Textures:'
-    - line: '|       - {instanceID: 0}'
-    - line: '|       m_Width: 36'
-    - line: '|       m_Height: 36'
-    - line: '|       m_Kind: 1'
-    - line: '|       m_SubKind: '
     - line: '|     - m_Textures: []'
     - line: '|       m_Width: 432'
     - line: '|       m_Height: 432'
@@ -519,6 +447,66 @@ MonoBehaviour:
     - line: '|       m_Width: 81'
     - line: '|       m_Height: 81'
     - line: '|       m_Kind: 2'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 192'
+    - line: '|       m_Height: 192'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 144'
+    - line: '|       m_Height: 144'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 96'
+    - line: '|       m_Height: 96'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 72'
+    - line: '|       m_Height: 72'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 48'
+    - line: '|       m_Height: 48'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 36'
+    - line: '|       m_Height: 36'
+    - line: '|       m_Kind: 1'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 192'
+    - line: '|       m_Height: 192'
+    - line: '|       m_Kind: 0'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 144'
+    - line: '|       m_Height: 144'
+    - line: '|       m_Kind: 0'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 96'
+    - line: '|       m_Height: 96'
+    - line: '|       m_Kind: 0'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 72'
+    - line: '|       m_Height: 72'
+    - line: '|       m_Kind: 0'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 48'
+    - line: '|       m_Height: 48'
+    - line: '|       m_Kind: 0'
+    - line: '|       m_SubKind: '
+    - line: '|     - m_Textures: []'
+    - line: '|       m_Width: 36'
+    - line: '|       m_Height: 36'
+    - line: '|       m_Kind: 0'
     - line: '|       m_SubKind: '
     - line: '|   - m_BuildTarget: tvOS'
     - line: '|     m_Icons:'
@@ -591,6 +579,9 @@ MonoBehaviour:
     - line: '|   m_BuildTargetDefaultTextureCompressionFormat:'
     - line: '|   - serializedVersion: 3'
     - line: '|     m_BuildTarget: Android'
+    - line: '|     m_Formats: 03000000'
+    - line: '|   - serializedVersion: 3'
+    - line: '|     m_BuildTarget: iOS'
     - line: '|     m_Formats: 03000000'
     - line: '|   playModeTestRunnerEnabled: 0'
     - line: '|   runPlayModeTestAsEditModeTest: 0'
@@ -858,7 +849,7 @@ MonoBehaviour:
     - line: '|   webGLCloseOnQuit: 0'
     - line: '|   webWasm2023: 0'
     - line: '|   scriptingDefineSymbols:'
-    - line: '|     Android: NATIVETOOLKIT_ENABLE_BUILD_STEPS'
+    - line: '|     iPhone: NATIVETOOLKIT_ENABLE_BUILD_STEPS'
     - line: '|   additionalCompilerArguments: {}'
     - line: '|   platformArchitecture: {}'
     - line: '|   scriptingBackend:'
@@ -976,8 +967,8 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1814277055799623680
-      type: {class: AndroidPlatformBuildSettings, ns: UnityEditor.Android, asm: UnityEditor.Android.Extensions}
+    - rid: 1289854982266290177
+      type: {class: iOSPlatformSettings, ns: UnityEditor.iOS, asm: UnityEditor.iOS.Extensions}
       data:
         m_Development: 0
         m_ConnectProfiler: 0
@@ -988,15 +979,9 @@ MonoBehaviour:
         m_ExplicitNullChecks: 0
         m_ExplicitDivideByZeroChecks: 0
         m_ExplicitArrayBoundsChecks: 0
-        m_CompressionType: 2
+        m_CompressionType: 0
         m_InstallInBuildFolder: 0
-        m_BuildSubtarget: 0
-        m_BuildSystem: 1
-        m_ExportAsGoogleAndroidProject: 1
-        m_DebugSymbolLevel: 1
-        m_DebugSymbolFormat: 5
-        m_CurrentDeploymentTargetId: __builtin__target_default
-        m_BuildType: 2
-        m_BuildAppBundle: 0
-        m_IPAddressToConnect: 
+        m_iOSXcodeBuildConfig: 0
         m_SymlinkSources: 0
+        m_PreferredXcode: 16.2_/Applications/Xcode16.2.app
+        m_SymlinkTrampoline: 0

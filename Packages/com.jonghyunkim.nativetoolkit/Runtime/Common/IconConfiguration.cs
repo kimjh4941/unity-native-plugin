@@ -1,82 +1,84 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using UnityEngine;
-
-/// <summary>
-/// Configuration for specifying icons in various formats and styles.
-/// Supports system symbols, file paths, named images, app icons, and system images,
-/// along with rendering modes, colors, sizes, weights, and scales.
-/// </summary>
-[Serializable]
-public class IconConfiguration
+namespace JonghyunKim.NativeToolkit.Runtime.Common
 {
-    public enum IconType
-    {
-        SystemSymbol,
-        FilePath,
-        NamedImage,
-        AppIcon,
-        SystemImage
-    }
+    using System;
+    using System.Collections.Generic;
 
-    public enum RenderingMode
+    /// <summary>
+    /// Configuration for specifying icons in various formats and styles.
+    /// Supports system symbols, file paths, named images, app icons, and system images,
+    /// along with rendering modes, colors, sizes, weights, and scales.
+    /// </summary>
+    [Serializable]
+    public class IconConfiguration
     {
-        Monochrome,
-        Hierarchical,
-        Palette,
-        Multicolor
-    }
+        public enum IconType
+        {
+            SystemSymbol,
+            FilePath,
+            NamedImage,
+            AppIcon,
+            SystemImage
+        }
 
-    public enum Weight
-    {
-        UltraLight,
-        Thin,
-        Light,
-        Regular,
-        Medium,
-        Semibold,
-        Bold,
-        Heavy,
-        Black
-    }
+        public enum RenderingMode
+        {
+            Monochrome,
+            Hierarchical,
+            Palette,
+            Multicolor
+        }
 
-    public enum Scale
-    {
-        Small,
-        Medium,
-        Large
-    }
+        public enum Weight
+        {
+            UltraLight,
+            Thin,
+            Light,
+            Regular,
+            Medium,
+            Semibold,
+            Bold,
+            Heavy,
+            Black
+        }
 
-    public IconType type;
-    public string? value;
-    public RenderingMode? mode;
-    public List<string> colors;
-    public float? size;
-    public Weight? weight;
-    public Scale? scale;
+        public enum Scale
+        {
+            Small,
+            Medium,
+            Large
+        }
 
-    public IconConfiguration(
-        IconType type,
-        string? value = null,
-        RenderingMode? mode = null,
-        IEnumerable<string>? colors = null,
-        float? size = null,
-        Weight? weight = null,
-        Scale? scale = null)
-    {
-        this.type = type;
-        this.value = value;
-        this.mode = mode;
-        this.colors = colors != null ? new List<string>(colors) : new List<string>();
-        this.size = size;
-        this.weight = weight;
-        this.scale = scale;
-    }
+        public IconType type;
+        public string? value;
+        public RenderingMode? mode;
+        public List<string> colors;
+        public float? size;
+        public Weight? weight;
+        public Scale? scale;
 
-    public override string ToString()
-    {
-        return $"IconConfiguration(type={type}, value={value}, mode={mode}, colors=[{string.Join(", ", colors)}], size={size}, weight={weight}, scale={scale})";
+        public IconConfiguration(
+            IconType type,
+            string? value = null,
+            RenderingMode? mode = null,
+            IEnumerable<string>? colors = null,
+            float? size = null,
+            Weight? weight = null,
+            Scale? scale = null)
+        {
+            this.type = type;
+            this.value = value;
+            this.mode = mode;
+            this.colors = colors != null ? new List<string>(colors) : new List<string>();
+            this.size = size;
+            this.weight = weight;
+            this.scale = scale;
+        }
+
+        public override string ToString()
+        {
+            return $"IconConfiguration(type={type}, value={value}, mode={mode}, colors=[{string.Join(", ", colors)}], size={size}, weight={weight}, scale={scale})";
+        }
     }
 }

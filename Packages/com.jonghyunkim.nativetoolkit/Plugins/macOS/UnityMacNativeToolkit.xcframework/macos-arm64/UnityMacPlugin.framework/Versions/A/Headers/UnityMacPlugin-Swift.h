@@ -354,7 +354,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 /// \param completion Called on completion with <code>NSDictionary</code> containing <code>buttonTitle</code>,
 /// <code>buttonIndex</code>, <code>suppressionButtonState</code>, <code>helpButtonPressed</code>, or an <code>NSError</code>.
 ///
-- (void)showDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message buttonsJson:(NSString * _Nonnull)buttonsJson optionsJson:(NSString * _Nonnull)optionsJson completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message buttonsJson:(NSString * _Nonnull)buttonsJson optionsJson:(NSString * _Nonnull)optionsJson completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 /// Presents a single-selection open panel restricted to files.
 /// \param title Panel window title displayed in the sheet.
 ///
@@ -366,7 +366,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 ///
 /// \param completion Invoked with the file selection dictionary or an NSError.
 ///
-- (void)showFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nullable)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 /// Presents a multi-selection open panel restricted to files.
 /// \param title Panel window title displayed in the sheet.
 ///
@@ -378,7 +378,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 ///
 /// \param completion Invoked with the selection dictionary or error.
 ///
-- (void)showMultiFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showMultiFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message allowedContentTypes:(NSArray<NSString *> * _Nullable)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 /// Presents a single-selection folder picker (no files allowed).
 /// \param title Panel window title displayed in the sheet.
 ///
@@ -388,7 +388,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 ///
 /// \param completion Invoked with the folder selection dictionary or error.
 ///
-- (void)showFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 /// Presents a multi-selection folder picker.
 /// \param title Panel window title displayed in the sheet.
 ///
@@ -398,7 +398,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 ///
 /// \param completion Invoked with the folder selection dictionary or error.
 ///
-- (void)showMultiFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showMultiFolderDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 /// Presents an <code>NSSavePanel</code> and reports the saved path back to Unity.
 /// \param title Save panel window title.
 ///
@@ -413,7 +413,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) UnityMacDial
 /// \param completion Dictionary with <code>filePath</code>, <code>fileCount</code>, <code>directoryURL</code>, <code>isCancelled</code>,
 /// <code>isSuccess</code>, or an error.
 ///
-- (void)showSaveFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message nameFieldStringValue:(NSString * _Nonnull)nameFieldStringValue allowedContentTypes:(NSArray<NSString *> * _Nonnull)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nonnull)(NSDictionary * _Nullable, NSError * _Nullable))completion;
+- (void)showSaveFileDialogWithTitle:(NSString * _Nonnull)title message:(NSString * _Nullable)message nameFieldStringValue:(NSString * _Nullable)nameFieldStringValue allowedContentTypes:(NSArray<NSString *> * _Nullable)allowedContentTypes directoryURL:(NSURL * _Nullable)directoryURL completion:(void (^ _Nullable)(NSDictionary * _Nullable, NSError * _Nullable))completion;
 @end
 
 #endif

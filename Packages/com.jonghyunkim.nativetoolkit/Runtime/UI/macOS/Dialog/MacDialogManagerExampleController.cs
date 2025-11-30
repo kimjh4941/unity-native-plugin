@@ -4,6 +4,10 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Common;
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
 
 /// <summary>
 /// Controller for the macOS native dialog manager example UI.

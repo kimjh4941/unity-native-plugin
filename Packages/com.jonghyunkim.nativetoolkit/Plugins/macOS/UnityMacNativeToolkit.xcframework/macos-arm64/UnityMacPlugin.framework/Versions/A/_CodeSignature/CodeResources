@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/Info.plist</key>
 		<data>
-		7muIcj1XbOvWlqwI6PaI8lwo10k=
+		+OMOxN7T2IdwZJlkShqpUhliG54=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -15,7 +15,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			tQCsphQFSRg301XhDlHRsfaGkPg=
+			C6i6Lw6K5Oq86d5REiFcUO+5rDs=
 			</data>
 			<key>requirement</key>
 			<string>identifier "mac.library.MacLibrary.MacLibrary" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Jong Hyun Kim (545GVBT238)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>
@@ -24,7 +24,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			UCXAPeIRG1vH4qP8RsFq/wzOGPDC8gOVIagcF0YnM+I=
+			Zd7S59YtaClx4o6iWc+Fv9tLkksKksD2sn/GNhCtF3c=
 			</data>
 		</dict>
 		<key>Headers/UnityMacPlugin.h</key>
@@ -38,35 +38,35 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			fr68KGlkjYZEFaX1FCy9dMVF6cBa8q7kTYQjwe0HJtU=
+			1QkFmaBH1uuwcHbcagcZDqKR+rh0BHWTQWAJJ70+jy8=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Y0rdUU8bQjG9SA6YVLHWU+MMy+OVty8d3a88HlYM568=
+			5xh/E2JHvS8AvVg42tJ7S725GG1YcTN+k4GIGV2ar/U=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			CKvQ1c3jiki6F+bNsaRjBAZBdsEItXu4hrGVgcwGVL0=
+			AQu4pZFbQb45rQggxxni1K8jGc+wQ9IVyvQq2LQs+dM=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Y0rdUU8bQjG9SA6YVLHWU+MMy+OVty8d3a88HlYM568=
+			5xh/E2JHvS8AvVg42tJ7S725GG1YcTN+k4GIGV2ar/U=
 			</data>
 		</dict>
 		<key>Modules/UnityMacPlugin.swiftmodule/arm64-apple-macos.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			yal5915JtDjEtZtQPawxL+Xd8M4Lg2RIBeXZ8IOL9rg=
+			IlBMfkhgBQw8Oqp6IVXNvDPnhfr8pNA05q91P6+ezvc=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
@@ -80,7 +80,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			ZRkvBupl5G+dia/i7wP8EwC7rN+OFWTKikUiZ0sptno=
+			+oyKB32GAN8ZSrt+fadw6IG+kOi99EpzXZ6Ta0dl0Js=
 			</data>
 		</dict>
 	</dict>

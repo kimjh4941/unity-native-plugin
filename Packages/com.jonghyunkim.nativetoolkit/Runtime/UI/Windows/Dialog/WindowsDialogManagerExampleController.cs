@@ -4,6 +4,9 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Dialog;
+#endif
 
 /// <summary>
 /// Controller for the Windows native dialog manager example UI.
