@@ -12,6 +12,7 @@
   "documentationUrl": "Documentation/index.md",
   "changelogUrl": "CHANGELOG.md",
   "licensesUrl": "LICENSE",
+  "license": "Apache-2.0",
   "keywords": [
     "native",
     "dialogs",
