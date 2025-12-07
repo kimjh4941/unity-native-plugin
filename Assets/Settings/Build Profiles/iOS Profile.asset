@@ -37,7 +37,7 @@ MonoBehaviour:
     - line: '|   useOnDemandResources: 0'
     - line: '|   accelerometerFrequency: 60'
     - line: '|   companyName: DefaultCompany'
-    - line: '|   productName: unity-native-plugin'
+    - line: '|   productName: Unity NativeToolkit'
     - line: '|   defaultCursor: {instanceID: 0}'
     - line: '|   cursorHotspot: {x: 0, y: 0}'
     - line: '|   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b:
@@ -165,7 +165,7 @@ MonoBehaviour:
     - line: '|   loadStoreDebugModeEnabled: 0'
     - line: '|   visionOSBundleVersion: 1.0'
     - line: '|   tvOSBundleVersion: 1.0'
-    - line: '|   bundleVersion: 0.1.0'
+    - line: '|   bundleVersion: 1.0.0'
     - line: '|   preloadedAssets:'
     - line: '|   - {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b,
         type: 3}'
@@ -194,7 +194,7 @@ MonoBehaviour:
     - line: '|   applicationIdentifier:'
     - line: '|     Android: com.UnityTechnologies.com.unity.template.urpblank'
     - line: '|     Standalone: com.Unity-Technologies.com.unity.template.urp-blank'
-    - line: '|     iPhone: unity.ios.plugin.UnityIosPluginExample'
+    - line: '|     iPhone: com.jonghyunkim.nativetoolkit.ios'
     - line: '|   buildNumber:'
     - line: '|     Standalone: 0'
     - line: '|     VisionOS: 0'

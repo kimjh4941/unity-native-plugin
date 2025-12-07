@@ -39,6 +39,7 @@ public static class GenerateLocalizationAssets
         EnsureAssetDirectory(CollectionTablesDir);
 
         var en = FindOrCreateLocale("en");
+        var ko = FindOrCreateLocale("ko");
         var ja = FindOrCreateLocale("ja");
 
         var collection = LocalizationEditorSettings.GetStringTableCollection(TableName);
@@ -48,21 +49,21 @@ public static class GenerateLocalizationAssets
             collection = LocalizationEditorSettings.CreateStringTableCollection(
                 TableName,
                 CollectionTablesDir,
-                new List<Locale> { en, ja }
+                new List<Locale> { en, ko, ja }
             );
         }
         else
         {
             RelocateIfNeeded(collection);
-            EnsureLocaleTables(collection, en, ja);
+            EnsureLocaleTables(collection, en, ko, ja);
         }
 
         // Load entries from CSV source (header skipped)
         var entries = LoadCsvEntries(CSV_FILE);
 
-        foreach (var (key, enValue, jaValue) in entries)
+        foreach (var (key, enValue, koValue, jaValue) in entries)
         {
-            AddOrUpdateEntry(collection, key, enValue, jaValue);
+            AddOrUpdateEntry(collection, key, enValue, koValue, jaValue);
         }
 
         EditorUtility.SetDirty(collection.SharedData);
@@ -130,7 +131,7 @@ public static class GenerateLocalizationAssets
         try
         {
             var ci = new CultureInfo(code);
-            // Example: English (en), Japanese (ja)
+            // Example: English (en), Korean (ko), Japanese (ja)
             return $"{ci.EnglishName} ({code})";
         }
         catch
@@ -190,7 +191,7 @@ public static class GenerateLocalizationAssets
     /// <summary>
     /// Adds a key if missing and updates localized values for all tables in the collection.
     /// </summary>
-    private static void AddOrUpdateEntry(StringTableCollection collection, string key, string enValue, string jaValue)
+    private static void AddOrUpdateEntry(StringTableCollection collection, string key, string enValue, string koValue, string jaValue)
     {
         var shared = collection.SharedData;
         var sharedEntry = shared.GetEntry(key) ?? shared.AddKey(key);
@@ -200,7 +201,7 @@ public static class GenerateLocalizationAssets
             if (table == null) continue;
             var code = table.LocaleIdentifier.Code;
             var entry = table.GetEntry(sharedEntry.Id) ?? table.AddEntry(sharedEntry.Id, string.Empty);
-            string newValue = code.StartsWith("ja") ? jaValue : enValue;
+            string newValue = code.StartsWith("ko") ? koValue : (code.StartsWith("ja") ? jaValue : enValue);
             Debug.Log($"[Localization] Setting '{key}' for '{code}': '{newValue}'");
             entry.Value = newValue;
             EditorUtility.SetDirty(table);
@@ -256,11 +257,11 @@ public static class GenerateLocalizationAssets
     }
 
     /// <summary>
-    /// Loads CSV entries (skipping header) returning a tuple list of (key, en, ja) values.
+    /// Loads CSV entries (skipping header) returning a tuple list of (key, en, ko, ja) values.
     /// </summary>
-    private static List<(string key, string en, string ja)> LoadCsvEntries(string csvPath)
+    private static List<(string key, string en, string ko, string ja)> LoadCsvEntries(string csvPath)
     {
-        var entries = new List<(string, string, string)>();
+        var entries = new List<(string, string, string, string)>();
         if (!File.Exists(csvPath))
         {
             Debug.LogWarning($"[Localization] CSV file not found: {csvPath}");
@@ -270,14 +271,15 @@ public static class GenerateLocalizationAssets
         var lines = File.ReadAllLines(csvPath);
         foreach (var line in lines.Skip(1))  // Skip header line
         {
-            // CSV schema: "key","en","ja"
+            // CSV schema: "key","en","ko","ja"
             var parts = line.Split(',');
-            if (parts.Length >= 3)
+            if (parts.Length >= 4)
             {
                 var key = parts[0].Trim('"');
                 var en = parts[1].Trim('"');
-                var ja = parts[2].Trim('"');
-                entries.Add((key, en, ja));
+                var ko = parts[2].Trim('"');
+                var ja = parts[3].Trim('"');
+                entries.Add((key, en, ko, ja));
             }
         }
         Debug.Log($"[Localization] Loaded {entries.Count} entries from CSV.");

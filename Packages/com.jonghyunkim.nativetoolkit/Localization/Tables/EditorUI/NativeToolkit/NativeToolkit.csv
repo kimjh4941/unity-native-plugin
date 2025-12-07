@@ -1,9 +1,9 @@
-Key,English(en),Japanese(ja)
-"folder.empty","This folder is empty","このフォルダーは空です"
-"folder.template","This folder is {name}","このフォルダーは{name}です"
-"button.open","Open","開く"
-"window.title","Native Toolkit","ネイティブ ツールキット"
-"header.title","TreeView Editor","ツリービュー エディター"
-"context.add","Add Item","項目を追加"
-"context.delete","Delete Item","項目を削除"
-"context.refresh","Refresh","更新"
+Key,English(en),Korean(ko),Japanese(ja)
+"folder.empty","This folder is empty","이 폴더는 비어 있습니다","このフォルダーは空です"
+"folder.template","This folder is {name}","이 폴더는 {name}입니다","このフォルダーは{name}です"
+"button.open","Open","열기","開く"
+"window.title","Native Toolkit","네이티브 툴킷","ネイティブ ツールキット"
+"header.title","TreeView Editor","트리뷰 에디터","ツリービュー エディター"
+"context.add","Add Item","항목을 추가","項目を追加"
+"context.delete","Delete Item","항목을 삭제","項目を削除"
+"context.refresh","Refresh","새로 고침","更新"
