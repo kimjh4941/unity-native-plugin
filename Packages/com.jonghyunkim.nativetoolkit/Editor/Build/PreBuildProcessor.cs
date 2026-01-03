@@ -185,33 +185,80 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         UnityEngine.Debug.Log($"[Build][iOS] Pre-build steps started. Config={config}");
 
         string workspacePath = "/Users/jonghyunkim/Desktop/native-toolkit/ios/IosWorkspace.xcworkspace";
-        string scheme = "UnityIosPlugin";
+        string unityPluginScheme = "UnityIosPlugin";
+        string iosLibraryScheme = "IosLibrary";
 
-        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\" -configuration {config}");
+        // Clean
+        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -configuration {config}");
+        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -configuration {config}");
 
-        string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
+        // Archive Unity plugin framework
+        string unityArchivePathDevice = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcarchive";
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -archivePath \"{unityArchivePathDevice}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
 
-        string xcframeworkPath = Path.Combine("/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios", config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? $"UnityIosNativeToolkit-{config}.xcframework" : "UnityIosNativeToolkit.xcframework");
-        if (Directory.Exists(xcframeworkPath))
+        string unityArchivePathSimulator = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin-Simulator.xcarchive";
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -archivePath \"{unityArchivePathSimulator}\" -sdk iphonesimulator -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
+
+        // Archive dependency framework
+        string iosLibraryArchivePathDevice = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/IosLibrary.xcarchive";
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -archivePath \"{iosLibraryArchivePathDevice}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
+
+        string iosLibraryArchivePathSimulator = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/IosLibrary-Simulator.xcarchive";
+        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -archivePath \"{iosLibraryArchivePathSimulator}\" -sdk iphonesimulator -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
+
+        // Create XCFrameworks
+        string unityXcframeworkPath = Path.Combine(
+            "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios",
+            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
+                ? $"UnityIosNativeToolkit-{config}.xcframework"
+                : "UnityIosNativeToolkit.xcframework");
+        if (Directory.Exists(unityXcframeworkPath))
         {
-            Directory.Delete(xcframeworkPath, true);
+            Directory.Delete(unityXcframeworkPath, true);
         }
 
-        RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityIosPlugin.framework -output \"{xcframeworkPath}\"");
+        RunShellCommand($"xcodebuild -create-xcframework " +
+                        $"-framework \"{unityArchivePathDevice}\"/Products/Library/Frameworks/UnityIosPlugin.framework " +
+                        $"-framework \"{unityArchivePathSimulator}\"/Products/Library/Frameworks/UnityIosPlugin.framework " +
+                        $"-output \"{unityXcframeworkPath}\"");
+
+        string iosNativeToolkitXcframeworkPath = Path.Combine(
+            "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios",
+            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
+                ? $"IosNativeToolkit-{config}.xcframework"
+                : "IosNativeToolkit.xcframework");
+        if (Directory.Exists(iosNativeToolkitXcframeworkPath))
+        {
+            Directory.Delete(iosNativeToolkitXcframeworkPath, true);
+        }
+
+        RunShellCommand($"xcodebuild -create-xcframework " +
+                        $"-framework \"{iosLibraryArchivePathDevice}\"/Products/Library/Frameworks/IosLibrary.framework " +
+                        $"-framework \"{iosLibraryArchivePathSimulator}\"/Products/Library/Frameworks/IosLibrary.framework " +
+                        $"-output \"{iosNativeToolkitXcframeworkPath}\"");
+
+        // Recursive Signing (Both slices will be signed)
+        RunShellCommand($"find \"{unityXcframeworkPath}\" -depth -name \"*.framework\" -type d -exec codesign --force --deep --sign - {{}} \\;");
+        RunShellCommand($"codesign --force --deep --sign - \"{unityXcframeworkPath}\"");
+        RunShellCommand($"find \"{iosNativeToolkitXcframeworkPath}\" -depth -name \"*.framework\" -type d -exec codesign --force --deep --sign - {{}} \\;");
+        RunShellCommand($"codesign --force --deep --sign - \"{iosNativeToolkitXcframeworkPath}\"");
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
         RunShellCommand($"rm -rf \"{destDir}\"/*");
-        RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
+        RunShellCommand($"cp -R \"{unityXcframeworkPath}\" \"{destDir}\"");
+        RunShellCommand($"cp -R \"{iosNativeToolkitXcframeworkPath}\" \"{destDir}\"");
 
         UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosNativeToolkit.xcframework (config={config}) to {destDir}");
+        UnityEngine.Debug.Log($"[Build][iOS] Copied IosNativeToolkit.xcframework (config={config}) to {destDir}");
         UnityEngine.Debug.Log("[Build][iOS] Pre-build steps completed.");
 
-        string assetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
+        string unityAssetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
+        string iosNativeToolkitAssetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "IosNativeToolkit-Debug.xcframework" : "IosNativeToolkit.xcframework");
         // Apply plugin import settings (enable only for iOS)
-        ConfigureIosXcframeworkImporter(assetPath);
+        ConfigureIosXcframeworkImporter(unityAssetPath);
+        ConfigureIosXcframeworkImporter(iosNativeToolkitAssetPath);
     }
 
     /// <summary>

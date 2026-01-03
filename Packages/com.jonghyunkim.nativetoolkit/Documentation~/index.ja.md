@@ -105,7 +105,7 @@
   - Tools → Native Toolkit → iOS → Configue Xcode Project を選択します。
     <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
   - 「Browse」ボタンを押下して、Build した iOS Project を指定します。
-  - 「Run: Add/Embed UnityIosNativeToolkit.xcframework」ボタンを押下して、NativeToolkit ライブラリを追加します。
+  - 「Run: Add/Embed iOS XCFrameworks」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 

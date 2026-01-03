@@ -6,7 +6,7 @@
 	<dict>
 		<key>Headers/UnityIosPlugin-Swift.h</key>
 		<data>
-		sZVg4McrFnejZOirkYWcGFhn5A8=
+		9uwl/esELIF/1QRXuza8cYe9RjM=
 		</data>
 		<key>Headers/UnityIosPlugin.h</key>
 		<data>
@@ -14,23 +14,39 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		9KwYvuMMUKi3fpOG0/0nHn1GF2c=
+		W3iG99llopaeHDfna38KOY7GKjs=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
 		6Quh5K+Qp0T+ehpPd9gG4TL0xOk=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		928ifwGAsFA1nkKOZNz0VyN6Gl4=
+		Chq6846NIDWI0+NpJpa9Fd49k5M=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		nfIomqS9PZd4U2r/LuqTYNhviMQ=
+		eVzUc4B9pv/QsiFBZ8TAcV86vzo=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		928ifwGAsFA1nkKOZNz0VyN6Gl4=
+		Chq6846NIDWI0+NpJpa9Fd49k5M=
+		</data>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
+		<data>
+		6Quh5K+Qp0T+ehpPd9gG4TL0xOk=
+		</data>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
+		<data>
+		S9wJyF7+Ap+TYCd4prYIL6gzaKI=
+		</data>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
+		<data>
+		6rC0pn8yn5VYCXAQGPH2ajR8Qgg=
+		</data>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
+		<data>
+		S9wJyF7+Ap+TYCd4prYIL6gzaKI=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -43,7 +59,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			pfbbNR6kjQSwj4/kiPpZZ0JRfiOBdPatTpr4p8+KGvE=
+			diWpOebg51mhEQdto0L/IK3tggCbgKTK47Ls9vCtN9c=
 			</data>
 		</dict>
 		<key>Headers/UnityIosPlugin.h</key>
@@ -53,32 +69,60 @@
 			/KlzMc0U1R5wEejA2vdnFO4A/4InQdusK+WaKm+3sSo=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
 			qrb6EsZPgvau7qg0Lfo5OzEvlqrLZqpMgar1qQR02kU=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			chO6kor4KFqsElYvEiGh0pBt8mFN4V790775Ot4c2kM=
+			fsKzbDX8I3V3R/y3GcFjPBBeCYp9wKarZX1rK2Sfm3I=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Xa4aVkQxuP9RrwTKP7/YT4pc6oxp5Ey7wIhEJh1vSCU=
+			9CQncuqV4NdVR5QAwx33ZGmZby1bCVSP3+B8XegXLhY=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
+		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			chO6kor4KFqsElYvEiGh0pBt8mFN4V790775Ot4c2kM=
+			fsKzbDX8I3V3R/y3GcFjPBBeCYp9wKarZX1rK2Sfm3I=
+			</data>
+		</dict>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			qrb6EsZPgvau7qg0Lfo5OzEvlqrLZqpMgar1qQR02kU=
+			</data>
+		</dict>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			5Ssnxa6M1ixJb1UkRwGlUbQdVehkcOqsOm1tuJcZyFo=
+			</data>
+		</dict>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			vfoW1tyMmJa5V2PRYYS4H4UkT8IhBV35POuX/S5RI9Y=
+			</data>
+		</dict>
+		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			5Ssnxa6M1ixJb1UkRwGlUbQdVehkcOqsOm1tuJcZyFo=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

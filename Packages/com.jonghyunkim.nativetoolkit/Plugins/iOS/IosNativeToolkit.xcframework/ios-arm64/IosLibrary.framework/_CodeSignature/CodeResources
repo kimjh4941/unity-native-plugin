@@ -4,88 +4,88 @@
 <dict>
 	<key>files</key>
 	<dict>
-		<key>Headers/UnityIosPlugin-Swift.h</key>
+		<key>Headers/IosLibrary-Swift.h</key>
 		<data>
-		sZVg4McrFnejZOirkYWcGFhn5A8=
+		rPr317G/e5foK4NSdQVgprbjxPk=
 		</data>
-		<key>Headers/UnityIosPlugin.h</key>
+		<key>Headers/IosLibrary.h</key>
 		<data>
-		jOeeCplHJn3UrZXwVjv7JZJxBek=
+		ht4XfCHmeL/tqu6A2vhhhGWATns=
 		</data>
 		<key>Info.plist</key>
 		<data>
-		9KwYvuMMUKi3fpOG0/0nHn1GF2c=
+		DRXd9w/svQJ3W4l2qI6P4slHN6Q=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.abi.json</key>
 		<data>
-		6Quh5K+Qp0T+ehpPd9gG4TL0xOk=
+		ffdiWABKTPrB4Sc5uup6GwBap7g=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<data>
-		928ifwGAsFA1nkKOZNz0VyN6Gl4=
+		KJbs4eKaTgnc8bNHzZlbKRUTi7k=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.swiftdoc</key>
 		<data>
-		nfIomqS9PZd4U2r/LuqTYNhviMQ=
+		fDnXF7VfRVcMgiEq2I/vWQ9u8VI=
 		</data>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.swiftinterface</key>
 		<data>
-		928ifwGAsFA1nkKOZNz0VyN6Gl4=
+		KJbs4eKaTgnc8bNHzZlbKRUTi7k=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
-		h/u978i2quDkXpQYhrIzKqOMkrM=
+		5cVLSXdielsy/bJq30iKH8Ld3is=
 		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
-		<key>Headers/UnityIosPlugin-Swift.h</key>
+		<key>Headers/IosLibrary-Swift.h</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			pfbbNR6kjQSwj4/kiPpZZ0JRfiOBdPatTpr4p8+KGvE=
+			ZhC90zl4AnUqtE4zgpPjc/pQ7U4+LLMeBufRKNugAFI=
 			</data>
 		</dict>
-		<key>Headers/UnityIosPlugin.h</key>
+		<key>Headers/IosLibrary.h</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			/KlzMc0U1R5wEejA2vdnFO4A/4InQdusK+WaKm+3sSo=
+			HLMx1rAWwsFXkYJH+iyesK9UMbWSor/ABL5Zu2fy1UQ=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.abi.json</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			qrb6EsZPgvau7qg0Lfo5OzEvlqrLZqpMgar1qQR02kU=
+			ewalhmfHdfE6/mJlMMw6pTaVXDkYKa/F3Ix82ZIoTbY=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			chO6kor4KFqsElYvEiGh0pBt8mFN4V790775Ot4c2kM=
+			XUlk8kw0eEeXO2l3Oyj5RBHqhRsPxVNdy1iF3qxGSD8=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftdoc</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Xa4aVkQxuP9RrwTKP7/YT4pc6oxp5Ey7wIhEJh1vSCU=
+			ATYKhTHxJfdBWmkqG9trXzzc7YTz+WRr2cgzI+fDz0U=
 			</data>
 		</dict>
-		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios.swiftinterface</key>
+		<key>Modules/IosLibrary.swiftmodule/arm64-apple-ios.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			chO6kor4KFqsElYvEiGh0pBt8mFN4V790775Ot4c2kM=
+			XUlk8kw0eEeXO2l3Oyj5RBHqhRsPxVNdy1iF3qxGSD8=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			iyypyNXDu5czjx+m2VVVqQ9DiRIpPjHAbI0C5/wM5dM=
+			497y1MBXoY5JXp85QyiJgOAmTc445giGZkOFHdaKj2U=
 			</data>
 		</dict>
 	</dict>

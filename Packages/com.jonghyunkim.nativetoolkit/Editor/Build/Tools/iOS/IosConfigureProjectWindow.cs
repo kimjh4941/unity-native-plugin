@@ -70,7 +70,7 @@ public class IosConfigureProjectWindow : EditorWindow
         GUILayout.Space(8);
         using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(xcodeProjectPath)))
         {
-            if (GUILayout.Button("Run: Add/Embed UnityIosNativeToolkit.xcframework"))
+            if (GUILayout.Button("Run: Add/Embed iOS XCFrameworks"))
             {
                 IosFrameworkPatcher.Apply(xcodeProjectPath);
             }

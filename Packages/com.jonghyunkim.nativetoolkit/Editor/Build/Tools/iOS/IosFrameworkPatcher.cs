@@ -29,20 +29,28 @@ public static class IosFrameworkPatcher
             Debug.Log("[NativeToolkit][iOS] Applying XCFramework & PBXProject edits...");
 
             // XCFramework source and destination paths
+            bool isDevelopmentBuild = EditorUserBuildSettings.development;
             string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework");
+            string unityXcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
+            string iosNativeToolkitXcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "IosNativeToolkit-Debug.xcframework" : "IosNativeToolkit.xcframework");
 
             string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string xcframeworkDst = Path.Combine(frameworksDir, "UnityIosNativeToolkit.xcframework");
+            string unityXcframeworkDst = Path.Combine(frameworksDir, "UnityIosNativeToolkit.xcframework");
+            string iosNativeToolkitXcframeworkDst = Path.Combine(frameworksDir, "IosNativeToolkit.xcframework");
 
-            if (!Directory.Exists(xcframeworkSrc))
-                throw new DirectoryNotFoundException("[NativeToolkit][iOS] Source xcframework not found: " + xcframeworkSrc);
+            if (!Directory.Exists(unityXcframeworkSrc))
+                throw new DirectoryNotFoundException("[NativeToolkit][iOS] Source xcframework not found: " + unityXcframeworkSrc);
+            if (!Directory.Exists(iosNativeToolkitXcframeworkSrc))
+                throw new DirectoryNotFoundException("[NativeToolkit][iOS] Source xcframework not found: " + iosNativeToolkitXcframeworkSrc);
 
-            // Copy XCFramework into project
-            if (Directory.Exists(xcframeworkDst))
-                Directory.Delete(xcframeworkDst, true);
+            // Copy XCFrameworks into project
+            if (Directory.Exists(unityXcframeworkDst))
+                Directory.Delete(unityXcframeworkDst, true);
+            if (Directory.Exists(iosNativeToolkitXcframeworkDst))
+                Directory.Delete(iosNativeToolkitXcframeworkDst, true);
             Directory.CreateDirectory(frameworksDir);
-            DirectoryCopy(xcframeworkSrc, xcframeworkDst, true);
+            DirectoryCopy(unityXcframeworkSrc, unityXcframeworkDst, true);
+            DirectoryCopy(iosNativeToolkitXcframeworkSrc, iosNativeToolkitXcframeworkDst, true);
 
             // Edit Xcode project to link and embed the XCFramework
             string pbxprojPath = Path.Combine(pathToBuiltProject, "Unity-iPhone.xcodeproj", "project.pbxproj");
@@ -55,13 +63,19 @@ public static class IosFrameworkPatcher
             string mainTargetGuid = proj.GetUnityMainTargetGuid();
             string frameworkTargetGuid = proj.GetUnityFrameworkTargetGuid();
 
-            // Add XCFramework to Frameworks
-            string relativePath = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework";
-            string fileGuid = proj.AddFile(relativePath, relativePath, PBXSourceTree.Source);
+            // Add XCFrameworks to Frameworks
+            string unityRelativePath = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework";
+            string unityFileGuid = proj.AddFile(unityRelativePath, unityRelativePath, PBXSourceTree.Source);
 
-            // Link and embed the framework
-            proj.AddFileToBuild(frameworkTargetGuid, fileGuid);
-            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, fileGuid);
+            string iosNativeToolkitRelativePath = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/IosNativeToolkit.xcframework";
+            string iosNativeToolkitFileGuid = proj.AddFile(iosNativeToolkitRelativePath, iosNativeToolkitRelativePath, PBXSourceTree.Source);
+
+            // Link and embed the frameworks
+            proj.AddFileToBuild(frameworkTargetGuid, unityFileGuid);
+            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, unityFileGuid);
+
+            proj.AddFileToBuild(frameworkTargetGuid, iosNativeToolkitFileGuid);
+            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, iosNativeToolkitFileGuid);
 
             // Search paths / Run paths (minimum necessary)
             proj.AddBuildProperty(frameworkTargetGuid, "FRAMEWORK_SEARCH_PATHS", "$(inherited)");
@@ -71,8 +85,8 @@ public static class IosFrameworkPatcher
 
             proj.WriteToFile(pbxprojPath);
 
-            Debug.Log("[NativeToolkit][iOS] XCFramework added and embedded successfully.");
-            EditorUtility.DisplayDialog("NativeToolkit (iOS)", "XCFramework was added and embedded successfully.", "OK");
+            Debug.Log("[NativeToolkit][iOS] XCFrameworks added and embedded successfully.");
+            EditorUtility.DisplayDialog("NativeToolkit (iOS)", "XCFrameworks were added and embedded successfully.", "OK");
         }
         catch (System.Exception ex)
         {
