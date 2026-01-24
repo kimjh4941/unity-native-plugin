@@ -1,4 +1,4 @@
-#if UNITY_IOS
+#if UNITY_EDITOR_OSX
 using System.IO;
 using UnityEditor;
 using UnityEngine;

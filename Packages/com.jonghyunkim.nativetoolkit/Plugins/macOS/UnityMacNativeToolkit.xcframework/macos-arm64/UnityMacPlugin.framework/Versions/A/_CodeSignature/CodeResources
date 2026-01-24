@@ -15,7 +15,7 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			C6i6Lw6K5Oq86d5REiFcUO+5rDs=
+			MThWkhTIbpdwe7cN1vm4+8b9OVw=
 			</data>
 			<key>requirement</key>
 			<string>identifier "mac.library.MacLibrary.MacLibrary" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: Jong Hyun Kim (545GVBT238)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */</string>

@@ -50,7 +50,6 @@
 ## Mac
 
 - ダイアログ機能
-
   - 基本ダイアログ
   - ファイル選択ダイアログ
   - 複数ファイル選択ダイアログ
@@ -70,7 +69,10 @@
 
 - Unity6 を起動します。
 - Window → Package Manager を選択します。
-- Unity Package Manager → Native Toolkit パッケージを Git URL から追加します。
+- Unity Package Manager → install from Git URL... を選択します。
+- Native Toolkit パッケージの Git URL を入力します。
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+- install をクリックします。
 - 必要条件:
   - Unity 6 以降
   - 依存パッケージ: Localization, Addressables, Input System
@@ -84,7 +86,6 @@
   <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
 
 - Android サンプル
-
   - Android - Dialog - AndroidDialogManager.cs を選択します。
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
@@ -97,7 +98,6 @@
     - <a href="https://developer.android.com/studio?hl=ja" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - iOS サンプル
-
   - iOS - Dialog - IosDialogManager.cs を選択します。
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
@@ -110,7 +110,6 @@
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - Windows サンプル
-
   - Windows - Dialog - WindowsDialogManager.cs を選択します。
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
@@ -118,7 +117,6 @@
   - Build 出力先にある「Unity NativeToolkit.exe」を実行してください。
 
 - Mac サンプル
-
   - macOS - Dialog - MacDialogManager.cs を選択します。
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
@@ -1433,8 +1431,8 @@ MacDialogManager.Instance.FileDialogResult += OnFileDialogResult;
 string title = "Select a file";
 // メッセージを設定します。未設定の場合、表示されません。
 string message = "Please select a file to open.";
-// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
-string[] allowedContentTypes = { "public.text" };
+// 許可するファイルの拡張子を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "txt", "png" };
 // 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
 string? directoryPath = null;
 MacDialogManager.Instance.ShowFileDialog(
@@ -1497,8 +1495,8 @@ MacDialogManager.Instance.MultiFileDialogResult += OnMultiFileDialogResult;
 string title = "Select files";
 // メッセージを設定します。未設定の場合、表示されません。
 string message = "Please select files to open.";
-// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
-string[] allowedContentTypes = { "public.text" };
+// 許可するファイルの拡張子を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "txt", "png" };
 // 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
 string? directoryPath = null;
 MacDialogManager.Instance.ShowMultiFileDialog(
@@ -1683,10 +1681,10 @@ MacDialogManager.Instance.SaveFileDialogResult += OnSaveFileDialogResult;
 string title = "Save File";
 // メッセージを設定します。未設定の場合、表示されません。
 string message = "Choose a destination";
-// デフォルトのファイル名を設定します。未設定の場合、OS
-string defaultFileName = "default.txt";
-// 許可するコンテンツタイプ (UTI) を設定します。未設定の場合、OS規定の値が使用されます。
-string[] allowedContentTypes = { "public.text" };
+// デフォルトのファイル名を設定します。未設定の場合、OS規定の値が使用されます。
+string defaultFileName = "default";
+// 許可するファイルの拡張子を設定します。未設定の場合、OS規定の値が使用されます。
+string[] allowedContentTypes = { "txt" };
 // 初期ディレクトリを設定します。未設定の場合、OS規定の値が使用されます。
 string? directoryPath = null;
 MacDialogManager.Instance.ShowSaveFileDialog(

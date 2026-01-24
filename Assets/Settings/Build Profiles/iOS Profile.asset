@@ -218,7 +218,7 @@ MonoBehaviour:
     - line: '|   strictShaderVariantMatching: 0'
     - line: '|   VertexChannelCompressionMask: 4054'
     - line: '|   iPhoneSdkVersion: 988'
-    - line: '|   iOSSimulatorArchitecture: 0'
+    - line: '|   iOSSimulatorArchitecture: 1'
     - line: '|   iOSTargetOSVersionString: 18.0'
     - line: '|   tvOSSdkVersion: 0'
     - line: '|   tvOSSimulatorArchitecture: 0'

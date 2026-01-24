@@ -193,7 +193,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         string title = "Select a file";
         string message = "Please select a file to open.";
-        string[] allowedContentTypes = { "public.text" };
+        string[] allowedContentTypes = { "txt", "png" };
         string? directoryPath = null;
         MacDialogManager.Instance.ShowFileDialog(
             title,
@@ -214,7 +214,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         string title = "Select files";
         string message = "Please select files to open.";
-        string[] allowedContentTypes = { "public.text" };
+        string[] allowedContentTypes = { "txt", "png" };
         string? directoryPath = null;
         MacDialogManager.Instance.ShowMultiFileDialog(
             title,
@@ -274,7 +274,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
         string title = "Save File";
         string message = "Choose a destination";
         string defaultFileName = "default.txt";
-        string[] allowedContentTypes = { "public.text" };
+        string[] allowedContentTypes = { "txt" };
         string? directoryPath = null;
         MacDialogManager.Instance.ShowSaveFileDialog(
             title,

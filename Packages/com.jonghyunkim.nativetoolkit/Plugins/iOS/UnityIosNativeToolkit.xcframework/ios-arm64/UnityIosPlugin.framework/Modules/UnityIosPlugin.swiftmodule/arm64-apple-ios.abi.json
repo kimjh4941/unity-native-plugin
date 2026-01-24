@@ -915,98 +915,98 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 3769,
+      "offset": 4045,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 3810,
+      "offset": 4086,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 5351,
+      "offset": 5874,
       "length": 8,
       "value": "\"Delete\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 5396,
+      "offset": 5919,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 7020,
+      "offset": 7794,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 9078,
+      "offset": 9664,
       "length": 2,
       "value": "\"\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 9118,
+      "offset": 9704,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 9159,
+      "offset": 9745,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 9208,
+      "offset": 9794,
       "length": 5,
       "value": "false"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11099,
+      "offset": 11940,
       "length": 10,
       "value": "\"Username\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11149,
+      "offset": 11990,
       "length": 10,
       "value": "\"Password\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11195,
+      "offset": 12036,
       "length": 7,
       "value": "\"Login\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11239,
+      "offset": 12080,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/UnityIosPlugin\/UnityIosPlugin\/Dialog\/UnityIosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 11286,
+      "offset": 12127,
       "length": 5,
       "value": "false"
     }

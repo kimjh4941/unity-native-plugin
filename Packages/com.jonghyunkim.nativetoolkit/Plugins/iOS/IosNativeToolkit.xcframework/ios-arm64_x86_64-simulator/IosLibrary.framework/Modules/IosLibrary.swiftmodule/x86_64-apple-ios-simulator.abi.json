@@ -497,12 +497,12 @@
               {
                 "kind": "TypeNominal",
                 "name": "Optional",
-                "printedName": "((Swift.String?, Swift.Bool, Swift.String?) -> ())?",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
                 "children": [
                   {
                     "kind": "TypeFunc",
                     "name": "Function",
-                    "printedName": "(Swift.String?, Swift.Bool, Swift.String?) -> ()",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
                     "children": [
                       {
                         "kind": "TypeNominal",
@@ -512,22 +512,8 @@
                       {
                         "kind": "TypeNominal",
                         "name": "Tuple",
-                        "printedName": "(Swift.String?, Swift.Bool, Swift.String?)",
+                        "printedName": "(Swift.Bool, Swift.String?)",
                         "children": [
-                          {
-                            "kind": "TypeNominal",
-                            "name": "Optional",
-                            "printedName": "Swift.String?",
-                            "children": [
-                              {
-                                "kind": "TypeNominal",
-                                "name": "String",
-                                "printedName": "Swift.String",
-                                "usr": "s:SS"
-                              }
-                            ],
-                            "usr": "s:Sq"
-                          },
                           {
                             "kind": "TypeNominal",
                             "name": "Bool",
@@ -558,8 +544,8 @@
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC04showC05title7message14preferredStyle7actions10textFields10sourceView0M4Rect13barButtonItem24permittedArrowDirections8animated10completionySSSg_APSo017UIAlertControllerI0VSaySo0X6ActionCGSayySo11UITextFieldCcGSgSo6UIViewCSgSo6CGRectVSgSo05UIBarqR0CSgSo09UIPopoverT9DirectionVSbyAP_SbAPtcSgtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC04showC05title7message14preferredStyle7actions10textFields10sourceView0M4Rect13barButtonItem24permittedArrowDirections8animated10completionySSSg_APSo017UIAlertControllerI0VSaySo0X6ActionCGSayySo11UITextFieldCcGSgSo6UIViewCSgSo6CGRectVSgSo05UIBarqR0CSgSo09UIPopoverT9DirectionVSbyAP_SbAPtcSgtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC04showC05title7message14preferredStyle7actions10textFields10sourceView0M4Rect13barButtonItem24permittedArrowDirections8animated10completionySSSg_APSo017UIAlertControllerI0VSaySo0X6ActionCGSayySo11UITextFieldCcGSgSo6UIViewCSgSo6CGRectVSgSo05UIBarqR0CSgSo09UIPopoverT9DirectionVSbySb_APtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC04showC05title7message14preferredStyle7actions10textFields10sourceView0M4Rect13barButtonItem24permittedArrowDirections8animated10completionySSSg_APSo017UIAlertControllerI0VSaySo0X6ActionCGSayySo11UITextFieldCcGSgSo6UIViewCSgSo6CGRectVSgSo05UIBarqR0CSgSo09UIPopoverT9DirectionVSbySb_APtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -600,7 +586,7 @@
           {
             "kind": "Function",
             "name": "showAlert",
-            "printedName": "showAlert(title:message:buttonText:completion:)",
+            "printedName": "showAlert(title:message:buttonText:onButton:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -713,11 +699,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC9showAlert5title7message10buttonText10completionySSSg_A2IyAI_SbAItcSgtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC9showAlert5title7message10buttonText10completionySSSg_A2IyAI_SbAItcSgtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC9showAlert5title7message10buttonText8onButton10completionySSSg_A2JyAJ_SbAJtcSgySb_AJtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC9showAlert5title7message10buttonText8onButton10completionySSSg_A2JyAJ_SbAJtcSgySb_AJtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -728,7 +762,7 @@
           {
             "kind": "Function",
             "name": "showConfirmDialog",
-            "printedName": "showConfirmDialog(title:message:confirmTitle:cancelTitle:onConfirm:onCancel:)",
+            "printedName": "showConfirmDialog(title:message:confirmTitle:cancelTitle:onConfirm:onCancel:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -918,11 +952,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC011showConfirmC05title7message12confirmTitle06cancelJ002onF00L6CancelySSSg_A3KyAK_SbAKtcSgALtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC011showConfirmC05title7message12confirmTitle06cancelJ002onF00L6CancelySSSg_A3KyAK_SbAKtcSgALtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC011showConfirmC05title7message12confirmTitle06cancelJ002onF00L6Cancel10completionySSSg_A3LyAL_SbALtcSgAMySb_ALtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC011showConfirmC05title7message12confirmTitle06cancelJ002onF00L6Cancel10completionySSSg_A3LyAL_SbALtcSgAMySb_ALtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -933,7 +1015,7 @@
           {
             "kind": "Function",
             "name": "showDestructiveDialog",
-            "printedName": "showDestructiveDialog(title:message:destructiveTitle:cancelTitle:onDestructive:onCancel:)",
+            "printedName": "showDestructiveDialog(title:message:destructiveTitle:cancelTitle:onDestructive:onCancel:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -1123,11 +1205,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC015showDestructiveC05title7message16destructiveTitle06cancelJ002onF00L6CancelySSSg_A3KyAK_SbAKtcSgALtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC015showDestructiveC05title7message16destructiveTitle06cancelJ002onF00L6CancelySSSg_A3KyAK_SbAKtcSgALtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC015showDestructiveC05title7message16destructiveTitle06cancelJ002onF00L6Cancel10completionySSSg_A3LyAL_SbALtcSgAMySb_ALtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC015showDestructiveC05title7message16destructiveTitle06cancelJ002onF00L6Cancel10completionySSSg_A3LyAL_SbALtcSgAMySb_ALtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -1138,7 +1268,7 @@
           {
             "kind": "Function",
             "name": "showActionSheet",
-            "printedName": "showActionSheet(title:message:actions:sourceView:sourceRect:animated:completion:)",
+            "printedName": "showActionSheet(title:message:options:cancelTitle:sourceView:sourceRect:animated:onAction:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -1178,16 +1308,23 @@
               {
                 "kind": "TypeNominal",
                 "name": "Array",
-                "printedName": "[UIKit.UIAlertAction]",
+                "printedName": "[Swift.String]",
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "UIAlertAction",
-                    "printedName": "UIKit.UIAlertAction",
-                    "usr": "c:objc(cs)UIAlertAction"
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
                   }
                 ],
                 "usr": "s:Sa"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "hasDefaultArg": true,
+                "usr": "s:SS"
               },
               {
                 "kind": "TypeNominal",
@@ -1278,11 +1415,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC15showActionSheet5title7message7actions10sourceView0K4Rect8animated10completionySSSg_ALSaySo07UIAlertF0CGSo6UIViewCSo6CGRectVSgSbyAL_SbALtcSgtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC15showActionSheet5title7message7actions10sourceView0K4Rect8animated10completionySSSg_ALSaySo07UIAlertF0CGSo6UIViewCSo6CGRectVSgSbyAL_SbALtcSgtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC15showActionSheet5title7message7options11cancelTitle10sourceView0M4Rect8animated02onF010completionySSSg_ANSaySSGSSSo6UIViewCSo6CGRectVSgSbyAN_SbANtcSgySb_ANtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC15showActionSheet5title7message7options11cancelTitle10sourceView0M4Rect8animated02onF010completionySSSg_ANSaySSGSSSo6UIViewCSo6CGRectVSgSbyAN_SbANtcSgySb_ANtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -1293,7 +1478,7 @@
           {
             "kind": "Function",
             "name": "showTextInputDialog",
-            "printedName": "showTextInputDialog(title:message:placeholder:confirmTitle:cancelTitle:enableConfirmWhenEmpty:onConfirm:onCancel:)",
+            "printedName": "showTextInputDialog(title:message:placeholder:confirmTitle:cancelTitle:enableConfirmWhenEmpty:onConfirm:onCancel:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -1519,11 +1704,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC013showTextInputC05title7message11placeholder12confirmTitle06cancelL022enableConfirmWhenEmpty02onO00R6CancelySSSg_A4MSbyAM_AMSbAMtcSgyAM_SbAMtcSgtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC013showTextInputC05title7message11placeholder12confirmTitle06cancelL022enableConfirmWhenEmpty02onO00R6CancelySSSg_A4MSbyAM_AMSbAMtcSgyAM_SbAMtcSgtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC013showTextInputC05title7message11placeholder12confirmTitle06cancelL022enableConfirmWhenEmpty02onO00R6Cancel10completionySSSg_A4NSbyAN_ANSbANtcSgyAN_SbANtcSgySb_ANtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC013showTextInputC05title7message11placeholder12confirmTitle06cancelL022enableConfirmWhenEmpty02onO00R6Cancel10completionySSSg_A4NSbyAN_ANSbANtcSgyAN_SbANtcSgySb_ANtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -1534,7 +1767,7 @@
           {
             "kind": "Function",
             "name": "showLoginDialog",
-            "printedName": "showLoginDialog(title:message:usernamePlaceholder:passwordPlaceholder:loginTitle:cancelTitle:enableLoginWhenEmpty:onLogin:onCancel:)",
+            "printedName": "showLoginDialog(title:message:usernamePlaceholder:passwordPlaceholder:loginTitle:cancelTitle:enableLoginWhenEmpty:onLogin:onCancel:completion:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -1789,11 +2022,59 @@
                 ],
                 "hasDefaultArg": true,
                 "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "((Swift.Bool, Swift.String?) -> ())?",
+                "children": [
+                  {
+                    "kind": "TypeFunc",
+                    "name": "Function",
+                    "printedName": "(Swift.Bool, Swift.String?) -> ()",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Void",
+                        "printedName": "()"
+                      },
+                      {
+                        "kind": "TypeNominal",
+                        "name": "Tuple",
+                        "printedName": "(Swift.Bool, Swift.String?)",
+                        "children": [
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Bool",
+                            "printedName": "Swift.Bool",
+                            "usr": "s:Sb"
+                          },
+                          {
+                            "kind": "TypeNominal",
+                            "name": "Optional",
+                            "printedName": "Swift.String?",
+                            "children": [
+                              {
+                                "kind": "TypeNominal",
+                                "name": "String",
+                                "printedName": "Swift.String",
+                                "usr": "s:SS"
+                              }
+                            ],
+                            "usr": "s:Sq"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
               }
             ],
             "declKind": "Func",
-            "usr": "s:10IosLibrary0A13DialogManagerC09showLoginC05title7message19usernamePlaceholder08passwordJ010loginTitle06cancelM006enableF9WhenEmpty02onF00R6CancelySSSg_A5NSbyAN_A2NSbANtcSgyAN_SbANtcSgtF",
-            "mangledName": "$s10IosLibrary0A13DialogManagerC09showLoginC05title7message19usernamePlaceholder08passwordJ010loginTitle06cancelM006enableF9WhenEmpty02onF00R6CancelySSSg_A5NSbyAN_A2NSbANtcSgyAN_SbANtcSgtF",
+            "usr": "s:10IosLibrary0A13DialogManagerC09showLoginC05title7message19usernamePlaceholder08passwordJ010loginTitle06cancelM006enableF9WhenEmpty02onF00R6Cancel10completionySSSg_A5OSbyAO_A2OSbAOtcSgyAO_SbAOtcSgySb_AOtcSgtF",
+            "mangledName": "$s10IosLibrary0A13DialogManagerC09showLoginC05title7message19usernamePlaceholder08passwordJ010loginTitle06cancelM006enableF9WhenEmpty02onF00R6Cancel10completionySSSg_A5OSbyAO_A2OSbAOtcSgyAO_SbAOtcSgySb_AOtcSgtF",
             "moduleName": "IosLibrary",
             "declAttributes": [
               "AccessControl",
@@ -1897,112 +2178,119 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "Array",
-      "offset": 4185,
+      "offset": 4099,
       "length": 2,
       "value": "[]"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 4449,
+      "offset": 4363,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 8755,
+      "offset": 8750,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10011,
+      "offset": 10129,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 10048,
+      "offset": 10166,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11618,
+      "offset": 11868,
       "length": 8,
       "value": "\"Delete\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 11659,
+      "offset": 11909,
+      "length": 8,
+      "value": "\"Cancel\""
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
+      "kind": "StringLiteral",
+      "offset": 13645,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 13425,
+      "offset": 13743,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 15069,
+      "offset": 16142,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 15106,
+      "offset": 16179,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 15155,
+      "offset": 16228,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 18217,
+      "offset": 19529,
       "length": 10,
       "value": "\"Username\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 18268,
+      "offset": 19580,
       "length": 10,
       "value": "\"Password\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 18310,
+      "offset": 19622,
       "length": 7,
       "value": "\"Login\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 18350,
+      "offset": 19662,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 18397,
+      "offset": 19709,
       "length": 4,
       "value": "true"
     }
