@@ -88,3 +88,13 @@
   - [영어 문서](docs/latest/index.md)
   - [한국어 문서](docs/latest/index.ko.md)
   - [일본어 문서](docs/latest/index.ja.md)
+
+## Native Toolkit
+
+- Native Toolkit은 플랫폼 네이티브 기능을 통합적으로 제공하는 툴킷입니다.
+- Android / iOS / Windows / macOS용 네이티브 플러그인과 샘플이 포함되어 있으며, 다이얼로그 API를 싱글톤 인터페이스로 제공합니다.
+- Repository: https://github.com/kimjh4941/native-toolkit
+
+## 라이선스
+
+Apache License 2.0 (자세한 내용은 `LICENSE` 참조).

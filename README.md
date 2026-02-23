@@ -88,3 +88,13 @@
   - [English documentation](docs/latest/index.md)
   - [Korean documentation](docs/latest/index.ko.md)
   - [Japanese documentation](docs/latest/index.ja.md)
+
+## Native Toolkit
+
+- Native Toolkit is a unified toolkit for platform-native features.
+- It includes native plugins and samples for Android / iOS / Windows / macOS, exposing dialog APIs via a singleton interface.
+- Repository: https://github.com/kimjh4941/native-toolkit
+
+## License
+
+Apache License 2.0. See `LICENSE`.

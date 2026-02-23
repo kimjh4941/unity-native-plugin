@@ -86,7 +86,7 @@
 - Unity Package Manager -> Native Toolkit -> Samples -> Import.
 - Tools -> Native Toolkit -> Example.
   <p align="center">
-  <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
+    <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
   </p>
 
 - Android sample
@@ -96,7 +96,7 @@
   - From Build Profiles, run "Android Profile" -> Export.
   - Tools -> Native Toolkit -> Android -> Configure Gradle Project.
   <p align="center">
-  <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
+    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
   </p>
   - Click "Browse" and select the exported Android project.
   - Click "Run: Add Kotlin Dependencies" to add Kotlin libraries.
@@ -110,7 +110,7 @@
   - From Build Profiles, run "iOS Profile" -> Build.
   - Tools -> Native Toolkit -> iOS -> Configure Xcode Project.
   <p align="center">
-  <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
+    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
   </p>
   - Click "Browse" and select the built iOS project.
   - Click "Run: Add/Embed iOS XCFrameworks" to add NativeToolkit libraries.
@@ -131,7 +131,7 @@
   - From Build Profiles, run "macOS Profile" -> Build.
   - Tools -> Native Toolkit -> macOS -> Configure Xcode Project.
   <p align="center">
-  <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
+    <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
   </p>
   - Click "Browse" and select the built macOS project.
   - Click "Run: Add UnityMacNativeToolkit.xcframework" to add NativeToolkit libraries.
