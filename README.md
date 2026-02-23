@@ -4,6 +4,11 @@
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
 - Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build setup.
 
+Other languages:
+
+- Korean: [README.ko.md](README.ko.md)
+- Japanese: [README.ja.md](README.ja.md)
+
 ## Version
 
 - 1.0.0
