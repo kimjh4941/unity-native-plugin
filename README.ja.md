@@ -4,6 +4,11 @@
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
 - Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
 
+他言語 README:
+
+- English: [README.md](README.md)
+- Korean: [README.ko.md](README.ko.md)
+
 ## バージョン
 
 - 1.0.0
