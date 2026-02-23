@@ -1,0 +1,26 @@
+{
+  "name": "NativeToolkit.Editor",
+  "rootNamespace": "JonghyunKim.NativeToolkit.Editor",
+  "references": [
+    "NativeToolkit.Runtime",
+    "Unity.Localization",
+    "Unity.Localization.Editor",
+    "Unity.InputSystem",
+    "Unity.Addressables",
+    "Unity.ResourceManager"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

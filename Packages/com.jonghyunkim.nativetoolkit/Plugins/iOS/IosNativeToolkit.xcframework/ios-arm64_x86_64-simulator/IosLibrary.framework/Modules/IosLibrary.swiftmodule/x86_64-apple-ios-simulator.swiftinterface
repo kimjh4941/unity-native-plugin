@@ -1,0 +1,31 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)
+// swift-module-flags: -target x86_64-apple-ios18.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-bare-slash-regex -module-name IosLibrary
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface
+import Foundation
+@_exported import IosLibrary
+import Swift
+import UIKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@objc @_inheritsConvenienceInitializers @objcMembers public class Log : ObjectiveC.NSObject {
+  @objc public static func d(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func i(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func w(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func e(_ tag: Swift.String, _ message: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class IosDialogManager : ObjectiveC.NSObject {
+  public static let shared: IosLibrary.IosDialogManager
+  public func showDialog(title: Swift.String? = nil, message: Swift.String? = nil, preferredStyle: UIKit.UIAlertController.Style = .alert, actions: [UIKit.UIAlertAction] = [], textFields: [(UIKit.UITextField) -> Swift.Void]? = nil, sourceView: UIKit.UIView? = nil, sourceRect: CoreFoundation.CGRect? = nil, barButtonItem: UIKit.UIBarButtonItem? = nil, permittedArrowDirections: UIKit.UIPopoverArrowDirection = .any, animated: Swift.Bool = true, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func getRootViewController() -> UIKit.UIViewController?
+  public func showAlert(title: Swift.String? = nil, message: Swift.String? = nil, buttonText: Swift.String? = "OK", onButton: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func showConfirmDialog(title: Swift.String? = nil, message: Swift.String? = nil, confirmTitle: Swift.String? = "OK", cancelTitle: Swift.String? = "Cancel", onConfirm: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func showDestructiveDialog(title: Swift.String? = nil, message: Swift.String? = nil, destructiveTitle: Swift.String? = "Delete", cancelTitle: Swift.String? = "Cancel", onDestructive: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func showActionSheet(title: Swift.String? = nil, message: Swift.String? = nil, options: [Swift.String], cancelTitle: Swift.String = "Cancel", sourceView: UIKit.UIView, sourceRect: CoreFoundation.CGRect? = nil, animated: Swift.Bool = true, onAction: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func showTextInputDialog(title: Swift.String? = nil, message: Swift.String? = nil, placeholder: Swift.String? = nil, confirmTitle: Swift.String? = "OK", cancelTitle: Swift.String? = "Cancel", enableConfirmWhenEmpty: Swift.Bool = true, onConfirm: ((Swift.String?, Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  public func showLoginDialog(title: Swift.String? = nil, message: Swift.String? = nil, usernamePlaceholder: Swift.String? = "Username", passwordPlaceholder: Swift.String? = "Password", loginTitle: Swift.String? = "Login", cancelTitle: Swift.String? = "Cancel", enableLoginWhenEmpty: Swift.Bool = true, onLogin: ((Swift.String?, Swift.String?, Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  @objc deinit
+}

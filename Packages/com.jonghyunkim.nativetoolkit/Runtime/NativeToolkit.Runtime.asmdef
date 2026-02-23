@@ -1,0 +1,19 @@
+{
+  "name": "NativeToolkit.Runtime",
+  "rootNamespace": "JonghyunKim.NativeToolkit.Runtime",
+  "references": [
+    "Unity.Localization",
+    "Unity.InputSystem",
+    "Unity.ResourceManager"
+  ],
+  "optionalUnityReferences": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

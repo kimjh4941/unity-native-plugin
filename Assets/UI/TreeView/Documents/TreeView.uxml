@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1; padding-left: 10px; padding-right: 10px; padding-top: 10px; padding-bottom: 10px; background-color: rgba(245, 235, 235, 0);">
+        <ui:Label text="TreeView Example" style="font-size: 18px; margin-bottom: 10px;" />
+        <ui:TreeView name="example-tree" style="flex-grow: 1; border-left-width: 1px; border-right-width: 1px; border-top-width: 1px; border-bottom-width: 1px; border-color: rgb(128, 128, 128); background-color: rgb(22, 20, 20);" />
+    </ui:VisualElement>
+</ui:UXML>

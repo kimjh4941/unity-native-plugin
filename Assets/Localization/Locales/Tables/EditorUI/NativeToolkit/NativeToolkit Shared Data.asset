@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: NativeToolkit Shared Data
+  m_EditorClassIdentifier: 
+  m_TableCollectionName: NativeToolkit
+  m_TableCollectionNameGuidString: 20ef6680bb09c49109bb116520ab0ee4
+  m_Entries:
+  - m_Id: 313516032
+    m_Key: folder.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 330293248
+    m_Key: folder.template
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487552
+    m_Key: button.open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487553
+    m_Key: window.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487554
+    m_Key: header.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487555
+    m_Key: context.add
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487556
+    m_Key: context.delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 334487557
+    m_Key: context.refresh
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 204195045696339968
+  references:
+    version: 2
+    RefIds:
+    - rid: 204195045696339968
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1757907816353

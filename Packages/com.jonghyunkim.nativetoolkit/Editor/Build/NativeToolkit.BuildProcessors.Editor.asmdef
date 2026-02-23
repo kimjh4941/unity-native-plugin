@@ -1,0 +1,9 @@
+{
+  "name": "NativeToolkit.BuildProcessors.Editor",
+  "rootNamespace": "Jonghyunkim.NativeToolkit.Editor.Build",
+  "includePlatforms": [ "Editor" ],
+  "defineConstraints": [ "NATIVETOOLKIT_ENABLE_BUILD_STEPS" ],
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

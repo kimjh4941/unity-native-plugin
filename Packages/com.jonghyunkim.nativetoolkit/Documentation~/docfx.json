@@ -1,0 +1,42 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": [
+            "Runtime/**/*.cs"
+          ],
+          "exclude": [
+            "Editor/**/*.cs",
+            "Runtime/UI/**/*.cs"
+          ],
+          "src": "../"
+        }
+      ],
+      "globalNamespaceId": "NativeToolkit",
+      "dest": "api",
+      "filter": "apiFilter.yml",
+      "exclude": [ "**/*.meta", "**/Samples~/**", "**/Documentation~/**" ],
+      "properties": {
+        "DefineConstants": "UNITY_EDITOR;UNITY_ANDROID;UNITY_IOS;UNITY_STANDALONE_WIN;UNITY_STANDALONE_OSX",
+        "TargetFramework": "netstandard2.1"
+      },
+      "allowCompilationErrors": true
+    }
+  ],
+  "build": {
+    "content": [
+  { "files": [ "api/**.yml" ] },
+  { "files": [ "index.md", "index.ko.md", "index.ja.md" ], "dest": "." }
+    ],
+    "resource": [
+      { "files": [ "images/**" ] }
+    ],
+    "dest": "site",
+    "globalMetadata": {
+      "name": "Native Toolkit",
+      "site_name": "Native Toolkit"
+    },
+    "template": [ "default" ]
+  }
+}
