@@ -88,15 +88,17 @@
 <p align="center">
   <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
 </p>
+
 - Android 샘플
   - Android - Dialog - AndroidDialogManager.cs를 선택합니다.
   - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "Android Profile" -> Export를 실행합니다.
   - Tools -> Native Toolkit -> Android -> Configure Gradle Project를 선택합니다.
-<p align="center">
-  <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
+  </p>
+
   - "Browse"를 클릭하고 Export한 Android 프로젝트를 선택합니다.
   - "Run: Add Kotlin Dependencies"를 클릭하여 Kotlin 라이브러리를 추가합니다.
   - Android Studio에서 샘플 앱을 설치합니다.
@@ -108,9 +110,10 @@
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "iOS Profile" -> Build를 실행합니다.
   - Tools -> Native Toolkit -> iOS -> Configure Xcode Project를 선택합니다.
-<p align="center">
-  <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
+  </p>
+
   - "Browse"를 클릭하고 빌드된 iOS 프로젝트를 선택합니다.
   - "Run: Add/Embed iOS XCFrameworks"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
   - Xcode에서 샘플 앱을 설치합니다.
@@ -129,9 +132,10 @@
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "macOS Profile" -> Build를 실행합니다.
   - Tools -> Native Toolkit -> macOS -> Configure Xcode Project를 선택합니다.
-<p align="center">
-  <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
+  </p>
+
   - "Browse"를 클릭하고 빌드된 macOS 프로젝트를 선택합니다.
   - "Run: Add UnityMacNativeToolkit.xcframework"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
   - Xcode에서 샘플 앱을 설치합니다.

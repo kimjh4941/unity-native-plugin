@@ -5,8 +5,6 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [1.0.0]
 
 ### Added
@@ -22,6 +20,12 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
   - Android: configure Gradle project and dependencies.
   - iOS: add/embed iOS XCFrameworks into the exported Xcode project.
   - macOS: configure Xcode project and add XCFramework.
+- Added a new **Native Toolkit** section to top-level multilingual READMEs:
+  - `README.md` (English)
+  - `README.ja.md` (Japanese)
+  - `README.ko.md` (Korean)
+- Added a repository reference for Native Toolkit:
+  - https://github.com/kimjh4941/native-toolkit
 
 ### Notes
 

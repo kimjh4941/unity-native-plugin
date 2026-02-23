@@ -9,9 +9,9 @@
   "author": {
     "name": "JongHyun Kim"
   },
-  "documentationUrl": "Documentation/index.md",
-  "changelogUrl": "CHANGELOG.md",
-  "licensesUrl": "LICENSE",
+  "documentationUrl": "https://github.com/kimjh4941/unity-native-plugin",
+  "changelogUrl": "https://github.com/kimjh4941/unity-native-plugin/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/kimjh4941/unity-native-plugin/blob/main/LICENSE",
   "license": "Apache-2.0",
   "keywords": [
     "native",

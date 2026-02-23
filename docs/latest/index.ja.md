@@ -88,15 +88,17 @@
 <p align="center">
   <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
 </p>
+
 - Android サンプル
   - Android - Dialog - AndroidDialogManager.cs を選択します。
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Android Profile」→ Export を実行します。
   - Tools → Native Toolkit → Android → Configue Gradle Project を選択します。
-<p align="center">
-  <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
+  </p>　
+
   - 「Browse」ボタンを押下して、Export した Android Project を指定します。
   - 「Run: Add Kotlin Dependencies」ボタンを押下して、Kotlin ライブラリを追加します。
   - Android Studio からサンプルアプリをインストールしてください。
@@ -108,9 +110,10 @@
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「iOS Profile」→ Build を実行します。
   - Tools → Native Toolkit → iOS → Configue Xcode Project を選択します。
-<p align="center">
-  <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
+  </p>
+
   - 「Browse」ボタンを押下して、Build した iOS Project を指定します。
   - 「Run: Add/Embed iOS XCFrameworks」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
@@ -129,9 +132,10 @@
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「macOS Profile」→ Build を実行します。
   - Tools → Native Toolkit → macOS → Configue Xcode Project を選択します。
-<p align="center">
-  <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
-</p>
+  <p align="center">
+    <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
+  </p>
+
   - 「Browse」ボタンを押下して、Build した macOS Project を指定します。
   - 「Run: Add UnityMacNativeToolkit.xcframework」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
