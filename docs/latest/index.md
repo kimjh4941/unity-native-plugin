@@ -98,6 +98,7 @@
   <p align="center">
     <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
   </p>
+
   - Click "Browse" and select the exported Android project.
   - Click "Run: Add Kotlin Dependencies" to add Kotlin libraries.
   - Install the sample app from Android Studio.
@@ -112,6 +113,7 @@
   <p align="center">
     <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
   </p>
+
   - Click "Browse" and select the built iOS project.
   - Click "Run: Add/Embed iOS XCFrameworks" to add NativeToolkit libraries.
   - Install the sample app from Xcode.
@@ -133,6 +135,7 @@
   <p align="center">
     <img src="images/editor/MacConfigureXcodeProject.png" alt="MacConfigureXcodeProject" width="720" />
   </p>
+
   - Click "Browse" and select the built macOS project.
   - Click "Run: Add UnityMacNativeToolkit.xcframework" to add NativeToolkit libraries.
   - Install the sample app from Xcode.
