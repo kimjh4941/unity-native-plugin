@@ -82,14 +82,27 @@ internal static class AndroidGradlePatcher
         // Add Kotlin plugin - don't add if already exists
         if (!content.Contains("org.jetbrains.kotlin.android"))
         {
-            if (content.Contains("id 'com.android.library'"))
+            bool inserted = TryInsertAfterFirstContaining(
+                ref content,
+                new[]
+                {
+                    "id 'com.android.library'",
+                    "id 'com.android.application'"
+                },
+                "    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false\n");
+
+            if (!inserted)
             {
-                content = content.Replace(
-                    "    id 'com.android.library' version '8.3.0' apply false",
-                    @"    id 'com.android.library' version '8.3.0' apply false
-    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false"
-                );
+                inserted = TryInsertAfterAnchorLine(ref content, "plugins {", "    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false\n");
+            }
+
+            if (inserted)
+            {
                 Debug.Log("[NativeToolkit][Android] Added Kotlin plugin to project build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find a supported plugins block anchor in project build.gradle.");
             }
         }
         else
@@ -117,11 +130,20 @@ internal static class AndroidGradlePatcher
         // Add Kotlin plugin
         if (!content.Contains("apply plugin: 'org.jetbrains.kotlin.android'"))
         {
-            content = content.Replace(
+            bool inserted = TryInsertAfterAnchorLine(
+                ref content,
                 "apply plugin: 'com.android.library'",
-                "apply plugin: 'com.android.library'\napply plugin: 'org.jetbrains.kotlin.android'"
+                "apply plugin: 'org.jetbrains.kotlin.android'\n"
             );
-            Debug.Log("[NativeToolkit][Android] Added Kotlin plugin to unityLibrary build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added Kotlin plugin to unityLibrary build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find com.android.library plugin anchor in unityLibrary build.gradle.");
+            }
         }
         else
         {
@@ -131,16 +153,25 @@ internal static class AndroidGradlePatcher
         // Add configuration to exclude duplicate Kotlin dependencies
         if (!content.Contains("configurations.all"))
         {
-            content = content.Replace(
+            bool inserted = TryInsertBeforeAnchorLine(
+                ref content,
                 "dependencies {",
                 @"configurations.all {
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }
 
-dependencies {"
+"
             );
-            Debug.Log("[NativeToolkit][Android] Added duplicate exclusion configuration to unityLibrary build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added duplicate exclusion configuration to unityLibrary build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find dependencies block in unityLibrary build.gradle for duplicate exclusion configuration.");
+            }
         }
         else
         {
@@ -150,13 +181,22 @@ dependencies {"
         // Add Kotlin dependencies (to existing dependencies block)
         if (!content.Contains("kotlin-stdlib"))
         {
-            content = content.Replace(
-                "implementation 'androidx.constraintlayout:constraintlayout:2.1.4'",
-                @"implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'"
+            bool inserted = TryInsertAfterAnchorLine(
+                ref content,
+                "dependencies {",
+                @"    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+    implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'
+"
             );
-            Debug.Log("[NativeToolkit][Android] Added Kotlin 2.0.21 dependencies to unityLibrary build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added Kotlin 2.0.21 dependencies to unityLibrary build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find dependencies block in unityLibrary build.gradle for Kotlin dependencies.");
+            }
         }
         else
         {
@@ -201,11 +241,20 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         // Apply Kotlin plugin
         if (!content.Contains("apply plugin: 'org.jetbrains.kotlin.android'"))
         {
-            content = content.Replace(
+            bool inserted = TryInsertAfterAnchorLine(
+                ref content,
                 "apply plugin: 'com.android.application'",
-                "apply plugin: 'com.android.application'\napply plugin: 'org.jetbrains.kotlin.android'"
+                "apply plugin: 'org.jetbrains.kotlin.android'\n"
             );
-            Debug.Log("[NativeToolkit][Android] Added Kotlin plugin to launcher build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added Kotlin plugin to launcher build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find com.android.application plugin anchor in launcher build.gradle.");
+            }
         }
         else
         {
@@ -215,16 +264,25 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         // Add configuration to exclude duplicate Kotlin dependencies
         if (!content.Contains("configurations.all"))
         {
-            content = content.Replace(
+            bool inserted = TryInsertBeforeAnchorLine(
+                ref content,
                 "dependencies {",
                 @"configurations.all {
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }
 
-dependencies {"
+"
             );
-            Debug.Log("[NativeToolkit][Android] Added duplicate exclusion configuration to launcher build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added duplicate exclusion configuration to launcher build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find dependencies block in launcher build.gradle for duplicate exclusion configuration.");
+            }
         }
         else
         {
@@ -234,13 +292,22 @@ dependencies {"
         // Add Kotlin dependencies (to existing dependencies block)
         if (!content.Contains("kotlin-stdlib"))
         {
-            content = content.Replace(
-                "implementation 'androidx.constraintlayout:constraintlayout:2.1.4'",
-                @"implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'"
+            bool inserted = TryInsertAfterAnchorLine(
+                ref content,
+                "dependencies {",
+                @"    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+    implementation 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'
+"
             );
-            Debug.Log("[NativeToolkit][Android] Added Kotlin 2.0.21 dependencies to launcher build.gradle.");
+
+            if (inserted)
+            {
+                Debug.Log("[NativeToolkit][Android] Added Kotlin 2.0.21 dependencies to launcher build.gradle.");
+            }
+            else
+            {
+                Debug.LogWarning("[NativeToolkit][Android] Could not find dependencies block in launcher build.gradle for Kotlin dependencies.");
+            }
         }
         else
         {
@@ -267,5 +334,57 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 
         File.WriteAllText(filePath, content);
         Debug.Log("[NativeToolkit][Android] Modified launcher build.gradle to include Kotlin dependencies.");
+    }
+
+    private static bool TryInsertAfterFirstContaining(ref string content, string[] anchors, string snippet)
+    {
+        int bestIndex = -1;
+        string bestAnchor = null;
+
+        foreach (string anchor in anchors)
+        {
+            int anchorIndex = content.IndexOf(anchor, StringComparison.Ordinal);
+            if (anchorIndex >= 0 && (bestIndex < 0 || anchorIndex < bestIndex))
+            {
+                bestIndex = anchorIndex;
+                bestAnchor = anchor;
+            }
+        }
+
+        return bestAnchor != null && TryInsertAfterAnchorLine(ref content, bestAnchor, snippet);
+    }
+
+    private static bool TryInsertAfterAnchorLine(ref string content, string anchor, string snippet)
+    {
+        int anchorIndex = content.IndexOf(anchor, StringComparison.Ordinal);
+        if (anchorIndex < 0)
+        {
+            return false;
+        }
+
+        int lineEndIndex = content.IndexOf('\n', anchorIndex);
+        if (lineEndIndex < 0)
+        {
+            lineEndIndex = content.Length;
+        }
+        else
+        {
+            lineEndIndex += 1;
+        }
+
+        content = content.Insert(lineEndIndex, snippet);
+        return true;
+    }
+
+    private static bool TryInsertBeforeAnchorLine(ref string content, string anchor, string snippet)
+    {
+        int anchorIndex = content.IndexOf(anchor, StringComparison.Ordinal);
+        if (anchorIndex < 0)
+        {
+            return false;
+        }
+
+        content = content.Insert(anchorIndex, snippet);
+        return true;
     }
 }

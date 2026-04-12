@@ -62,6 +62,18 @@
     white-space: normal;
 }
 
+.android-dialog-secondary-button {
+    background-color: #607D8B;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    white-space: normal;
+}
+
 .android-dialog-button:hover {
     background-color: #1976D2;
 }

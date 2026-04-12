@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="AndroidNotificationManagerExampleStyle.uss" />
+    <ui:VisualElement class="android-notification-root">
+        <ui:ScrollView class="android-notification-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="android-notification-content">
+                <ui:Button name="HomeButton" class="android-secondary-button" text="Back To Home" />
+                <ui:Label text="AndroidNotificationManager Example" class="android-notification-title" />
+                <ui:VisualElement class="android-result-border">
+                    <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="android-result-text" />
+                </ui:VisualElement>
+                <ui:Button name="HasPermissionButton" class="android-notification-button" text="HasPermission" />
+                <ui:Button name="NotificationsEnabledButton" class="android-notification-button" text="AreNotificationsEnabled" />
+                <ui:Button name="NotificationSettingsButton" class="android-notification-button" text="OpenNotificationSettings" />
+                <ui:Button name="AppDetailsSettingsButton" class="android-notification-button" text="OpenAppDetailsSettings" />
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
