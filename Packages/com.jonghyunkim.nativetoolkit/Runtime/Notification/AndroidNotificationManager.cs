@@ -3,9 +3,9 @@
 #if UNITY_ANDROID
 namespace JonghyunKim.NativeToolkit.Runtime.Notification
 {
-    using UnityEngine;
     using System;
     using JonghyunKim.NativeToolkit.Runtime.Common;
+    using UnityEngine;
 
     /// <summary>
     /// Singleton manager for Android native notification operations.
@@ -15,8 +15,29 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     public class AndroidNotificationManager : MonoBehaviour
     {
         private const string PluginClassName = "android.unity.notification.UnityAndroidNotificationManager";
+
+        public const string OperationOpenNotificationSettings = "openNotificationSettings";
+        public const string OperationOpenAppDetailsSettings = "openAppDetailsSettings";
+        public const string OperationOpenExactAlarmSettings = "openExactAlarmSettings";
+        public const string OperationCreateChannel = "createChannel";
+        public const string OperationDeleteChannel = "deleteChannel";
+        public const string OperationShowNotification = "showNotification";
+        public const string OperationUpdateNotification = "updateNotification";
+        public const string OperationCancelNotification = "cancelNotification";
+        public const string OperationCancelAllNotifications = "cancelAllNotifications";
+        public const string OperationScheduleNotification = "scheduleNotification";
+        public const string OperationCancelScheduledNotification = "cancelScheduledNotification";
+        public const string OperationCancelAllScheduledNotifications = "cancelAllScheduledNotifications";
+        public const string OperationStartProgressForegroundService = "startProgressForegroundService";
+        public const string OperationUpdateProgressForegroundService = "updateProgressForegroundService";
+        public const string OperationCompleteProgressForegroundService = "completeProgressForegroundService";
+        public const string OperationStopProgressForegroundService = "stopProgressForegroundService";
+
         private static AndroidNotificationManager? _instance;
         private AndroidJavaObject? pluginInstance;
+        private NotificationOperationListenerProxy? operationListener;
+
+        public event Action<string, bool, string?>? NotificationOperationCompleted;
 
         /// <summary>
         /// Singleton instance property for AndroidNotificationManager.
@@ -52,12 +73,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             else if (_instance != this)
             {
                 Destroy(gameObject);
+                return;
             }
 
             // Ensure Dispatcher is created on main thread for safe cross-thread enqueueing
             _ = UnityMainThreadDispatcher.Instance;
 
             Initialize();
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance == this)
+            {
+                ClearOperationListener();
+                pluginInstance?.Dispose();
+                pluginInstance = null;
+                _instance = null;
+            }
         }
 
         /// <summary>
@@ -89,6 +122,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                 }
                 else
                 {
+                    operationListener ??= new NotificationOperationListenerProxy(this);
+                    pluginInstance.Call("setNotificationOperationListener", operationListener);
                     Debug.Log("notification pluginInstance initialized successfully.");
                 }
             }
@@ -113,33 +148,33 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// <summary>
         /// Opens the system notification settings screen for this app.
         /// </summary>
-        public bool OpenNotificationSettings()
+        public void OpenNotificationSettings()
         {
-            return CallBool("openNotificationSettings");
+            CallOperation(OperationOpenNotificationSettings);
         }
 
         /// <summary>
         /// Opens the app details settings screen.
         /// </summary>
-        public bool OpenAppDetailsSettings()
+        public void OpenAppDetailsSettings()
         {
-            return CallBool("openAppDetailsSettings");
+            CallOperation(OperationOpenAppDetailsSettings);
         }
 
         /// <summary>
         /// Opens exact alarm settings (Android 12+).
         /// </summary>
-        public bool OpenExactAlarmSettings()
+        public void OpenExactAlarmSettings()
         {
-            return CallBool("openExactAlarmSettings");
+            CallOperation(OperationOpenExactAlarmSettings);
         }
 
         /// <summary>
         /// Creates a notification channel using a JSON spec string.
         /// </summary>
-        public bool CreateChannel(string channelJson)
+        public void CreateChannel(string channelJson)
         {
-            return CallBool("createChannel", channelJson);
+            CallOperation(OperationCreateChannel, channelJson);
         }
 
         /// <summary>
@@ -147,23 +182,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void DeleteChannel(string channelId)
         {
-            CallVoid("deleteChannel", channelId);
+            CallOperation(OperationDeleteChannel, channelId);
         }
 
         /// <summary>
         /// Shows a notification using a JSON spec string.
         /// </summary>
-        public bool ShowNotification(string notificationJson)
+        public void ShowNotification(string notificationJson)
         {
-            return CallBool("showNotification", notificationJson);
+            CallOperation(OperationShowNotification, notificationJson);
         }
 
         /// <summary>
         /// Updates an existing notification using a JSON spec string.
         /// </summary>
-        public bool UpdateNotification(string notificationJson)
+        public void UpdateNotification(string notificationJson)
         {
-            return CallBool("updateNotification", notificationJson);
+            CallOperation(OperationUpdateNotification, notificationJson);
         }
 
         /// <summary>
@@ -171,7 +206,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelNotification(int id, string? tag = null)
         {
-            CallVoid("cancelNotification", id, tag);
+            CallOperation(OperationCancelNotification, id, tag);
         }
 
         /// <summary>
@@ -179,15 +214,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelAllNotifications()
         {
-            CallVoid("cancelAllNotifications");
+            CallOperation(OperationCancelAllNotifications);
         }
 
         /// <summary>
         /// Schedules a notification using a JSON schedule spec string.
         /// </summary>
-        public bool ScheduleNotification(string scheduleJson)
+        public void ScheduleNotification(string scheduleJson)
         {
-            return CallBool("scheduleNotification", scheduleJson);
+            CallOperation(OperationScheduleNotification, scheduleJson);
         }
 
         /// <summary>
@@ -195,7 +230,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelScheduledNotification(int id, string? tag = null)
         {
-            CallVoid("cancelScheduledNotification", id, tag);
+            CallOperation(OperationCancelScheduledNotification, id, tag);
         }
 
         /// <summary>
@@ -203,31 +238,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelAllScheduledNotifications()
         {
-            CallVoid("cancelAllScheduledNotifications");
+            CallOperation(OperationCancelAllScheduledNotifications);
         }
 
         /// <summary>
         /// Starts a progress foreground service notification using a JSON spec string.
         /// </summary>
-        public bool StartProgressForegroundService(string notificationJson)
+        public void StartProgressForegroundService(string notificationJson)
         {
-            return CallBool("startProgressForegroundService", notificationJson);
+            CallOperation(OperationStartProgressForegroundService, notificationJson);
         }
 
         /// <summary>
         /// Updates a progress foreground service notification using a JSON spec string.
         /// </summary>
-        public bool UpdateProgressForegroundService(string notificationJson)
+        public void UpdateProgressForegroundService(string notificationJson)
         {
-            return CallBool("updateProgressForegroundService", notificationJson);
+            CallOperation(OperationUpdateProgressForegroundService, notificationJson);
         }
 
         /// <summary>
         /// Completes a progress foreground service notification using a JSON spec string.
         /// </summary>
-        public bool CompleteProgressForegroundService(string notificationJson)
+        public void CompleteProgressForegroundService(string notificationJson)
         {
-            return CallBool("completeProgressForegroundService", notificationJson);
+            CallOperation(OperationCompleteProgressForegroundService, notificationJson);
         }
 
         /// <summary>
@@ -235,7 +270,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void StopProgressForegroundService()
         {
-            CallVoid("stopProgressForegroundService");
+            CallOperation(OperationStopProgressForegroundService);
         }
 
         private AndroidJavaObject? GetCurrentActivity()
@@ -256,21 +291,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
 
         private bool CallBool(string methodName, params object?[] args)
         {
-            if (!EnsureAndroidReady(methodName))
+            if (!TryPrepareCall(methodName, out object?[] fullArgs))
             {
                 return false;
             }
 
             try
             {
-                AndroidJavaObject? activity = GetCurrentActivity();
-                if (activity == null)
-                {
-                    Debug.LogError($"[AndroidNotificationManager] {methodName} failed: currentActivity is null");
-                    return false;
-                }
-
-                object?[] fullArgs = PrependContext(activity, args);
                 return pluginInstance!.Call<bool>(methodName, fullArgs);
             }
             catch (Exception ex)
@@ -280,29 +307,43 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             }
         }
 
-        private void CallVoid(string methodName, params object?[] args)
+        private void CallOperation(string operationName, params object?[] args)
         {
-            if (!EnsureAndroidReady(methodName))
+            if (!TryPrepareCall(operationName, out object?[] fullArgs, args))
             {
+                PublishOperationResult(operationName, false, $"{operationName} could not be started.");
                 return;
             }
 
             try
             {
-                AndroidJavaObject? activity = GetCurrentActivity();
-                if (activity == null)
-                {
-                    Debug.LogError($"[AndroidNotificationManager] {methodName} failed: currentActivity is null");
-                    return;
-                }
-
-                object?[] fullArgs = PrependContext(activity, args);
-                pluginInstance!.Call(methodName, fullArgs);
+                pluginInstance!.Call(operationName, fullArgs);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[AndroidNotificationManager] {methodName} error: {ex.Message}");
+                Debug.LogError($"[AndroidNotificationManager] {operationName} error: {ex.Message}");
+                PublishOperationResult(operationName, false, ex.Message);
             }
+        }
+
+        private bool TryPrepareCall(string methodName, out object?[] fullArgs, params object?[] args)
+        {
+            fullArgs = Array.Empty<object?>();
+
+            if (!EnsureAndroidReady(methodName))
+            {
+                return false;
+            }
+
+            AndroidJavaObject? activity = GetCurrentActivity();
+            if (activity == null)
+            {
+                Debug.LogError($"[AndroidNotificationManager] {methodName} failed: currentActivity is null");
+                return false;
+            }
+
+            fullArgs = PrependContext(activity, args);
+            return true;
         }
 
         private bool EnsureAndroidReady(string methodName)
@@ -322,6 +363,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             return true;
         }
 
+        private void ClearOperationListener()
+        {
+            if (pluginInstance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                pluginInstance.Call("clearNotificationOperationListener");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AndroidNotificationManager] clearNotificationOperationListener failed: {ex.Message}");
+            }
+        }
+
+        private void PublishOperationResult(string operation, bool isSuccessful, string? errorMessage)
+        {
+            UnityMainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                NotificationOperationCompleted?.Invoke(operation, isSuccessful, errorMessage);
+            });
+        }
+
         private static object?[] PrependContext(AndroidJavaObject activity, object?[] args)
         {
             object?[] fullArgs = new object?[args.Length + 1];
@@ -331,6 +397,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                 fullArgs[i + 1] = args[i];
             }
             return fullArgs;
+        }
+
+        private sealed class NotificationOperationListenerProxy : AndroidJavaProxy
+        {
+            private readonly AndroidNotificationManager owner;
+
+            public NotificationOperationListenerProxy(AndroidNotificationManager owner)
+                : base("android.unity.notification.UnityAndroidNotificationManager$NotificationOperationListener")
+            {
+                this.owner = owner;
+            }
+
+            public void onNotificationOperation(string operation, bool isSuccessful, string? errorMessage)
+            {
+                owner.PublishOperationResult(operation, isSuccessful, errorMessage);
+            }
         }
     }
 }
