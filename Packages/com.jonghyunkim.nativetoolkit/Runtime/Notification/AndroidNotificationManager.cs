@@ -36,8 +36,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         private static AndroidNotificationManager? _instance;
         private AndroidJavaObject? pluginInstance;
         private NotificationOperationListenerProxy? operationListener;
+        private NotificationActionListenerProxy? actionListener;
 
-        public event Action<string, bool, string?>? NotificationOperationCompleted;
+        public event Action<NotificationResult>? NotificationOperationCompleted;
+        public event Action<NotificationActionResult>? NotificationActionTapped;
 
         /// <summary>
         /// Singleton instance property for AndroidNotificationManager.
@@ -52,7 +54,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                     Debug.Log("Creating new instance of AndroidNotificationManager");
                     GameObject singletonObject = new GameObject("AndroidNotificationManager");
                     _instance = singletonObject.AddComponent<AndroidNotificationManager>();
-                    DontDestroyOnLoad(singletonObject);
                 }
                 return _instance;
             }
@@ -87,6 +88,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             if (_instance == this)
             {
                 ClearOperationListener();
+                ClearActionListener();
                 pluginInstance?.Dispose();
                 pluginInstance = null;
                 _instance = null;
@@ -124,6 +126,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                 {
                     operationListener ??= new NotificationOperationListenerProxy(this);
                     pluginInstance.Call("setNotificationOperationListener", operationListener);
+                    actionListener ??= new NotificationActionListenerProxy(this);
+                    pluginInstance.Call("setNotificationActionListener", actionListener);
                     Debug.Log("notification pluginInstance initialized successfully.");
                 }
             }
@@ -291,51 +295,58 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
 
         private bool CallBool(string methodName, params object?[] args)
         {
-            if (!TryPrepareCall(methodName, out object?[] fullArgs))
+            if (!TryPrepareCall(methodName, out object?[] fullArgs, out AndroidJavaObject? activity, args))
             {
                 return false;
             }
 
-            try
+            using (activity)
             {
-                return pluginInstance!.Call<bool>(methodName, fullArgs);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[AndroidNotificationManager] {methodName} error: {ex.Message}");
-                return false;
+                try
+                {
+                    return pluginInstance!.Call<bool>(methodName, fullArgs);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[AndroidNotificationManager] {methodName} error: {ex.Message}");
+                    return false;
+                }
             }
         }
 
         private void CallOperation(string operationName, params object?[] args)
         {
-            if (!TryPrepareCall(operationName, out object?[] fullArgs, args))
+            if (!TryPrepareCall(operationName, out object?[] fullArgs, out AndroidJavaObject? activity, args))
             {
-                PublishOperationResult(operationName, false, $"{operationName} could not be started.");
+                PublishOperationResult(NotificationResult.Failure(operationName, $"{operationName} could not be started."));
                 return;
             }
 
-            try
+            using (activity)
             {
-                pluginInstance!.Call(operationName, fullArgs);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[AndroidNotificationManager] {operationName} error: {ex.Message}");
-                PublishOperationResult(operationName, false, ex.Message);
+                try
+                {
+                    pluginInstance!.Call(operationName, fullArgs);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[AndroidNotificationManager] {operationName} error: {ex.Message}");
+                    PublishOperationResult(NotificationResult.Failure(operationName, ex.Message));
+                }
             }
         }
 
-        private bool TryPrepareCall(string methodName, out object?[] fullArgs, params object?[] args)
+        private bool TryPrepareCall(string methodName, out object?[] fullArgs, out AndroidJavaObject? activity, params object?[] args)
         {
             fullArgs = Array.Empty<object?>();
+            activity = null;
 
             if (!EnsureAndroidReady(methodName))
             {
                 return false;
             }
 
-            AndroidJavaObject? activity = GetCurrentActivity();
+            activity = GetCurrentActivity();
             if (activity == null)
             {
                 Debug.LogError($"[AndroidNotificationManager] {methodName} failed: currentActivity is null");
@@ -380,11 +391,36 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             }
         }
 
-        private void PublishOperationResult(string operation, bool isSuccessful, string? errorMessage)
+        private void ClearActionListener()
+        {
+            if (pluginInstance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                pluginInstance.Call("clearNotificationActionListener");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AndroidNotificationManager] clearNotificationActionListener failed: {ex.Message}");
+            }
+        }
+
+        private void PublishOperationResult(NotificationResult result)
         {
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
             {
-                NotificationOperationCompleted?.Invoke(operation, isSuccessful, errorMessage);
+                NotificationOperationCompleted?.Invoke(result);
+            });
+        }
+
+        private void PublishActionResult(NotificationActionResult result)
+        {
+            UnityMainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                NotificationActionTapped?.Invoke(result);
             });
         }
 
@@ -411,7 +447,26 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
 
             public void onNotificationOperation(string operation, bool isSuccessful, string? errorMessage)
             {
-                owner.PublishOperationResult(operation, isSuccessful, errorMessage);
+                NotificationResult result = isSuccessful
+                    ? NotificationResult.Success(operation)
+                    : NotificationResult.Failure(operation, errorMessage ?? string.Empty);
+                owner.PublishOperationResult(result);
+            }
+        }
+
+        private sealed class NotificationActionListenerProxy : AndroidJavaProxy
+        {
+            private readonly AndroidNotificationManager owner;
+
+            public NotificationActionListenerProxy(AndroidNotificationManager owner)
+                : base("android.unity.notification.NotificationActionReceiver$NotificationActionListener")
+            {
+                this.owner = owner;
+            }
+
+            public void onNotificationAction(string actionId, int notificationId)
+            {
+                owner.PublishActionResult(new NotificationActionResult(actionId, notificationId));
             }
         }
     }

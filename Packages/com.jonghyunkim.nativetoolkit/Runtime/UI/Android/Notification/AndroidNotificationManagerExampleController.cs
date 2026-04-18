@@ -19,6 +19,10 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private const int ImmediateNotificationId = 1101;
     private const int ScheduledNotificationId = 1201;
     private const int ProgressNotificationId = 1301;
+    private const int ActionNotificationId = 1401;
+    private const int FullScreenNotificationId = 1501;
+    private const string ActionPlayNow = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW";
+    private const string ActionDismiss = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS";
 
     private Label? _resultLabel;
     private Button? _homeButton;
@@ -40,6 +44,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private Button? _updateProgressButton;
     private Button? _completeProgressButton;
     private Button? _stopProgressButton;
+    private Button? _showActionNotificationButton;
+    private Button? _showFullScreenNotificationButton;
 
     private int _currentProgressValue = 15;
     private readonly Dictionary<string, string> _pendingOperationDescriptions = new Dictionary<string, string>();
@@ -67,6 +73,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted += OnNotificationOperationCompleted;
+        AndroidNotificationManager.Instance.NotificationActionTapped += OnNotificationActionTapped;
 #endif
 
         if (uiDocument == null)
@@ -87,6 +94,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted -= OnNotificationOperationCompleted;
+        AndroidNotificationManager.Instance.NotificationActionTapped -= OnNotificationActionTapped;
 #endif
 
         if (_homeButton != null) _homeButton.clicked -= OnHomeClicked;
@@ -108,6 +116,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_updateProgressButton != null) _updateProgressButton.clicked -= OnUpdateProgressClicked;
         if (_completeProgressButton != null) _completeProgressButton.clicked -= OnCompleteProgressClicked;
         if (_stopProgressButton != null) _stopProgressButton.clicked -= OnStopProgressClicked;
+        if (_showActionNotificationButton != null) _showActionNotificationButton.clicked -= OnShowActionNotificationClicked;
+        if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked -= OnShowFullScreenNotificationClicked;
     }
 
     private void InitializeUI()
@@ -139,6 +149,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         _updateProgressButton = root.Q<Button>("UpdateProgressButton");
         _completeProgressButton = root.Q<Button>("CompleteProgressButton");
         _stopProgressButton = root.Q<Button>("StopProgressButton");
+        _showActionNotificationButton = root.Q<Button>("ShowActionNotificationButton");
+        _showFullScreenNotificationButton = root.Q<Button>("ShowFullScreenNotificationButton");
 
         if (_homeButton != null) _homeButton.clicked += OnHomeClicked;
         if (_hasPermissionButton != null) _hasPermissionButton.clicked += OnHasPermissionClicked;
@@ -159,6 +171,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_updateProgressButton != null) _updateProgressButton.clicked += OnUpdateProgressClicked;
         if (_completeProgressButton != null) _completeProgressButton.clicked += OnCompleteProgressClicked;
         if (_stopProgressButton != null) _stopProgressButton.clicked += OnStopProgressClicked;
+        if (_showActionNotificationButton != null) _showActionNotificationButton.clicked += OnShowActionNotificationClicked;
+        if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked += OnShowFullScreenNotificationClicked;
 
         SetResult("Android notification sample ready. Create a gameplay channel first, then test immediate, scheduled, and progress notifications on an Android device.");
     }
@@ -358,6 +372,26 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
+    private void OnShowActionNotificationClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing match alert {ActionNotificationId} with action buttons.");
+        AndroidNotificationManager.Instance.ShowNotification(BuildActionNotificationJson());
+#else
+        SetResult("Android device only. Run this sample on Android to show a notification with action buttons.");
+#endif
+    }
+
+    private void OnShowFullScreenNotificationClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing full-screen match start notification {FullScreenNotificationId}.");
+        AndroidNotificationManager.Instance.ShowNotification(BuildFullScreenNotificationJson());
+#else
+        SetResult("Android device only. Run this sample on Android to show a full-screen notification.");
+#endif
+    }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
     private void RegisterRequestedOperation(string operation, string description)
     {
@@ -365,20 +399,20 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         SetResult($"Requested: {description}");
     }
 
-    private void OnNotificationOperationCompleted(string operation, bool isSuccessful, string? errorMessage)
+    private void OnNotificationOperationCompleted(NotificationResult result)
     {
-        string description = _pendingOperationDescriptions.TryGetValue(operation, out string? value)
+        string description = _pendingOperationDescriptions.TryGetValue(result.Operation, out string? value)
             ? value
-            : GetOperationDescription(operation);
+            : GetOperationDescription(result.Operation);
 
-        _pendingOperationDescriptions.Remove(operation);
+        _pendingOperationDescriptions.Remove(result.Operation);
 
-        string status = isSuccessful ? "Success" : "Failed";
-        string message = $"{GetOperationTitle(operation)}: {status}\n{description}";
+        string status = result.IsSuccess ? "Success" : "Failed";
+        string message = $"{GetOperationTitle(result.Operation)}: {status}\n{description}";
 
-        if (!string.IsNullOrEmpty(errorMessage))
+        if (!string.IsNullOrEmpty(result.ErrorMessage))
         {
-            message += $"\nError: {errorMessage}";
+            message += $"\nError: {result.ErrorMessage}";
         }
 
         SetResult(message);
@@ -430,6 +464,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
             AndroidNotificationManager.OperationStopProgressForegroundService => "Stopping foreground progress notification.",
             _ => operation
         };
+    }
+
+    private void OnNotificationActionTapped(NotificationActionResult result)
+    {
+        SetResult($"Action Tapped\nAction: {result.ActionId}\nNotification ID: {result.NotificationId}");
     }
 #endif
 
@@ -608,6 +647,50 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         });
     }
 
+    private string BuildActionNotificationJson()
+    {
+        return JsonUtility.ToJson(new NotificationPayload
+        {
+            id = ActionNotificationId,
+            title = "Match Found",
+            message = "A ranked match is ready. Accept within 30 seconds.",
+            channel = CreateGameplayChannelReference(),
+            autoCancel = true,
+            priority = 1,
+            actions = new[]
+            {
+                new NotificationActionPayload
+                {
+                    title = "Play Now",
+                    actionId = ActionPlayNow,
+                    launchApp = true,
+                    showsUserInterface = true
+                },
+                new NotificationActionPayload
+                {
+                    title = "Dismiss",
+                    actionId = ActionDismiss,
+                    launchApp = false,
+                    showsUserInterface = false
+                }
+            }
+        });
+    }
+
+    private string BuildFullScreenNotificationJson()
+    {
+        return JsonUtility.ToJson(new NotificationPayload
+        {
+            id = FullScreenNotificationId,
+            title = "Match Starting",
+            message = "Your match begins now. Launching game screen.",
+            channel = CreateGameplayChannelReference(),
+            autoCancel = true,
+            priority = 2,
+            fullScreenIntent = true
+        });
+    }
+
     private ChannelPayload CreateGameplayChannelReference()
     {
         return new ChannelPayload
@@ -673,6 +756,17 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         public bool onlyAlertOnce;
         public NotificationProgressPayload? progress;
         public NotificationStylePayload? style;
+        public bool fullScreenIntent;
+        public NotificationActionPayload[] actions = Array.Empty<NotificationActionPayload>();
+    }
+
+    [Serializable]
+    private sealed class NotificationActionPayload
+    {
+        public string title = string.Empty;
+        public string actionId = string.Empty;
+        public bool launchApp;
+        public bool showsUserInterface = true;
     }
 
     [Serializable]
