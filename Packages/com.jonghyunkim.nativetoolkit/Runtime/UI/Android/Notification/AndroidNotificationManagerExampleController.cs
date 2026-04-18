@@ -46,6 +46,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private Button? _stopProgressButton;
     private Button? _showActionNotificationButton;
     private Button? _showFullScreenNotificationButton;
+    private Button? _requestPermissionButton;
+    private Button? _canScheduleExactAlarmsButton;
 
     private int _currentProgressValue = 15;
     private readonly Dictionary<string, string> _pendingOperationDescriptions = new Dictionary<string, string>();
@@ -118,6 +120,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_stopProgressButton != null) _stopProgressButton.clicked -= OnStopProgressClicked;
         if (_showActionNotificationButton != null) _showActionNotificationButton.clicked -= OnShowActionNotificationClicked;
         if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked -= OnShowFullScreenNotificationClicked;
+        if (_requestPermissionButton != null) _requestPermissionButton.clicked -= OnRequestPermissionClicked;
+        if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked -= OnCanScheduleExactAlarmsClicked;
     }
 
     private void InitializeUI()
@@ -151,6 +155,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         _stopProgressButton = root.Q<Button>("StopProgressButton");
         _showActionNotificationButton = root.Q<Button>("ShowActionNotificationButton");
         _showFullScreenNotificationButton = root.Q<Button>("ShowFullScreenNotificationButton");
+        _requestPermissionButton = root.Q<Button>("RequestPermissionButton");
+        _canScheduleExactAlarmsButton = root.Q<Button>("CanScheduleExactAlarmsButton");
 
         if (_homeButton != null) _homeButton.clicked += OnHomeClicked;
         if (_hasPermissionButton != null) _hasPermissionButton.clicked += OnHasPermissionClicked;
@@ -173,6 +179,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_stopProgressButton != null) _stopProgressButton.clicked += OnStopProgressClicked;
         if (_showActionNotificationButton != null) _showActionNotificationButton.clicked += OnShowActionNotificationClicked;
         if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked += OnShowFullScreenNotificationClicked;
+        if (_requestPermissionButton != null) _requestPermissionButton.clicked += OnRequestPermissionClicked;
+        if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked += OnCanScheduleExactAlarmsClicked;
 
         SetResult("Android notification sample ready. Create a gameplay channel first, then test immediate, scheduled, and progress notifications on an Android device.");
     }
@@ -392,6 +400,28 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
+    private void OnCanScheduleExactAlarmsClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        SetResult($"CanScheduleExactAlarms: {AndroidNotificationManager.Instance.CanScheduleExactAlarms()}");
+#else
+        SetResult("Android device only. Run this sample on Android 12+ to check exact alarm permission.");
+#endif
+    }
+
+    private void OnRequestPermissionClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        SetResult("Requesting POST_NOTIFICATIONS permission...");
+        AndroidNotificationManager.Instance.RequestPermission(granted =>
+        {
+            SetResult($"Permission {(granted ? "Granted" : "Denied")}");
+        });
+#else
+        SetResult("Android device only. Run this sample on Android 13+ to request notification permission.");
+#endif
+    }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
     private void RegisterRequestedOperation(string operation, string description)
     {
@@ -468,7 +498,25 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private void OnNotificationActionTapped(NotificationActionResult result)
     {
-        SetResult($"Action Tapped\nAction: {result.ActionId}\nNotification ID: {result.NotificationId}");
+        bool isBodyTap = result.ActionId == AndroidNotificationManager.ActionBodyTap;
+        bool isDismiss = result.ActionId == AndroidNotificationManager.ActionNotificationDismissed;
+        string tapType = isBodyTap ? "Body Tap" : isDismiss ? "Dismissed" : "Action Button";
+        string message = $"Notification {tapType}\nNotification ID: {result.NotificationId}";
+        if (!isBodyTap && !isDismiss)
+        {
+            message += $"\nAction: {result.ActionId}";
+        }
+
+        if (result.Data != null && result.Data.Count > 0)
+        {
+            message += "\nData:";
+            foreach (var kvp in result.Data)
+            {
+                message += $"\n  {kvp.Key}={kvp.Value}";
+            }
+        }
+
+        SetResult(message);
     }
 #endif
 
@@ -649,7 +697,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildActionNotificationJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        var json = JsonUtility.ToJson(new NotificationPayload
         {
             id = ActionNotificationId,
             title = "Match Found",
@@ -675,6 +723,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
                 }
             }
         });
+        // Inject data field (JsonUtility does not support Dictionary serialization)
+        return json[..^1] + ",\"data\":{\"screen\":\"battle\",\"matchId\":\"match_5678\"}}";
     }
 
     private string BuildFullScreenNotificationJson()

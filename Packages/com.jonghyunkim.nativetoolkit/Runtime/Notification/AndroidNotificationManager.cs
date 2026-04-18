@@ -16,6 +16,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     {
         private const string PluginClassName = "android.unity.notification.UnityAndroidNotificationManager";
 
+        public const string ActionBodyTap = "android.unity.notification.ACTION_BODY_TAP";
+        public const string ActionNotificationDismissed = "android.unity.notification.ACTION_NOTIFICATION_DISMISSED";
+
         public const string OperationOpenNotificationSettings = "openNotificationSettings";
         public const string OperationOpenAppDetailsSettings = "openAppDetailsSettings";
         public const string OperationOpenExactAlarmSettings = "openExactAlarmSettings";
@@ -142,11 +145,41 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         }
 
         /// <summary>
+        /// Checks whether the app can schedule exact alarms (Android 12+ / API 31+).
+        /// Returns true on Android 11 and below. Check before calling ScheduleNotification with exact=true.
+        /// </summary>
+        public bool CanScheduleExactAlarms()
+        {
+            return CallBool("canScheduleExactAlarms");
+        }
+
+        /// <summary>
         /// Checks whether notifications are enabled for the app.
         /// </summary>
         public bool AreNotificationsEnabled()
         {
             return CallBool("areNotificationsEnabled");
+        }
+
+        /// <summary>
+        /// Requests POST_NOTIFICATIONS permission (Android 13+). Invokes onResult with true if granted.
+        /// Falls through immediately with true if permission is already granted.
+        /// </summary>
+        public void RequestPermission(Action<bool>? onResult = null)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (HasPermission())
+            {
+                onResult?.Invoke(true);
+                return;
+            }
+
+            var callbacks = new UnityEngine.Android.PermissionCallbacks();
+            callbacks.PermissionGranted += _ => onResult?.Invoke(true);
+            callbacks.PermissionDenied += _ => onResult?.Invoke(false);
+            callbacks.PermissionDeniedAndDontAskAgain += _ => onResult?.Invoke(false);
+            UnityEngine.Android.Permission.RequestUserPermission("android.permission.POST_NOTIFICATIONS", callbacks);
+#endif
         }
 
         /// <summary>
@@ -464,9 +497,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                 this.owner = owner;
             }
 
-            public void onNotificationAction(string actionId, int notificationId)
+            public void onNotificationAction(string actionId, int notificationId, string? dataJson)
             {
-                owner.PublishActionResult(new NotificationActionResult(actionId, notificationId));
+                owner.PublishActionResult(new NotificationActionResult(actionId, notificationId, dataJson));
             }
         }
     }

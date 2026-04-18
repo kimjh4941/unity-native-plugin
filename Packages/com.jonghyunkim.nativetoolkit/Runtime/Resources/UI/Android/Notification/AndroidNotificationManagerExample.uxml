@@ -17,6 +17,7 @@
                     <ui:Button name="NotificationSettingsButton" class="android-notification-button" text="Open Notification Settings" />
                     <ui:Button name="AppDetailsSettingsButton" class="android-notification-button" text="Open App Details Settings" />
                     <ui:Button name="ExactAlarmSettingsButton" class="android-notification-button" text="Open Exact Alarm Settings" />
+                    <ui:Button name="CanScheduleExactAlarmsButton" class="android-notification-button" text="Can Schedule Exact Alarms" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="android-section-card">
@@ -56,6 +57,11 @@
                 <ui:VisualElement class="android-section-card">
                     <ui:Label text="Full-Screen Intent" class="android-section-title" />
                     <ui:Button name="ShowFullScreenNotificationButton" class="android-notification-button" text="Show Match Starting (Full Screen)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section-card">
+                    <ui:Label text="Permission (Android 13+)" class="android-section-title" />
+                    <ui:Button name="RequestPermissionButton" class="android-notification-button" text="Request Notification Permission" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:ScrollView>
