@@ -37,6 +37,7 @@
                 <ui:VisualElement class="android-section-card">
                     <ui:Label text="Scheduled Notification" class="android-section-title" />
                     <ui:Button name="ScheduleNotificationButton" class="android-notification-button" text="Schedule Guild Battle Reminder" />
+                    <ui:Button name="IsScheduledNotificationButton" class="android-notification-button" text="Is Guild Battle Scheduled?" />
                     <ui:Button name="CancelScheduledNotificationButton" class="android-secondary-button" text="Cancel Scheduled Reminder" />
                     <ui:Button name="CancelAllScheduledNotificationsButton" class="android-secondary-button" text="Cancel All Scheduled Reminders" />
                 </ui:VisualElement>

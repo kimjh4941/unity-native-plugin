@@ -40,9 +40,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         private AndroidJavaObject? pluginInstance;
         private NotificationOperationListenerProxy? operationListener;
         private NotificationActionListenerProxy? actionListener;
+        private NotificationShownListenerProxy? shownListener;
 
         public event Action<NotificationResult>? NotificationOperationCompleted;
         public event Action<NotificationActionResult>? NotificationActionTapped;
+        public event Action<NotificationReceivedResult>? NotificationReceived;
 
         /// <summary>
         /// Singleton instance property for AndroidNotificationManager.
@@ -92,6 +94,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             {
                 ClearOperationListener();
                 ClearActionListener();
+                ClearShownListener();
                 pluginInstance?.Dispose();
                 pluginInstance = null;
                 _instance = null;
@@ -131,6 +134,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
                     pluginInstance.Call("setNotificationOperationListener", operationListener);
                     actionListener ??= new NotificationActionListenerProxy(this);
                     pluginInstance.Call("setNotificationActionListener", actionListener);
+                    shownListener ??= new NotificationShownListenerProxy(this);
+                    pluginInstance.Call("setNotificationShownListener", shownListener);
                     Debug.Log("notification pluginInstance initialized successfully.");
                 }
             }
@@ -310,6 +315,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             CallOperation(OperationStopProgressForegroundService);
         }
 
+        /// <summary>
+        /// Returns true if a notification with the given id (and optional tag) is still scheduled.
+        /// </summary>
+        public bool IsNotificationScheduled(int id, string? tag = null)
+        {
+            return CallBool("isNotificationScheduled", id, tag);
+        }
+
         private AndroidJavaObject? GetCurrentActivity()
         {
             try
@@ -441,6 +454,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             }
         }
 
+        private void ClearShownListener()
+        {
+            if (pluginInstance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                pluginInstance.Call("clearNotificationShownListener");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[AndroidNotificationManager] clearNotificationShownListener failed: {ex.Message}");
+            }
+        }
+
         private void PublishOperationResult(NotificationResult result)
         {
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -454,6 +484,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
             {
                 NotificationActionTapped?.Invoke(result);
+            });
+        }
+
+        private void PublishReceivedResult(NotificationReceivedResult result)
+        {
+            UnityMainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                NotificationReceived?.Invoke(result);
             });
         }
 
@@ -500,6 +538,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             public void onNotificationAction(string actionId, int notificationId, string? dataJson)
             {
                 owner.PublishActionResult(new NotificationActionResult(actionId, notificationId, dataJson));
+            }
+        }
+
+        private sealed class NotificationShownListenerProxy : AndroidJavaProxy
+        {
+            private readonly AndroidNotificationManager owner;
+
+            public NotificationShownListenerProxy(AndroidNotificationManager owner)
+                : base("android.library.notification.NotificationShownSupport$NotificationShownListener")
+            {
+                this.owner = owner;
+            }
+
+            public void onNotificationShown(int notificationId, string? tag, string channelId)
+            {
+                owner.PublishReceivedResult(new NotificationReceivedResult(notificationId, tag, channelId));
             }
         }
     }

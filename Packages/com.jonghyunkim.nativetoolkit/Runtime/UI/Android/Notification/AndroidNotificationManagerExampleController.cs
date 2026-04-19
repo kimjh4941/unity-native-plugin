@@ -48,6 +48,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private Button? _showFullScreenNotificationButton;
     private Button? _requestPermissionButton;
     private Button? _canScheduleExactAlarmsButton;
+    private Button? _isScheduledNotificationButton;
 
     private int _currentProgressValue = 15;
     private readonly Dictionary<string, string> _pendingOperationDescriptions = new Dictionary<string, string>();
@@ -76,6 +77,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted += OnNotificationOperationCompleted;
         AndroidNotificationManager.Instance.NotificationActionTapped += OnNotificationActionTapped;
+        AndroidNotificationManager.Instance.NotificationReceived += OnNotificationReceived;
 #endif
 
         if (uiDocument == null)
@@ -97,6 +99,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted -= OnNotificationOperationCompleted;
         AndroidNotificationManager.Instance.NotificationActionTapped -= OnNotificationActionTapped;
+        AndroidNotificationManager.Instance.NotificationReceived -= OnNotificationReceived;
 #endif
 
         if (_homeButton != null) _homeButton.clicked -= OnHomeClicked;
@@ -122,6 +125,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked -= OnShowFullScreenNotificationClicked;
         if (_requestPermissionButton != null) _requestPermissionButton.clicked -= OnRequestPermissionClicked;
         if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked -= OnCanScheduleExactAlarmsClicked;
+        if (_isScheduledNotificationButton != null) _isScheduledNotificationButton.clicked -= OnIsScheduledNotificationClicked;
     }
 
     private void InitializeUI()
@@ -157,6 +161,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         _showFullScreenNotificationButton = root.Q<Button>("ShowFullScreenNotificationButton");
         _requestPermissionButton = root.Q<Button>("RequestPermissionButton");
         _canScheduleExactAlarmsButton = root.Q<Button>("CanScheduleExactAlarmsButton");
+        _isScheduledNotificationButton = root.Q<Button>("IsScheduledNotificationButton");
 
         if (_homeButton != null) _homeButton.clicked += OnHomeClicked;
         if (_hasPermissionButton != null) _hasPermissionButton.clicked += OnHasPermissionClicked;
@@ -181,6 +186,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_showFullScreenNotificationButton != null) _showFullScreenNotificationButton.clicked += OnShowFullScreenNotificationClicked;
         if (_requestPermissionButton != null) _requestPermissionButton.clicked += OnRequestPermissionClicked;
         if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked += OnCanScheduleExactAlarmsClicked;
+        if (_isScheduledNotificationButton != null) _isScheduledNotificationButton.clicked += OnIsScheduledNotificationClicked;
 
         SetResult("Android notification sample ready. Create a gameplay channel first, then test immediate, scheduled, and progress notifications on an Android device.");
     }
@@ -422,6 +428,16 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
+    private void OnIsScheduledNotificationClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        bool scheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(ScheduledNotificationId, "guild-battle");
+        SetResult($"IsNotificationScheduled({ScheduledNotificationId}, guild-battle): {scheduled}");
+#else
+        SetResult("Android device only. Run this sample on Android to check scheduled notification status.");
+#endif
+    }
+
 #if UNITY_ANDROID && !UNITY_EDITOR
     private void RegisterRequestedOperation(string operation, string description)
     {
@@ -494,6 +510,13 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
             AndroidNotificationManager.OperationStopProgressForegroundService => "Stopping foreground progress notification.",
             _ => operation
         };
+    }
+
+    private void OnNotificationReceived(NotificationReceivedResult result)
+    {
+        string message = $"Notification Received (Foreground)\nID: {result.NotificationId}\nChannel: {result.ChannelId}";
+        if (result.Tag != null) message += $"\nTag: {result.Tag}";
+        SetResult(message);
     }
 
     private void OnNotificationActionTapped(NotificationActionResult result)
