@@ -61,6 +61,11 @@
                 </ui:VisualElement>
 
                 <ui:VisualElement class="android-section-card">
+                    <ui:Label text="Decorated Custom View" class="android-section-title" />
+                    <ui:Button name="ShowDecoratedCustomViewButton" class="android-notification-button" text="Show Custom Layout Notification" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section-card">
                     <ui:Label text="Permission (Android 13+)" class="android-section-title" />
                     <ui:Button name="RequestPermissionButton" class="android-notification-button" text="Request Notification Permission" />
                 </ui:VisualElement>

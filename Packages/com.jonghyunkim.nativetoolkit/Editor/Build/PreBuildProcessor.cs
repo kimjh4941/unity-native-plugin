@@ -158,12 +158,18 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         // destination directory in Unity project
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
-        // ensure clean destination
+        // remove only .aar files so that res/ and other assets are preserved
         if (Directory.Exists(destDir))
         {
-            Directory.Delete(destDir, true);
+            foreach (string aarFile in Directory.GetFiles(destDir, "*.aar"))
+            {
+                File.Delete(aarFile);
+            }
         }
-        Directory.CreateDirectory(destDir);
+        else
+        {
+            Directory.CreateDirectory(destDir);
+        }
 
         // rename if exists
         RunShellCommand($"if [ -f \"{builtAar1}\" ]; then mv \"{builtAar1}\" \"{desiredAar1}\"; fi");

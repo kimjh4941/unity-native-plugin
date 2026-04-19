@@ -21,8 +21,10 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private const int ProgressNotificationId = 1301;
     private const int ActionNotificationId = 1401;
     private const int FullScreenNotificationId = 1501;
+    private const int DecoratedCustomViewNotificationId = 1601;
     private const string ActionPlayNow = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW";
     private const string ActionDismiss = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS";
+    private const string ActionCustomViewDismiss = "com.jonghyunkim.nativetoolkit.ACTION_CUSTOM_VIEW_DISMISS";
 
     private Label? _resultLabel;
     private Button? _homeButton;
@@ -49,6 +51,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private Button? _requestPermissionButton;
     private Button? _canScheduleExactAlarmsButton;
     private Button? _isScheduledNotificationButton;
+    private Button? _showDecoratedCustomViewButton;
 
     private int _currentProgressValue = 15;
     private readonly Dictionary<string, string> _pendingOperationDescriptions = new Dictionary<string, string>();
@@ -126,6 +129,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_requestPermissionButton != null) _requestPermissionButton.clicked -= OnRequestPermissionClicked;
         if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked -= OnCanScheduleExactAlarmsClicked;
         if (_isScheduledNotificationButton != null) _isScheduledNotificationButton.clicked -= OnIsScheduledNotificationClicked;
+        if (_showDecoratedCustomViewButton != null) _showDecoratedCustomViewButton.clicked -= OnShowDecoratedCustomViewClicked;
     }
 
     private void InitializeUI()
@@ -162,6 +166,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         _requestPermissionButton = root.Q<Button>("RequestPermissionButton");
         _canScheduleExactAlarmsButton = root.Q<Button>("CanScheduleExactAlarmsButton");
         _isScheduledNotificationButton = root.Q<Button>("IsScheduledNotificationButton");
+        _showDecoratedCustomViewButton = root.Q<Button>("ShowDecoratedCustomViewButton");
 
         if (_homeButton != null) _homeButton.clicked += OnHomeClicked;
         if (_hasPermissionButton != null) _hasPermissionButton.clicked += OnHasPermissionClicked;
@@ -187,6 +192,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_requestPermissionButton != null) _requestPermissionButton.clicked += OnRequestPermissionClicked;
         if (_canScheduleExactAlarmsButton != null) _canScheduleExactAlarmsButton.clicked += OnCanScheduleExactAlarmsClicked;
         if (_isScheduledNotificationButton != null) _isScheduledNotificationButton.clicked += OnIsScheduledNotificationClicked;
+        if (_showDecoratedCustomViewButton != null) _showDecoratedCustomViewButton.clicked += OnShowDecoratedCustomViewClicked;
 
         SetResult("Android notification sample ready. Create a gameplay channel first, then test immediate, scheduled, and progress notifications on an Android device.");
     }
@@ -435,6 +441,16 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         SetResult($"IsNotificationScheduled({ScheduledNotificationId}, guild-battle): {scheduled}");
 #else
         SetResult("Android device only. Run this sample on Android to check scheduled notification status.");
+#endif
+    }
+
+    private void OnShowDecoratedCustomViewClicked()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing custom view notification {DecoratedCustomViewNotificationId}.");
+        AndroidNotificationManager.Instance.ShowNotification(BuildDecoratedCustomViewNotificationJson());
+#else
+        SetResult("Android device only. Run this sample on Android to show a decorated custom view notification.");
 #endif
     }
 
@@ -764,6 +780,33 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         });
     }
 
+    private string BuildDecoratedCustomViewNotificationJson()
+    {
+        return JsonUtility.ToJson(new NotificationPayload
+        {
+            id = DecoratedCustomViewNotificationId,
+            title = "Custom Layout Notification",
+            message = "Expand to see the custom view and tap Dismiss.",
+            channel = CreateGameplayChannelReference(),
+            autoCancel = true,
+            style = new NotificationStylePayload
+            {
+                type = "decoratedCustomView",
+                customViewLayout = "nt_notification_custom_view_sample",
+                bigCustomViewLayout = "nt_notification_custom_view_sample_expanded",
+                viewActions = new[]
+                {
+                    new NotificationViewActionPayload
+                    {
+                        type = "setClickIntent",
+                        viewId = "nt_notification_btn_dismiss",
+                        actionId = ActionCustomViewDismiss
+                    }
+                }
+            }
+        });
+    }
+
     private ChannelPayload CreateGameplayChannelReference()
     {
         return new ChannelPayload
@@ -874,6 +917,17 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         public string bigText = string.Empty;
         public string summaryText = string.Empty;
         public string bigContentTitle = string.Empty;
+        public string customViewLayout = string.Empty;
+        public string bigCustomViewLayout = string.Empty;
+        public NotificationViewActionPayload[] viewActions = Array.Empty<NotificationViewActionPayload>();
+    }
+
+    [Serializable]
+    private sealed class NotificationViewActionPayload
+    {
+        public string type = string.Empty;
+        public string viewId = string.Empty;
+        public string actionId = string.Empty;
     }
 }
 #endif
