@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="TopMenuExampleStyle.uss" />
     <ui:VisualElement class="top-root">
-        <ui:VisualElement class="top-card">
+        <ui:VisualElement class="top-content">
             <ui:Label text="Native Toolkit" class="top-title" />
             <ui:Label text="Select a feature sample to preview." class="top-subtitle" />
             <ui:Button name="DialogFeatureButton" text="Dialog" class="top-button" />
