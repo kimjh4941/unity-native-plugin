@@ -5,4 +5,5 @@
   <Project Path="NativeToolkit.BuildProcessors.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="NativeToolkit.Editor.csproj" />
+  <Project Path="NativeToolkit.Runtime.Tests.csproj" />
 </Solution>

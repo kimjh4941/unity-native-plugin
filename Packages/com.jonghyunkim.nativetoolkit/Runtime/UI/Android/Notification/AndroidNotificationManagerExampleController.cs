@@ -3,12 +3,9 @@
 #if UNITY_ANDROID || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using JonghyunKim.NativeToolkit.Runtime.Notification;
 using UnityEngine;
 using UnityEngine.UIElements;
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Notification;
-#endif
 
 public class AndroidNotificationManagerExampleController : MonoBehaviour
 {
@@ -24,6 +21,8 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private const int ActionNotificationId = 1401;
     private const int FullScreenNotificationId = 1501;
     private const int DecoratedCustomViewNotificationId = 1601;
+    private const string UnityAppIconResourceName = "app_icon";
+    private const string UnityAppIconResourceType = "mipmap";
     private const string ActionPlayNow = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW";
     private const string ActionDismiss = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS";
     private const string ActionCustomViewDismiss = "com.jonghyunkim.nativetoolkit.ACTION_CUSTOM_VIEW_DISMISS";
@@ -534,16 +533,21 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildImmediateNotificationJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ImmediateNotificationId,
             title = "Energy Refilled",
             message = "Your squad is fully rested. Jump back in and clear the next raid.",
             tag = "energy",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
+            largeIcon = CreateUnityAppIconResource(),
             subText = "Raid Ready",
             autoCancel = true,
             priority = 1,
+            category = "recommendation",
+            ticker = "Energy refilled",
+            number = 3,
             style = new NotificationStylePayload
             {
                 type = "bigText",
@@ -556,19 +560,24 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildUpdatedNotificationJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ImmediateNotificationId,
             title = "Daily Reward Ready",
             message = "Your login streak chest is waiting in town.",
             tag = "energy",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
+            largeIcon = CreateUnityAppIconResource(),
             subText = "Town Reward",
             autoCancel = true,
             priority = 1,
             style = new NotificationStylePayload
             {
-                type = "bigText",
+                type = "bigPicture",
+                picture = CreateUnityAppIconResource(),
+                largeIcon = CreateUnityAppIconResource(),
+                hideExpandedLargeIcon = false,
                 bigText = "Your login streak chest is waiting in town. Claim it now to keep your reward multiplier active.",
                 bigContentTitle = "Daily Reward Ready",
                 summaryText = "Town Reward"
@@ -578,21 +587,24 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildScheduledNotificationJson(long triggerTime)
     {
-        return JsonUtility.ToJson(new ScheduledNotificationEnvelopePayload
+        return AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
         {
             notification = new NotificationPayload
             {
                 id = ScheduledNotificationId,
                 title = "Guild Battle Starts Soon",
-                message = "Your team queue opens in one minute. Rally your guild and prepare to deploy.",
+                message = "Your team queue opens in 15 seconds. Rally your guild and prepare to deploy.",
                 tag = "guild-battle",
                 channel = CreateGameplayChannelReference(),
+                smallIcon = CreateUnityAppIconResource(),
                 autoCancel = true,
                 priority = 1,
+                groupKey = "guild-events",
+                sortKey = "001",
                 style = new NotificationStylePayload
                 {
                     type = "bigText",
-                    bigText = "Your team queue opens in one minute. Rally your guild, finalize your loadout, and prepare to deploy.",
+                    bigText = "Your team queue opens in 15 seconds. Rally your guild, finalize your loadout, and prepare to deploy.",
                     bigContentTitle = "Guild Battle Starts Soon",
                     summaryText = "Guild Event"
                 }
@@ -610,12 +622,13 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildForegroundStartJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ProgressNotificationId,
             title = "Downloading Guild Battle Assets",
             message = "Preparing the arena for your next match.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             ongoing = true,
             autoCancel = false,
             progress = new NotificationProgressPayload
@@ -636,12 +649,13 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildForegroundUpdateJson(int progressValue)
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ProgressNotificationId,
             title = "Crafting Legendary Gear",
             message = "The forge is running at full power.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             ongoing = true,
             autoCancel = false,
             onlyAlertOnce = true,
@@ -663,12 +677,13 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildForegroundCompleteJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ProgressNotificationId,
             title = "Crafting Complete",
             message = "Your legendary sword is ready to claim.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             ongoing = false,
             autoCancel = true,
             progress = new NotificationProgressPayload
@@ -689,20 +704,23 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private string BuildActionNotificationJson()
     {
-        var json = JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = ActionNotificationId,
             title = "Match Found",
             message = "A ranked match is ready. Accept within 30 seconds.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             autoCancel = true,
             priority = 1,
+            launchAction = "open_battle_screen",
             actions = new[]
             {
                 new NotificationActionPayload
                 {
                     title = "Play Now",
                     actionId = ActionPlayNow,
+                    icon = CreateUnityAppIconResource(),
                     launchApp = true,
                     showsUserInterface = true
                 },
@@ -713,34 +731,40 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
                     launchApp = false,
                     showsUserInterface = false
                 }
+            },
+            data = new[]
+            {
+                new NotificationDataEntryPayload { key = "screen", value = "battle" },
+                new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
             }
         });
-        // Inject data field (JsonUtility does not support Dictionary serialization)
-        return json[..^1] + ",\"data\":{\"screen\":\"battle\",\"matchId\":\"match_5678\"}}";
     }
 
     private string BuildFullScreenNotificationJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = FullScreenNotificationId,
             title = "Match Starting",
             message = "Your match begins now. Launching game screen.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             autoCancel = true,
             priority = 2,
+            category = "call",
             fullScreenIntent = true
         });
     }
 
     private string BuildDecoratedCustomViewNotificationJson()
     {
-        return JsonUtility.ToJson(new NotificationPayload
+        return AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
         {
             id = DecoratedCustomViewNotificationId,
             title = "Custom Layout Notification",
             message = "Expand to see the custom view and tap Dismiss.",
             channel = CreateGameplayChannelReference(),
+            smallIcon = CreateUnityAppIconResource(),
             autoCancel = true,
             style = new NotificationStylePayload
             {
@@ -779,9 +803,18 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         };
     }
 
+    private NotificationResourcePayload CreateUnityAppIconResource()
+    {
+        return new NotificationResourcePayload
+        {
+            name = UnityAppIconResourceName,
+            type = UnityAppIconResourceType
+        };
+    }
+
     private long GetScheduledTriggerTime()
     {
-        return DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
+        return DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds();
     }
 
     private void SetResult(string message)
@@ -790,97 +823,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = message;
         }
-    }
-
-    [Serializable]
-    private sealed class ChannelPayload
-    {
-        public string id = string.Empty;
-        public string name = string.Empty;
-        public int importance;
-        public string description = string.Empty;
-        public bool showBadge;
-        public bool enableLights;
-        public int lightColor;
-        public bool enableVibration;
-        public long[]? vibrationPattern;
-        public string? soundUri;
-        public int lockscreenVisibility;
-        public string groupId = string.Empty;
-        public string groupName = string.Empty;
-    }
-
-    [Serializable]
-    private class NotificationPayload
-    {
-        public int id;
-        public string title = string.Empty;
-        public string message = string.Empty;
-        public string tag = string.Empty;
-        public ChannelPayload channel = new ChannelPayload();
-        public string subText = string.Empty;
-        public bool autoCancel;
-        public int priority;
-        public bool ongoing;
-        public bool onlyAlertOnce;
-        public NotificationProgressPayload? progress;
-        public NotificationStylePayload? style;
-        public bool fullScreenIntent;
-        public NotificationActionPayload[] actions = Array.Empty<NotificationActionPayload>();
-    }
-
-    [Serializable]
-    private sealed class NotificationActionPayload
-    {
-        public string title = string.Empty;
-        public string actionId = string.Empty;
-        public bool launchApp;
-        public bool showsUserInterface = true;
-    }
-
-    [Serializable]
-    private sealed class ScheduledNotificationEnvelopePayload
-    {
-        public NotificationPayload notification = new NotificationPayload();
-        public NotificationSchedulePayload schedule = new NotificationSchedulePayload();
-    }
-
-    [Serializable]
-    private sealed class NotificationSchedulePayload
-    {
-        public long triggerAtMillis;
-        public bool exact;
-        public bool allowWhileIdle;
-        public bool persistAcrossBoot;
-        public int alarmType;
-    }
-
-    [Serializable]
-    private sealed class NotificationProgressPayload
-    {
-        public int max;
-        public int current;
-        public bool indeterminate;
-    }
-
-    [Serializable]
-    private sealed class NotificationStylePayload
-    {
-        public string type = string.Empty;
-        public string bigText = string.Empty;
-        public string summaryText = string.Empty;
-        public string bigContentTitle = string.Empty;
-        public string customViewLayout = string.Empty;
-        public string bigCustomViewLayout = string.Empty;
-        public NotificationViewActionPayload[] viewActions = Array.Empty<NotificationViewActionPayload>();
-    }
-
-    [Serializable]
-    private sealed class NotificationViewActionPayload
-    {
-        public string type = string.Empty;
-        public string viewId = string.Empty;
-        public string actionId = string.Empty;
     }
 }
 #endif
