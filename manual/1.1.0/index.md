@@ -8,7 +8,7 @@
 
 # Version
 
-## 1.0.0
+## 1.1.0
 
 # Supported OS Versions
 
@@ -28,6 +28,14 @@
   - Multi choice dialog
   - Text input dialog
   - Login dialog
+
+- Notification features
+  - Immediate notifications
+  - Scheduled notifications
+  - Progress foreground service
+  - Notification actions
+  - Full-screen notifications
+  - Custom view notifications
 
 ## iOS
 
@@ -63,7 +71,7 @@
 
 - Share
 - Clipboard integration
-- Notifications
+- Notifications (iOS, Windows, macOS)
 
 # Getting Started
 
@@ -73,7 +81,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
 - Click "install".
 - Requirements:
   - Unity 6+
@@ -84,14 +92,12 @@
 - Open Unity 6.
 - Window -> Package Manager.
 - Unity Package Manager -> Native Toolkit -> Samples -> Import.
-- Tools -> Native Toolkit -> Example.
+- Tools -> Native Toolkit -> Sample.
   <p align="center">
-    <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
+    <img src="images/editor/NativeToolkitSample.png" alt="NativeToolkitSample" width="720" />
   </p>
 
 - Android sample
-  - Select Android - Dialog - AndroidDialogManager.cs.
-  - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "Android Profile" -> Export.
   - Tools -> Native Toolkit -> Android -> Configure Gradle Project.
@@ -105,8 +111,6 @@
     - <a href="https://developer.android.com/studio" target="_blank" rel="noopener noreferrer">Reference</a>
 
 - iOS sample
-  - Select iOS - Dialog - IosDialogManager.cs.
-  - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "iOS Profile" -> Build.
   - Tools -> Native Toolkit -> iOS -> Configure Xcode Project.
@@ -120,15 +124,11 @@
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">Reference</a>
 
 - Windows sample
-  - Select Windows - Dialog - WindowsDialogManager.cs.
-  - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "Windows Profile" -> Build.
   - Run "Unity NativeToolkit.exe" from the build output folder.
 
 - macOS sample
-  - Select macOS - Dialog - MacDialogManager.cs.
-  - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "macOS Profile" -> Build.
   - Tools -> Native Toolkit -> macOS -> Configure Xcode Project.

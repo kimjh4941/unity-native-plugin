@@ -8,7 +8,7 @@
 
 # 버전
 
-## 1.0.0
+## 1.1.0
 
 # 지원 OS 버전
 
@@ -28,6 +28,14 @@
   - 다중 선택 다이얼로그
   - 입력 다이얼로그
   - 로그인 다이얼로그
+
+- 알림 기능
+  - 즉시 알림
+  - 예약 알림
+  - 진행률 포그라운드 서비스
+  - 알림 작업
+  - 전체 화면 알림
+  - 사용자 정의 보기 알림
 
 ## iOS
 
@@ -63,7 +71,7 @@
 
 - 공유
 - 클립보드 연동
-- 알림
+- 알림 (iOS, Windows, macOS)
 
 # 시작하기
 
@@ -73,7 +81,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
@@ -84,14 +92,12 @@
 - Unity 6을 실행합니다.
 - Window -> Package Manager를 선택합니다.
 - Unity Package Manager -> Native Toolkit -> Samples -> Import를 선택합니다.
-- Tools -> Native Toolkit -> Example을 선택합니다.
-<p align="center">
-  <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
-</p>
+- Tools -> Native Toolkit -> Sample을 선택합니다.
+  <p align="center">
+    <img src="images/editor/NativeToolkitSample.png" alt="NativeToolkitSample" width="720" />
+  </p>
 
 - Android 샘플
-  - Android - Dialog - AndroidDialogManager.cs를 선택합니다.
-  - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "Android Profile" -> Export를 실행합니다.
   - Tools -> Native Toolkit -> Android -> Configure Gradle Project를 선택합니다.
@@ -105,8 +111,6 @@
     - <a href="https://developer.android.com/studio" target="_blank" rel="noopener noreferrer">참고</a>
 
 - iOS 샘플
-  - iOS - Dialog - IosDialogManager.cs를 선택합니다.
-  - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "iOS Profile" -> Build를 실행합니다.
   - Tools -> Native Toolkit -> iOS -> Configure Xcode Project를 선택합니다.
@@ -120,15 +124,11 @@
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">참고</a>
 
 - Windows 샘플
-  - Windows - Dialog - WindowsDialogManager.cs를 선택합니다.
-  - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "Windows Profile" -> Build를 실행합니다.
   - 빌드 출력 폴더의 "Unity NativeToolkit.exe"를 실행합니다.
 
 - macOS 샘플
-  - macOS - Dialog - MacDialogManager.cs를 선택합니다.
-  - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "macOS Profile" -> Build를 실행합니다.
   - Tools -> Native Toolkit -> macOS -> Configure Xcode Project를 선택합니다.
@@ -140,7 +140,6 @@
   - "Run: Add UnityMacNativeToolkit.xcframework"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
   - Xcode에서 샘플 앱을 설치합니다.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">참고</a>
-
 
 # API 사용법
 

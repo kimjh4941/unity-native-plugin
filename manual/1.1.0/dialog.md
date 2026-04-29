@@ -73,7 +73,7 @@ AndroidDialogManager.Instance.ShowDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowDialog.png" alt="Example_AndroidDialogManager_ShowDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowDialog.png" alt="Example_AndroidDialogManager_ShowDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -138,7 +138,7 @@ AndroidDialogManager.Instance.ShowConfirmDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowConfirmDialog.png" alt="Example_AndroidDialogManager_ShowConfirmDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowConfirmDialog.png" alt="Example_AndroidDialogManager_ShowConfirmDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -206,7 +206,7 @@ AndroidDialogManager.Instance.ShowSingleChoiceItemDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowSingleChoiceItemDialog.png" alt="Example_AndroidDialogManager_ShowSingleChoiceItemDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowSingleChoiceItemDialog.png" alt="Example_AndroidDialogManager_ShowSingleChoiceItemDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -276,7 +276,7 @@ AndroidDialogManager.Instance.ShowMultiChoiceItemDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowMultiChoiceItemDialog.png" alt="Example_AndroidDialogManager_ShowMultiChoiceItemDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowMultiChoiceItemDialog.png" alt="Example_AndroidDialogManager_ShowMultiChoiceItemDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -349,7 +349,7 @@ AndroidDialogManager.Instance.ShowTextInputDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowTextInputDialog.png" alt="Example_AndroidDialogManager_ShowTextInputDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowTextInputDialog.png" alt="Example_AndroidDialogManager_ShowTextInputDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -425,7 +425,7 @@ AndroidDialogManager.Instance.ShowLoginDialog(
 ```
 
 <p align="center">
-  <img src="images/android/Example_AndroidDialogManager_ShowLoginDialog.png" alt="Example_AndroidDialogManager_ShowLoginDialog" width="400" />
+  <img src="images/android/dialog/Example_AndroidDialogManager_ShowLoginDialog.png" alt="Example_AndroidDialogManager_ShowLoginDialog" width="400" />
 </p>
 - Receive results via events.
 

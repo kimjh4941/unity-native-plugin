@@ -8,7 +8,7 @@
 
 # バージョン
 
-## 1.0.0
+## 1.1.0
 
 # 対応 OS バージョン
 
@@ -28,6 +28,14 @@
   - マルチ選択ダイアログ
   - 入力ダイアログ
   - ログインダイアログ
+
+- 通知機能
+  - 即座通知
+  - スケジュール通知
+  - 進捗表示フォアグラウンドサービス
+  - 通知アクション
+  - フルスクリーン表示
+  - カスタムビュー
 
 ## iOS
 
@@ -63,7 +71,7 @@
 
 - シェア機能
 - クリップボード連携
-- 通知
+- 通知機能 (iOS, Windows, macOS)
 
 # はじめに
 
@@ -73,7 +81,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -84,14 +92,12 @@
 - Unity6 を起動します。
 - Window → Package Manager を選択します。
 - Unity Package Manager → Native Toolkit → Samples → Import を選択します。
-- Tools → Native Toolkit → Example を選択します。
-<p align="center">
-  <img src="images/editor/NativeToolkitEditorWindow.png" alt="NativeToolkit Editor Window" width="720" />
-</p>
+- Tools → Native Toolkit → Sample を選択します。
+  <p align="center">
+      <img src="images/editor/NativeToolkitSample.png" alt="NativeToolkitSample" width="720" />
+  </p>
 
 - Android サンプル
-  - Android - Dialog - AndroidDialogManager.cs を選択します。
-  - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Android Profile」→ Export を実行します。
   - Tools → Native Toolkit → Android → Configue Gradle Project を選択します。
@@ -105,8 +111,6 @@
     - <a href="https://developer.android.com/studio?hl=ja" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - iOS サンプル
-  - iOS - Dialog - IosDialogManager.cs を選択します。
-  - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「iOS Profile」→ Build を実行します。
   - Tools → Native Toolkit → iOS → Configue Xcode Project を選択します。
@@ -120,15 +124,11 @@
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
 - Windows サンプル
-  - Windows - Dialog - WindowsDialogManager.cs を選択します。
-  - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Windows Profile」→ Build を実行します。
   - Build 出力先にある「Unity NativeToolkit.exe」を実行してください。
 
 - Mac サンプル
-  - macOS - Dialog - MacDialogManager.cs を選択します。
-  - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「macOS Profile」→ Build を実行します。
   - Tools → Native Toolkit → macOS → Configue Xcode Project を選択します。
@@ -140,7 +140,6 @@
   - 「Run: Add UnityMacNativeToolkit.xcframework」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
-
 
 # API 使用方法
 
