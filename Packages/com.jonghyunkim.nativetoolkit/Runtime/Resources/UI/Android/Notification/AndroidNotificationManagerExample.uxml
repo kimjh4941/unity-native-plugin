@@ -22,9 +22,8 @@
                 </ui:VisualElement>
 
                 <ui:VisualElement class="android-section">
-                    <ui:Label text="Channel" class="android-section-title" />
-                    <ui:Button name="CreateChannelButton" class="android-notification-button" text="Create Gameplay Channel" />
-                    <ui:Button name="DeleteChannelButton" class="android-secondary-button" text="Delete Gameplay Channel" />
+                    <ui:Label text="Permission (Android 13+)" class="android-section-title" />
+                    <ui:Button name="RequestPermissionButton" class="android-notification-button" text="Request Notification Permission" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="android-section">
@@ -66,10 +65,6 @@
                     <ui:Button name="ShowDecoratedCustomViewButton" class="android-notification-button" text="Show Custom Layout Notification" />
                 </ui:VisualElement>
 
-                <ui:VisualElement class="android-section">
-                    <ui:Label text="Permission (Android 13+)" class="android-section-title" />
-                    <ui:Button name="RequestPermissionButton" class="android-notification-button" text="Request Notification Permission" />
-                </ui:VisualElement>
             </ui:VisualElement>
         </ui:ScrollView>
     </ui:VisualElement>

@@ -33,8 +33,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private Button? _notificationSettingsButton;
     private Button? _appDetailsSettingsButton;
     private Button? _exactAlarmSettingsButton;
-    private Button? _createChannelButton;
-    private Button? _deleteChannelButton;
     private Button? _showNotificationButton;
     private Button? _updateNotificationButton;
     private Button? _cancelNotificationButton;
@@ -111,8 +109,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_notificationSettingsButton != null) _notificationSettingsButton.clicked -= OnNotificationSettingsClicked;
         if (_appDetailsSettingsButton != null) _appDetailsSettingsButton.clicked -= OnAppDetailsSettingsClicked;
         if (_exactAlarmSettingsButton != null) _exactAlarmSettingsButton.clicked -= OnExactAlarmSettingsClicked;
-        if (_createChannelButton != null) _createChannelButton.clicked -= OnCreateChannelClicked;
-        if (_deleteChannelButton != null) _deleteChannelButton.clicked -= OnDeleteChannelClicked;
         if (_showNotificationButton != null) _showNotificationButton.clicked -= OnShowNotificationClicked;
         if (_updateNotificationButton != null) _updateNotificationButton.clicked -= OnUpdateNotificationClicked;
         if (_cancelNotificationButton != null) _cancelNotificationButton.clicked -= OnCancelNotificationClicked;
@@ -148,8 +144,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         _notificationSettingsButton = root.Q<Button>("NotificationSettingsButton");
         _appDetailsSettingsButton = root.Q<Button>("AppDetailsSettingsButton");
         _exactAlarmSettingsButton = root.Q<Button>("ExactAlarmSettingsButton");
-        _createChannelButton = root.Q<Button>("CreateChannelButton");
-        _deleteChannelButton = root.Q<Button>("DeleteChannelButton");
         _showNotificationButton = root.Q<Button>("ShowNotificationButton");
         _updateNotificationButton = root.Q<Button>("UpdateNotificationButton");
         _cancelNotificationButton = root.Q<Button>("CancelNotificationButton");
@@ -174,8 +168,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_notificationSettingsButton != null) _notificationSettingsButton.clicked += OnNotificationSettingsClicked;
         if (_appDetailsSettingsButton != null) _appDetailsSettingsButton.clicked += OnAppDetailsSettingsClicked;
         if (_exactAlarmSettingsButton != null) _exactAlarmSettingsButton.clicked += OnExactAlarmSettingsClicked;
-        if (_createChannelButton != null) _createChannelButton.clicked += OnCreateChannelClicked;
-        if (_deleteChannelButton != null) _deleteChannelButton.clicked += OnDeleteChannelClicked;
         if (_showNotificationButton != null) _showNotificationButton.clicked += OnShowNotificationClicked;
         if (_updateNotificationButton != null) _updateNotificationButton.clicked += OnUpdateNotificationClicked;
         if (_cancelNotificationButton != null) _cancelNotificationButton.clicked += OnCancelNotificationClicked;
@@ -194,7 +186,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         if (_isScheduledNotificationButton != null) _isScheduledNotificationButton.clicked += OnIsScheduledNotificationClicked;
         if (_showDecoratedCustomViewButton != null) _showDecoratedCustomViewButton.clicked += OnShowDecoratedCustomViewClicked;
 
-        SetResult("Android notification sample ready. Create a gameplay channel first, then test immediate, scheduled, and progress notifications on an Android device.");
+        SetResult("Android notification sample ready. Test immediate, scheduled, and progress notifications on an Android device.");
     }
 
     private void OnHomeClicked()
@@ -250,26 +242,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         AndroidNotificationManager.Instance.OpenExactAlarmSettings();
 #else
         SetResult("Android device only. Run this sample on Android to verify exact alarm settings.");
-#endif
-    }
-
-    private void OnCreateChannelClicked()
-    {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        RegisterRequestedOperation(AndroidNotificationManager.OperationCreateChannel, $"Creating channel: {SampleChannelName} ({SampleChannelId})");
-        AndroidNotificationManager.Instance.CreateChannel(BuildSampleChannelJson());
-#else
-        SetResult("Android device only. Run this sample on Android to create the gameplay notification channel.");
-#endif
-    }
-
-    private void OnDeleteChannelClicked()
-    {
-#if UNITY_ANDROID && !UNITY_EDITOR
-        RegisterRequestedOperation(AndroidNotificationManager.OperationDeleteChannel, $"Deleting channel: {SampleChannelId}");
-        AndroidNotificationManager.Instance.DeleteChannel(SampleChannelId);
-#else
-        SetResult("Android device only. Run this sample on Android to delete the gameplay notification channel.");
 #endif
     }
 
@@ -487,8 +459,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
             AndroidNotificationManager.OperationOpenNotificationSettings => "OpenNotificationSettings",
             AndroidNotificationManager.OperationOpenAppDetailsSettings => "OpenAppDetailsSettings",
             AndroidNotificationManager.OperationOpenExactAlarmSettings => "OpenExactAlarmSettings",
-            AndroidNotificationManager.OperationCreateChannel => "CreateChannel",
-            AndroidNotificationManager.OperationDeleteChannel => "DeleteChannel",
             AndroidNotificationManager.OperationShowNotification => "ShowNotification",
             AndroidNotificationManager.OperationUpdateNotification => "UpdateNotification",
             AndroidNotificationManager.OperationCancelNotification => "CancelNotification",
@@ -511,8 +481,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
             AndroidNotificationManager.OperationOpenNotificationSettings => "Opening notification settings.",
             AndroidNotificationManager.OperationOpenAppDetailsSettings => "Opening app details settings.",
             AndroidNotificationManager.OperationOpenExactAlarmSettings => "Opening exact alarm settings.",
-            AndroidNotificationManager.OperationCreateChannel => "Creating gameplay notification channel.",
-            AndroidNotificationManager.OperationDeleteChannel => "Deleting gameplay notification channel.",
             AndroidNotificationManager.OperationShowNotification => "Showing gameplay notification.",
             AndroidNotificationManager.OperationUpdateNotification => "Updating gameplay notification.",
             AndroidNotificationManager.OperationCancelNotification => "Cancelling gameplay notification.",
@@ -558,26 +526,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
         SetResult(message);
     }
 #endif
-
-    private string BuildSampleChannelJson()
-    {
-        return JsonUtility.ToJson(new ChannelPayload
-        {
-            id = SampleChannelId,
-            name = SampleChannelName,
-            importance = 4,
-            description = "Gameplay alerts for energy, rewards, battles, and crafting updates.",
-            showBadge = true,
-            enableLights = true,
-            lightColor = unchecked((int)0xFF4CAF50),
-            enableVibration = true,
-            vibrationPattern = new long[] { 0, 250, 200, 250 },
-            soundUri = null,
-            lockscreenVisibility = 1,
-            groupId = "gameplay",
-            groupName = "Gameplay"
-        });
-    }
 
     private string BuildImmediateNotificationJson()
     {
