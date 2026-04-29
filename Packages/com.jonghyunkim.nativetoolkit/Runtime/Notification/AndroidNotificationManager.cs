@@ -15,25 +15,96 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     public class AndroidNotificationManager : MonoBehaviour
     {
         private const string PluginClassName = "android.unity.notification.UnityAndroidNotificationManager";
+        private const string LogTag = "AndroidNotificationManager";
 
+        /// <summary>
+        /// Action identifier for tapping the notification body.
+        /// </summary>
         public const string ActionBodyTap = "android.unity.notification.ACTION_BODY_TAP";
+
+        /// <summary>
+        /// Action identifier for dismissing a notification.
+        /// </summary>
         public const string ActionNotificationDismissed = "android.unity.notification.ACTION_NOTIFICATION_DISMISSED";
 
+        /// <summary>
+        /// Native operation name for opening app notification settings.
+        /// </summary>
         public const string OperationOpenNotificationSettings = "openNotificationSettings";
+
+        /// <summary>
+        /// Native operation name for opening app details settings.
+        /// </summary>
         public const string OperationOpenAppDetailsSettings = "openAppDetailsSettings";
+
+        /// <summary>
+        /// Native operation name for opening exact alarm settings.
+        /// </summary>
         public const string OperationOpenExactAlarmSettings = "openExactAlarmSettings";
+
+        /// <summary>
+        /// Native operation name for creating a notification channel.
+        /// </summary>
         public const string OperationCreateChannel = "createChannel";
+
+        /// <summary>
+        /// Native operation name for deleting a notification channel.
+        /// </summary>
         public const string OperationDeleteChannel = "deleteChannel";
+
+        /// <summary>
+        /// Native operation name for showing a notification.
+        /// </summary>
         public const string OperationShowNotification = "showNotification";
+
+        /// <summary>
+        /// Native operation name for updating a notification.
+        /// </summary>
         public const string OperationUpdateNotification = "updateNotification";
+
+        /// <summary>
+        /// Native operation name for cancelling a notification.
+        /// </summary>
         public const string OperationCancelNotification = "cancelNotification";
+
+        /// <summary>
+        /// Native operation name for cancelling all shown notifications.
+        /// </summary>
         public const string OperationCancelAllNotifications = "cancelAllNotifications";
+
+        /// <summary>
+        /// Native operation name for scheduling a notification.
+        /// </summary>
         public const string OperationScheduleNotification = "scheduleNotification";
+
+        /// <summary>
+        /// Native operation name for cancelling a scheduled notification.
+        /// </summary>
         public const string OperationCancelScheduledNotification = "cancelScheduledNotification";
+
+        /// <summary>
+        /// Native operation name for cancelling all scheduled notifications.
+        /// </summary>
         public const string OperationCancelAllScheduledNotifications = "cancelAllScheduledNotifications";
+
+        /// <summary>
+        /// Native operation name for starting a progress foreground service.
+        /// </summary>
         public const string OperationStartProgressForegroundService = "startProgressForegroundService";
+
+        /// <summary>
+        /// Native operation name for updating a progress foreground service.
+        /// </summary>
         public const string OperationUpdateProgressForegroundService = "updateProgressForegroundService";
+
+        /// <summary>
+        /// Native operation name for completing a progress foreground service.
+        /// </summary>
         public const string OperationCompleteProgressForegroundService = "completeProgressForegroundService";
+
+        /// <summary>
+        /// Native operation name for stopping a progress foreground service.
+        /// </summary>
         public const string OperationStopProgressForegroundService = "stopProgressForegroundService";
 
         private static AndroidNotificationManager? _instance;
@@ -42,8 +113,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         private NotificationActionListenerProxy? actionListener;
         private NotificationShownListenerProxy? shownListener;
 
+        /// <summary>
+        /// Occurs when a native notification operation completes.
+        /// </summary>
         public event Action<NotificationResult>? NotificationOperationCompleted;
+
+        /// <summary>
+        /// Occurs when a notification action or body tap is received.
+        /// </summary>
         public event Action<NotificationActionResult>? NotificationActionTapped;
+
+        /// <summary>
+        /// Occurs when a notification is shown while the app is in foreground.
+        /// </summary>
         public event Action<NotificationReceivedResult>? NotificationReceived;
 
         /// <summary>
@@ -70,7 +152,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         private void Awake()
         {
-            Debug.Log("AndroidNotificationManager Awake");
+            Debug.Log($"[{LogTag}][{nameof(Awake)}]");
             if (_instance == null)
             {
                 _instance = this;
@@ -90,6 +172,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
 
         private void OnDestroy()
         {
+            Debug.Log($"[{LogTag}][{nameof(OnDestroy)}]");
             if (_instance == this)
             {
                 ClearOperationListener();
@@ -107,6 +190,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void Initialize()
         {
+            Debug.Log($"[{LogTag}][{nameof(Initialize)}]");
             if (Application.platform != RuntimePlatform.Android)
             {
                 Debug.Log("Not running on an Android device. Skipping native notification initialization.");
@@ -146,6 +230,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public bool HasPermission()
         {
+            Debug.Log($"[{LogTag}][{nameof(HasPermission)}]");
             return CallBool("hasPermission");
         }
 
@@ -155,6 +240,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public bool CanScheduleExactAlarms()
         {
+            Debug.Log($"[{LogTag}][{nameof(CanScheduleExactAlarms)}]");
             return CallBool("canScheduleExactAlarms");
         }
 
@@ -163,6 +249,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public bool AreNotificationsEnabled()
         {
+            Debug.Log($"[{LogTag}][{nameof(AreNotificationsEnabled)}]");
             return CallBool("areNotificationsEnabled");
         }
 
@@ -172,6 +259,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void RequestPermission(Action<bool>? onResult = null)
         {
+            Debug.Log($"[{LogTag}][{nameof(RequestPermission)}] onResult: {onResult}");
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (HasPermission())
             {
@@ -192,6 +280,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void OpenNotificationSettings()
         {
+            Debug.Log($"[{LogTag}][{nameof(OpenNotificationSettings)}]");
             CallOperation(OperationOpenNotificationSettings);
         }
 
@@ -200,6 +289,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void OpenAppDetailsSettings()
         {
+            Debug.Log($"[{LogTag}][{nameof(OpenAppDetailsSettings)}]");
             CallOperation(OperationOpenAppDetailsSettings);
         }
 
@@ -208,6 +298,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void OpenExactAlarmSettings()
         {
+            Debug.Log($"[{LogTag}][{nameof(OpenExactAlarmSettings)}]");
             CallOperation(OperationOpenExactAlarmSettings);
         }
 
@@ -216,6 +307,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CreateChannel(string channelJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(CreateChannel)}] channelJson: {channelJson}");
             CallOperation(OperationCreateChannel, channelJson);
         }
 
@@ -224,6 +316,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void DeleteChannel(string channelId)
         {
+            Debug.Log($"[{LogTag}][{nameof(DeleteChannel)}] channelId: {channelId}");
             CallOperation(OperationDeleteChannel, channelId);
         }
 
@@ -232,6 +325,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void ShowNotification(string notificationJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(ShowNotification)}] notificationJson: {notificationJson}");
             CallOperation(OperationShowNotification, notificationJson);
         }
 
@@ -240,6 +334,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void UpdateNotification(string notificationJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(UpdateNotification)}] notificationJson: {notificationJson}");
             CallOperation(OperationUpdateNotification, notificationJson);
         }
 
@@ -248,6 +343,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelNotification(int id, string? tag = null)
         {
+            Debug.Log($"[{LogTag}][{nameof(CancelNotification)}] id: {id}, tag: {tag}");
             CallOperation(OperationCancelNotification, id, tag);
         }
 
@@ -256,6 +352,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelAllNotifications()
         {
+            Debug.Log($"[{LogTag}][{nameof(CancelAllNotifications)}]");
             CallOperation(OperationCancelAllNotifications);
         }
 
@@ -264,6 +361,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void ScheduleNotification(string scheduleJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(ScheduleNotification)}] scheduleJson: {scheduleJson}");
             CallOperation(OperationScheduleNotification, scheduleJson);
         }
 
@@ -272,6 +370,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelScheduledNotification(int id, string? tag = null)
         {
+            Debug.Log($"[{LogTag}][{nameof(CancelScheduledNotification)}] id: {id}, tag: {tag}");
             CallOperation(OperationCancelScheduledNotification, id, tag);
         }
 
@@ -280,6 +379,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CancelAllScheduledNotifications()
         {
+            Debug.Log($"[{LogTag}][{nameof(CancelAllScheduledNotifications)}]");
             CallOperation(OperationCancelAllScheduledNotifications);
         }
 
@@ -288,6 +388,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void StartProgressForegroundService(string notificationJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(StartProgressForegroundService)}] notificationJson: {notificationJson}");
             CallOperation(OperationStartProgressForegroundService, notificationJson);
         }
 
@@ -296,6 +397,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void UpdateProgressForegroundService(string notificationJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(UpdateProgressForegroundService)}] notificationJson: {notificationJson}");
             CallOperation(OperationUpdateProgressForegroundService, notificationJson);
         }
 
@@ -304,6 +406,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void CompleteProgressForegroundService(string notificationJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(CompleteProgressForegroundService)}] notificationJson: {notificationJson}");
             CallOperation(OperationCompleteProgressForegroundService, notificationJson);
         }
 
@@ -312,6 +415,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public void StopProgressForegroundService()
         {
+            Debug.Log($"[{LogTag}][{nameof(StopProgressForegroundService)}]");
             CallOperation(OperationStopProgressForegroundService);
         }
 
@@ -320,6 +424,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         public bool IsNotificationScheduled(int id, string? tag = null)
         {
+            Debug.Log($"[{LogTag}][{nameof(IsNotificationScheduled)}] id: {id}, tag: {tag}");
             return CallBool("isNotificationScheduled", id, tag);
         }
 

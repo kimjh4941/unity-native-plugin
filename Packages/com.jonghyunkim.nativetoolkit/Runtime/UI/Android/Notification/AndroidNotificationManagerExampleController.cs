@@ -12,6 +12,8 @@ using JonghyunKim.NativeToolkit.Runtime.Notification;
 
 public class AndroidNotificationManagerExampleController : MonoBehaviour
 {
+    private const string LogTag = "AndroidNotificationManagerExampleController";
+
     [SerializeField] private UIDocument? uiDocument;
 
     private const string SampleChannelId = "native_toolkit_gameplay";
@@ -56,6 +58,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private void Awake()
     {
+        Debug.Log($"[{LogTag}][{nameof(Awake)}]");
 #if UNITY_EDITOR
         Debug.Log("Running in Unity Editor - Android notification sample is disabled");
         UnityEditor.EditorUtility.DisplayDialog(
@@ -75,6 +78,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private void Start()
     {
+        Debug.Log($"[{LogTag}][{nameof(Start)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted += OnNotificationOperationCompleted;
         AndroidNotificationManager.Instance.NotificationActionTapped += OnNotificationActionTapped;
@@ -97,6 +101,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
 
     private void OnDestroy()
     {
+        Debug.Log($"[{LogTag}][{nameof(OnDestroy)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         AndroidNotificationManager.Instance.NotificationOperationCompleted -= OnNotificationOperationCompleted;
         AndroidNotificationManager.Instance.NotificationActionTapped -= OnNotificationActionTapped;

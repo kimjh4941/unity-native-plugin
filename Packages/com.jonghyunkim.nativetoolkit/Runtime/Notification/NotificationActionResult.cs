@@ -5,10 +5,24 @@ using System.Collections.Generic;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Notification
 {
+    /// <summary>
+    /// Represents data delivered when a notification action is tapped.
+    /// </summary>
     public readonly struct NotificationActionResult
     {
+        /// <summary>
+        /// Gets the tapped action identifier.
+        /// </summary>
         public string ActionId { get; }
+
+        /// <summary>
+        /// Gets the notification identifier associated with the action.
+        /// </summary>
         public int NotificationId { get; }
+
+        /// <summary>
+        /// Gets optional flat key-value payload data attached to the action.
+        /// </summary>
         public IReadOnlyDictionary<string, string>? Data { get; }
 
         internal NotificationActionResult(string actionId, int notificationId, string? dataJson)

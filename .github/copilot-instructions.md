@@ -52,15 +52,17 @@ using UnityEngine;
 **例:**
 
 ```csharp
+private const string LogTag = "SampleClass";
+
 public override void OnApplicationPause(bool pauseStatus)
 {
-    Debug.Log($"[{nameof(OnApplicationPause)}] pauseStatus: {pauseStatus}");
+    Debug.Log($"[{LogTag}][{nameof(OnApplicationPause)}] pauseStatus: {pauseStatus}");
     // Existing logic...
 }
 
 public Result Send(NotificationCommand command)
 {
-    Debug.Log($"[{nameof(Send)}] command: {command}");
+    Debug.Log($"[{LogTag}][{nameof(Send)}] command: {command}");
     return repository.Send(command);
 }
 ```
