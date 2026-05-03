@@ -308,7 +308,7 @@ Display notifications using a custom Android layout.
 
 #### DecoratedCustomView
 
-Provide collapsed and optional expanded layout resource names. Layout XML files must be placed in `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/res/layout/` (prefixed with `nt_` to avoid resource name conflicts).
+Provide collapsed and optional expanded layout resource names. Layout XML files must be placed in `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/res/layout/` (prefixed with `nt_` to avoid resource name conflicts).
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR

@@ -308,7 +308,7 @@ style = new NotificationStylePayload
 
 #### DecoratedCustomView
 
-折りたたみ・展開用のレイアウトリソース名を指定します。レイアウト XML は `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/res/layout/` に配置します（リソース名の衝突を避けるため `nt_` プレフィックスを使用）。
+折りたたみ・展開用のレイアウトリソース名を指定します。レイアウト XML は `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/res/layout/` に配置します（リソース名の衝突を避けるため `nt_` プレフィックスを使用）。
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR

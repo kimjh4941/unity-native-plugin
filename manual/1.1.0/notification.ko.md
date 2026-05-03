@@ -308,7 +308,7 @@ style = new NotificationStylePayload
 
 #### DecoratedCustomView
 
-접힘/펼침용 레이아웃 리소스 이름을 지정합니다. 레이아웃 XML은 `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/res/layout/`에 배치합니다（리소스 이름 충돌 방지를 위해 `nt_` 접두사 사용）.
+접힘/펼침용 레이아웃 리소스 이름을 지정합니다. 레이아웃 XML은 `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/res/layout/`에 배치합니다（리소스 이름 충돌 방지를 위해 `nt_` 접두사 사용）.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
