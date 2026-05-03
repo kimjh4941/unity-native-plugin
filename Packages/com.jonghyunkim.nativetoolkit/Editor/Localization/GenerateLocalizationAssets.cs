@@ -31,7 +31,6 @@ public static class GenerateLocalizationAssets
     /// <summary>
     /// Menu command entry point. Creates / updates the localization collection and applies CSV entries.
     /// </summary>
-    [MenuItem("Tools/Native Toolkit/Localization/Generate Assets")]
     public static void Generate()
     {
         EnsureAssetDirectory(LOCALES_DIR);

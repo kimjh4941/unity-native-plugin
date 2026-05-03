@@ -21,6 +21,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
 
     // UI element references
     private Label? _resultLabel;
+    private Button? _btnHome;
     private Button? _btnDialog;
     private Button? _btnConfirm;
     private Button? _btnSingleChoice;
@@ -161,6 +162,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _btnHome = root.Q<Button>("HomeButton");
         _btnDialog = root.Q<Button>("ShowDialogButton");
         _btnConfirm = root.Q<Button>("ShowConfirmDialogButton");
         _btnSingleChoice = root.Q<Button>("ShowSingleChoiceItemDialogButton");
@@ -169,6 +171,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
         _btnLogin = root.Q<Button>("ShowLoginDialogButton");
 
         // Wire clicks
+        if (_btnHome != null) _btnHome.clicked += OnHomeClicked;
         if (_btnDialog != null) _btnDialog.clicked += OnShowDialogClicked;
         if (_btnConfirm != null) _btnConfirm.clicked += OnShowConfirmDialogClicked;
         if (_btnSingleChoice != null) _btnSingleChoice.clicked += OnShowSingleChoiceItemDialogClicked;
@@ -192,6 +195,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     /// </summary>
     void OnDestroy()
     {
+        if (_btnHome != null) _btnHome.clicked -= OnHomeClicked;
         if (_btnDialog != null) _btnDialog.clicked -= OnShowDialogClicked;
         if (_btnConfirm != null) _btnConfirm.clicked -= OnShowConfirmDialogClicked;
         if (_btnSingleChoice != null) _btnSingleChoice.clicked -= OnShowSingleChoiceItemDialogClicked;
@@ -210,6 +214,14 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     }
 
     #region Dialog Event Handlers
+
+    private void OnHomeClicked()
+    {
+        if (uiDocument != null)
+        {
+            NativeToolkitSampleNavigator.ShowTopMenu(uiDocument);
+        }
+    }
 
     /// <summary>
     /// Handles the basic dialog button click event.

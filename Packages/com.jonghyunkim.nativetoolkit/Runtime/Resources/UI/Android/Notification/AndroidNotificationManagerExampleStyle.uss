@@ -1,0 +1,100 @@
+.android-notification-root {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.android-notification-header {
+    background-color: rgba(255, 255, 255, 1);
+    padding: 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.android-notification-scroll {
+    flex-grow: 1;
+}
+
+.android-notification-content {
+    background-color: rgba(255, 255, 255, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0 16px 16px 16px;
+    gap: 12px;
+}
+
+.android-notification-title {
+    font-size: 20px;
+    color: #212121;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.android-notification-subtitle {
+    font-size: 12px;
+    color: #616161;
+    -unity-text-align: upper-center;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.android-result-border {
+    background-color: #EEEEEE;
+    border-radius: 8px;
+}
+
+.android-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.android-section-title {
+    font-size: 15px;
+    color: #263238;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.android-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #212121;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+.android-notification-button,
+.android-secondary-button {
+    width: 100%;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    white-space: normal;
+}
+
+.android-notification-button {
+    background-color: #1E88E5;
+}
+
+.android-secondary-button {
+    background-color: #607D8B;
+}
+
+.android-notification-button:hover {
+    background-color: #1565C0;
+}
+
+.android-secondary-button:hover {
+    background-color: #455A64;
+}
