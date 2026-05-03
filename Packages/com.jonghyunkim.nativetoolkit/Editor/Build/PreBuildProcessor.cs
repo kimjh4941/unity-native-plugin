@@ -2,17 +2,22 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 /// <summary>
 /// Pre-build processor that (1) temporarily disables libraries for non-target platforms to keep
-/// the build artifact clean, and (2) triggers native plugin build pipelines per platform (Android,
-/// iOS, macOS, Windows) so that the latest native binaries are copied under <c>Assets/Plugins</c>.
+/// the build artifact clean, and (2) copies native plugin binaries from native-toolkit dist folder
+/// to Assets/Plugins for Android/iOS/macOS, or triggers Windows native build pipeline.
 /// </summary>
 public class PreBuildProcessor : IPreprocessBuildWithReport
 {
+    private const string NativeToolkitDistRoot = "/Users/jonghyunkim/Desktop/native-toolkit/dist";
+
     public int callbackOrder => 0;
 
     // Determine config from build options
@@ -20,8 +25,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         => (report.summary.options & BuildOptions.Development) != 0 ? "Debug" : "Release";
 
     /// <summary>
-    /// Entry point executed before the player build starts. Routes to platform‑specific native
-    /// build helpers after cleaning up unrelated plugin folders.
+    /// Entry point executed before the player build starts. Routes to platform‑specific handlers
+    /// after cleaning up unrelated plugin folders.
     /// </summary>
     public void OnPreprocessBuild(BuildReport report)
     {
@@ -33,11 +38,19 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         if (report.summary.platform == BuildTarget.Android)
         {
-            BuildAndroidLibraries(config);
+            string latestVersion = FindLatestVersionInDist();
+            if (!string.IsNullOrEmpty(latestVersion))
+            {
+                CopyAndroidLibraries(config, latestVersion);
+            }
         }
         else if (report.summary.platform == BuildTarget.iOS)
         {
-            BuildiOSLibraries(config);
+            string latestVersion = FindLatestVersionInDist();
+            if (!string.IsNullOrEmpty(latestVersion))
+            {
+                CopyiOSLibraries(config, latestVersion);
+            }
         }
         else if (report.summary.platform == BuildTarget.StandaloneWindows64)
         {
@@ -49,7 +62,11 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             PlayerSettings.usePlayerLog = false;
             UnityEngine.Debug.Log("[Build] Set PlayerSettings.usePlayerLog = false for macOS");
 #endif
-            BuildmacOSLibraries(config);
+            string latestVersion = FindLatestVersionInDist();
+            if (!string.IsNullOrEmpty(latestVersion))
+            {
+                CopymacOSLibraries(config, latestVersion);
+            }
         }
     }
 
@@ -114,56 +131,79 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// </summary>
     private bool ShouldKeepLibrary(string libraryPath, BuildTarget targetPlatform)
     {
-        switch (targetPlatform)
+        return targetPlatform switch
         {
-            case BuildTarget.iOS:
-                return libraryPath.Contains("iOS");
-            case BuildTarget.StandaloneOSX:
-                return libraryPath.Contains("macOS");
-            case BuildTarget.Android:
-                return libraryPath.Contains("Android");
-            case BuildTarget.StandaloneWindows64:
-                return libraryPath.Contains("Windows");
-            default:
-                return false; // Disable all libraries for unsupported platforms
-        }
+            BuildTarget.iOS => libraryPath.Contains("iOS"),
+            BuildTarget.StandaloneOSX => libraryPath.Contains("macOS"),
+            BuildTarget.Android => libraryPath.Contains("Android"),
+            BuildTarget.StandaloneWindows64 => libraryPath.Contains("Windows"),
+            _ => false,
+        };
     }
 
     /// <summary>
-    /// Builds Android AAR libraries (Debug/Release) and copies them to Plugins/Android/Library.
+    /// Finds the highest semantic version in the native-toolkit dist directory.
     /// </summary>
-    private void BuildAndroidLibraries(string config)
+    private string FindLatestVersionInDist()
     {
-        UnityEngine.Debug.Log($"[Build][Android] Pre-build steps started. Config={config}");
+        if (!Directory.Exists(NativeToolkitDistRoot))
+        {
+            UnityEngine.Debug.LogError($"[Build] Native-toolkit dist root not found: {NativeToolkitDistRoot}");
+            return null;
+        }
 
-        string androidRootProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/AndroidLibraryExample";
-        string androidLibraryProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/android_library";
-        string unityAndroidPluginProjectPath = "/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin";
+        var versions = new List<(string dir, Version semanticVersion)>();
+        foreach (string dir in Directory.GetDirectories(NativeToolkitDistRoot))
+        {
+            string dirName = Path.GetFileName(dir);
+            if (Version.TryParse(dirName, out var version))
+            {
+                versions.Add((dirName, version));
+            }
+        }
 
-        // assembleDebug or assembleRelease
-        RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :android_library:assemble{config}");
-        RunShellCommand($"cd \"{androidRootProjectPath}\" && ./gradlew :unity_android_plugin:assemble{config}");
+        if (versions.Count == 0)
+        {
+            UnityEngine.Debug.LogError($"[Build] No valid semantic versions found in: {NativeToolkitDistRoot}");
+            return null;
+        }
 
-        // suffix = debug / release
-        string suffix = config.ToLowerInvariant();
+        // Sort by semantic version (descending) and return the highest
+        var highest = versions.OrderByDescending(v => v.semanticVersion).First();
+        UnityEngine.Debug.Log($"[Build] Using native-toolkit version: {highest.dir}");
+        return highest.dir;
+    }
 
-        // original artifact paths produced by Gradle
-        string builtAar1 = Path.Combine(androidLibraryProjectPath, "build", "outputs", "aar", $"android_library-{suffix}.aar");
-        string builtAar2 = Path.Combine(unityAndroidPluginProjectPath, "build", "outputs", "aar", $"unity_android_plugin-{suffix}.aar");
+    /// <summary>
+    /// Copies Android AAR libraries (Debug/Release) from dist folder to Plugins/Android.
+    /// </summary>
+    private void CopyAndroidLibraries(string config, string version)
+    {
+        UnityEngine.Debug.Log($"[Build][Android] Copying libraries from dist (config={config}, version={version})");
 
-        // desired names
-        string desiredAar1 = Path.Combine(Path.GetDirectoryName(builtAar1)!, config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? $"android_nativetoolkit-{suffix}.aar" : $"android_nativetoolkit.aar");
-        string desiredAar2 = Path.Combine(Path.GetDirectoryName(builtAar2)!, config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? $"unity_android_nativetoolkit-{suffix}.aar" : $"unity_android_nativetoolkit.aar");
+        string distAndroidDir = Path.Combine(NativeToolkitDistRoot, version, "android");
 
-        // destination directory in Unity project
+        if (!Directory.Exists(distAndroidDir))
+        {
+            UnityEngine.Debug.LogError($"[Build][Android] Android dist directory not found: {distAndroidDir}");
+            return;
+        }
+
+        // Expected file names in dist
+        string aarSuffix = config == "Debug" ? "-debug" : "";
+        string sourceAar1 = Path.Combine(distAndroidDir, $"android-native-toolkit-{version}{aarSuffix}.aar");
+        string sourceAar2 = Path.Combine(distAndroidDir, $"unity-android-native-toolkit-{version}{aarSuffix}.aar");
+
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
-        // remove only .aar files so that res/ and other assets are preserved
+
+        // Clean existing AAR files
         if (Directory.Exists(destDir))
         {
             foreach (string aarFile in Directory.GetFiles(destDir, "*.aar"))
             {
                 File.Delete(aarFile);
+                UnityEngine.Debug.Log($"[Build][Android] Deleted old AAR: {aarFile}");
             }
         }
         else
@@ -171,100 +211,98 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             Directory.CreateDirectory(destDir);
         }
 
-        // rename if exists
-        RunShellCommand($"if [ -f \"{builtAar1}\" ]; then mv \"{builtAar1}\" \"{desiredAar1}\"; fi");
-        RunShellCommand($"if [ -f \"{builtAar2}\" ]; then mv \"{builtAar2}\" \"{desiredAar2}\"; fi");
+        // Copy AAR files
+        if (File.Exists(sourceAar1))
+        {
+            File.Copy(sourceAar1, Path.Combine(destDir, Path.GetFileName(sourceAar1)), true);
+            UnityEngine.Debug.Log($"[Build][Android] Copied {Path.GetFileName(sourceAar1)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][Android] AAR not found: {sourceAar1}");
+        }
 
-        // copy to package plugin folder (example)
-        RunShellCommand($"cp -f \"{desiredAar1}\" \"{destDir}\"");
-        RunShellCommand($"cp -f \"{desiredAar2}\" \"{destDir}\"");
+        if (File.Exists(sourceAar2))
+        {
+            File.Copy(sourceAar2, Path.Combine(destDir, Path.GetFileName(sourceAar2)), true);
+            UnityEngine.Debug.Log($"[Build][Android] Copied {Path.GetFileName(sourceAar2)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][Android] AAR not found: {sourceAar2}");
+        }
 
-        UnityEngine.Debug.Log($"[Build][Android] Copied AARs (config={config}) to {destDir}");
-        UnityEngine.Debug.Log("[Build][Android] Pre-build steps completed.");
+        UnityEngine.Debug.Log($"[Build][Android] Copy completed to {destDir}");
     }
 
     /// <summary>
-    /// Builds iOS XCFramework (Debug/Release) and copies it to Plugins/iOS/Library.
+    /// Copies iOS XCFramework (Debug/Release) from dist folder to Plugins/iOS.
     /// </summary>
-    private void BuildiOSLibraries(string config)
+    private void CopyiOSLibraries(string config, string version)
     {
-        UnityEngine.Debug.Log($"[Build][iOS] Pre-build steps started. Config={config}");
+        UnityEngine.Debug.Log($"[Build][iOS] Copying libraries from dist (config={config}, version={version})");
 
-        string workspacePath = "/Users/jonghyunkim/Desktop/native-toolkit/ios/IosWorkspace.xcworkspace";
-        string unityPluginScheme = "UnityIosPlugin";
-        string iosLibraryScheme = "IosLibrary";
+        string xcfSuffix = config == "Debug" ? "-debug" : "";
+        string distIosDir = Path.Combine(NativeToolkitDistRoot, version, "ios");
 
-        // Clean
-        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -configuration {config}");
-        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -configuration {config}");
-
-        // Archive Unity plugin framework
-        string unityArchivePathDevice = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -archivePath \"{unityArchivePathDevice}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
-
-        string unityArchivePathSimulator = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/UnityIosPlugin-Simulator.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{unityPluginScheme}\" -archivePath \"{unityArchivePathSimulator}\" -sdk iphonesimulator -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
-
-        // Archive dependency framework
-        string iosLibraryArchivePathDevice = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/IosLibrary.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -archivePath \"{iosLibraryArchivePathDevice}\" -sdk iphoneos -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
-
-        string iosLibraryArchivePathSimulator = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios/IosLibrary-Simulator.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{iosLibraryScheme}\" -archivePath \"{iosLibraryArchivePathSimulator}\" -sdk iphonesimulator -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
-
-        // Create XCFrameworks
-        string unityXcframeworkPath = Path.Combine(
-            "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios",
-            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
-                ? $"UnityIosNativeToolkit-{config}.xcframework"
-                : "UnityIosNativeToolkit.xcframework");
-        if (Directory.Exists(unityXcframeworkPath))
+        if (!Directory.Exists(distIosDir))
         {
-            Directory.Delete(unityXcframeworkPath, true);
+            UnityEngine.Debug.LogError($"[Build][iOS] iOS dist directory not found: {distIosDir}");
+            return;
         }
 
-        RunShellCommand($"xcodebuild -create-xcframework " +
-                        $"-framework \"{unityArchivePathDevice}\"/Products/Library/Frameworks/UnityIosPlugin.framework " +
-                        $"-framework \"{unityArchivePathSimulator}\"/Products/Library/Frameworks/UnityIosPlugin.framework " +
-                        $"-output \"{unityXcframeworkPath}\"");
-
-        string iosNativeToolkitXcframeworkPath = Path.Combine(
-            "/Users/jonghyunkim/Desktop/native-toolkit-outputs/ios",
-            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
-                ? $"IosNativeToolkit-{config}.xcframework"
-                : "IosNativeToolkit.xcframework");
-        if (Directory.Exists(iosNativeToolkitXcframeworkPath))
-        {
-            Directory.Delete(iosNativeToolkitXcframeworkPath, true);
-        }
-
-        RunShellCommand($"xcodebuild -create-xcframework " +
-                        $"-framework \"{iosLibraryArchivePathDevice}\"/Products/Library/Frameworks/IosLibrary.framework " +
-                        $"-framework \"{iosLibraryArchivePathSimulator}\"/Products/Library/Frameworks/IosLibrary.framework " +
-                        $"-output \"{iosNativeToolkitXcframeworkPath}\"");
-
-        // Recursive Signing (Both slices will be signed)
-        RunShellCommand($"find \"{unityXcframeworkPath}\" -depth -name \"*.framework\" -type d -exec codesign --force --deep --sign - {{}} \\;");
-        RunShellCommand($"codesign --force --deep --sign - \"{unityXcframeworkPath}\"");
-        RunShellCommand($"find \"{iosNativeToolkitXcframeworkPath}\" -depth -name \"*.framework\" -type d -exec codesign --force --deep --sign - {{}} \\;");
-        RunShellCommand($"codesign --force --deep --sign - \"{iosNativeToolkitXcframeworkPath}\"");
+        // Expected XCFramework names in dist
+        string sourceXcf1 = Path.Combine(distIosDir, $"ios-native-toolkit-{version}{xcfSuffix}.xcframework");
+        string sourceXcf2 = Path.Combine(distIosDir, $"unity-ios-native-toolkit-{version}{xcfSuffix}.xcframework");
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
-        RunShellCommand($"rm -rf \"{destDir}\"/*");
-        RunShellCommand($"cp -R \"{unityXcframeworkPath}\" \"{destDir}\"");
-        RunShellCommand($"cp -R \"{iosNativeToolkitXcframeworkPath}\" \"{destDir}\"");
+        // Clean existing xcframeworks
+        if (Directory.Exists(destDir))
+        {
+            foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
+            {
+                Directory.Delete(xcfDir, true);
+                UnityEngine.Debug.Log($"[Build][iOS] Deleted old XCFramework: {xcfDir}");
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(destDir);
+        }
 
-        UnityEngine.Debug.Log($"[Build][iOS] Copied UnityIosNativeToolkit.xcframework (config={config}) to {destDir}");
-        UnityEngine.Debug.Log($"[Build][iOS] Copied IosNativeToolkit.xcframework (config={config}) to {destDir}");
-        UnityEngine.Debug.Log("[Build][iOS] Pre-build steps completed.");
+        // Copy XCFrameworks
+        if (Directory.Exists(sourceXcf1))
+        {
+            CopyDirectory(sourceXcf1, Path.Combine(destDir, Path.GetFileName(sourceXcf1)));
+            UnityEngine.Debug.Log($"[Build][iOS] Copied {Path.GetFileName(sourceXcf1)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][iOS] XCFramework not found: {sourceXcf1}");
+        }
 
-        string unityAssetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
-        string iosNativeToolkitAssetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "IosNativeToolkit-Debug.xcframework" : "IosNativeToolkit.xcframework");
-        // Apply plugin import settings (enable only for iOS)
-        ConfigureIosXcframeworkImporter(unityAssetPath);
-        ConfigureIosXcframeworkImporter(iosNativeToolkitAssetPath);
+        if (Directory.Exists(sourceXcf2))
+        {
+            CopyDirectory(sourceXcf2, Path.Combine(destDir, Path.GetFileName(sourceXcf2)));
+            UnityEngine.Debug.Log($"[Build][iOS] Copied {Path.GetFileName(sourceXcf2)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][iOS] XCFramework not found: {sourceXcf2}");
+        }
+
+        AssetDatabase.Refresh();
+
+        // Apply import settings
+        foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
+        {
+            string assetPath = xcfDir.Replace(Path.GetFullPath(Path.Combine(Application.dataPath, "..")), "").TrimStart(Path.DirectorySeparatorChar);
+            ConfigureIosXcframeworkImporter(assetPath);
+        }
+
+        UnityEngine.Debug.Log($"[Build][iOS] Copy completed to {destDir}");
     }
 
     /// <summary>
@@ -460,68 +498,99 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Builds macOS XCFramework (Debug/Release) and copies it to Plugins/macOS/Library.
+    /// Copies macOS XCFramework (Debug/Release) from dist folder to Plugins/macOS.
     /// </summary>
-    private void BuildmacOSLibraries(string config)
+    private void CopymacOSLibraries(string config, string version)
     {
-        UnityEngine.Debug.Log($"[Build][macOS] Pre-build steps started. Config={config}");
+        UnityEngine.Debug.Log($"[Build][macOS] Copying libraries from dist (config={config}, version={version})");
 
-        string workspacePath = "/Users/jonghyunkim/Desktop/native-toolkit/mac/MacWorkspace.xcworkspace";
-        string scheme = "UnityMacPlugin";
+        string xcfSuffix = config == "Debug" ? "-debug" : "";
+        string distMacDir = Path.Combine(NativeToolkitDistRoot, version, "mac");
 
-        RunShellCommand($"xcodebuild clean -workspace \"{workspacePath}\" -scheme \"{scheme}\" -configuration {config}");
-
-        string archivePath = "/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac/UnityMacPlugin.xcarchive";
-        RunShellCommand($"xcodebuild archive -workspace \"{workspacePath}\" -scheme \"{scheme}\" -archivePath \"{archivePath}\" -sdk macosx -configuration {config} SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES");
-
-        string xcframeworkPath = Path.Combine("/Users/jonghyunkim/Desktop/native-toolkit-outputs/mac", config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? $"UnityMacNativeToolkit-{config}.xcframework" : "UnityMacNativeToolkit.xcframework");
-        if (Directory.Exists(xcframeworkPath))
+        if (!Directory.Exists(distMacDir))
         {
-            Directory.Delete(xcframeworkPath, true);
+            UnityEngine.Debug.LogError($"[Build][macOS] macOS dist directory not found: {distMacDir}");
+            return;
         }
 
-        RunShellCommand($"xcodebuild -create-xcframework -framework \"{archivePath}\"/Products/Library/Frameworks/UnityMacPlugin.framework -output \"{xcframeworkPath}\"");
+        // Expected XCFramework names in dist
+        string sourceXcf1 = Path.Combine(distMacDir, $"mac-native-toolkit-{version}{xcfSuffix}.xcframework");
+        string sourceXcf2 = Path.Combine(distMacDir, $"unity-mac-native-toolkit-{version}{xcfSuffix}.xcframework");
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
-        RunShellCommand($"rm -rf \"{destDir}\"/*");
-        RunShellCommand($"cp -R \"{xcframeworkPath}\" \"{destDir}\"");
 
-        UnityEngine.Debug.Log($"[Build][macOS] Copied UnityMacNativeToolkit.xcframework (config={config}) to {destDir}");
-        UnityEngine.Debug.Log("[Build][macOS] Pre-build steps completed.");
-
-        string assetPath = "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/" + (config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
-        // Apply plugin import settings (enable only for macOS)
-        ConfigureMacXcframeworkImporter(assetPath);
-    }
-
-    /// <summary>
-    /// Executes a shell command and throws a <see cref="BuildFailedException"/> if the command fails.
-    /// </summary>
-    /// <param name="command">The shell command to execute.</param>
-    private void RunShellCommand(string command)
-    {
-        var process = new Process();
-        process.StartInfo.FileName = "/bin/bash";
-        process.StartInfo.Arguments = $"-c \"{command}\"";
-        process.StartInfo.RedirectStandardOutput = true;
-        process.StartInfo.RedirectStandardError = true;
-        process.StartInfo.UseShellExecute = false;
-        process.StartInfo.CreateNoWindow = true;
-        process.Start();
-        string output = process.StandardOutput.ReadToEnd();
-        string error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-
-        if (process.ExitCode != 0)
+        // Clean existing xcframeworks
+        if (Directory.Exists(destDir))
         {
-            throw new BuildFailedException($"Command failed: {command}\n{error}");
+            foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
+            {
+                Directory.Delete(xcfDir, true);
+                UnityEngine.Debug.Log($"[Build][macOS] Deleted old XCFramework: {xcfDir}");
+            }
         }
         else
         {
-            UnityEngine.Debug.Log(output);
+            Directory.CreateDirectory(destDir);
+        }
+
+        // Copy XCFrameworks
+        if (Directory.Exists(sourceXcf1))
+        {
+            CopyDirectory(sourceXcf1, Path.Combine(destDir, Path.GetFileName(sourceXcf1)));
+            UnityEngine.Debug.Log($"[Build][macOS] Copied {Path.GetFileName(sourceXcf1)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][macOS] XCFramework not found: {sourceXcf1}");
+        }
+
+        if (Directory.Exists(sourceXcf2))
+        {
+            CopyDirectory(sourceXcf2, Path.Combine(destDir, Path.GetFileName(sourceXcf2)));
+            UnityEngine.Debug.Log($"[Build][macOS] Copied {Path.GetFileName(sourceXcf2)}");
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[Build][macOS] XCFramework not found: {sourceXcf2}");
+        }
+
+        AssetDatabase.Refresh();
+
+        // Apply import settings
+        foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
+        {
+            string assetPath = xcfDir.Replace(Path.GetFullPath(Path.Combine(Application.dataPath, "..")), "").TrimStart(Path.DirectorySeparatorChar);
+            ConfigureMacXcframeworkImporter(assetPath);
+        }
+
+        UnityEngine.Debug.Log($"[Build][macOS] Copy completed to {destDir}");
+    }
+
+    /// <summary>
+    /// Recursively copies a directory and its contents.
+    /// </summary>
+    private void CopyDirectory(string sourceDir, string destDir)
+    {
+        if (Directory.Exists(destDir))
+        {
+            Directory.Delete(destDir, true);
+        }
+
+        Directory.CreateDirectory(destDir);
+
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {
+            File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), true);
+        }
+
+        foreach (string dir in Directory.GetDirectories(sourceDir))
+        {
+            CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
         }
     }
+
+
 
     // Enable only iOS for the given .xcframework; disable others
     private static void ConfigureIosXcframeworkImporter(string assetPath)
@@ -598,21 +667,18 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     {
         try
         {
-            var sjis = Encoding.GetEncoding(932);
-            startInfo.StandardOutputEncoding = sjis;
-            startInfo.StandardErrorEncoding = sjis;
+            startInfo.StandardOutputEncoding = Encoding.GetEncoding("shift_jis");
+            startInfo.StandardErrorEncoding = Encoding.GetEncoding("shift_jis");
         }
-        catch (System.Exception ex)
+        catch
         {
-            UnityEngine.Debug.LogError($"[Build][Windows] Failed to set Shift_JIS encoding for MSBuild logs: {ex.Message}");
+            // Encoding not available; fall back to default
         }
     }
 
-    // Checks if the MSBuild output or error contains regsvr32 failure indication.
+    // Checks if build failure was caused by a post-build COM registration step (regsvr32) which is not critical.
     private bool ContainsRegsvrFailure(string output, string error)
     {
-        const string token = "regsvr32";
-        return (!string.IsNullOrEmpty(output) && output.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0)
-            || (!string.IsNullOrEmpty(error) && error.IndexOf(token, System.StringComparison.OrdinalIgnoreCase) >= 0);
+        return (output + error).Contains("regsvr32") || (output + error).Contains("REGSVR32");
     }
 }

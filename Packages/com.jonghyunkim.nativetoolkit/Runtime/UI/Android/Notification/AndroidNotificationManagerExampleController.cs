@@ -23,6 +23,7 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private const int DecoratedCustomViewNotificationId = 1601;
     private const string UnityAppIconResourceName = "app_icon";
     private const string UnityAppIconResourceType = "mipmap";
+    private const string NotificationPermissionRequiredMessage = "Please allow notification permission first.";
     private const string ActionPlayNow = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW";
     private const string ActionDismiss = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS";
     private const string ActionCustomViewDismiss = "com.jonghyunkim.nativetoolkit.ACTION_CUSTOM_VIEW_DISMISS";
@@ -252,6 +253,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnShowNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing notification {ImmediateNotificationId}: Energy Refilled");
         AndroidNotificationManager.Instance.ShowNotification(BuildImmediateNotificationJson());
 #else
@@ -262,6 +268,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnUpdateNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationUpdateNotification, $"Updating notification {ImmediateNotificationId}: Daily Reward Ready");
         AndroidNotificationManager.Instance.UpdateNotification(BuildUpdatedNotificationJson());
 #else
@@ -272,6 +283,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnCancelNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationCancelNotification, $"Cancelling notification {ImmediateNotificationId} with tag energy");
         AndroidNotificationManager.Instance.CancelNotification(ImmediateNotificationId, "energy");
 #else
@@ -282,6 +298,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnCancelAllNotificationsClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationCancelAllNotifications, "Cancelling all visible gameplay notifications.");
         AndroidNotificationManager.Instance.CancelAllNotifications();
 #else
@@ -292,6 +313,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnScheduleNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         long triggerTime = GetScheduledTriggerTime();
         RegisterRequestedOperation(
             AndroidNotificationManager.OperationScheduleNotification,
@@ -305,6 +331,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnCancelScheduledNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationCancelScheduledNotification, $"Cancelling scheduled notification {ScheduledNotificationId} with tag guild-battle");
         AndroidNotificationManager.Instance.CancelScheduledNotification(ScheduledNotificationId, "guild-battle");
 #else
@@ -315,6 +346,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnCancelAllScheduledNotificationsClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationCancelAllScheduledNotifications, "Cancelling all scheduled gameplay reminders.");
         AndroidNotificationManager.Instance.CancelAllScheduledNotifications();
 #else
@@ -325,6 +361,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnStartProgressClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         _currentProgressValue = 15;
         RegisterRequestedOperation(
             AndroidNotificationManager.OperationStartProgressForegroundService,
@@ -338,6 +379,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnUpdateProgressClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         _currentProgressValue = Mathf.Min(_currentProgressValue + 35, 90);
         RegisterRequestedOperation(
             AndroidNotificationManager.OperationUpdateProgressForegroundService,
@@ -351,6 +397,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnCompleteProgressClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationCompleteProgressForegroundService, $"Completing foreground progress notification {ProgressNotificationId}.");
         AndroidNotificationManager.Instance.CompleteProgressForegroundService(BuildForegroundCompleteJson());
 #else
@@ -361,6 +412,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnStopProgressClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationStopProgressForegroundService, $"Stopping foreground progress notification {ProgressNotificationId}.");
         AndroidNotificationManager.Instance.StopProgressForegroundService();
 #else
@@ -371,6 +427,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnShowActionNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing match alert {ActionNotificationId} with action buttons.");
         AndroidNotificationManager.Instance.ShowNotification(BuildActionNotificationJson());
 #else
@@ -381,6 +442,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnShowFullScreenNotificationClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing full-screen match start notification {FullScreenNotificationId}.");
         AndroidNotificationManager.Instance.ShowNotification(BuildFullScreenNotificationJson());
 #else
@@ -423,6 +489,11 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void OnShowDecoratedCustomViewClicked()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
+        if (!EnsureNotificationPermission())
+        {
+            return;
+        }
+
         RegisterRequestedOperation(AndroidNotificationManager.OperationShowNotification, $"Showing custom view notification {DecoratedCustomViewNotificationId}.");
         AndroidNotificationManager.Instance.ShowNotification(BuildDecoratedCustomViewNotificationJson());
 #else
@@ -435,6 +506,17 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     {
         _pendingOperationDescriptions[operation] = description;
         SetResult($"Requested: {description}");
+    }
+
+    private bool EnsureNotificationPermission()
+    {
+        if (AndroidNotificationManager.Instance.HasPermission())
+        {
+            return true;
+        }
+
+        SetResult(NotificationPermissionRequiredMessage);
+        return false;
     }
 
     private void OnNotificationOperationCompleted(NotificationResult result)
