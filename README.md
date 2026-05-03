@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.0.0
+- 1.1.0
 
 ## Supported OS Versions
 
@@ -31,6 +31,13 @@ Other languages:
   - Multi choice dialog
   - Text input dialog
   - Login dialog
+- Notification features
+  - Standard notifications (show / update / cancel)
+  - Scheduled notifications (schedule / status / cancel)
+  - Action notifications
+  - Full-screen notifications
+  - DecoratedCustomView notifications
+  - Progress notifications (Foreground Service)
 
 ### iOS
 
@@ -66,7 +73,9 @@ Other languages:
 
 - Share
 - Clipboard integration
-- Notifications
+- Notifications (iOS)
+- Notifications (Windows)
+- Notifications (macOS)
 
 ## Installation
 
@@ -74,7 +83,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
 - Click "install".
 - Requirements:
   - Unity 6+

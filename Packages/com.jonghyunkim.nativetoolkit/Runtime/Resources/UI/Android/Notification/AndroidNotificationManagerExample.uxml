@@ -1,0 +1,71 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="AndroidNotificationManagerExampleStyle.uss" />
+    <ui:VisualElement class="android-notification-root">
+        <ui:VisualElement class="android-notification-header">
+            <ui:Button name="HomeButton" class="android-secondary-button" text="Back To Home" />
+            <ui:Label text="AndroidNotificationManager Example" class="android-notification-title" />
+            <ui:Label text="Gameplay-focused notification scenarios for Android devices." class="android-notification-subtitle" />
+            <ui:VisualElement class="android-result-border">
+                <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="android-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="android-notification-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="android-notification-content">
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Status / Settings" class="android-section-title" />
+                    <ui:Button name="HasPermissionButton" class="android-notification-button" text="Has Permission" />
+                    <ui:Button name="NotificationsEnabledButton" class="android-notification-button" text="Notifications Enabled" />
+                    <ui:Button name="NotificationSettingsButton" class="android-notification-button" text="Open Notification Settings" />
+                    <ui:Button name="AppDetailsSettingsButton" class="android-notification-button" text="Open App Details Settings" />
+                    <ui:Button name="ExactAlarmSettingsButton" class="android-notification-button" text="Open Exact Alarm Settings" />
+                    <ui:Button name="CanScheduleExactAlarmsButton" class="android-notification-button" text="Can Schedule Exact Alarms" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Permission (Android 13+)" class="android-section-title" />
+                    <ui:Button name="RequestPermissionButton" class="android-notification-button" text="Request Notification Permission" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Immediate Notification" class="android-section-title" />
+                    <ui:Button name="ShowNotificationButton" class="android-notification-button" text="Show Energy Refilled" />
+                    <ui:Button name="UpdateNotificationButton" class="android-notification-button" text="Update To Daily Reward Ready" />
+                    <ui:Button name="CancelNotificationButton" class="android-secondary-button" text="Cancel Notification" />
+                    <ui:Button name="CancelAllNotificationsButton" class="android-secondary-button" text="Cancel All Notifications" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Scheduled Notification" class="android-section-title" />
+                    <ui:Button name="ScheduleNotificationButton" class="android-notification-button" text="Schedule Guild Battle Reminder" />
+                    <ui:Button name="IsScheduledNotificationButton" class="android-notification-button" text="Is Guild Battle Scheduled?" />
+                    <ui:Button name="CancelScheduledNotificationButton" class="android-secondary-button" text="Cancel Scheduled Reminder" />
+                    <ui:Button name="CancelAllScheduledNotificationsButton" class="android-secondary-button" text="Cancel All Scheduled Reminders" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Foreground Progress" class="android-section-title" />
+                    <ui:Button name="StartProgressButton" class="android-notification-button" text="Start Asset Download" />
+                    <ui:Button name="UpdateProgressButton" class="android-notification-button" text="Update Crafting Progress" />
+                    <ui:Button name="CompleteProgressButton" class="android-notification-button" text="Complete Crafting" />
+                    <ui:Button name="StopProgressButton" class="android-secondary-button" text="Stop Foreground Progress" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Action Buttons" class="android-section-title" />
+                    <ui:Button name="ShowActionNotificationButton" class="android-notification-button" text="Show Match Found (Actions)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Full-Screen Intent" class="android-section-title" />
+                    <ui:Button name="ShowFullScreenNotificationButton" class="android-notification-button" text="Show Match Starting (Full Screen)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Decorated Custom View" class="android-section-title" />
+                    <ui:Button name="ShowDecoratedCustomViewButton" class="android-notification-button" text="Show Custom Layout Notification" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

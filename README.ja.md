@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.0.0
+- 1.1.0
 
 ## 対応 OS バージョン
 
@@ -31,6 +31,13 @@
   - マルチ選択ダイアログ
   - 入力ダイアログ
   - ログインダイアログ
+- 通知機能
+  - 通常通知（表示 / 更新 / キャンセル）
+  - スケジュール通知（登録 / 状態確認 / キャンセル）
+  - アクション付き通知
+  - フルスクリーン通知
+  - DecoratedCustomView 通知
+  - プログレス通知（Foreground Service）
 
 ### iOS
 
@@ -66,7 +73,9 @@
 
 - シェア機能
 - クリップボード連携
-- 通知
+- 通知（iOS）
+- 通知（Windows）
+- 通知（macOS）
 
 ## インストール
 
@@ -74,7 +83,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
