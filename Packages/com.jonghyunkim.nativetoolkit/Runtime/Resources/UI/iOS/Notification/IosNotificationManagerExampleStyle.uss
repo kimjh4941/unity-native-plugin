@@ -1,0 +1,118 @@
+.ios-notif-root {
+    flex-grow: 1;
+    background-color: #F8F8F8;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.ios-notif-header {
+    background-color: #FFFFFF;
+    padding: 16px;
+    border-bottom-width: 1px;
+    border-bottom-color: #E5E5EA;
+}
+
+.ios-notif-title {
+    font-size: 20px;
+    color: #1C1C1E;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.ios-notif-subtitle {
+    font-size: 12px;
+    color: #8E8E93;
+    -unity-text-align: upper-center;
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.ios-result-border {
+    background-color: #E9E9EB;
+    border-radius: 12px;
+    margin: 8px 0 4px 0;
+}
+
+.ios-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #1C1C1E;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.ios-notif-scroll {
+    flex-grow: 1;
+}
+
+.ios-notif-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.ios-section {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.ios-section-title {
+    font-size: 13px;
+    color: #8E8E93;
+    -unity-font-style: bold;
+    -unity-text-align: upper-left;
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.ios-notif-button {
+    background-color: #007AFF;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.ios-notif-button:hover {
+    background-color: #0056D6;
+}
+
+.ios-notif-button:active {
+    background-color: #0046AA;
+}
+
+.ios-notif-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
+
+.ios-secondary-button {
+    background-color: #8E8E93;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.ios-secondary-button:hover {
+    background-color: #6E6E73;
+}
+
+.ios-secondary-button:active {
+    background-color: #5A5A5E;
+}

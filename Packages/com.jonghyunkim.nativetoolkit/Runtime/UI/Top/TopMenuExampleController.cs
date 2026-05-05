@@ -1,11 +1,13 @@
 #nullable enable
 
-#if UNITY_ANDROID || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 
 public class TopMenuExampleController : MonoBehaviour
 {
+    private const string LogTag = "TopMenuExampleController";
+
     [SerializeField] private UIDocument? uiDocument;
 
     private Button? _dialogButton;
@@ -13,6 +15,7 @@ public class TopMenuExampleController : MonoBehaviour
 
     private void Start()
     {
+        Debug.Log($"[{LogTag}][{nameof(Start)}]");
         if (uiDocument == null)
         {
             uiDocument = GetComponent<UIDocument>();
@@ -20,7 +23,7 @@ public class TopMenuExampleController : MonoBehaviour
 
         if (uiDocument == null)
         {
-            Debug.LogError("[TopMenuExampleController] UIDocument component not found.");
+            Debug.LogError($"[{LogTag}][{nameof(Start)}] UIDocument component not found.");
             return;
         }
 
@@ -29,6 +32,7 @@ public class TopMenuExampleController : MonoBehaviour
 
     private void OnDestroy()
     {
+        Debug.Log($"[{LogTag}][{nameof(OnDestroy)}]");
         if (_dialogButton != null)
         {
             _dialogButton.clicked -= OnDialogClicked;
@@ -42,10 +46,11 @@ public class TopMenuExampleController : MonoBehaviour
 
     private void InitializeUI()
     {
+        Debug.Log($"[{LogTag}][{nameof(InitializeUI)}]");
         var root = uiDocument?.rootVisualElement;
         if (root == null)
         {
-            Debug.LogError("[TopMenuExampleController] rootVisualElement is null.");
+            Debug.LogError($"[{LogTag}][{nameof(InitializeUI)}] rootVisualElement is null.");
             return;
         }
 
@@ -57,26 +62,51 @@ public class TopMenuExampleController : MonoBehaviour
             _dialogButton.clicked += OnDialogClicked;
         }
 
+#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
         if (_notificationButton != null)
         {
             _notificationButton.clicked += OnNotificationClicked;
         }
+#else
+        // Hide Notification button on platforms where the feature is not available.
+        if (_notificationButton != null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Notification feature is not supported on this platform. Hiding button.");
+            _notificationButton.style.display = DisplayStyle.None;
+        }
+#endif
     }
 
     private void OnDialogClicked()
     {
-        if (uiDocument != null)
-        {
-            NativeToolkitSampleNavigator.ShowAndroidDialog(uiDocument);
-        }
+        Debug.Log($"[{LogTag}][{nameof(OnDialogClicked)}]");
+        if (uiDocument == null) return;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.DisplayDialog(
+            "Dialog Feature",
+            "This feature runs natively on Android or iOS.\nRun on an Android or iOS player for full functionality.",
+            "OK");
+#elif UNITY_ANDROID
+        NativeToolkitSampleNavigator.ShowAndroidDialog(uiDocument);
+#elif UNITY_IOS
+        NativeToolkitSampleNavigator.ShowIosDialog(uiDocument);
+#endif
     }
 
     private void OnNotificationClicked()
     {
-        if (uiDocument != null)
-        {
-            NativeToolkitSampleNavigator.ShowAndroidNotification(uiDocument);
-        }
+        Debug.Log($"[{LogTag}][{nameof(OnNotificationClicked)}]");
+        if (uiDocument == null) return;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.DisplayDialog(
+            "Notification Feature",
+            "This feature runs natively on Android or iOS.\nRun on an Android or iOS player for full functionality.",
+            "OK");
+#elif UNITY_ANDROID
+        NativeToolkitSampleNavigator.ShowAndroidNotification(uiDocument);
+#elif UNITY_IOS
+        NativeToolkitSampleNavigator.ShowIosNotification(uiDocument);
+#endif
     }
 }
 #endif

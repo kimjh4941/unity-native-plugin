@@ -59,21 +59,6 @@ public class AndroidNotificationManagerExampleController : MonoBehaviour
     private void Awake()
     {
         Debug.Log($"[{LogTag}][{nameof(Awake)}]");
-#if UNITY_EDITOR
-        Debug.Log("Running in Unity Editor - Android notification sample is disabled");
-        UnityEditor.EditorUtility.DisplayDialog(
-            "AndroidNotificationManager Example",
-            "This sample is intended for Android devices only.\nRun on an Android player to verify notification features.",
-            "OK");
-#elif UNITY_ANDROID
-        Debug.Log("Running on Android device");
-#else
-        Debug.LogWarning("AndroidNotificationManagerExampleController is only supported on Android platform or Editor.");
-        gameObject.SetActive(false);
-        return;
-#endif
-
-        Debug.Log("AndroidNotificationManagerExampleController initialized successfully.");
     }
 
     private void Start()
