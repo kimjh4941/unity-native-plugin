@@ -4,7 +4,7 @@
         <ui:VisualElement class="ios-notif-header">
             <ui:Button name="HomeButton" class="ios-secondary-button" text="Back To Home" />
             <ui:Label text="IosNotificationManager Example" class="ios-notif-title" />
-            <ui:Label text="Local notification features for iOS devices." class="ios-notif-subtitle" />
+            <ui:Label text="Gameplay-focused notification scenarios for iOS devices." class="ios-notif-subtitle" />
             <ui:VisualElement class="ios-result-border">
                 <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="ios-result-text" />
             </ui:VisualElement>
@@ -13,54 +13,54 @@
             <ui:VisualElement class="ios-notif-content">
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Permission" class="ios-section-title" />
-                    <ui:Button name="RequestPermissionButton" class="ios-notif-button" text="Request Permission" />
-                    <ui:Button name="HasPermissionButton" class="ios-notif-button" text="Has Permission" />
-                    <ui:Button name="AuthorizationStatusButton" class="ios-notif-button" text="Authorization Status" />
-                    <ui:Button name="OpenNotificationSettingsButton" class="ios-secondary-button" text="Open Notification Settings" />
+                    <ui:Button name="RequestPermissionButton" class="ios-notif-button" text="RequestPermission" />
+                    <ui:Button name="HasPermissionButton" class="ios-notif-button" text="HasPermission" />
+                    <ui:Button name="AuthorizationStatusButton" class="ios-notif-button" text="AuthorizationStatus" />
+                    <ui:Button name="OpenNotificationSettingsButton" class="ios-secondary-button" text="OpenNotificationSettings" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Show Notification" class="ios-section-title" />
-                    <ui:Button name="ShowImmediateButton" class="ios-notif-button" text="Show Immediate" />
-                    <ui:Button name="ShowTimeIntervalButton" class="ios-notif-button" text="Show (Time Interval)" />
-                    <ui:Button name="ShowCalendarButton" class="ios-notif-button" text="Show (Calendar)" />
-                    <ui:Button name="ShowLocationButton" class="ios-notif-button" text="Show (Location)" />
+                    <ui:Button name="ShowImmediateButton" class="ios-notif-button" text="ShowImmediate" />
+                    <ui:Button name="ShowTimeIntervalButton" class="ios-notif-button" text="ShowTimeInterval(5s)" />
+                    <ui:Button name="ShowCalendarButton" class="ios-notif-button" text="ShowCalendar(+1m)" />
+                    <ui:Button name="ShowLocationButton" class="ios-notif-button" text="ShowLocation(Tokyo Station, onEntry)" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Update / Cancel / Remove" class="ios-section-title" />
-                    <ui:Button name="UpdateByIdButton" class="ios-notif-button" text="Update By ID" />
-                    <ui:Button name="CancelByIdButton" class="ios-secondary-button" text="Cancel By ID" />
+                    <ui:Button name="UpdateByIdButton" class="ios-notif-button" text="UpdateById" />
+                    <ui:Button name="CancelByIdButton" class="ios-secondary-button" text="CancelById" />
                     <ui:Button name="CancelAllButton" class="ios-secondary-button" text="Cancel All" />
-                    <ui:Button name="RemoveDeliveredByIdButton" class="ios-secondary-button" text="Remove Delivered By ID" />
-                    <ui:Button name="RemoveAllDeliveredButton" class="ios-secondary-button" text="Remove All Delivered" />
+                    <ui:Button name="RemoveDeliveredByIdButton" class="ios-secondary-button" text="RemoveDeliveredById" />
+                    <ui:Button name="RemoveAllDeliveredButton" class="ios-secondary-button" text="RemoveAllDelivered" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Scheduled Notification" class="ios-section-title" />
-                    <ui:Button name="ScheduleTimeIntervalButton" class="ios-notif-button" text="Schedule (Time Interval)" />
-                    <ui:Button name="ScheduleCalendarButton" class="ios-notif-button" text="Schedule (Calendar)" />
-                    <ui:Button name="ScheduleLocationButton" class="ios-notif-button" text="Schedule (Location)" />
-                    <ui:Button name="CancelScheduledByIdButton" class="ios-secondary-button" text="Cancel Scheduled By ID" />
-                    <ui:Button name="CancelAllScheduledButton" class="ios-secondary-button" text="Cancel All Scheduled" />
+                    <ui:Button name="ScheduleTimeIntervalButton" class="ios-notif-button" text="ScheduleTimeInterval(10s)" />
+                    <ui:Button name="ScheduleCalendarButton" class="ios-notif-button" text="ScheduleCalendar(+1m)" />
+                    <ui:Button name="ScheduleLocationButton" class="ios-notif-button" text="ScheduleLocation(Tokyo Station, onEntry)" />
+                    <ui:Button name="CancelScheduledByIdButton" class="ios-secondary-button" text="CancelScheduledById" />
+                    <ui:Button name="CancelAllScheduledButton" class="ios-secondary-button" text="CancelAllScheduled" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Query" class="ios-section-title" />
-                    <ui:Button name="GetScheduledButton" class="ios-notif-button" text="Get Scheduled Notifications" />
-                    <ui:Button name="GetDeliveredButton" class="ios-notif-button" text="Get Delivered Notifications" />
+                    <ui:Button name="GetScheduledButton" class="ios-notif-button" text="GetScheduled" />
+                    <ui:Button name="GetDeliveredButton" class="ios-notif-button" text="GetDelivered" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Badge" class="ios-section-title" />
-                    <ui:Button name="SetBadgeCount1Button" class="ios-notif-button" text="Set Badge Count (1)" />
-                    <ui:Button name="SetBadgeCount0Button" class="ios-secondary-button" text="Set Badge Count (0)" />
+                    <ui:Button name="SetBadgeCount1Button" class="ios-notif-button" text="SetBadgeCount(1)" />
+                    <ui:Button name="SetBadgeCount0Button" class="ios-secondary-button" text="SetBadgeCount(0)" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Category" class="ios-section-title" />
-                    <ui:Button name="RegisterCategoryButton" class="ios-notif-button" text="Register Category" />
-                    <ui:Button name="RemoveCategoryButton" class="ios-secondary-button" text="Remove Category" />
+                    <ui:Button name="RegisterCategoryButton" class="ios-notif-button" text="RegisterCategory" />
+                    <ui:Button name="RemoveCategoryButton" class="ios-secondary-button" text="RemoveCategory" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:ScrollView>

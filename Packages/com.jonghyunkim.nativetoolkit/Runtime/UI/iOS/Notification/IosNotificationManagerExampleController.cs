@@ -190,7 +190,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         IosNotificationManager.Instance.RequestPermission(result =>
         {
-            SetResult($"RequestPermission: {result}");
+            SetResult(FormatResult("RequestPermission", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -241,14 +241,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleNotificationId,
-            title = "Immediate Notification",
-            body = "This notification was triggered immediately.",
+            title = "Energy Refilled",
+            body = "Your squad is fully rested. Jump back in and clear the next raid.",
             sound = "default"
         };
         var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
         IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
         {
-            SetResult($"ShowImmediate: {result}");
+            SetResult(FormatResult("ShowImmediate", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -262,8 +262,8 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleNotificationId,
-            title = "Time Interval Notification",
-            body = "Delivered after a 5-second interval.",
+            title = "Guild Battle Countdown",
+            body = "Your team queue opens in 5 seconds. Rally your party and get ready.",
             sound = "default"
         };
         var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
@@ -271,7 +271,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
         IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
         {
-            SetResult($"ShowTimeInterval: {result}");
+            SetResult(FormatResult("ShowTimeInterval", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -282,12 +282,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowCalendarClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var now = System.DateTime.Now.AddSeconds(10);
+        var now = System.DateTime.Now.AddMinutes(1);
         var content = new NotificationContentPayload
         {
             id = SampleNotificationId,
-            title = "Calendar Notification",
-            body = "Delivered at a specific calendar time.",
+            title = "Daily Reward Ready",
+            body = "Your login streak chest is ready in town. Claim it before reset.",
             sound = "default"
         };
         var trigger = new CalendarTriggerPayload
@@ -301,7 +301,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
         IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
         {
-            SetResult($"ShowCalendar: {result}");
+            SetResult(FormatResult("ShowCalendar", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -315,8 +315,8 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleNotificationId,
-            title = "Location Notification",
-            body = "Delivered when entering Tokyo Station area.",
+            title = "Town Entry Bonus",
+            body = "Welcome back to town. Your blacksmith bonus is now available.",
             sound = "default"
         };
         var trigger = new LocationTriggerPayload
@@ -332,7 +332,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
         IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
         {
-            SetResult($"ShowLocation: {result}");
+            SetResult(FormatResult("ShowLocation", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -346,14 +346,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleNotificationId,
-            title = "Updated Notification",
-            body = "This notification has been updated.",
+            title = "Daily Reward Ready",
+            body = "Your login streak chest is waiting. Collect now to keep the bonus chain.",
             sound = "default"
         };
         var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
         IosNotificationManager.Instance.UpdateNotification(SampleNotificationId, contentJson, null, result =>
         {
-            SetResult($"UpdateById ({SampleNotificationId}): {result}");
+            SetResult(FormatResult($"UpdateById ({SampleNotificationId})", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -411,16 +411,16 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleScheduledId,
-            title = "Scheduled (Time Interval)",
-            body = "Scheduled notification delivered after 30 seconds.",
+            title = "Guild Battle Starts Soon",
+            body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
             sound = "default"
         };
-        var trigger = new TimeIntervalTriggerPayload { interval = 30.0, repeats = false };
+        var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
         var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
         var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
         IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
         {
-            SetResult($"ScheduleTimeInterval: {result}");
+            SetResult(FormatResult("ScheduleTimeInterval", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -435,8 +435,8 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleScheduledId,
-            title = "Scheduled (Calendar)",
-            body = "Scheduled notification delivered at a calendar time.",
+            title = "Daily Reward Window",
+            body = "Your daily reward window is open. Check in now to keep your streak.",
             sound = "default"
         };
         var trigger = new CalendarTriggerPayload
@@ -450,7 +450,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
         IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
         {
-            SetResult($"ScheduleCalendar: {result}");
+            SetResult(FormatResult("ScheduleCalendar", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -464,8 +464,8 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var content = new NotificationContentPayload
         {
             id = SampleScheduledId,
-            title = "Scheduled (Location)",
-            body = "Scheduled notification delivered near Tokyo Station.",
+            title = "Town Arrival Bonus",
+            body = "You reached the hub area. Visit the guild board to claim your bonus quest.",
             sound = "default"
         };
         var trigger = new LocationTriggerPayload
@@ -481,7 +481,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
         IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
         {
-            SetResult($"ScheduleLocation: {result}");
+            SetResult(FormatResult("ScheduleLocation", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -542,7 +542,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         IosNotificationManager.Instance.SetBadgeCount(1, result =>
         {
-            SetResult($"SetBadgeCount(1): {result}");
+            SetResult(FormatResult("SetBadgeCount(1)", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -555,7 +555,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         IosNotificationManager.Instance.SetBadgeCount(0, result =>
         {
-            SetResult($"SetBadgeCount(0): {result}");
+            SetResult(FormatResult("SetBadgeCount(0)", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -598,7 +598,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
         IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
         {
-            SetResult($"RegisterCategory: {result}");
+            SetResult(FormatResult("RegisterCategory", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -621,6 +621,9 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private void OnNotificationOperationCompleted(IosNotificationResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnNotificationOperationCompleted)}] result: {result}");
+#if UNITY_IOS && !UNITY_EDITOR
+        SetResult(FormatResult("OperationCompleted", result));
+#endif
     }
 
     private void OnNotificationActionReceived(IosNotificationActionResult result)
@@ -636,6 +639,16 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+#if UNITY_IOS && !UNITY_EDITOR
+    private static string FormatResult(string label, IosNotificationResult result)
+    {
+        var icon = result.IsSuccess ? "✓" : "✗";
+        return result.IsSuccess
+            ? $"{icon} {label}"
+            : $"{icon} {label}\nError: {result.ErrorMessage ?? "nil"}";
+    }
+#endif
 
     private void SetResult(string message)
     {

@@ -1,6 +1,6 @@
 .ios-notif-root {
     flex-grow: 1;
-    background-color: #F8F8F8;
+    background-color: rgba(0, 0, 0, 1);
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -8,10 +8,12 @@
 }
 
 .ios-notif-header {
-    background-color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 1);
     padding: 16px;
-    border-bottom-width: 1px;
-    border-bottom-color: #E5E5EA;
+    gap: 12px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .ios-notif-title {
@@ -33,16 +35,15 @@
 }
 
 .ios-result-border {
-    background-color: #E9E9EB;
-    border-radius: 12px;
-    margin: 8px 0 4px 0;
+    background-color: #EEEEEE;
+    border-radius: 8px;
 }
 
 .ios-result-text {
     padding: 10px;
     font-size: 12px;
-    color: #1C1C1E;
-    -unity-text-align: upper-center;
+    color: #212121;
+    -unity-text-align: upper-left;
     white-space: normal;
 }
 
@@ -51,26 +52,24 @@
 }
 
 .ios-notif-content {
-    padding: 16px;
+    background-color: rgba(255, 255, 255, 1);
     display: flex;
     flex-direction: column;
+    width: 100%;
+    padding: 0 16px 16px 16px;
+    gap: 12px;
 }
 
 .ios-section {
-    background-color: #FFFFFF;
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 16px;
     display: flex;
     flex-direction: column;
+    gap: 8px;
 }
 
 .ios-section-title {
-    font-size: 13px;
-    color: #8E8E93;
+    font-size: 15px;
+    color: #263238;
     -unity-font-style: bold;
-    -unity-text-align: upper-left;
-    margin-bottom: 8px;
     white-space: normal;
 }
 
@@ -78,11 +77,15 @@
     background-color: #007AFF;
     color: white;
     font-size: 14px;
-    height: 46px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
     -unity-text-align: middle-center;
     border-width: 0;
-    border-radius: 10px;
-    margin-bottom: 8px;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
 }
 
 .ios-notif-button:hover {
@@ -102,11 +105,15 @@
     background-color: #8E8E93;
     color: white;
     font-size: 14px;
-    height: 46px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
     -unity-text-align: middle-center;
     border-width: 0;
-    border-radius: 10px;
-    margin-bottom: 8px;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
 }
 
 .ios-secondary-button:hover {
