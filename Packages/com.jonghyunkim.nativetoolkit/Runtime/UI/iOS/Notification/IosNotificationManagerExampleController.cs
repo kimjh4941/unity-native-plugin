@@ -243,12 +243,15 @@ public class IosNotificationManagerExampleController : MonoBehaviour
             id = SampleNotificationId,
             title = "Energy Refilled",
             body = "Your squad is fully rested. Jump back in and clear the next raid.",
-            sound = "default"
+            sound = "default",
+            categoryIdentifier = SampleCategoryId
         };
         var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
         IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
         {
-            SetResult(FormatResult("ShowImmediate", result));
+            SetResult(result.IsSuccess
+                ? "✓ ShowImmediate\nLong-press the foreground banner or delivered notification to open Open / Delete / Reply."
+                : FormatResult("ShowImmediate", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -598,7 +601,9 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         var categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
         IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
         {
-            SetResult(FormatResult("RegisterCategory", result));
+            SetResult(result.IsSuccess
+                ? "✓ RegisterCategory\nNext, tap ShowImmediate and long-press the foreground banner to open Open / Delete / Reply."
+                : FormatResult("RegisterCategory", result));
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -622,7 +627,13 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnNotificationOperationCompleted)}] result: {result}");
 #if UNITY_IOS && !UNITY_EDITOR
-        SetResult(FormatResult("OperationCompleted", result));
+        if (result.IsSuccess &&
+            result.Operation == IosNotificationManager.OperationRegisterCategory)
+        {
+            return;
+        }
+
+        SetResult(FormatResult(result.Operation, result));
 #endif
     }
 

@@ -18,6 +18,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     {
         private const string LogTag = "IosNotificationManager";
 
+        /// <summary>Native operation name for requesting notification permission.</summary>
+        public const string OperationRequestPermission = "requestPermission";
+
+        /// <summary>Native operation name for showing a notification.</summary>
+        public const string OperationShowNotification = "showNotification";
+
+        /// <summary>Native operation name for scheduling a notification.</summary>
+        public const string OperationScheduleNotification = "scheduleNotification";
+
+        /// <summary>Native operation name for updating a notification.</summary>
+        public const string OperationUpdateNotification = "updateNotification";
+
+        /// <summary>Native operation name for setting the badge count.</summary>
+        public const string OperationSetBadgeCount = "setBadgeCount";
+
+        /// <summary>Native operation name for registering a notification category.</summary>
+        public const string OperationRegisterCategory = "registerCategory";
+
         private static IosNotificationManager? _instance;
 
         /// <summary>
@@ -455,7 +473,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnShowNotificationResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationShowNotification) : IosNotificationResult.Failure(OperationShowNotification, errorMessage);
             var cb = s_onShowNotification;
             s_onShowNotification = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -475,7 +493,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnScheduleNotificationResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationScheduleNotification) : IosNotificationResult.Failure(OperationScheduleNotification, errorMessage);
             var cb = s_onScheduleNotification;
             s_onScheduleNotification = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -495,7 +513,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnUpdateNotificationResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationUpdateNotification) : IosNotificationResult.Failure(OperationUpdateNotification, errorMessage);
             var cb = s_onUpdateNotification;
             s_onUpdateNotification = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -515,7 +533,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnRequestPermissionResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationRequestPermission) : IosNotificationResult.Failure(OperationRequestPermission, errorMessage);
             var cb = s_onRequestPermission;
             s_onRequestPermission = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -535,7 +553,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnSetBadgeCountResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationSetBadgeCount) : IosNotificationResult.Failure(OperationSetBadgeCount, errorMessage);
             var cb = s_onSetBadgeCount;
             s_onSetBadgeCount = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
@@ -555,7 +573,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         [MonoPInvokeCallback(typeof(NotificationCallback))]
         private static void OnRegisterCategoryResult(bool isSuccess, string? errorMessage)
         {
-            var result = isSuccess ? IosNotificationResult.Success() : IosNotificationResult.Failure(errorMessage);
+            var result = isSuccess ? IosNotificationResult.Success(OperationRegisterCategory) : IosNotificationResult.Failure(OperationRegisterCategory, errorMessage);
             var cb = s_onRegisterCategory;
             s_onRegisterCategory = null;
             UnityMainThreadDispatcher.Instance.Enqueue(() =>
