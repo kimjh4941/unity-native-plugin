@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.1.0
+- 1.2.0
 
 ## Supported OS Versions
 
@@ -48,6 +48,13 @@ Other languages:
   - Action sheet
   - Text input dialog
   - Login dialog
+- Notification features
+  - Request permission / check authorization status / open notification settings
+  - Immediate notifications (including attachment sample)
+  - Scheduled notifications (time interval / calendar / location)
+  - Update / cancel / remove delivered / fetch state
+  - Badge count management
+  - Category registration / actions / text input actions
 
 ### Windows
 
@@ -73,7 +80,6 @@ Other languages:
 
 - Share
 - Clipboard integration
-- Notifications (iOS)
 - Notifications (Windows)
 - Notifications (macOS)
 
@@ -83,7 +89,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
 - Click "install".
 - Requirements:
   - Unity 6+

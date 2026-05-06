@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.1.0
+- 1.2.0
 
 ## 지원 OS 버전
 
@@ -48,6 +48,13 @@
   - 액션 시트
   - 입력 다이얼로그
   - 로그인 다이얼로그
+- 알림 기능
+  - 알림 권한 요청 / 권한 상태 확인 / 알림 설정 화면 이동
+  - 즉시 알림 (첨부 파일 알림 샘플 포함)
+  - 예약 알림 (시간 간격 / 캘린더 / 위치 기반)
+  - 알림 업데이트 / 취소 / 전달 완료 알림 삭제 / 상태 조회
+  - 배지 개수 설정
+  - 카테고리 등록 / 액션 / 텍스트 입력 액션
 
 ### Windows
 
@@ -73,7 +80,6 @@
 
 - 공유
 - 클립보드 연동
-- 알림 (iOS)
 - 알림 (Windows)
 - 알림 (macOS)
 
@@ -83,7 +89,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
