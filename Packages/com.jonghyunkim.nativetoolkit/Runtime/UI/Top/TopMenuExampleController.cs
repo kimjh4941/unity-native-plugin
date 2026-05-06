@@ -1,6 +1,6 @@
 #nullable enable
 
-#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -84,12 +84,16 @@ public class TopMenuExampleController : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.DisplayDialog(
             "Dialog Feature",
-            "This feature runs natively on Android or iOS.\nRun on an Android or iOS player for full functionality.",
+            "This feature runs natively on Android, iOS, macOS, or Windows.\nRun on an Android, iOS, macOS, or Windows player for full functionality.",
             "OK");
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidDialog(uiDocument);
 #elif UNITY_IOS
         NativeToolkitSampleNavigator.ShowIosDialog(uiDocument);
+#elif UNITY_STANDALONE_OSX
+        NativeToolkitSampleNavigator.ShowMacDialog(uiDocument);
+#elif UNITY_STANDALONE_WIN
+        NativeToolkitSampleNavigator.ShowWindowsDialog(uiDocument);
 #endif
     }
 

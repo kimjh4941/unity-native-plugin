@@ -1,6 +1,6 @@
 #nullable enable
 
-#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN || UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -54,6 +54,26 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowWindowsDialog(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+        ApplyScreen<WindowsDialogManagerExampleController>(
+            uiDocument,
+            "UI/Windows/Dialog/WindowsDialogManagerExample",
+            "UI/Windows/Dialog/WindowsDialogManagerExampleStyle");
+#endif
+    }
+
+    public static void ShowMacDialog(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+        ApplyScreen<MacDialogManagerExampleController>(
+            uiDocument,
+            "UI/macOS/Dialog/MacDialogManagerExample",
+            "UI/macOS/Dialog/MacDialogManagerExampleStyle");
+#endif
+    }
+
     private static void ApplyScreen<TController>(UIDocument uiDocument, string visualTreeResourcePath, string styleResourcePath)
         where TController : MonoBehaviour
     {
@@ -96,6 +116,12 @@ public static class NativeToolkitSampleNavigator
 #if UNITY_IOS || UNITY_EDITOR
         RemoveIfExists<IosDialogManagerExampleController>(gameObject);
         RemoveIfExists<IosNotificationManagerExampleController>(gameObject);
+#endif
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+        RemoveIfExists<WindowsDialogManagerExampleController>(gameObject);
+#endif
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+        RemoveIfExists<MacDialogManagerExampleController>(gameObject);
 #endif
     }
 

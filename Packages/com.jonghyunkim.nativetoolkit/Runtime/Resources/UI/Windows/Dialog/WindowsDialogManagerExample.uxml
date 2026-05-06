@@ -3,6 +3,7 @@
     <ui:VisualElement class="win-dialog-container">
         <ui:ScrollView class="win-scroll" vertical-scroller-visibility="AlwaysVisible" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="win-dialog-content">
+                <ui:Button name="HomeButton" class="win-dialog-button" text="Back To Home" />
                 <ui:Label name="TitleTextBlock" text="WindowsDialogManager Example" class="win-dialog-title" />
 
                 <ui:VisualElement class="win-result-border">
