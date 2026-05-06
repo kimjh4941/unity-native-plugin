@@ -3,6 +3,7 @@
     <ui:VisualElement class="mac-dialog-container">
         <ui:ScrollView class="mac-scroll" vertical-scroller-visibility="AlwaysVisible" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="mac-dialog-content">
+                <ui:Button name="HomeButton" class="mac-dialog-button" text="Back To Home" />
                 <ui:Label name="TitleTextBlock" text="MacDialogManager Example" class="mac-dialog-title" />
 
                 <ui:VisualElement class="mac-result-border">
