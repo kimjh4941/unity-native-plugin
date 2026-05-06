@@ -41,13 +41,24 @@ public static class PostBuildProcessor
             UnityEngine.Debug.Log("[Build][iOS] Post-build steps started.");
 
             bool isDevelopmentBuild = EditorUserBuildSettings.development;
+            string xcfSuffix = isDevelopmentBuild ? "-debug" : "";
             // XCFramework source and destination paths
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string unityXcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "UnityIosNativeToolkit-Debug.xcframework" : "UnityIosNativeToolkit.xcframework");
-            string iosNativeToolkitXcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS/", isDevelopmentBuild ? "IosNativeToolkit-Debug.xcframework" : "IosNativeToolkit.xcframework");
+            string pluginsIosDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
+
+            string unityXcframeworkName = FindXcframeworkName(pluginsIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS][Unity]", isDevelopmentBuild);
+            string iosNativeToolkitXcframeworkName = FindXcframeworkName(pluginsIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS][Native]", isDevelopmentBuild);
+
+            if (string.IsNullOrEmpty(unityXcframeworkName) || string.IsNullOrEmpty(iosNativeToolkitXcframeworkName))
+            {
+                return;
+            }
+
+            string unityXcframeworkSrc = Path.Combine(pluginsIosDir, unityXcframeworkName);
+            string iosNativeToolkitXcframeworkSrc = Path.Combine(pluginsIosDir, iosNativeToolkitXcframeworkName);
             string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string unityXcframeworkDst = Path.Combine(frameworksDir, "UnityIosNativeToolkit.xcframework");
-            string iosNativeToolkitXcframeworkDst = Path.Combine(frameworksDir, "IosNativeToolkit.xcframework");
+            string unityXcframeworkDst = Path.Combine(frameworksDir, unityXcframeworkName);
+            string iosNativeToolkitXcframeworkDst = Path.Combine(frameworksDir, iosNativeToolkitXcframeworkName);
 
             if (!Directory.Exists(unityXcframeworkSrc))
             {
@@ -91,10 +102,10 @@ public static class PostBuildProcessor
             string frameworkTargetGuid = proj.GetUnityFrameworkTargetGuid();
 
             // Add XCFrameworks to Frameworks
-            string unityRelativePath = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/UnityIosNativeToolkit.xcframework";
+            string unityRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{unityXcframeworkName}";
             string unityFileGuid = proj.AddFile(unityRelativePath, unityRelativePath, PBXSourceTree.Source);
 
-            string iosNativeToolkitRelativePath = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/IosNativeToolkit.xcframework";
+            string iosNativeToolkitRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{iosNativeToolkitXcframeworkName}";
             string iosNativeToolkitFileGuid = proj.AddFile(iosNativeToolkitRelativePath, iosNativeToolkitRelativePath, PBXSourceTree.Source);
 
             // Link and embed the framework
@@ -113,8 +124,8 @@ public static class PostBuildProcessor
 
             proj.AddBuildProperty(mainTargetGuid, "LD_RUNPATH_SEARCH_PATHS", "@loader_path/Frameworks");
 
-            UnityEngine.Debug.Log("[Build][iOS] Added UnityIosNativeToolkit.xcframework to Xcode project.");
-            UnityEngine.Debug.Log("[Build][iOS] Added IosNativeToolkit.xcframework to Xcode project.");
+            UnityEngine.Debug.Log($"[Build][iOS] Added {unityXcframeworkName} to Xcode project.");
+            UnityEngine.Debug.Log($"[Build][iOS] Added {iosNativeToolkitXcframeworkName} to Xcode project.");
 
             proj.WriteToFile(pbxprojPath);
             UnityEngine.Debug.Log("[Build][iOS] Post-build steps completed.");
@@ -203,6 +214,70 @@ public static class PostBuildProcessor
             UnityEngine.Debug.Log("[Build][macOS] Post-build steps completed.");
         }
 #endif
+    }
+
+    private static string FindXcframeworkName(string pluginsDir, string prefix, string xcfSuffix, string logPrefix, bool isDevelopmentBuild)
+    {
+        if (!Directory.Exists(pluginsDir))
+        {
+            UnityEngine.Debug.LogError($"{logPrefix} Plugin directory not found: {pluginsDir}");
+            return null;
+        }
+
+        string selectedName = null;
+        bool hasMultipleMatches = false;
+        string[] candidates = Directory.GetDirectories(pluginsDir, "*.xcframework");
+
+        foreach (string candidatePath in candidates)
+        {
+            string candidateName = Path.GetFileName(candidatePath);
+            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            bool isDebugName = candidateName.EndsWith("-debug.xcframework", StringComparison.OrdinalIgnoreCase);
+            bool suffixMatched;
+
+            if (isDevelopmentBuild)
+            {
+                suffixMatched = candidateName.EndsWith(xcfSuffix + ".xcframework", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                suffixMatched = candidateName.EndsWith(".xcframework", StringComparison.OrdinalIgnoreCase) && !isDebugName;
+            }
+
+            if (!suffixMatched)
+            {
+                continue;
+            }
+
+            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
+            {
+                hasMultipleMatches = selectedName != null || hasMultipleMatches;
+                selectedName = candidateName;
+            }
+            else
+            {
+                hasMultipleMatches = true;
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates);
+            UnityEngine.Debug.LogError($"{logPrefix} XCFramework not found. prefix={prefix}, xcfSuffix={xcfSuffix}, isDevelopmentBuild={isDevelopmentBuild}, pluginsDir={pluginsDir}, available={available}");
+            return null;
+        }
+
+        if (hasMultipleMatches)
+        {
+            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple XCFramework matches found. Selected: {selectedName}");
+        }
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected XCFramework: {selectedName}");
+        return selectedName;
     }
 
     /// <summary>

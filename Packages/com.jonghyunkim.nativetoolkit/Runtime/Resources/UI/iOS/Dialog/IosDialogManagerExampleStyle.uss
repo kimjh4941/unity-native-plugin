@@ -11,8 +11,29 @@
     height: 100%;
 }
 
+.ios-dialog-header {
+    background-color: rgba(255, 255, 255, 1);
+    padding: 16px;
+    gap: 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 .ios-scroll {
     flex-grow: 1;
+}
+
+.ios-dialog-secondary-button {
+    background-color: #8E8E93;
+    color: white;
+    font-size: 14px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    white-space: normal;
 }
 
 .ios-dialog-content {

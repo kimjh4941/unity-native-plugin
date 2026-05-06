@@ -17,6 +17,7 @@ using JonghyunKim.NativeToolkit.Runtime.Dialog;
 /// </summary>
 public class AndroidDialogManagerExampleController : MonoBehaviour
 {
+    private const string LogTag = "AndroidDialogManagerExampleController";
     [SerializeField] private UIDocument? uiDocument;
 
     // UI element references
@@ -42,26 +43,9 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     private float orientationCheckInterval = 0.3f;
     private float lastOrientationCheckTime;
 
-    /// <summary>
-    /// Initialize component and platform-specific behavior on Awake.
-    /// Shows a simulation dialog in Editor mode and validates platform compatibility.
-    /// </summary>
-    void Awake()
+    private void Awake()
     {
-#if UNITY_EDITOR
-        Debug.Log("Running in Unity Editor - Android simulation mode");
-        UnityEditor.EditorUtility.DisplayDialog(
-            "AndroidDialogManager Example",
-            "This is a simulation of the Android dialog manager.\nAll events will not be triggered.\nRun in Android player for full functionality.",
-            "OK");
-#elif UNITY_ANDROID
-    Debug.Log("Running on Android device");
-#else
-    Debug.LogWarning("AndroidDialogManagerExampleController is only supported on Android platform or Editor.");
-    gameObject.SetActive(false);
-    return;
-#endif
-        Debug.Log("AndroidDialogManagerExampleController initialized successfully.");
+        Debug.Log($"[{LogTag}][{nameof(Awake)}]");
     }
 
     /// <summary>

@@ -17,10 +17,13 @@ using JonghyunKim.NativeToolkit.Runtime.Dialog;
 /// </summary>
 public class MacDialogManagerExampleController : MonoBehaviour
 {
+    private const string LogTag = "MacDialogManagerExampleController";
+
     [SerializeField] private UIDocument? uiDocument;
 
     // UI element references
     private Label? _resultLabel;
+    private Button? _btnHome;
     private Button? _btnAlert;
     private Button? _btnFile;
     private Button? _btnMultiFile;
@@ -87,6 +90,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _btnHome = root.Q<Button>("HomeButton");
         _btnAlert = root.Q<Button>("ShowDialogButton");
         _btnFile = root.Q<Button>("ShowFileDialogButton");
         _btnMultiFile = root.Q<Button>("ShowMultiFileDialogButton");
@@ -101,6 +105,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
 
         // Wire up clicks
+        if (_btnHome != null) _btnHome.clicked += OnHomeClicked;
         if (_btnAlert != null) _btnAlert.clicked += OnShowDialogClicked;
         if (_btnFile != null) _btnFile.clicked += OnShowFileDialogClicked;
         if (_btnMultiFile != null) _btnMultiFile.clicked += OnShowMultiFileDialogClicked;
@@ -124,6 +129,7 @@ public class MacDialogManagerExampleController : MonoBehaviour
     /// </summary>
     private void OnDestroy()
     {
+        if (_btnHome != null) _btnHome.clicked -= OnHomeClicked;
         if (_btnAlert != null) _btnAlert.clicked -= OnShowDialogClicked;
         if (_btnFile != null) _btnFile.clicked -= OnShowFileDialogClicked;
         if (_btnMultiFile != null) _btnMultiFile.clicked -= OnShowMultiFileDialogClicked;
@@ -143,6 +149,13 @@ public class MacDialogManagerExampleController : MonoBehaviour
         }
 #endif
         Debug.Log("[MacDialogManagerExampleController] Destroyed and unsubscribed from all events.");
+    }
+
+    private void OnHomeClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnHomeClicked)}]");
+        if (uiDocument != null)
+            NativeToolkitSampleNavigator.ShowTopMenu(uiDocument);
     }
 
     // Button actions

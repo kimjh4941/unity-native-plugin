@@ -16,10 +16,13 @@ using JonghyunKim.NativeToolkit.Runtime.Dialog;
 /// </summary>
 public class IosDialogManagerExampleController : MonoBehaviour
 {
+    private const string LogTag = "IosDialogManagerExampleController";
+
     [SerializeField] private UIDocument? uiDocument;
 
     // UI element references
     private Label? _resultLabel;
+    private Button? _btnHome;
     private Button? _btnDialog;
     private Button? _btnConfirm;
     private Button? _btnDestructive;
@@ -44,22 +47,9 @@ public class IosDialogManagerExampleController : MonoBehaviour
     /// Initialize component and platform-specific behavior on Awake.
     /// Shows a simulation dialog in Editor mode and validates platform compatibility.
     /// </summary>
-    void Awake()
+    private void Awake()
     {
-#if UNITY_EDITOR
-        Debug.Log("Running in Unity Editor - iOS simulation mode");
-        UnityEditor.EditorUtility.DisplayDialog(
-            "IosDialogManager Example",
-            "This is a simulation of the iOS dialog manager.\nAll events will not be triggered.\nRun in iOS player for full functionality.",
-            "OK");
-#elif UNITY_IOS
-    Debug.Log("Running on iOS device");
-#else
-    Debug.LogWarning("IosDialogManagerExampleController is only supported on iOS platform or Editor.");
-    gameObject.SetActive(false);
-    return;
-#endif
-        Debug.Log("[IosDialogManagerExampleController] initialized.");
+        Debug.Log($"[{LogTag}][{nameof(Awake)}]");
     }
 
     /// <summary>
@@ -161,6 +151,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         _btnActionSheet = root.Q<Button>("ShowActionSheetButton");
         _btnTextInput = root.Q<Button>("ShowTextInputDialogButton");
         _btnLogin = root.Q<Button>("ShowLoginDialogButton");
+        _btnHome = root.Q<Button>("HomeButton");
 
         if (_resultLabel == null || _btnDialog == null || _btnConfirm == null || _btnDestructive == null || _btnActionSheet == null || _btnTextInput == null || _btnLogin == null)
         {
@@ -174,6 +165,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         if (_btnActionSheet != null) _btnActionSheet.clicked += OnShowActionSheetClicked;
         if (_btnTextInput != null) _btnTextInput.clicked += OnShowTextInputDialogClicked;
         if (_btnLogin != null) _btnLogin.clicked += OnShowLoginDialogClicked;
+        if (_btnHome != null) _btnHome.clicked += OnHomeClicked;
 
 #if UNITY_IOS && !UNITY_EDITOR
         IosDialogManager.Instance.DialogResult += OnDialogResult;
@@ -194,6 +186,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         if (_btnActionSheet != null) _btnActionSheet.clicked -= OnShowActionSheetClicked;
         if (_btnTextInput != null) _btnTextInput.clicked -= OnShowTextInputDialogClicked;
         if (_btnLogin != null) _btnLogin.clicked -= OnShowLoginDialogClicked;
+        if (_btnHome != null) _btnHome.clicked -= OnHomeClicked;
 
 #if UNITY_IOS && !UNITY_EDITOR
         IosDialogManager.Instance.DialogResult -= OnDialogResult;
@@ -206,6 +199,13 @@ public class IosDialogManagerExampleController : MonoBehaviour
     }
 
     #region Dialog Event Handlers
+
+    private void OnHomeClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnHomeClicked)}]");
+        if (uiDocument == null) return;
+        NativeToolkitSampleNavigator.ShowTopMenu(uiDocument);
+    }
 
     /// <summary>
     /// Button handler: shows a simple informational alert dialog on iOS.

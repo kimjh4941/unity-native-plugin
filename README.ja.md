@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.1.0
+- 1.2.0
 
 ## 対応 OS バージョン
 
@@ -48,6 +48,13 @@
   - アクションシート
   - 入力ダイアログ
   - ログインダイアログ
+- 通知機能
+  - 通知権限リクエスト / 権限状態確認 / 通知設定画面遷移
+  - 即座通知（添付ファイル付き通知を含む）
+  - スケジュール通知（時間間隔 / カレンダー / 位置情報）
+  - 通知更新 / キャンセル / 配信済み削除 / 状態取得
+  - バッジ数設定
+  - カテゴリ登録 / アクション / テキスト入力アクション
 
 ### Windows
 
@@ -73,7 +80,6 @@
 
 - シェア機能
 - クリップボード連携
-- 通知（iOS）
 - 通知（Windows）
 - 通知（macOS）
 
@@ -83,7 +89,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.1.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
