@@ -22,6 +22,7 @@
                 <ui:VisualElement class="ios-section">
                     <ui:Label text="Show Notification" class="ios-section-title" />
                     <ui:Button name="ShowImmediateButton" class="ios-notif-button" text="ShowImmediate" />
+                    <ui:Button name="ShowImmediateWithAttachmentButton" class="ios-notif-button" text="ShowImmediateWithAttachment(AppIcon)" />
                     <ui:Button name="ShowTimeIntervalButton" class="ios-notif-button" text="ShowTimeInterval(5s)" />
                     <ui:Button name="ShowCalendarButton" class="ios-notif-button" text="ShowCalendar(+1m)" />
                     <ui:Button name="ShowLocationButton" class="ios-notif-button" text="ShowLocation(Tokyo Station, onEntry)" />

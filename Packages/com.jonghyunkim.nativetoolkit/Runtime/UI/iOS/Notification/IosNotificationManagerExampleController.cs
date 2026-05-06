@@ -2,6 +2,9 @@
 
 #if UNITY_IOS || UNITY_EDITOR
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
 using JonghyunKim.NativeToolkit.Runtime.Notification;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,6 +21,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private const string SampleNotificationId = "sample-notification";
     private const string SampleScheduledId = "scheduled-notification";
     private const string SampleCategoryId = "sample-category";
+    private const string SampleAttachmentId = "app-icon";
     private const string NotificationPermissionRequiredMessage = "Please allow notification permission first.";
     private const string NotificationPermissionSettingsGuideMessage = "Permission denied. Tap Open Notification Settings and allow notifications.";
 
@@ -28,6 +32,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private Button? _authorizationStatusButton;
     private Button? _openNotificationSettingsButton;
     private Button? _showImmediateButton;
+    private Button? _showImmediateWithAttachmentButton;
     private Button? _showTimeIntervalButton;
     private Button? _showCalendarButton;
     private Button? _showLocationButton;
@@ -91,6 +96,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         if (_authorizationStatusButton != null) _authorizationStatusButton.clicked -= OnAuthorizationStatusClicked;
         if (_openNotificationSettingsButton != null) _openNotificationSettingsButton.clicked -= OnOpenNotificationSettingsClicked;
         if (_showImmediateButton != null) _showImmediateButton.clicked -= OnShowImmediateClicked;
+        if (_showImmediateWithAttachmentButton != null) _showImmediateWithAttachmentButton.clicked -= OnShowImmediateWithAttachmentClicked;
         if (_showTimeIntervalButton != null) _showTimeIntervalButton.clicked -= OnShowTimeIntervalClicked;
         if (_showCalendarButton != null) _showCalendarButton.clicked -= OnShowCalendarClicked;
         if (_showLocationButton != null) _showLocationButton.clicked -= OnShowLocationClicked;
@@ -129,6 +135,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         _authorizationStatusButton = root.Q<Button>("AuthorizationStatusButton");
         _openNotificationSettingsButton = root.Q<Button>("OpenNotificationSettingsButton");
         _showImmediateButton = root.Q<Button>("ShowImmediateButton");
+        _showImmediateWithAttachmentButton = root.Q<Button>("ShowImmediateWithAttachmentButton");
         _showTimeIntervalButton = root.Q<Button>("ShowTimeIntervalButton");
         _showCalendarButton = root.Q<Button>("ShowCalendarButton");
         _showLocationButton = root.Q<Button>("ShowLocationButton");
@@ -155,6 +162,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         if (_authorizationStatusButton != null) _authorizationStatusButton.clicked += OnAuthorizationStatusClicked;
         if (_openNotificationSettingsButton != null) _openNotificationSettingsButton.clicked += OnOpenNotificationSettingsClicked;
         if (_showImmediateButton != null) _showImmediateButton.clicked += OnShowImmediateClicked;
+        if (_showImmediateWithAttachmentButton != null) _showImmediateWithAttachmentButton.clicked += OnShowImmediateWithAttachmentClicked;
         if (_showTimeIntervalButton != null) _showTimeIntervalButton.clicked += OnShowTimeIntervalClicked;
         if (_showCalendarButton != null) _showCalendarButton.clicked += OnShowCalendarClicked;
         if (_showLocationButton != null) _showLocationButton.clicked += OnShowLocationClicked;
@@ -263,6 +271,46 @@ public class IosNotificationManagerExampleController : MonoBehaviour
                 SetResult(result.IsSuccess
                     ? "✓ ShowImmediate\nLong-press the foreground banner or delivered notification to open Open / Delete / Reply."
                     : FormatResult("ShowImmediate", result));
+            });
+        });
+#else
+        SetResult("iOS device only. Run this sample on iOS to verify.");
+#endif
+    }
+
+    private void OnShowImmediateWithAttachmentClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnShowImmediateWithAttachmentClicked)}]");
+#if UNITY_IOS && !UNITY_EDITOR
+        ExecuteIfNotificationPermissionGranted("ShowImmediateWithAttachment(AppIcon)", () =>
+        {
+            if (!TryResolveAppIconFileUrl(out var appIconFileUrl, out var resolveError))
+            {
+                SetResult($"✗ ShowImmediateWithAttachment(AppIcon)\n{resolveError}");
+                return;
+            }
+
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Immediate Notification with Attachment",
+                body = "Displayed with app icon attachment.",
+                sound = "default",
+                attachments = new[]
+                {
+                    new NotificationAttachmentPayload
+                    {
+                        identifier = SampleAttachmentId,
+                        fileURL = appIconFileUrl
+                    }
+                }
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+            {
+                SetResult(result.IsSuccess
+                    ? "✓ ShowImmediateWithAttachment(AppIcon)\nThe delivered notification should include the app icon image attachment."
+                    : FormatResult("ShowImmediateWithAttachment(AppIcon)", result));
             });
         });
 #else
@@ -721,6 +769,115 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     // ── Helpers ───────────────────────────────────────────────────────────────
 
 #if UNITY_IOS && !UNITY_EDITOR
+    private static bool TryResolveAppIconFileUrl(out string fileUrl, out string errorMessage)
+    {
+        fileUrl = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var appBundlePath = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            if (!Directory.Exists(appBundlePath))
+            {
+                errorMessage = "App bundle path was not found.";
+                return false;
+            }
+
+            var candidates = new List<string>();
+            AddCandidatesFromInfoPlist(appBundlePath, candidates);
+
+            AddIconNameCandidates(appBundlePath, "AppIcon60x60", candidates);
+            AddIconNameCandidates(appBundlePath, "AppIcon76x76", candidates);
+            AddIconNameCandidates(appBundlePath, "AppIcon83.5x83.5", candidates);
+            AddIconNameCandidates(appBundlePath, "Icon", candidates);
+
+            foreach (var path in candidates)
+            {
+                if (!File.Exists(path))
+                {
+                    continue;
+                }
+
+                fileUrl = new Uri(path).AbsoluteUri;
+                return true;
+            }
+
+            var discovered = Directory.GetFiles(appBundlePath, "*AppIcon*.png", SearchOption.AllDirectories);
+            if (discovered.Length > 0)
+            {
+                fileUrl = new Uri(discovered[0]).AbsoluteUri;
+                return true;
+            }
+
+            errorMessage = "App icon file was not found in the iOS app bundle.";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to resolve app icon attachment: {ex.Message}";
+            return false;
+        }
+    }
+
+    private static void AddCandidatesFromInfoPlist(string appBundlePath, List<string> candidates)
+    {
+        var infoPlistPath = Path.Combine(appBundlePath, "Info.plist");
+        if (!File.Exists(infoPlistPath))
+        {
+            return;
+        }
+
+        string plist;
+        try
+        {
+            plist = File.ReadAllText(infoPlistPath);
+        }
+        catch
+        {
+            return;
+        }
+
+        var iconArrayRegex = new Regex("<key>CFBundleIconFiles</key>\\s*<array>(.*?)</array>", RegexOptions.Singleline);
+        var iconNameRegex = new Regex("<string>(.*?)</string>");
+
+        var arrayMatches = iconArrayRegex.Matches(plist);
+        foreach (Match arrayMatch in arrayMatches)
+        {
+            if (!arrayMatch.Success)
+            {
+                continue;
+            }
+
+            var nameMatches = iconNameRegex.Matches(arrayMatch.Groups[1].Value);
+            foreach (Match nameMatch in nameMatches)
+            {
+                var iconName = nameMatch.Groups[1].Value.Trim();
+                if (string.IsNullOrEmpty(iconName))
+                {
+                    continue;
+                }
+
+                AddIconNameCandidates(appBundlePath, iconName, candidates);
+            }
+        }
+    }
+
+    private static void AddIconNameCandidates(string appBundlePath, string iconBaseName, List<string> candidates)
+    {
+        AddCandidate(Path.Combine(appBundlePath, iconBaseName), candidates);
+        AddCandidate(Path.Combine(appBundlePath, $"{iconBaseName}.png"), candidates);
+        AddCandidate(Path.Combine(appBundlePath, $"{iconBaseName}@2x.png"), candidates);
+        AddCandidate(Path.Combine(appBundlePath, $"{iconBaseName}@3x.png"), candidates);
+    }
+
+    private static void AddCandidate(string candidatePath, List<string> candidates)
+    {
+        if (!candidates.Contains(candidatePath))
+        {
+            candidates.Add(candidatePath);
+        }
+    }
+
     private static bool IsPermissionDeniedError(string? errorMessage)
     {
         if (string.IsNullOrEmpty(errorMessage))
