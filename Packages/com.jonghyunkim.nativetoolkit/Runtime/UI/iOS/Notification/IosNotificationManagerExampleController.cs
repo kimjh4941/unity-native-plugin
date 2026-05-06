@@ -19,6 +19,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private const string SampleScheduledId = "scheduled-notification";
     private const string SampleCategoryId = "sample-category";
     private const string NotificationPermissionRequiredMessage = "Please allow notification permission first.";
+    private const string NotificationPermissionSettingsGuideMessage = "Permission denied. Tap Open Notification Settings and allow notifications.";
 
     private Label? _resultLabel;
     private Button? _homeButton;
@@ -192,6 +193,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         IosNotificationManager.Instance.RequestPermission(result =>
         {
+            if (!result.IsSuccess && IsPermissionDeniedError(result.ErrorMessage))
+            {
+                SetResult($"✗ RequestPermission\n{NotificationPermissionSettingsGuideMessage}");
+                return;
+            }
+
             SetResult(FormatResult("RequestPermission", result));
         });
 #else
@@ -714,6 +721,25 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     // ── Helpers ───────────────────────────────────────────────────────────────
 
 #if UNITY_IOS && !UNITY_EDITOR
+    private static bool IsPermissionDeniedError(string? errorMessage)
+    {
+        if (string.IsNullOrEmpty(errorMessage))
+        {
+            return false;
+        }
+
+        var normalized = errorMessage.Replace(" ", string.Empty);
+        return normalized.Contains("notificationerror", StringComparison.OrdinalIgnoreCase)
+               && (normalized.Contains("error4", StringComparison.OrdinalIgnoreCase)
+                   || normalized.Contains("エラー4", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsRequestPermissionOperation(string operationName)
+    {
+        return operationName.Equals("RequestPermission", StringComparison.OrdinalIgnoreCase)
+               || operationName.Equals("requestPermission", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void ExecuteIfNotificationPermissionGranted(string operationName, Action onGranted)
     {
         IosNotificationManager.Instance.HasPermission(hasPermission =>
@@ -730,6 +756,13 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 
     private static string FormatResult(string label, IosNotificationResult result)
     {
+        if (!result.IsSuccess
+            && IsRequestPermissionOperation(label)
+            && IsPermissionDeniedError(result.ErrorMessage))
+        {
+            return $"✗ {label}\n{NotificationPermissionSettingsGuideMessage}";
+        }
+
         var icon = result.IsSuccess ? "✓" : "✗";
         return result.IsSuccess
             ? $"{icon} {label}"
