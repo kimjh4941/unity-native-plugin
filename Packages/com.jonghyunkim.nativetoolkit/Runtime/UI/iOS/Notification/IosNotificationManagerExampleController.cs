@@ -1,6 +1,7 @@
 #nullable enable
 
 #if UNITY_IOS || UNITY_EDITOR
+using System;
 using JonghyunKim.NativeToolkit.Runtime.Notification;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -17,6 +18,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private const string SampleNotificationId = "sample-notification";
     private const string SampleScheduledId = "scheduled-notification";
     private const string SampleCategoryId = "sample-category";
+    private const string NotificationPermissionRequiredMessage = "Please allow notification permission first.";
 
     private Label? _resultLabel;
     private Button? _homeButton;
@@ -238,20 +240,23 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowImmediateClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ShowImmediate", () =>
         {
-            id = SampleNotificationId,
-            title = "Energy Refilled",
-            body = "Your squad is fully rested. Jump back in and clear the next raid.",
-            sound = "default",
-            categoryIdentifier = SampleCategoryId
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
-        {
-            SetResult(result.IsSuccess
-                ? "✓ ShowImmediate\nLong-press the foreground banner or delivered notification to open Open / Delete / Reply."
-                : FormatResult("ShowImmediate", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Energy Refilled",
+                body = "Your squad is fully rested. Jump back in and clear the next raid.",
+                sound = "default",
+                categoryIdentifier = SampleCategoryId
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+            {
+                SetResult(result.IsSuccess
+                    ? "✓ ShowImmediate\nLong-press the foreground banner or delivered notification to open Open / Delete / Reply."
+                    : FormatResult("ShowImmediate", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -262,19 +267,22 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowTimeIntervalClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ShowTimeInterval", () =>
         {
-            id = SampleNotificationId,
-            title = "Guild Battle Countdown",
-            body = "Your team queue opens in 5 seconds. Rally your party and get ready.",
-            sound = "default"
-        };
-        var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
-        IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
-        {
-            SetResult(FormatResult("ShowTimeInterval", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Guild Battle Countdown",
+                body = "Your team queue opens in 5 seconds. Rally your party and get ready.",
+                sound = "default"
+            };
+            var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+            IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+            {
+                SetResult(FormatResult("ShowTimeInterval", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -285,26 +293,29 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowCalendarClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var now = System.DateTime.Now.AddMinutes(1);
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ShowCalendar", () =>
         {
-            id = SampleNotificationId,
-            title = "Daily Reward Ready",
-            body = "Your login streak chest is ready in town. Claim it before reset.",
-            sound = "default"
-        };
-        var trigger = new CalendarTriggerPayload
-        {
-            hour = now.Hour,
-            minute = now.Minute,
-            second = now.Second,
-            repeats = false
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
-        IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
-        {
-            SetResult(FormatResult("ShowCalendar", result));
+            var now = DateTime.Now.AddMinutes(1);
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Daily Reward Ready",
+                body = "Your login streak chest is ready in town. Claim it before reset.",
+                sound = "default"
+            };
+            var trigger = new CalendarTriggerPayload
+            {
+                hour = now.Hour,
+                minute = now.Minute,
+                second = now.Second,
+                repeats = false
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+            IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+            {
+                SetResult(FormatResult("ShowCalendar", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -315,27 +326,30 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowLocationClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ShowLocation", () =>
         {
-            id = SampleNotificationId,
-            title = "Town Entry Bonus",
-            body = "Welcome back to town. Your blacksmith bonus is now available.",
-            sound = "default"
-        };
-        var trigger = new LocationTriggerPayload
-        {
-            identifier = "tokyo-station",
-            latitude = 35.6812,
-            longitude = 139.7671,
-            radius = 100.0,
-            notifyOnEntry = true,
-            notifyOnExit = false
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
-        IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
-        {
-            SetResult(FormatResult("ShowLocation", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Town Entry Bonus",
+                body = "Welcome back to town. Your blacksmith bonus is now available.",
+                sound = "default"
+            };
+            var trigger = new LocationTriggerPayload
+            {
+                identifier = "tokyo-station",
+                latitude = 35.6812,
+                longitude = 139.7671,
+                radius = 100.0,
+                notifyOnEntry = true,
+                notifyOnExit = false
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
+            IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+            {
+                SetResult(FormatResult("ShowLocation", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -346,17 +360,20 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnUpdateByIdClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("UpdateById", () =>
         {
-            id = SampleNotificationId,
-            title = "Daily Reward Ready",
-            body = "Your login streak chest is waiting. Collect now to keep the bonus chain.",
-            sound = "default"
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        IosNotificationManager.Instance.UpdateNotification(SampleNotificationId, contentJson, null, result =>
-        {
-            SetResult(FormatResult($"UpdateById ({SampleNotificationId})", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleNotificationId,
+                title = "Daily Reward Ready",
+                body = "Your login streak chest is waiting. Collect now to keep the bonus chain.",
+                sound = "default"
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            IosNotificationManager.Instance.UpdateNotification(SampleNotificationId, contentJson, null, result =>
+            {
+                SetResult(FormatResult($"UpdateById ({SampleNotificationId})", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -367,8 +384,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCancelByIdClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.CancelNotification(SampleNotificationId);
-        SetResult($"CancelById ({SampleNotificationId}): requested");
+        ExecuteIfNotificationPermissionGranted("CancelById", () =>
+        {
+            IosNotificationManager.Instance.CancelNotification(SampleNotificationId);
+            SetResult($"CancelById ({SampleNotificationId}): requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -378,8 +398,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCancelAllClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.CancelAllNotifications();
-        SetResult("CancelAll: requested");
+        ExecuteIfNotificationPermissionGranted("CancelAll", () =>
+        {
+            IosNotificationManager.Instance.CancelAllNotifications();
+            SetResult("CancelAll: requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -389,8 +412,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveDeliveredByIdClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.RemoveDeliveredNotification(SampleNotificationId);
-        SetResult($"RemoveDeliveredById ({SampleNotificationId}): requested");
+        ExecuteIfNotificationPermissionGranted("RemoveDeliveredById", () =>
+        {
+            IosNotificationManager.Instance.RemoveDeliveredNotification(SampleNotificationId);
+            SetResult($"RemoveDeliveredById ({SampleNotificationId}): requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -400,8 +426,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveAllDeliveredClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.RemoveAllDeliveredNotifications();
-        SetResult("RemoveAllDelivered: requested");
+        ExecuteIfNotificationPermissionGranted("RemoveAllDelivered", () =>
+        {
+            IosNotificationManager.Instance.RemoveAllDeliveredNotifications();
+            SetResult("RemoveAllDelivered: requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -411,19 +440,22 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnScheduleTimeIntervalClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ScheduleTimeInterval", () =>
         {
-            id = SampleScheduledId,
-            title = "Guild Battle Starts Soon",
-            body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
-            sound = "default"
-        };
-        var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
-        IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
-        {
-            SetResult(FormatResult("ScheduleTimeInterval", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleScheduledId,
+                title = "Guild Battle Starts Soon",
+                body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
+                sound = "default"
+            };
+            var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+            IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
+            {
+                SetResult(FormatResult("ScheduleTimeInterval", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -434,26 +466,29 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnScheduleCalendarClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var future = System.DateTime.Now.AddMinutes(1);
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ScheduleCalendar", () =>
         {
-            id = SampleScheduledId,
-            title = "Daily Reward Window",
-            body = "Your daily reward window is open. Check in now to keep your streak.",
-            sound = "default"
-        };
-        var trigger = new CalendarTriggerPayload
-        {
-            hour = future.Hour,
-            minute = future.Minute,
-            second = future.Second,
-            repeats = false
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
-        IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
-        {
-            SetResult(FormatResult("ScheduleCalendar", result));
+            var future = DateTime.Now.AddMinutes(1);
+            var content = new NotificationContentPayload
+            {
+                id = SampleScheduledId,
+                title = "Daily Reward Window",
+                body = "Your daily reward window is open. Check in now to keep your streak.",
+                sound = "default"
+            };
+            var trigger = new CalendarTriggerPayload
+            {
+                hour = future.Hour,
+                minute = future.Minute,
+                second = future.Second,
+                repeats = false
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+            IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
+            {
+                SetResult(FormatResult("ScheduleCalendar", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -464,27 +499,30 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnScheduleLocationClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var content = new NotificationContentPayload
+        ExecuteIfNotificationPermissionGranted("ScheduleLocation", () =>
         {
-            id = SampleScheduledId,
-            title = "Town Arrival Bonus",
-            body = "You reached the hub area. Visit the guild board to claim your bonus quest.",
-            sound = "default"
-        };
-        var trigger = new LocationTriggerPayload
-        {
-            identifier = "tokyo-station-scheduled",
-            latitude = 35.6812,
-            longitude = 139.7671,
-            radius = 100.0,
-            notifyOnEntry = true,
-            notifyOnExit = false
-        };
-        var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-        var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
-        IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
-        {
-            SetResult(FormatResult("ScheduleLocation", result));
+            var content = new NotificationContentPayload
+            {
+                id = SampleScheduledId,
+                title = "Town Arrival Bonus",
+                body = "You reached the hub area. Visit the guild board to claim your bonus quest.",
+                sound = "default"
+            };
+            var trigger = new LocationTriggerPayload
+            {
+                identifier = "tokyo-station-scheduled",
+                latitude = 35.6812,
+                longitude = 139.7671,
+                radius = 100.0,
+                notifyOnEntry = true,
+                notifyOnExit = false
+            };
+            var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+            var triggerJson = IosNotificationJsonBuilder.BuildLocationTriggerJson(trigger);
+            IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
+            {
+                SetResult(FormatResult("ScheduleLocation", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -495,8 +533,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCancelScheduledByIdClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.CancelScheduledNotification(SampleScheduledId);
-        SetResult($"CancelScheduledById ({SampleScheduledId}): requested");
+        ExecuteIfNotificationPermissionGranted("CancelScheduledById", () =>
+        {
+            IosNotificationManager.Instance.CancelScheduledNotification(SampleScheduledId);
+            SetResult($"CancelScheduledById ({SampleScheduledId}): requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -506,8 +547,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCancelAllScheduledClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.CancelAllScheduledNotifications();
-        SetResult("CancelAllScheduled: requested");
+        ExecuteIfNotificationPermissionGranted("CancelAllScheduled", () =>
+        {
+            IosNotificationManager.Instance.CancelAllScheduledNotifications();
+            SetResult("CancelAllScheduled: requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -517,9 +561,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnGetScheduledClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.GetScheduledNotifications(json =>
+        ExecuteIfNotificationPermissionGranted("GetScheduled", () =>
         {
+            IosNotificationManager.Instance.GetScheduledNotifications(json =>
+            {
             SetResult($"GetScheduled:\n{json}");
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -530,9 +577,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnGetDeliveredClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.GetDeliveredNotifications(json =>
+        ExecuteIfNotificationPermissionGranted("GetDelivered", () =>
         {
+            IosNotificationManager.Instance.GetDeliveredNotifications(json =>
+            {
             SetResult($"GetDelivered:\n{json}");
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -543,9 +593,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnSetBadgeCount1Clicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.SetBadgeCount(1, result =>
+        ExecuteIfNotificationPermissionGranted("SetBadgeCount(1)", () =>
         {
+            IosNotificationManager.Instance.SetBadgeCount(1, result =>
+            {
             SetResult(FormatResult("SetBadgeCount(1)", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -556,9 +609,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnSetBadgeCount0Clicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.SetBadgeCount(0, result =>
+        ExecuteIfNotificationPermissionGranted("SetBadgeCount(0)", () =>
         {
+            IosNotificationManager.Instance.SetBadgeCount(0, result =>
+            {
             SetResult(FormatResult("SetBadgeCount(0)", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -569,41 +625,44 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRegisterCategoryClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        var category = new IosNotificationCategoryPayload
+        ExecuteIfNotificationPermissionGranted("RegisterCategory", () =>
         {
-            identifier = SampleCategoryId,
-            actions = new[]
+            var category = new IosNotificationCategoryPayload
             {
-                new IosNotificationActionPayload
+                identifier = SampleCategoryId,
+                actions = new[]
                 {
-                    identifier = "open",
-                    title = "Open",
-                    options = new[] { "foreground" }
+                    new IosNotificationActionPayload
+                    {
+                        identifier = "open",
+                        title = "Open",
+                        options = new[] { "foreground" }
+                    },
+                    new IosNotificationActionPayload
+                    {
+                        identifier = "delete",
+                        title = "Delete",
+                        options = new[] { "destructive" }
+                    }
                 },
-                new IosNotificationActionPayload
+                textInputActions = new[]
                 {
-                    identifier = "delete",
-                    title = "Delete",
-                    options = new[] { "destructive" }
+                    new IosNotificationTextInputActionPayload
+                    {
+                        identifier = "reply",
+                        title = "Reply",
+                        buttonTitle = "Send",
+                        textInputPlaceholder = "Type a message"
+                    }
                 }
-            },
-            textInputActions = new[]
+            };
+            var categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
+            IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
             {
-                new IosNotificationTextInputActionPayload
-                {
-                    identifier = "reply",
-                    title = "Reply",
-                    buttonTitle = "Send",
-                    textInputPlaceholder = "Type a message"
-                }
-            }
-        };
-        var categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
-        IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
-        {
-            SetResult(result.IsSuccess
-                ? "✓ RegisterCategory\nNext, tap ShowImmediate and long-press the foreground banner to open Open / Delete / Reply."
-                : FormatResult("RegisterCategory", result));
+                SetResult(result.IsSuccess
+                    ? "✓ RegisterCategory\nNext, tap ShowImmediate and long-press the foreground banner to open Open / Delete / Reply."
+                    : FormatResult("RegisterCategory", result));
+            });
         });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
@@ -614,8 +673,11 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveCategoryClicked)}]");
 #if UNITY_IOS && !UNITY_EDITOR
-        IosNotificationManager.Instance.RemoveCategory(SampleCategoryId);
-        SetResult($"RemoveCategory ({SampleCategoryId}): requested");
+        ExecuteIfNotificationPermissionGranted("RemoveCategory", () =>
+        {
+            IosNotificationManager.Instance.RemoveCategory(SampleCategoryId);
+            SetResult($"RemoveCategory ({SampleCategoryId}): requested");
+        });
 #else
         SetResult("iOS device only. Run this sample on iOS to verify.");
 #endif
@@ -652,6 +714,20 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     // ── Helpers ───────────────────────────────────────────────────────────────
 
 #if UNITY_IOS && !UNITY_EDITOR
+    private void ExecuteIfNotificationPermissionGranted(string operationName, Action onGranted)
+    {
+        IosNotificationManager.Instance.HasPermission(hasPermission =>
+        {
+            if (!hasPermission)
+            {
+                SetResult($"{operationName}: {NotificationPermissionRequiredMessage}");
+                return;
+            }
+
+            onGranted();
+        });
+    }
+
     private static string FormatResult(string label, IosNotificationResult result)
     {
         var icon = result.IsSuccess ? "✓" : "✗";
