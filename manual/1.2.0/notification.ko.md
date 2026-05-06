@@ -24,6 +24,14 @@
   - [포그라운드 서비스 알림](#포그라운드-서비스-알림)
   - [예약 알림](#예약-알림)
 - [iOS](#ios)
+  - [개요](#개요)
+  - [지원 기능](#지원-기능)
+    - [기본 설정](#기본-설정)
+    - [즉시 알림 표시](#즉시-알림-표시)
+    - [앱 아이콘 첨부 즉시 알림](#앱-아이콘-첨부-즉시-알림)
+    - [예약 알림 등록](#예약-알림-등록)
+    - [카테고리와 액션 등록](#카테고리와-액션-등록)
+    - [이벤트 수신](#이벤트-수신)
 - [Windows](#windows)
 - [macOS](#macos)
 
@@ -705,16 +713,23 @@ IosNotificationManager.Instance.GetAuthorizationStatus(status =>
 #endif
 ```
 
+<a id="ios-basic-setup-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
+</p>
+
 #### 즉시 알림 표시
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Match Ready",
-    subtitle = "Ranked",
-    body = "Your team is ready. Join now.",
-    sound = "default"
+    id = "sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    sound = "default",
+    categoryIdentifier = "sample-category"
 };
 
 var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
@@ -725,14 +740,22 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 #endif
 ```
 
+<a id="ios-show-immediate-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediate.png" alt="Example_IosNotificationManager_ShowImmediate" width="400" />
+</p>
+
 #### 앱 아이콘 첨부 즉시 알림
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Attachment Sample",
-    body = "Notification with app icon attachment",
+    id = "sample-notification",
+    title = "Immediate Notification with Attachment",
+    body = "Displayed with app icon attachment.",
+    sound = "default",
     attachments = new[]
     {
         new NotificationAttachmentPayload
@@ -748,32 +771,46 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
 #endif
 ```
 
+<a id="ios-show-attachment-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediateWithAttachment.png" alt="Example_IosNotificationManager_ShowImmediateWithAttachment" width="400" />
+</p>
+
 #### 예약 알림 등록
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Daily Reward",
-    body = "Come back and claim your reward."
+    id = "scheduled-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
+    sound = "default"
 };
 
 var trigger = new TimeIntervalTriggerPayload
 {
     repeats = false,
-    timeInterval = 10
+    interval = 10.0
 };
 
 string contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-string triggerJson = IosNotificationJsonBuilder.BuildTriggerJson(trigger);
+string triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
 
 IosNotificationManager.Instance.ScheduleNotification(
     contentJson,
     triggerJson,
-    "daily-reward",
+    "scheduled-notification",
     result => Debug.Log($"ScheduleNotification: {result.IsSuccess}"));
 #endif
 ```
+
+<a id="ios-schedule-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
+</p>
 
 캘린더 예약은 `CalendarTriggerPayload`, 위치 기반 예약은 `LocationTriggerPayload`를 사용합니다.
 
@@ -810,6 +847,12 @@ IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
 #endif
 ```
 
+<a id="ios-category-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RegisterCategory.png" alt="Example_IosNotificationManager_RegisterCategory" width="400" />
+</p>
+
 #### 이벤트 수신
 
 ```csharp
@@ -830,6 +873,12 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 };
 #endif
 ```
+
+<a id="ios-events-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_Result.png" alt="Example_IosNotificationManager_Result" width="400" />
+</p>
 
 ---
 

@@ -24,6 +24,14 @@ Language:
   - [Foreground Service Notifications](#foreground-service-notifications)
   - [Scheduled Notifications](#scheduled-notifications)
 - [iOS](#ios)
+  - [Overview](#overview)
+  - [Supported capabilities](#supported-capabilities)
+    - [Basic setup](#basic-setup)
+    - [Show an immediate notification](#show-an-immediate-notification)
+    - [Show an immediate notification with an app icon attachment](#show-an-immediate-notification-with-an-app-icon-attachment)
+    - [Schedule a notification](#schedule-a-notification)
+    - [Register categories and actions](#register-categories-and-actions)
+    - [Receive events](#receive-events)
 - [Windows](#windows)
 - [macOS](#macos)
 
@@ -705,16 +713,23 @@ IosNotificationManager.Instance.GetAuthorizationStatus(status =>
 #endif
 ```
 
+<a id="ios-basic-setup-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
+</p>
+
 #### Show an immediate notification
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Match Ready",
-    subtitle = "Ranked",
-    body = "Your team is ready. Join now.",
-    sound = "default"
+    id = "sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    sound = "default",
+    categoryIdentifier = "sample-category"
 };
 
 var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
@@ -725,14 +740,22 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 #endif
 ```
 
+<a id="ios-show-immediate-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediate.png" alt="Example_IosNotificationManager_ShowImmediate" width="400" />
+</p>
+
 #### Show an immediate notification with an app icon attachment
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Attachment Sample",
-    body = "Notification with app icon attachment",
+    id = "sample-notification",
+    title = "Immediate Notification with Attachment",
+    body = "Displayed with app icon attachment.",
+    sound = "default",
     attachments = new[]
     {
         new NotificationAttachmentPayload
@@ -748,32 +771,46 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
 #endif
 ```
 
+<a id="ios-show-attachment-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediateWithAttachment.png" alt="Example_IosNotificationManager_ShowImmediateWithAttachment" width="400" />
+</p>
+
 #### Schedule a notification
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Daily Reward",
-    body = "Come back and claim your reward."
+    id = "scheduled-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
+    sound = "default"
 };
 
 var trigger = new TimeIntervalTriggerPayload
 {
     repeats = false,
-    timeInterval = 10
+    interval = 10.0
 };
 
 string contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-string triggerJson = IosNotificationJsonBuilder.BuildTriggerJson(trigger);
+string triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
 
 IosNotificationManager.Instance.ScheduleNotification(
     contentJson,
     triggerJson,
-    "daily-reward",
+    "scheduled-notification",
     result => Debug.Log($"ScheduleNotification: {result.IsSuccess}"));
 #endif
 ```
+
+<a id="ios-schedule-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
+</p>
 
 Use `CalendarTriggerPayload` for calendar schedules and `LocationTriggerPayload` for location-based schedules.
 
@@ -810,6 +847,12 @@ IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
 #endif
 ```
 
+<a id="ios-category-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RegisterCategory.png" alt="Example_IosNotificationManager_RegisterCategory" width="400" />
+</p>
+
 #### Receive events
 
 ```csharp
@@ -830,6 +873,12 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 };
 #endif
 ```
+
+<a id="ios-events-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_Result.png" alt="Example_IosNotificationManager_Result" width="400" />
+</p>
 
 ---
 

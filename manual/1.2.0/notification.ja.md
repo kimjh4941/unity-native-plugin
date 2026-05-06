@@ -24,6 +24,14 @@
   - [フォアグラウンドサービス通知](#フォアグラウンドサービス通知)
   - [スケジュール通知](#スケジュール通知)
 - [iOS](#ios)
+  - [概要](#概要)
+  - [サポート機能](#サポート機能)
+    - [基本セットアップ](#基本セットアップ)
+    - [即座通知を表示する](#即座通知を表示する)
+    - [添付付き即座通知（アプリアイコン）](#添付付き即座通知アプリアイコン)
+    - [スケジュール通知を登録する](#スケジュール通知を登録する)
+    - [カテゴリ / アクションを登録する](#カテゴリ--アクションを登録する)
+    - [イベントを受け取る](#イベントを受け取る)
 - [Windows](#windows)
 - [macOS](#macos)
 
@@ -705,16 +713,23 @@ IosNotificationManager.Instance.GetAuthorizationStatus(status =>
 #endif
 ```
 
+<a id="ios-basic-setup-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
+</p>
+
 #### 即座通知を表示する
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Match Ready",
-    subtitle = "Ranked",
-    body = "Your team is ready. Join now.",
-    sound = "default"
+    id = "sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    sound = "default",
+    categoryIdentifier = "sample-category"
 };
 
 var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
@@ -725,14 +740,22 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 #endif
 ```
 
+<a id="ios-show-immediate-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediate.png" alt="Example_IosNotificationManager_ShowImmediate" width="400" />
+</p>
+
 #### 添付付き即座通知（アプリアイコン）
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Attachment Sample",
-    body = "Notification with app icon attachment",
+    id = "sample-notification",
+    title = "Immediate Notification with Attachment",
+    body = "Displayed with app icon attachment.",
+    sound = "default",
     attachments = new[]
     {
         new NotificationAttachmentPayload
@@ -748,32 +771,46 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
 #endif
 ```
 
+<a id="ios-show-attachment-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediateWithAttachment.png" alt="Example_IosNotificationManager_ShowImmediateWithAttachment" width="400" />
+</p>
+
 #### スケジュール通知を登録する
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
 var content = new NotificationContentPayload
 {
-    title = "Daily Reward",
-    body = "Come back and claim your reward."
+    id = "scheduled-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
+    sound = "default"
 };
 
 var trigger = new TimeIntervalTriggerPayload
 {
     repeats = false,
-    timeInterval = 10
+    interval = 10.0
 };
 
 string contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-string triggerJson = IosNotificationJsonBuilder.BuildTriggerJson(trigger);
+string triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
 
 IosNotificationManager.Instance.ScheduleNotification(
     contentJson,
     triggerJson,
-    "daily-reward",
+    "scheduled-notification",
     result => Debug.Log($"ScheduleNotification: {result.IsSuccess}"));
 #endif
 ```
+
+<a id="ios-schedule-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
+</p>
 
 カレンダー通知は `CalendarTriggerPayload`、位置情報通知は `LocationTriggerPayload` を使って同様に登録できます。
 
@@ -810,6 +847,12 @@ IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
 #endif
 ```
 
+<a id="ios-category-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RegisterCategory.png" alt="Example_IosNotificationManager_RegisterCategory" width="400" />
+</p>
+
 #### イベントを受け取る
 
 ```csharp
@@ -830,6 +873,12 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 };
 #endif
 ```
+
+<a id="ios-events-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_Result.png" alt="Example_IosNotificationManager_Result" width="400" />
+</p>
 
 ---
 

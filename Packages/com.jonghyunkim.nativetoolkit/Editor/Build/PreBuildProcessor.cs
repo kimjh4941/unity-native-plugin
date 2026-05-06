@@ -242,6 +242,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     {
         UnityEngine.Debug.Log($"[Build][iOS] Copying libraries from dist (config={config}, version={version})");
 
+        bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
         string xcfSuffix = config == "Debug" ? "-debug" : "";
         string distIosDir = Path.Combine(NativeToolkitDistRoot, version, "ios");
 
@@ -250,10 +251,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             UnityEngine.Debug.LogError($"[Build][iOS] iOS dist directory not found: {distIosDir}");
             return;
         }
-
-        // Expected XCFramework names in dist
-        string sourceXcf1 = Path.Combine(distIosDir, $"ios-native-toolkit-{version}{xcfSuffix}.xcframework");
-        string sourceXcf2 = Path.Combine(distIosDir, $"unity-ios-native-toolkit-{version}{xcfSuffix}.xcframework");
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
@@ -272,25 +269,20 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             Directory.CreateDirectory(destDir);
         }
 
-        // Copy XCFrameworks
-        if (Directory.Exists(sourceXcf1))
+        string selectedXcf1 = FindXcframeworkNameInDist(distIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedXcf1))
         {
-            CopyDirectory(sourceXcf1, Path.Combine(destDir, Path.GetFileName(sourceXcf1)));
-            UnityEngine.Debug.Log($"[Build][iOS] Copied {Path.GetFileName(sourceXcf1)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][iOS] XCFramework not found: {sourceXcf1}");
+            string sourceXcf1 = Path.Combine(distIosDir, selectedXcf1);
+            CopyDirectory(sourceXcf1, Path.Combine(destDir, selectedXcf1));
+            UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf1}");
         }
 
-        if (Directory.Exists(sourceXcf2))
+        string selectedXcf2 = FindXcframeworkNameInDist(distIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedXcf2))
         {
-            CopyDirectory(sourceXcf2, Path.Combine(destDir, Path.GetFileName(sourceXcf2)));
-            UnityEngine.Debug.Log($"[Build][iOS] Copied {Path.GetFileName(sourceXcf2)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][iOS] XCFramework not found: {sourceXcf2}");
+            string sourceXcf2 = Path.Combine(distIosDir, selectedXcf2);
+            CopyDirectory(sourceXcf2, Path.Combine(destDir, selectedXcf2));
+            UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf2}");
         }
 
         AssetDatabase.Refresh();
@@ -504,6 +496,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     {
         UnityEngine.Debug.Log($"[Build][macOS] Copying libraries from dist (config={config}, version={version})");
 
+        bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
         string xcfSuffix = config == "Debug" ? "-debug" : "";
         string distMacDir = Path.Combine(NativeToolkitDistRoot, version, "mac");
 
@@ -512,10 +505,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             UnityEngine.Debug.LogError($"[Build][macOS] macOS dist directory not found: {distMacDir}");
             return;
         }
-
-        // Expected XCFramework names in dist
-        string sourceXcf1 = Path.Combine(distMacDir, $"mac-native-toolkit-{version}{xcfSuffix}.xcframework");
-        string sourceXcf2 = Path.Combine(distMacDir, $"unity-mac-native-toolkit-{version}{xcfSuffix}.xcframework");
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
@@ -534,25 +523,20 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             Directory.CreateDirectory(destDir);
         }
 
-        // Copy XCFrameworks
-        if (Directory.Exists(sourceXcf1))
+        string selectedXcf1 = FindXcframeworkNameInDist(distMacDir, "mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedXcf1))
         {
-            CopyDirectory(sourceXcf1, Path.Combine(destDir, Path.GetFileName(sourceXcf1)));
-            UnityEngine.Debug.Log($"[Build][macOS] Copied {Path.GetFileName(sourceXcf1)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][macOS] XCFramework not found: {sourceXcf1}");
+            string sourceXcf1 = Path.Combine(distMacDir, selectedXcf1);
+            CopyDirectory(sourceXcf1, Path.Combine(destDir, selectedXcf1));
+            UnityEngine.Debug.Log($"[Build][macOS] Copied {selectedXcf1}");
         }
 
-        if (Directory.Exists(sourceXcf2))
+        string selectedXcf2 = FindXcframeworkNameInDist(distMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedXcf2))
         {
-            CopyDirectory(sourceXcf2, Path.Combine(destDir, Path.GetFileName(sourceXcf2)));
-            UnityEngine.Debug.Log($"[Build][macOS] Copied {Path.GetFileName(sourceXcf2)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][macOS] XCFramework not found: {sourceXcf2}");
+            string sourceXcf2 = Path.Combine(distMacDir, selectedXcf2);
+            CopyDirectory(sourceXcf2, Path.Combine(destDir, selectedXcf2));
+            UnityEngine.Debug.Log($"[Build][macOS] Copied {selectedXcf2}");
         }
 
         AssetDatabase.Refresh();
@@ -565,6 +549,73 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
 
         UnityEngine.Debug.Log($"[Build][macOS] Copy completed to {destDir}");
+    }
+
+    /// <summary>
+    /// Finds an XCFramework folder name in dist using prefix and build-mode filter.
+    /// </summary>
+    private string FindXcframeworkNameInDist(string distDir, string prefix, string xcfSuffix, string logPrefix, bool isDevelopmentBuild)
+    {
+        if (!Directory.Exists(distDir))
+        {
+            UnityEngine.Debug.LogError($"{logPrefix} Dist directory not found: {distDir}");
+            return null;
+        }
+
+        string selectedName = null;
+        bool hasMultipleMatches = false;
+        string[] candidates = Directory.GetDirectories(distDir, "*.xcframework");
+
+        foreach (string candidatePath in candidates)
+        {
+            string candidateName = Path.GetFileName(candidatePath);
+            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            bool isDebugName = candidateName.EndsWith("-debug.xcframework", StringComparison.OrdinalIgnoreCase);
+            bool suffixMatched;
+
+            if (isDevelopmentBuild)
+            {
+                suffixMatched = candidateName.EndsWith(xcfSuffix + ".xcframework", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                suffixMatched = candidateName.EndsWith(".xcframework", StringComparison.OrdinalIgnoreCase) && !isDebugName;
+            }
+
+            if (!suffixMatched)
+            {
+                continue;
+            }
+
+            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
+            {
+                hasMultipleMatches = selectedName != null || hasMultipleMatches;
+                selectedName = candidateName;
+            }
+            else
+            {
+                hasMultipleMatches = true;
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} XCFramework not found. prefix={prefix}, xcfSuffix={xcfSuffix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
+        }
+
+        if (hasMultipleMatches)
+        {
+            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple XCFramework matches found. Selected: {selectedName}");
+        }
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected XCFramework: {selectedName}");
+        return selectedName;
     }
 
     /// <summary>

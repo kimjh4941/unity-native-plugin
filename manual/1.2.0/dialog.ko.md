@@ -491,7 +491,7 @@ IosDialogManager.Instance.ShowDialog(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowDialog.png" alt="Example_IosDialogManager_ShowDialog" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowDialog.png" alt="Example_IosDialogManager_ShowDialog" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -550,7 +550,7 @@ IosDialogManager.Instance.ShowConfirmDialog(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowConfirmDialog.png" alt="Example_IosDialogManager_ShowConfirmDialog" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowConfirmDialog.png" alt="Example_IosDialogManager_ShowConfirmDialog" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -609,7 +609,7 @@ IosDialogManager.Instance.ShowDestructiveDialog(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowDestructiveDialog.png" alt="Example_IosDialogManager_ShowDestructiveDialog" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowDestructiveDialog.png" alt="Example_IosDialogManager_ShowDestructiveDialog" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -668,7 +668,7 @@ IosDialogManager.Instance.ShowActionSheet(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowActionSheet.png" alt="Example_IosDialogManager_ShowActionSheet" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowActionSheet.png" alt="Example_IosDialogManager_ShowActionSheet" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -733,7 +733,7 @@ IosDialogManager.Instance.ShowTextInputDialog(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowTextInputDialog.png" alt="Example_IosDialogManager_ShowTextInputDialog" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowTextInputDialog.png" alt="Example_IosDialogManager_ShowTextInputDialog" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -803,7 +803,7 @@ IosDialogManager.Instance.ShowLoginDialog(
 ```
 
 <p align="center">
-  <img src="images/ios/Example_IosDialogManager_ShowLoginDialog.png" alt="Example_IosDialogManager_ShowLoginDialog" width="400" />
+  <img src="images/ios/dialog/Example_IosDialogManager_ShowLoginDialog.png" alt="Example_IosDialogManager_ShowLoginDialog" width="400" />
 </p>
 - 결과는 이벤트로 받습니다.
 
