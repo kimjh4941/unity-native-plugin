@@ -1,6 +1,6 @@
-# CLAUDE.md — unity-native-plugin AI Agent Instructions
+# AGENTS.md — unity-native-plugin AI Agent Instructions
 
-This file is a thin entry point for Claude and other local agents.
+This file is a thin entry point for Codex and other OpenAI-based agents.
 All shared agent rules are managed in:
 
 - ./agent-rules/index.md
