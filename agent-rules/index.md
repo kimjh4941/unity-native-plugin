@@ -13,13 +13,13 @@ All implementation rules are managed in this folder.
 Canonical workflow definitions shared across all agents (Copilot, Claude, Codex).
 Agent-specific wrappers in `.github/` reference these files.
 
-- Design implementation (実装計画作成): ./workflows/design-implementation/workflow.md
+- Design implementation feature (実装計画作成): ./workflows/design-implementation-feature/workflow.md
 - Implement feature (実装・テスト・確認): ./workflows/implement-feature/workflow.md
 - Design sample scene (サンプルシーン計画作成): ./workflows/design-sample-scene/workflow.md
 - Implement sample scene (サンプルシーン実装): ./workflows/implement-sample-scene/workflow.md
 - Review document (実装計画書レビュー): ./workflows/review-document/workflow.md
-- Review implementation (実装レビュー): ./workflows/review-implementation/workflow.md
-- Review sample scene (サンプルシーンレビュー): ./workflows/review-sample-scene/workflow.md
+- Review implementation feature (実装レビュー): ./workflows/review-implementation-feature/workflow.md
+- Review implementation sample scene (サンプルシーンレビュー): ./workflows/review-implementation-sample-scene/workflow.md
 - Commit message (コミットメッセージ生成): ./workflows/commit-msg/workflow.md
 
 ## Common policy
