@@ -70,7 +70,6 @@
    保存先: `artifact/plans/<feature>/`
    ファイル名: `YYYY-MM-DD-<feature>-sample-scene-plan-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
-   保存後、当該ファイルを現在の VS Code で新しいタブとして開いて表示する。
 
 8. 実装計画をユーザーに確認する（必須）
 
