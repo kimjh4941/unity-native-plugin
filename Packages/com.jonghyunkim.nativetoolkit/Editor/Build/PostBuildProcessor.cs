@@ -169,11 +169,21 @@ public static class PostBuildProcessor
             UnityEngine.Debug.Log("[Build][macOS] Post-build steps started.");
 
             bool isDevelopmentBuild = EditorUserBuildSettings.development;
-            // XCFramework source and destination paths
+            string xcfSuffix = isDevelopmentBuild ? "-debug" : "";
             string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string xcframeworkSrc = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS/", isDevelopmentBuild ? "UnityMacNativeToolkit-Debug.xcframework" : "UnityMacNativeToolkit.xcframework");
+            string pluginsMacDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
+
+            string unityXcframeworkName = FindXcframeworkName(pluginsMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
+
+            if (string.IsNullOrEmpty(unityXcframeworkName))
+            {
+                return;
+            }
+
+            // XCFramework source and destination paths
+            string xcframeworkSrc = Path.Combine(pluginsMacDir, unityXcframeworkName);
             string frameworksDir = Path.Combine(pathToBuiltProject, "unity-native-plugin/Frameworks");
-            string xcframeworkDst = Path.Combine(frameworksDir, "UnityMacNativeToolkit.xcframework");
+            string xcframeworkDst = Path.Combine(frameworksDir, unityXcframeworkName);
 
             if (!Directory.Exists(xcframeworkSrc))
             {
@@ -205,12 +215,12 @@ public static class PostBuildProcessor
             string targetGuid = proj.GetUnityMainTargetGuid();
 
             // Add XCFramework to Frameworks
-            string relativePath = "unity-native-plugin/Frameworks/UnityMacNativeToolkit.xcframework";
+            string relativePath = $"unity-native-plugin/Frameworks/{unityXcframeworkName}";
             proj.AddFileToBuild(targetGuid, proj.AddFile(relativePath, relativePath, PBXSourceTree.Source));
 
             proj.WriteToFile(pbxprojPath);
 
-            UnityEngine.Debug.Log("[Build][macOS] Added UnityMacNativeToolkit.xcframework to Xcode project.");
+            UnityEngine.Debug.Log($"[Build][macOS] Added {unityXcframeworkName} to Xcode project.");
             UnityEngine.Debug.Log("[Build][macOS] Post-build steps completed.");
         }
 #endif
