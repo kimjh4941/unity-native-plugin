@@ -18,6 +18,7 @@ public class MacNotificationManagerExampleController : MonoBehaviour
     private const string SampleNotificationId = "mac-sample-notification";
     private const string SampleCategoryId = "mac-sample-category";
     private const string NotificationPermissionRequiredMessage = "Please allow notification permission first.";
+    private const string NotificationPermissionSettingsGuideMessage = "Permission denied. Tap Open Settings and allow notifications in System Settings.";
 
     private Label? _resultLabel;
     private Button? _homeButton;
@@ -189,7 +190,9 @@ public class MacNotificationManagerExampleController : MonoBehaviour
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         MacNotificationManager.Instance.RequestPermission(result =>
         {
-            SetResult(FormatResult("RequestPermission", result));
+            SetResult(result.IsSuccess
+                ? FormatResult("RequestPermission", result)
+                : $"✗ RequestPermission\n{NotificationPermissionSettingsGuideMessage}");
         });
 #else
         SetResult("macOS Standalone only. Run this sample on macOS to verify.");
@@ -253,7 +256,7 @@ public class MacNotificationManagerExampleController : MonoBehaviour
             MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
             {
                 SetResult(result.IsSuccess
-                    ? "✓ ShowImmediate\nLong-press the foreground banner or delivered notification to open Open / Delete / Reply."
+                    ? "✓ ShowImmediate\nPress RegisterCategory first, then hover over the notification banner and click Options (▼) to see Open / Delete / Reply."
                     : FormatResult("ShowImmediate", result));
             });
         });
@@ -592,7 +595,7 @@ public class MacNotificationManagerExampleController : MonoBehaviour
             MacNotificationManager.Instance.RegisterCategory(categoryJson, result =>
             {
                 SetResult(result.IsSuccess
-                    ? "✓ RegisterCategory\nNext, tap ShowImmediate and long-press the foreground banner to open Open / Delete / Reply."
+                    ? "✓ RegisterCategory\nNext, tap ShowImmediate, then hover over the notification banner and click Options (▼) to see Open / Delete / Reply."
                     : FormatResult("RegisterCategory", result));
             });
         });
