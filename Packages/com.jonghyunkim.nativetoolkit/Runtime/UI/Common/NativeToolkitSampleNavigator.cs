@@ -74,6 +74,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowMacNotification(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+        ApplyScreen<MacNotificationManagerExampleController>(
+            uiDocument,
+            "UI/macOS/Notification/MacNotificationManagerExample",
+            "UI/macOS/Notification/MacNotificationManagerExampleStyle");
+#endif
+    }
+
     private static void ApplyScreen<TController>(UIDocument uiDocument, string visualTreeResourcePath, string styleResourcePath)
         where TController : MonoBehaviour
     {
@@ -122,6 +132,7 @@ public static class NativeToolkitSampleNavigator
 #endif
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
         RemoveIfExists<MacDialogManagerExampleController>(gameObject);
+        RemoveIfExists<MacNotificationManagerExampleController>(gameObject);
 #endif
     }
 

@@ -1,7 +1,7 @@
 # Unity Native Toolkit (Unity 6)
 
 - A toolkit that provides native features for Unity 6+.
-- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
+- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs and notifications via singleton APIs per platform.
 - Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build setup.
 
 Other languages:
@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.2.0
+- 1.3.0
 
 ## Supported OS Versions
 
@@ -76,12 +76,20 @@ Other languages:
   - Multi-folder picker dialog
   - Save file dialog
 
+- Notification features
+  - Request permission / check authorization status / open system notification settings
+  - Immediate notifications
+  - Scheduled notifications (time interval / calendar)
+  - Update / cancel / remove delivered notifications
+  - Fetch scheduled and delivered notification lists
+  - Badge count management
+  - Category registration / actions / text input actions
+
 ## Planned Features
 
 - Share
 - Clipboard integration
 - Notifications (Windows)
-- Notifications (macOS)
 
 ## Installation
 
@@ -89,7 +97,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
 - Click "install".
 - Requirements:
   - Unity 6+
@@ -112,7 +120,7 @@ Other languages:
 ## Native Toolkit
 
 - Native Toolkit is a unified toolkit for platform-native features.
-- It includes native plugins and samples for Android / iOS / Windows / macOS, exposing dialog APIs via a singleton interface.
+- It includes native plugins and samples for Android / iOS / Windows / macOS, exposing native features such as dialogs and notifications via singleton APIs per platform.
 - Repository: https://github.com/kimjh4941/native-toolkit
 
 ## License

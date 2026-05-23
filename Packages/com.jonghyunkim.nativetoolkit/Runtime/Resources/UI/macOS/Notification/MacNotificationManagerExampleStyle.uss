@@ -1,0 +1,125 @@
+.mac-notif-root {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.mac-notif-header {
+    background-color: rgba(255, 255, 255, 1);
+    padding: 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mac-notif-title {
+    font-size: 20px;
+    color: #1C1C1E;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.mac-notif-subtitle {
+    font-size: 12px;
+    color: #8E8E93;
+    -unity-text-align: upper-center;
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.mac-result-border {
+    background-color: #EEEEEE;
+    border-radius: 8px;
+}
+
+.mac-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #212121;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+.mac-notif-scroll {
+    flex-grow: 1;
+}
+
+.mac-notif-content {
+    background-color: rgba(255, 255, 255, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0 16px 16px 16px;
+    gap: 12px;
+}
+
+.mac-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mac-section-title {
+    font-size: 15px;
+    color: #263238;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.mac-notif-button {
+    background-color: #0A84FF;
+    color: white;
+    font-size: 14px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.mac-notif-button:hover {
+    background-color: #0060D6;
+}
+
+.mac-notif-button:active {
+    background-color: #0050AA;
+}
+
+.mac-notif-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
+
+.mac-secondary-button {
+    background-color: #636366;
+    color: white;
+    font-size: 14px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.mac-secondary-button:hover {
+    background-color: #48484A;
+}
+
+.mac-secondary-button:active {
+    background-color: #3A3A3C;
+}

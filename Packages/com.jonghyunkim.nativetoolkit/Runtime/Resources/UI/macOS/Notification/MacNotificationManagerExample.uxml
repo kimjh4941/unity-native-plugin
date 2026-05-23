@@ -1,0 +1,68 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="MacNotificationManagerExampleStyle.uss" />
+    <ui:VisualElement class="mac-notif-root">
+        <ui:VisualElement class="mac-notif-header">
+            <ui:Button name="HomeButton" class="mac-secondary-button" text="Back To Home" />
+            <ui:Label text="MacNotificationManager Example" class="mac-notif-title" />
+            <ui:Label text="Gameplay-focused notification scenarios for macOS." class="mac-notif-subtitle" />
+            <ui:VisualElement class="mac-result-border">
+                <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="mac-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="mac-notif-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="mac-notif-content">
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Permission" class="mac-section-title" />
+                    <ui:Button name="RequestPermissionButton" class="mac-notif-button" text="RequestPermission" />
+                    <ui:Button name="HasPermissionButton" class="mac-notif-button" text="HasPermission" />
+                    <ui:Button name="AuthorizationStatusButton" class="mac-notif-button" text="AuthorizationStatus" />
+                    <ui:Button name="OpenSettingsButton" class="mac-secondary-button" text="OpenSettings" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Show Notification" class="mac-section-title" />
+                    <ui:Button name="ShowImmediateButton" class="mac-notif-button" text="ShowImmediate" />
+                    <ui:Button name="ShowTimeIntervalButton" class="mac-notif-button" text="ShowTimeInterval(5s)" />
+                    <ui:Button name="ShowCalendarButton" class="mac-notif-button" text="ShowCalendar(+1m)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Update / Cancel / Remove" class="mac-section-title" />
+                    <ui:Button name="UpdateByIdButton" class="mac-notif-button" text="UpdateById" />
+                    <ui:Button name="CancelByIdButton" class="mac-secondary-button" text="CancelById" />
+                    <ui:Button name="CancelAllButton" class="mac-secondary-button" text="CancelAll" />
+                    <ui:Button name="RemoveDeliveredByIdButton" class="mac-secondary-button" text="RemoveDeliveredById" />
+                    <ui:Button name="RemoveAllDeliveredButton" class="mac-secondary-button" text="RemoveAllDelivered" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Scheduled Notification" class="mac-section-title" />
+                    <ui:Button name="ScheduleTimeIntervalButton" class="mac-notif-button" text="ScheduleTimeInterval(10s)" />
+                    <ui:Button name="ScheduleCalendarButton" class="mac-notif-button" text="ScheduleCalendar(+1m)" />
+                    <ui:Button name="CancelScheduledByIdButton" class="mac-secondary-button" text="CancelScheduledById" />
+                    <ui:Button name="CancelAllScheduledButton" class="mac-secondary-button" text="CancelAllScheduled" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Query" class="mac-section-title" />
+                    <ui:Button name="GetScheduledButton" class="mac-notif-button" text="GetScheduled" />
+                    <ui:Button name="GetDeliveredButton" class="mac-notif-button" text="GetDelivered" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Badge" class="mac-section-title" />
+                    <ui:Button name="SetBadgeCount1Button" class="mac-notif-button" text="SetBadgeCount(1)" />
+                    <ui:Button name="SetBadgeCount0Button" class="mac-secondary-button" text="SetBadgeCount(0)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-section">
+                    <ui:Label text="Category" class="mac-section-title" />
+                    <ui:Button name="RegisterCategoryButton" class="mac-notif-button" text="RegisterCategory" />
+                    <ui:Button name="RemoveCategoryButton" class="mac-secondary-button" text="RemoveCategory" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
