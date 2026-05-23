@@ -523,14 +523,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             Directory.CreateDirectory(destDir);
         }
 
-        string selectedXcf1 = FindXcframeworkNameInDist(distMacDir, "mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedXcf1))
-        {
-            string sourceXcf1 = Path.Combine(distMacDir, selectedXcf1);
-            CopyDirectory(sourceXcf1, Path.Combine(destDir, selectedXcf1));
-            UnityEngine.Debug.Log($"[Build][macOS] Copied {selectedXcf1}");
-        }
-
         string selectedXcf2 = FindXcframeworkNameInDist(distMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
         if (!string.IsNullOrEmpty(selectedXcf2))
         {

@@ -1,12 +1,8 @@
-# unity-native-toolkit Agent Instructions
+# unity-native-plugin AI Agent Instructions
 
-Coding rules are managed in `agent-rules/` as the single source of truth.
+This file is a thin entry point for GitHub Copilot.
+All shared agent rules are managed in:
 
-## Applied Rules
+- ../agent-rules/index.md
 
-| File                                                                          | Applies to | Description                                                |
-| ----------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------- |
-| [csharp-coding.instructions.md](./instructions/csharp-coding.instructions.md) | `**/*.cs`  | Unity6 C# coding rules: Debug.Log format, XML doc comments |
-
-> **Source of truth:** `agent-rules/coding-rule.md`
-> When updating rules, edit that file first, then sync the same changes to `csharp-coding.instructions.md`.
+Use the files in that folder as the single source of truth for all AI agents.
