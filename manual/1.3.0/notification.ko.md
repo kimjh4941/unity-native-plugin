@@ -34,6 +34,16 @@
     - [이벤트 수신](#이벤트-수신)
 - [Windows](#windows)
 - [macOS](#macos)
+  - [지원 기능](#지원-기능-1)
+  - [기본 설정](#기본-설정-1)
+  - [권한](#권한-1)
+  - [알림 표시](#알림-표시)
+  - [업데이트, 취소 및 삭제](#업데이트-취소-및-삭제)
+  - [예약 알림](#예약-알림-1)
+  - [조회](#조회)
+  - [배지](#배지)
+  - [카테고리와 액션](#카테고리와-액션)
+  - [이벤트 수신](#이벤트-수신-1)
 
 ---
 
@@ -890,4 +900,425 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## macOS
 
-（준비 중）
+macOS 알림은 `MacNotificationManager`를 통해 제공됩니다. 샘플 씬에서는 권한 흐름, 즉시 알림, 예약 알림, 카테고리와 액션 등록, 배지 관리, 조회 작업을 확인할 수 있습니다.
+
+### 지원 기능
+
+- 권한 요청 / 인증 상태 확인 / 시스템 알림 설정 열기
+- 즉시 알림
+- 예약 알림 (시간 간격 / 캘린더)
+- 알림 업데이트 / 취소 / 전달된 알림 삭제
+- 예약된 알림 및 전달된 알림 목록 조회
+- 배지 카운트 관리
+- 카테고리 등록 / 액션 / 텍스트 입력 액션
+
+### 기본 설정
+
+```csharp
+// Guard: macOS Standalone 전용. 에디터에서의 네이티브 호출을 방지합니다.
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+#endif
+```
+
+---
+
+### 권한
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 알림 권한 요청
+MacNotificationManager.Instance.RequestPermission(result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("macOS 알림 권한이 허용되었습니다");
+    }
+    else
+    {
+        Debug.LogError($"권한 요청 실패: {result.ErrorMessage}");
+    }
+});
+
+// 알림 권한이 허용되었는지 확인
+MacNotificationManager.Instance.HasPermission(hasPermission =>
+{
+    Debug.Log($"HasPermission: {hasPermission}");
+});
+
+// 전체 인증 상태 조회
+MacNotificationManager.Instance.GetAuthorizationStatus(result =>
+{
+    var status = MacNotificationAuthorizationStatusParser.ParseJson(result.Json);
+    Debug.Log($"AuthorizationStatus: {status}");
+});
+
+// 시스템 알림 설정 열기
+MacNotificationManager.Instance.OpenSettings(result =>
+{
+    Debug.Log($"OpenSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
+</p>
+
+> **참고:** 스크린샷은 별도로 수동으로 추가해야 합니다. 샘플 씬은 macOS Standalone에서만 동작합니다.
+
+---
+
+### 알림 표시
+
+#### 즉시 알림
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    categoryIdentifier = "mac-sample-category"
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("알림이 표시되었습니다");
+    }
+    else
+    {
+        Debug.LogError($"ShowNotification 실패: {result.ErrorMessage}");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="720" />
+</p>
+
+#### 시간 간격 트리거
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Countdown",
+    body = "Your team queue opens in 5 seconds. Rally your party and get ready."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### 캘린더 트리거
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var now = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Ready",
+    body = "Your login streak chest is ready in town. Claim it before reset."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = now.Year,
+    month = now.Month,
+    day = now.Day,
+    hour = now.Hour,
+    minute = now.Minute,
+    second = now.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
+---
+
+### 업데이트, 취소 및 삭제
+
+#### 업데이트
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Town Entry Bonus",
+    body = "Welcome back to town. Your blacksmith bonus is now available."
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.UpdateNotification("mac-sample-notification", contentJson, null, result =>
+{
+    Debug.Log($"UpdateNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### 취소
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// ID로 특정 대기 중인 알림 취소
+MacNotificationManager.Instance.CancelNotification("mac-sample-notification");
+
+// 모든 대기 중인 알림 취소
+MacNotificationManager.Instance.CancelAllNotifications();
+#endif
+```
+
+#### 전달된 알림 삭제
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 알림 센터에서 특정 전달된 알림 삭제
+MacNotificationManager.Instance.RemoveDeliveredNotification("mac-sample-notification");
+
+// 알림 센터에서 모든 전달된 알림 삭제
+MacNotificationManager.Instance.RemoveAllDeliveredNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="720" />
+</p>
+
+---
+
+### 예약 알림
+
+게임 루프를 차단하지 않고 미래 시각에 알림을 예약합니다.
+
+#### 시간 간격
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### 캘린더
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var future = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Window",
+    body = "Your daily reward window is open. Check in now to keep your streak."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = future.Year,
+    month = future.Month,
+    day = future.Day,
+    hour = future.Hour,
+    minute = future.Minute,
+    second = future.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### 예약 취소
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// ID로 특정 예약된 알림 취소
+MacNotificationManager.Instance.CancelScheduledNotification("mac-sample-notification");
+
+// 모든 예약된 알림 취소
+MacNotificationManager.Instance.CancelAllScheduledNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="720" />
+</p>
+
+---
+
+### 조회
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 대기 중인 예약 알림 조회
+MacNotificationManager.Instance.GetScheduledNotifications(result =>
+{
+    Debug.Log($"GetScheduled: {result.Json}");
+});
+
+// 알림 센터의 전달된 알림 조회
+MacNotificationManager.Instance.GetDeliveredNotifications(result =>
+{
+    Debug.Log($"GetDelivered: {result.Json}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Query.png" alt="Example_MacNotificationManager_Query" width="720" />
+</p>
+
+---
+
+### 배지
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 배지 카운트를 1로 설정
+MacNotificationManager.Instance.SetBadgeCount(1, result =>
+{
+    Debug.Log($"SetBadgeCount(1): {result.IsSuccess}");
+});
+
+// 배지 지우기
+MacNotificationManager.Instance.SetBadgeCount(0, result =>
+{
+    Debug.Log($"SetBadgeCount(0): {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Badge.png" alt="Example_MacNotificationManager_Badge" width="720" />
+</p>
+
+---
+
+### 카테고리와 액션
+
+`categoryIdentifier`를 사용하는 알림을 보내기 전에 액션 버튼이 포함된 카테고리를 먼저 등록하세요.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var category = new MacNotificationCategoryPayload
+{
+    id = "mac-sample-category",
+    actions = new[]
+    {
+        new MacNotificationActionPayload
+        {
+            id = "open",
+            title = "Open",
+            isForeground = true,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "delete",
+            title = "Delete",
+            isForeground = false,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "reply",
+            title = "Reply",
+            isForeground = false,
+            isTextInput = true,
+            textInputPlaceholder = "Type a message"
+        }
+    }
+};
+string categoryJson = MacNotificationJsonBuilder.BuildCategoryJson(category);
+MacNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+액션 버튼을 보려면 알림 배너에 마우스를 올려 Options (▼) 버튼을 클릭하세요.
+
+#### 카테고리 삭제
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacNotificationManager.Instance.RemoveCategory("mac-sample-category", result =>
+{
+    Debug.Log($"RemoveCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="720" />
+</p>
+
+---
+
+### 이벤트 수신
+
+`OnEnable`에서 구독하고 `OnDisable`에서 구독을 해제하세요.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+private void OnEnable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived += OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived += OnNotificationTextInputActionReceived;
+}
+
+private void OnDisable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived -= OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived -= OnNotificationTextInputActionReceived;
+}
+
+private void OnNotificationActionReceived(MacNotificationActionResult result)
+{
+    Debug.Log($"Action: notificationId={result.NotificationId}, actionId={result.ActionId}");
+}
+
+private void OnNotificationTextInputActionReceived(MacNotificationTextInputActionResult result)
+{
+    Debug.Log($"TextInput: notificationId={result.NotificationId}, actionId={result.ActionId}, userText={result.UserText}");
+}
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="720" />
+</p>

@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.2.0
+- 1.3.0
 
 ## 지원 OS 버전
 
@@ -89,7 +89,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상

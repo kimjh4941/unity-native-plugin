@@ -8,7 +8,7 @@
 
 # 버전
 
-## 1.2.0
+## 1.3.0
 
 # 지원 OS 버전
 
@@ -74,11 +74,20 @@
   - 다중 폴더 선택 다이얼로그
   - 파일 저장 다이얼로그
 
+- 알림 기능
+  - 알림 권한 요청 / 권한 상태 확인 / 시스템 알림 설정 열기
+  - 즉시 알림
+  - 예약 알림 (시간 간격 / 캘린더)
+  - 알림 업데이트 / 취소 / 전달된 알림 삭제
+  - 예약된 알림 및 전달된 알림 목록 조회
+  - 배지 카운트 관리
+  - 카테고리 등록 / 액션 / 텍스트 입력 액션
+
 ## 추가 예정 기능
 
 - 공유
 - 클립보드 연동
-- 알림 (Windows, macOS)
+- 알림 (Windows)
 
 # 시작하기
 
@@ -88,7 +97,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상

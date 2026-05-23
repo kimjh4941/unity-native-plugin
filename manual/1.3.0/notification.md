@@ -34,6 +34,16 @@ Language:
     - [Receive events](#receive-events)
 - [Windows](#windows)
 - [macOS](#macos)
+  - [Supported capabilities](#supported-capabilities-1)
+  - [Basic setup](#basic-setup-1)
+  - [Permission](#permission-1)
+  - [Show notification](#show-notification)
+  - [Update, cancel, and remove](#update-cancel-and-remove)
+  - [Scheduled notifications](#scheduled-notifications-1)
+  - [Query](#query)
+  - [Badge](#badge)
+  - [Category and actions](#category-and-actions)
+  - [Receive events](#receive-events)
 
 ---
 
@@ -890,4 +900,425 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## macOS
 
-(Coming soon)
+macOS notifications are provided through `MacNotificationManager`. The sample scene demonstrates permission flow, immediate notifications, scheduled notifications, category and action registration, badge management, and query operations.
+
+### Supported capabilities
+
+- Request permission / check authorization status / open system notification settings
+- Immediate notifications
+- Scheduled notifications (time interval / calendar)
+- Update / cancel / remove delivered notifications
+- Fetch scheduled and delivered notification lists
+- Badge count management
+- Category registration / actions / text input actions
+
+### Basic setup
+
+```csharp
+// Guard: macOS Standalone only. Prevents native calls in the Editor.
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+#endif
+```
+
+---
+
+### Permission
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Request notification permission
+MacNotificationManager.Instance.RequestPermission(result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("macOS notification permission granted");
+    }
+    else
+    {
+        Debug.LogError($"Permission failed: {result.ErrorMessage}");
+    }
+});
+
+// Check whether notification permission is granted
+MacNotificationManager.Instance.HasPermission(hasPermission =>
+{
+    Debug.Log($"HasPermission: {hasPermission}");
+});
+
+// Get full authorization status
+MacNotificationManager.Instance.GetAuthorizationStatus(result =>
+{
+    var status = MacNotificationAuthorizationStatusParser.ParseJson(result.Json);
+    Debug.Log($"AuthorizationStatus: {status}");
+});
+
+// Open system notification settings
+MacNotificationManager.Instance.OpenSettings(result =>
+{
+    Debug.Log($"OpenSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
+</p>
+
+> **Note:** Screenshots must be added manually. The sample scene runs on macOS Standalone only.
+
+---
+
+### Show notification
+
+#### Immediate
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    categoryIdentifier = "mac-sample-category"
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("Notification shown");
+    }
+    else
+    {
+        Debug.LogError($"ShowNotification failed: {result.ErrorMessage}");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="720" />
+</p>
+
+#### Time interval trigger
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Countdown",
+    body = "Your team queue opens in 5 seconds. Rally your party and get ready."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Calendar trigger
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var now = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Ready",
+    body = "Your login streak chest is ready in town. Claim it before reset."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = now.Year,
+    month = now.Month,
+    day = now.Day,
+    hour = now.Hour,
+    minute = now.Minute,
+    second = now.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
+---
+
+### Update, cancel, and remove
+
+#### Update
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Town Entry Bonus",
+    body = "Welcome back to town. Your blacksmith bonus is now available."
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.UpdateNotification("mac-sample-notification", contentJson, null, result =>
+{
+    Debug.Log($"UpdateNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Cancel
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Cancel a pending notification by ID
+MacNotificationManager.Instance.CancelNotification("mac-sample-notification");
+
+// Cancel all pending notifications
+MacNotificationManager.Instance.CancelAllNotifications();
+#endif
+```
+
+#### Remove delivered
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Remove a delivered notification from Notification Center
+MacNotificationManager.Instance.RemoveDeliveredNotification("mac-sample-notification");
+
+// Remove all delivered notifications from Notification Center
+MacNotificationManager.Instance.RemoveAllDeliveredNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="720" />
+</p>
+
+---
+
+### Scheduled notifications
+
+Schedule a notification to appear at a future time without blocking the game loop.
+
+#### Time interval
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Calendar
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var future = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Window",
+    body = "Your daily reward window is open. Check in now to keep your streak."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = future.Year,
+    month = future.Month,
+    day = future.Day,
+    hour = future.Hour,
+    minute = future.Minute,
+    second = future.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Cancel scheduled
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Cancel a specific scheduled notification by ID
+MacNotificationManager.Instance.CancelScheduledNotification("mac-sample-notification");
+
+// Cancel all scheduled notifications
+MacNotificationManager.Instance.CancelAllScheduledNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="720" />
+</p>
+
+---
+
+### Query
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Fetch pending scheduled notifications
+MacNotificationManager.Instance.GetScheduledNotifications(result =>
+{
+    Debug.Log($"GetScheduled: {result.Json}");
+});
+
+// Fetch delivered notifications in Notification Center
+MacNotificationManager.Instance.GetDeliveredNotifications(result =>
+{
+    Debug.Log($"GetDelivered: {result.Json}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Query.png" alt="Example_MacNotificationManager_Query" width="720" />
+</p>
+
+---
+
+### Badge
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Set badge count to 1
+MacNotificationManager.Instance.SetBadgeCount(1, result =>
+{
+    Debug.Log($"SetBadgeCount(1): {result.IsSuccess}");
+});
+
+// Clear the badge
+MacNotificationManager.Instance.SetBadgeCount(0, result =>
+{
+    Debug.Log($"SetBadgeCount(0): {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Badge.png" alt="Example_MacNotificationManager_Badge" width="720" />
+</p>
+
+---
+
+### Category and actions
+
+Register a category with action buttons before sending a notification that uses `categoryIdentifier`.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var category = new MacNotificationCategoryPayload
+{
+    id = "mac-sample-category",
+    actions = new[]
+    {
+        new MacNotificationActionPayload
+        {
+            id = "open",
+            title = "Open",
+            isForeground = true,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "delete",
+            title = "Delete",
+            isForeground = false,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "reply",
+            title = "Reply",
+            isForeground = false,
+            isTextInput = true,
+            textInputPlaceholder = "Type a message"
+        }
+    }
+};
+string categoryJson = MacNotificationJsonBuilder.BuildCategoryJson(category);
+MacNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+To see action buttons, hover over the notification banner and click the Options (▼) button.
+
+#### Remove a category
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacNotificationManager.Instance.RemoveCategory("mac-sample-category", result =>
+{
+    Debug.Log($"RemoveCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="720" />
+</p>
+
+---
+
+### Receive events
+
+Subscribe in `OnEnable` and unsubscribe in `OnDisable`.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+private void OnEnable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived += OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived += OnNotificationTextInputActionReceived;
+}
+
+private void OnDisable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived -= OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived -= OnNotificationTextInputActionReceived;
+}
+
+private void OnNotificationActionReceived(MacNotificationActionResult result)
+{
+    Debug.Log($"Action: notificationId={result.NotificationId}, actionId={result.ActionId}");
+}
+
+private void OnNotificationTextInputActionReceived(MacNotificationTextInputActionResult result)
+{
+    Debug.Log($"TextInput: notificationId={result.NotificationId}, actionId={result.ActionId}, userText={result.UserText}");
+}
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="720" />
+</p>

@@ -21,6 +21,7 @@ Agent-specific wrappers in `.github/` reference these files.
 - Review implementation feature (実装レビュー): ./workflows/review-implementation-feature/workflow.md
 - Review implementation sample scene (サンプルシーンレビュー): ./workflows/review-implementation-sample-scene/workflow.md
 - Commit message (コミットメッセージ生成): ./workflows/commit-msg/workflow.md
+- Write manual (マニュアル生成・公開): ./workflows/write-manual/workflow.md
 
 ## Common policy
 

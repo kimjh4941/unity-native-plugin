@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.2.0
+- 1.3.0
 
 ## Supported OS Versions
 
@@ -89,7 +89,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
 - Click "install".
 - Requirements:
   - Unity 6+

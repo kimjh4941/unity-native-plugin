@@ -34,6 +34,16 @@
     - [イベントを受け取る](#イベントを受け取る)
 - [Windows](#windows)
 - [macOS](#macos)
+  - [サポート機能](#サポート機能-1)
+  - [基本セットアップ](#基本セットアップ-1)
+  - [権限](#権限-1)
+  - [通知を表示する](#通知を表示する)
+  - [更新・キャンセル・削除](#更新キャンセル削除)
+  - [スケジュール通知](#スケジュール通知-1)
+  - [クエリ](#クエリ)
+  - [バッジ](#バッジ)
+  - [カテゴリとアクション](#カテゴリとアクション)
+  - [イベントを受け取る](#イベントを受け取る-1)
 
 ---
 
@@ -890,4 +900,425 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## macOS
 
-（準備中）
+macOS 通知は `MacNotificationManager` を通じて提供されます。サンプルシーンでは、権限フロー、即座通知、スケジュール通知、カテゴリ・アクション登録、バッジ管理、クエリ操作を確認できます。
+
+### サポート機能
+
+- 権限リクエスト / 認証ステータス確認 / システム通知設定を開く
+- 即座通知
+- スケジュール通知（時間間隔 / カレンダー）
+- 通知の更新 / キャンセル / 配信済み通知の削除
+- スケジュール済み・配信済み通知の一覧取得
+- バッジカウント管理
+- カテゴリ登録 / アクション / テキスト入力アクション
+
+### 基本セットアップ
+
+```csharp
+// Guard: macOS Standalone のみ。エディタでのネイティブ呼び出しを防ぎます。
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+#endif
+```
+
+---
+
+### 権限
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 通知権限をリクエストする
+MacNotificationManager.Instance.RequestPermission(result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("macOS 通知権限が許可されました");
+    }
+    else
+    {
+        Debug.LogError($"権限リクエスト失敗: {result.ErrorMessage}");
+    }
+});
+
+// 通知権限が許可されているか確認する
+MacNotificationManager.Instance.HasPermission(hasPermission =>
+{
+    Debug.Log($"HasPermission: {hasPermission}");
+});
+
+// 認証ステータスの詳細を取得する
+MacNotificationManager.Instance.GetAuthorizationStatus(result =>
+{
+    var status = MacNotificationAuthorizationStatusParser.ParseJson(result.Json);
+    Debug.Log($"AuthorizationStatus: {status}");
+});
+
+// システム通知設定を開く
+MacNotificationManager.Instance.OpenSettings(result =>
+{
+    Debug.Log($"OpenSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
+</p>
+
+> **注意:** スクリーンショットは別途手動で追加する必要があります。サンプルシーンは macOS Standalone でのみ動作します。
+
+---
+
+### 通知を表示する
+
+#### 即座通知
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    categoryIdentifier = "mac-sample-category"
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("通知を表示しました");
+    }
+    else
+    {
+        Debug.LogError($"ShowNotification 失敗: {result.ErrorMessage}");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="720" />
+</p>
+
+#### 時間間隔トリガー
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Countdown",
+    body = "Your team queue opens in 5 seconds. Rally your party and get ready."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### カレンダートリガー
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var now = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Ready",
+    body = "Your login streak chest is ready in town. Claim it before reset."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = now.Year,
+    month = now.Month,
+    day = now.Day,
+    hour = now.Hour,
+    minute = now.Minute,
+    second = now.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
+---
+
+### 更新・キャンセル・削除
+
+#### 更新
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Town Entry Bonus",
+    body = "Welcome back to town. Your blacksmith bonus is now available."
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.UpdateNotification("mac-sample-notification", contentJson, null, result =>
+{
+    Debug.Log($"UpdateNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### キャンセル
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// ID を指定してペンディング中の通知をキャンセルする
+MacNotificationManager.Instance.CancelNotification("mac-sample-notification");
+
+// ペンディング中のすべての通知をキャンセルする
+MacNotificationManager.Instance.CancelAllNotifications();
+#endif
+```
+
+#### 配信済み通知を削除する
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// 通知センターから特定の配信済み通知を削除する
+MacNotificationManager.Instance.RemoveDeliveredNotification("mac-sample-notification");
+
+// 通知センターからすべての配信済み通知を削除する
+MacNotificationManager.Instance.RemoveAllDeliveredNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="720" />
+</p>
+
+---
+
+### スケジュール通知
+
+ゲームループをブロックせずに、将来の時刻に通知を予約します。
+
+#### 時間間隔
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### カレンダー
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var future = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Window",
+    body = "Your daily reward window is open. Check in now to keep your streak."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = future.Year,
+    month = future.Month,
+    day = future.Day,
+    hour = future.Hour,
+    minute = future.Minute,
+    second = future.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### スケジュールをキャンセルする
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// ID を指定してスケジュール済み通知をキャンセルする
+MacNotificationManager.Instance.CancelScheduledNotification("mac-sample-notification");
+
+// すべてのスケジュール済み通知をキャンセルする
+MacNotificationManager.Instance.CancelAllScheduledNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="720" />
+</p>
+
+---
+
+### クエリ
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// スケジュール済み（ペンディング中）通知を取得する
+MacNotificationManager.Instance.GetScheduledNotifications(result =>
+{
+    Debug.Log($"GetScheduled: {result.Json}");
+});
+
+// 通知センターにある配信済み通知を取得する
+MacNotificationManager.Instance.GetDeliveredNotifications(result =>
+{
+    Debug.Log($"GetDelivered: {result.Json}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Query.png" alt="Example_MacNotificationManager_Query" width="720" />
+</p>
+
+---
+
+### バッジ
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// バッジカウントを 1 に設定する
+MacNotificationManager.Instance.SetBadgeCount(1, result =>
+{
+    Debug.Log($"SetBadgeCount(1): {result.IsSuccess}");
+});
+
+// バッジをクリアする
+MacNotificationManager.Instance.SetBadgeCount(0, result =>
+{
+    Debug.Log($"SetBadgeCount(0): {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Badge.png" alt="Example_MacNotificationManager_Badge" width="720" />
+</p>
+
+---
+
+### カテゴリとアクション
+
+`categoryIdentifier` を使用する通知を送信する前に、アクションボタン付きのカテゴリを登録してください。
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var category = new MacNotificationCategoryPayload
+{
+    id = "mac-sample-category",
+    actions = new[]
+    {
+        new MacNotificationActionPayload
+        {
+            id = "open",
+            title = "Open",
+            isForeground = true,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "delete",
+            title = "Delete",
+            isForeground = false,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "reply",
+            title = "Reply",
+            isForeground = false,
+            isTextInput = true,
+            textInputPlaceholder = "Type a message"
+        }
+    }
+};
+string categoryJson = MacNotificationJsonBuilder.BuildCategoryJson(category);
+MacNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+アクションボタンを表示するには、通知バナーにカーソルを合わせて Options (▼) ボタンをクリックしてください。
+
+#### カテゴリを削除する
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacNotificationManager.Instance.RemoveCategory("mac-sample-category", result =>
+{
+    Debug.Log($"RemoveCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="720" />
+</p>
+
+---
+
+### イベントを受け取る
+
+`OnEnable` でサブスクライブし、`OnDisable` でサブスクライブ解除してください。
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+private void OnEnable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived += OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived += OnNotificationTextInputActionReceived;
+}
+
+private void OnDisable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived -= OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived -= OnNotificationTextInputActionReceived;
+}
+
+private void OnNotificationActionReceived(MacNotificationActionResult result)
+{
+    Debug.Log($"Action: notificationId={result.NotificationId}, actionId={result.ActionId}");
+}
+
+private void OnNotificationTextInputActionReceived(MacNotificationTextInputActionResult result)
+{
+    Debug.Log($"TextInput: notificationId={result.NotificationId}, actionId={result.ActionId}, userText={result.UserText}");
+}
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="720" />
+</p>

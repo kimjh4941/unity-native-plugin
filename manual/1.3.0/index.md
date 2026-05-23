@@ -8,7 +8,7 @@
 
 # Version
 
-## 1.2.0
+## 1.3.0
 
 # Supported OS Versions
 
@@ -74,11 +74,20 @@
   - Multi-folder picker dialog
   - Save file dialog
 
+- Notification features
+  - Request permission / check authorization status / open system notification settings
+  - Immediate notifications
+  - Scheduled notifications (time interval / calendar)
+  - Update / cancel / remove delivered notifications
+  - Fetch scheduled and delivered notification lists
+  - Badge count management
+  - Category registration / actions / text input actions
+
 ## Planned Features
 
 - Share
 - Clipboard integration
-- Notifications (Windows, macOS)
+- Notifications (Windows)
 
 # Getting Started
 
@@ -88,7 +97,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.2.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
 - Click "install".
 - Requirements:
   - Unity 6+
