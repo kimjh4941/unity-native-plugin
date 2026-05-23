@@ -1306,7 +1306,7 @@ MacDialogManager.Instance.ShowDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowDialog.png" alt="Example_MacDialogManager_ShowDialog" width="400" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowDialog.png" alt="Example_MacDialogManager_ShowDialog" width="400" />
 </p>
 - Receive results via events.
 
@@ -1369,7 +1369,7 @@ MacDialogManager.Instance.ShowFileDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowFileDialog.png" alt="Example_MacDialogManager_ShowFileDialog" width="1000" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowFileDialog.png" alt="Example_MacDialogManager_ShowFileDialog" width="1000" />
 </p>
 - Receive results via events.
 
@@ -1434,7 +1434,7 @@ MacDialogManager.Instance.ShowMultiFileDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowMultiFileDialog.png" alt="Example_MacDialogManager_ShowMultiFileDialog" width="1000" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowMultiFileDialog.png" alt="Example_MacDialogManager_ShowMultiFileDialog" width="1000" />
 </p>
 - Receive results via events.
 
@@ -1496,7 +1496,7 @@ MacDialogManager.Instance.ShowFolderDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowFolderDialog.png" alt="Example_MacDialogManager_ShowFolderDialog" width="1000" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowFolderDialog.png" alt="Example_MacDialogManager_ShowFolderDialog" width="1000" />
 </p>
 - Receive results via events.
 
@@ -1558,7 +1558,7 @@ MacDialogManager.Instance.ShowMultiFolderDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowMultiFolderDialog.png" alt="Example_MacDialogManager_ShowMultiFolderDialog" width="1000" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowMultiFolderDialog.png" alt="Example_MacDialogManager_ShowMultiFolderDialog" width="1000" />
 </p>
 - Receive results via events.
 
@@ -1626,7 +1626,7 @@ MacDialogManager.Instance.ShowSaveFileDialog(
 ```
 
 <p align="center">
-  <img src="images/mac/Example_MacDialogManager_ShowSaveFileDialog.png" alt="Example_MacDialogManager_ShowSaveFileDialog" width="600" />
+  <img src="images/mac/dialog/Example_MacDialogManager_ShowSaveFileDialog.png" alt="Example_MacDialogManager_ShowSaveFileDialog" width="600" />
 </p>
 - Receive results via events.
 

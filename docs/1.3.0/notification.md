@@ -965,8 +965,6 @@ MacNotificationManager.Instance.OpenSettings(result =>
     <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
 </p>
 
-> **Note:** Screenshots must be added manually. The sample scene runs on macOS Standalone only.
-
 ---
 
 ### Show notification
@@ -1021,6 +1019,10 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 #endif
 ```
 
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
 #### Calendar trigger
 
 ```csharp
@@ -1052,7 +1054,7 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowCalendar.png" alt="Example_MacNotificationManager_ShowCalendar" width="720" />
 </p>
 
 ---
@@ -1197,10 +1199,6 @@ MacNotificationManager.Instance.GetDeliveredNotifications(result =>
 #endif
 ```
 
-<p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Query.png" alt="Example_MacNotificationManager_Query" width="720" />
-</p>
-
 ---
 
 ### Badge
@@ -1220,10 +1218,6 @@ MacNotificationManager.Instance.SetBadgeCount(0, result =>
 });
 #endif
 ```
-
-<p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Badge.png" alt="Example_MacNotificationManager_Badge" width="720" />
-</p>
 
 ---
 

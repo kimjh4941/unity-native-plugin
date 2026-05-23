@@ -120,7 +120,7 @@
 ## Native Toolkit
 
 - Native Toolkit은 플랫폼 네이티브 기능을 통합적으로 제공하는 툴킷입니다.
-- Android / iOS / Windows / macOS용 네이티브 플러그인과 샘플이 포함되어 있으며, 다이얼로그 API를 싱글톤 인터페이스로 제공합니다.
+- Android / iOS / Windows / macOS용 네이티브 플러그인과 샘플이 포함되어 있으며, 다이얼로그·알림 등의 네이티브 기능을 싱글톤 API로 제공합니다.
 - Repository: https://github.com/kimjh4941/native-toolkit
 
 ## 라이선스

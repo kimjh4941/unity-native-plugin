@@ -3,7 +3,7 @@
 [English](index.md) | [Korean](index.ko.md) | [Japanese](index.ja.md)
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
-- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 각 플랫폼의 다이얼로그를 싱글톤 API로 사용할 수 있습니다.
+- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
 - Editor 창을 통해 네이티브 라이브러리와 Gradle/Xcode 설정을 추가하여 빌드 후 프로젝트 정리를 워크플로로 제공합니다.
 
 # 버전

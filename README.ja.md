@@ -120,7 +120,7 @@
 ## Native Toolkit
 
 - native-toolkit は、各プラットフォームのネイティブ機能を統一的に扱うためのツールキットです。
-- パッケージには Android / iOS / Windows / macOS 向けのネイティブプラグインとサンプルが含まれ、ダイアログ操作をシングルトン API で利用できます。
+- パッケージには Android / iOS / Windows / macOS 向けのネイティブプラグインとサンプルが含まれ、ダイアログ・通知などのネイティブ機能をシングルトン API で利用できます。
 - Repository: https://github.com/kimjh4941/native-toolkit
 
 ## ライセンス

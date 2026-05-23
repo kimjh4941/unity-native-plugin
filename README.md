@@ -120,7 +120,7 @@ Other languages:
 ## Native Toolkit
 
 - Native Toolkit is a unified toolkit for platform-native features.
-- It includes native plugins and samples for Android / iOS / Windows / macOS, exposing dialog APIs via a singleton interface.
+- It includes native plugins and samples for Android / iOS / Windows / macOS, exposing native features such as dialogs and notifications via singleton APIs per platform.
 - Repository: https://github.com/kimjh4941/native-toolkit
 
 ## License

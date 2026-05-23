@@ -3,7 +3,7 @@
 [English](index.md) | [Korean](index.ko.md) | [Japanese](index.ja.md)
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
-- パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
+- パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知などのネイティブ機能をシングルトン API で扱えます。
 - Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
 
 # バージョン

@@ -3,7 +3,7 @@
 [English](index.md) | [Korean](index.ko.md) | [Japanese](index.ja.md)
 
 - A toolkit that provides native features for Unity 6+.
-- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
+- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs and notifications via singleton APIs per platform.
 - Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build project setup.
 
 # Version

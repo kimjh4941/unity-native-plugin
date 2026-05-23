@@ -965,8 +965,6 @@ MacNotificationManager.Instance.OpenSettings(result =>
     <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
 </p>
 
-> **참고:** 스크린샷은 별도로 수동으로 추가해야 합니다. 샘플 씬은 macOS Standalone에서만 동작합니다.
-
 ---
 
 ### 알림 표시
@@ -1021,6 +1019,10 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 #endif
 ```
 
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
 #### 캘린더 트리거
 
 ```csharp
@@ -1052,7 +1054,7 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowCalendar.png" alt="Example_MacNotificationManager_ShowCalendar" width="720" />
 </p>
 
 ---
@@ -1197,10 +1199,6 @@ MacNotificationManager.Instance.GetDeliveredNotifications(result =>
 #endif
 ```
 
-<p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Query.png" alt="Example_MacNotificationManager_Query" width="720" />
-</p>
-
 ---
 
 ### 배지
@@ -1220,10 +1218,6 @@ MacNotificationManager.Instance.SetBadgeCount(0, result =>
 });
 #endif
 ```
-
-<p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Badge.png" alt="Example_MacNotificationManager_Badge" width="720" />
-</p>
 
 ---
 
