@@ -16,10 +16,10 @@
 3. インタラクティブ入力で参照ファイルを確定する（必須）
    - ダイアログで「レビュー対象機能の実装計画ファイルを指定してください」と促す
    - 実装計画ファイルの入力がない場合は次を候補として提示する
-     - `artifact/plans/<feature>/` 配下の `*-implementation-plan*.md`
+     - `artifact/designs/<feature>/` 配下の `*-design*.md`
    - ダイアログで「レビュー対象機能の実装結果ファイルを指定してください」と促す
    - 実装結果ファイルの入力がない場合は次を候補として提示する
-     - `artifact/results/<feature>/` 配下の `*-implementation-result*.md`
+     - `artifact/results/<feature>/` 配下の `*-implementation-feature-result*.md`
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 4. プロジェクトルールを読み込む（必須）
@@ -115,7 +115,7 @@
 
 8. レビュー結果ファイルを保存する（必須）
    - 保存先: `artifact/reviews/<feature>/`
-   - ファイル名: `YYYY-MM-DD-<feature>-implementation-review-vN.md`
+   - ファイル名: `YYYY-MM-DD-<os>-<feature>-implementation-feature-review-vN.md`
    - 同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない
    - 最低限、次を含める:
      - レビュー対象（ブランチ名 / PR番号 / diff）
@@ -123,17 +123,17 @@
      - レビュー結果（step 7 の出力全体）
      - 総合評価
 
-9. 修正対応を確認する（必須）
-   ユーザーに次を確認する:
-   - 「このレビュー結果をもとに修正を行いますか？」
-   - 選択肢:
-     - 修正する: 指摘内容を反映して `implement-feature` workflow に準じて修正する
-     - レビュー結果のみで終了: 修正は行わず終了する
-
-10. 出力ルール
+9. 出力ルール
 
 - 指摘は具体的なファイルパスと行番号を可能な限り示す
 - プロジェクトルール（common.md / csharp.md）由来の指摘は明示する
 - 不確実な指摘は「要確認」として明記する
 - 文章は簡潔に、箇条書き中心で書く
 - 絵文字は使用しない
+
+10. 修正対応を確認する（必須）
+   ユーザーに次を確認する:
+   - 「このレビュー結果をもとに修正を行いますか？」
+   - 選択肢:
+     - 修正する: 指摘内容を反映して `implement-feature` workflow に準じて修正する
+     - レビュー結果のみで終了: 修正は行わず終了する
