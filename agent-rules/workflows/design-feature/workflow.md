@@ -7,7 +7,7 @@
    - `lang=en` が明示的にあれば英語
 
 2. インタラクティブ入力でパラメータを確定する（必須）
-   - ダイアログで「実装対象の機能名を入力してください」と促す（例: `ios-notification`, `android-dialog`）
+   - ダイアログで「実装対象の機能名を入力してください」と促す（例: `notification`, `dialog`）
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 3. native-toolkit の既存 UnityPlugin 実装を確認する（必須）
@@ -19,7 +19,7 @@
    | Android  | `/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin/src/main/java/android/unity/` |
    | iOS      | `/Users/jonghyunkim/Desktop/native-toolkit/ios/UnityIosPlugin/UnityIosPlugin/` |
    | macOS    | `/Users/jonghyunkim/Desktop/native-toolkit/mac/UnityMacPlugin/UnityMacPlugin/` |
-   | Windows  | `/Users/jonghyunkim/Desktop/native-toolkit/windows/WindowsLibrary/` |
+   | Windows  | `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibrary` |
 
    - 公開されている関数名・コールバック型・定数を一覧化する
    - C# 側で `[DllImport]` / `AndroidJavaObject` で呼び出す対象を確定する
@@ -60,15 +60,15 @@
    - **エラーケース一覧と返却仕様**
    - **テスト方針**（EditMode / PlayMode / 手動確認の分担）
 
-   保存先: `artifact/plans/<feature>/`
-   ファイル名: `YYYY-MM-DD-<feature>-implementation-plan-vN.md`
+   保存先: `artifact/designs/<feature>/`
+   ファイル名: `YYYY-MM-DD-<os>-<feature>-design-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
 
 7. 実装計画をユーザーに確認する（必須）
 
-   ユーザーに次を確認する: 「この実装計画で進めますか？」
+   ユーザーに次を確認する: 「この実装計画をレビューしますか？」
    - 選択肢:
-     - 承認する: 計画を確定し終了 → implement-feature スキルへ引き継ぐ
+     - 承認する: 計画を確定し終了 → review-document スキルへ引き継ぐ
      - 修正する: 指摘内容を反映して計画ファイルを更新 → ステップ6へ戻る
      - キャンセル: 計画ファイルは保持したまま終了
 
