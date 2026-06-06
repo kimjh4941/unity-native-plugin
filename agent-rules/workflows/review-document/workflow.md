@@ -9,8 +9,8 @@
 2. インタラクティブ入力でパラメータを確定する（必須）
    - ダイアログで「レビュー対象のファイルを指定してください」と促す
    - 入力がない場合は以下の候補を提示:
-     - `artifact/plans/<feature>/` 配下の `*-implementation-plan*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
-     - `artifact/plans/<feature>/` 配下の `*-sample-scene-plan*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
+     - `artifact/designs/<feature>/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
+     - `artifact/designs/<feature>/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
    - バージョンサフィックスがないファイルは `v1` とみなし、`vN` が存在する場合は `vN` を優先する
    - ユーザーが選択したファイルパスを確定する
 
@@ -20,7 +20,7 @@
    - ファイルサイズが大きい場合は「ファイルを読み込みました」と報告する
 
 4. レビュー観点を設定する（必須）
-   - **実装計画書（`*-implementation-plan*.md`）の場合:**
+   - **実装計画書（`*-design*.md`）の場合:**
      - native-toolkit API 確認結果の網羅性（抜け漏れがないか）
      - C# 側の呼び出し方針（DllImport / AndroidJavaObject の選択）の妥当性
      - Manager + Bridge パターン準拠性（層・依存方向）
@@ -29,7 +29,7 @@
      - スレッド契約・メモリ契約の明示
      - テスト方針の網羅性（EditMode / PlayMode / 手動確認の分担）
      - IL2CPP 制約・コンパイルガードへの言及
-   - **サンプルシーン計画書（`*-sample-scene-plan*.md`）の場合:**
+   - **サンプルシーン計画書（`*-sample-scene-design*.md`）の場合:**
      - 実装結果ファイルとの整合性（公開 API・エラー契約の反映）
      - 画面要件の網羅性（機能一覧・操作導線・エラー表示）
      - 既存 ExampleController との整合性（共通パターンの維持）
@@ -72,10 +72,11 @@
    - 総合評価を表示する
 
 7. レビュー結果をファイルに保存する（必須）
-   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<feature>-<document-type>-review.md`
-     - `<feature>`: 対象ファイルのパスから自動抽出（例: `macos-notification`）
-     - `<document-type>`: ファイル種別に応じて `implementation-plan` / `sample-scene-plan`
-     - 例: `artifact/reviews/macos-notification/2026-05-16-macos-notification-implementation-plan-review.md`
+   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<os>-<feature>-<document-type>-review.md`
+     - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）
+     - `<feature>`: 対象ファイルのパスから自動抽出（例: `notification`）
+     - `<document-type>`: ファイル種別に応じて `design` / `implementation-feature` / `sample-scene-design` など
+     - 例: `artifact/reviews/notification/2026-05-16-macos-notification-implementation-feature-review.md`
    - ファイル形式（Markdown）:
      ```
      # レビュー結果
@@ -126,8 +127,8 @@
    - レビュー結果の改善点・不足項目を統合する
    - 改善版を Markdown で生成する
    - **重要: 改善版のファイル名は別名にする**
-     - 元ファイル: `YYYY-MM-DD-<feature>-implementation-plan.md`
-     - 改善版: `YYYY-MM-DD-<feature>-implementation-plan-v2.md`（`-v2` サフィックスを追加）
+     - 元ファイル: `YYYY-MM-DD-<os>-<feature>-implementation-feature-v1.md`
+     - 改善版: `YYYY-MM-DD-<os>-<feature>-implementation-feature-v2.md`（`-v2` サフィックスを追加）
      - 実装計画書・サンプルシーン計画書の種別ごとに対応
 
 10. 改善版を保存する（必須・改善実施時）
