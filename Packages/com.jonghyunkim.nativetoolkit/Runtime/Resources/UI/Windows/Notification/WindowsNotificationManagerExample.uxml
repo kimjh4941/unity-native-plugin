@@ -14,15 +14,6 @@
 
                 <ui:VisualElement class="win-notif-section">
                     <ui:Label text="Initialize" class="win-notif-section-title" />
-                    <ui:Toggle name="IsPackagedToggle" label="isPackaged" class="win-notif-toggle" />
-                    <ui:VisualElement class="win-notif-input-row">
-                        <ui:Label text="CLSID" class="win-notif-label" />
-                        <ui:TextField name="ClsidField" class="win-notif-textfield" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="win-notif-input-row">
-                        <ui:Label text="Launch URI" class="win-notif-label" />
-                        <ui:TextField name="LaunchUriField" class="win-notif-textfield" />
-                    </ui:VisualElement>
                     <ui:Button name="InitializeButton" class="win-notif-button" text="Initialize" />
                 </ui:VisualElement>
 

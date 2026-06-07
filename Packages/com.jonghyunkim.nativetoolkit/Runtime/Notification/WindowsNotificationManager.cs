@@ -19,9 +19,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         private const string LogTag = "WindowsNotificationManager";
 
 #if DEVELOPMENT_BUILD
-        private const string DLL_NAME = "UnityWindowsNativeToolkit-Debug.dll";
+        private const string DLL_NAME = "unity-windows-native-toolkit-debug";
 #else
-        private const string DLL_NAME = "UnityWindowsNativeToolkit.dll";
+        private const string DLL_NAME = "unity-windows-native-toolkit";
 #endif
 
         // ── Operation constants ──────────────────────────────────────────────────
@@ -95,12 +95,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
 
         // ── DllImport declarations ───────────────────────────────────────────────
 
+        [DllImport(DLL_NAME)]
+        private static extern void initWinAppSdk(uint majorMinorVersion, out int pError);
+
         [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
         private static extern void initNotificationManager(
             NotificationInvokedCallback callback,
             [MarshalAs(UnmanagedType.Bool)] bool isPackaged,
-            [MarshalAs(UnmanagedType.LPWStr)] string? clsid,
-            [MarshalAs(UnmanagedType.LPWStr)] string? launchUri,
+            [MarshalAs(UnmanagedType.LPWStr)] string? displayName,
+            [MarshalAs(UnmanagedType.LPWStr)] string? iconUri,
             out int pError);
 
         [DllImport(DLL_NAME)]
@@ -215,16 +218,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// Initializes the native notification manager and registers the invoked callback.
         /// </summary>
         /// <param name="isPackaged">True if the app is packaged (MSIX). False for standalone Unity builds.</param>
-        /// <param name="clsid">COM server CLSID. Required only when isPackaged is false and COM activation is needed.</param>
-        /// <param name="launchUri">Launch URI for COM activation. Optional.</param>
+        /// <param name="displayName">Display name shown in notifications. Required for unpackaged apps; ignored when isPackaged is true.</param>
+        /// <param name="iconUri">Icon URI shown in notifications, e.g. "file:///C:/path/app.ico". Optional for unpackaged apps; ignored when isPackaged is true.</param>
         /// <param name="onResult">Per-call result callback. Also fires <see cref="NotificationOperationCompleted"/>.</param>
-        public void Initialize(bool isPackaged = false, string? clsid = null, string? launchUri = null,
+        public void Initialize(bool isPackaged = false, string? displayName = null, string? iconUri = null,
             Action<WindowsNotificationResult>? onResult = null)
         {
-            Debug.Log($"[{LogTag}][{nameof(Initialize)}] isPackaged: {isPackaged}, clsid: {clsid}, launchUri: {launchUri}, onResult: {onResult != null}");
+            Debug.Log($"[{LogTag}][{nameof(Initialize)}] isPackaged: {isPackaged}, displayName: {displayName}, iconUri: {iconUri}, onResult: {onResult != null}");
             s_onInitialize = onResult;
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            initNotificationManager(s_persistentInvokedDelegate, isPackaged, clsid, launchUri, out int pError);
+            initWinAppSdk(0x00010007, out int bootstrapError);
+            if (bootstrapError != 0)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(Initialize)}] initWinAppSdk failed. error: {bootstrapError}");
+                FireResult(OperationInitialize, bootstrapError, s_onInitialize);
+                s_onInitialize = null;
+                return;
+            }
+            initNotificationManager(s_persistentInvokedDelegate, isPackaged, displayName, iconUri, out int pError);
             if (pError == 0) _initialized = true;
             FireResult(OperationInitialize, pError, s_onInitialize);
             s_onInitialize = null;

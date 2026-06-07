@@ -23,9 +23,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 
     private Label?     _resultLabel;
     private Button?    _homeButton;
-    private Toggle?    _isPackagedToggle;
-    private TextField? _clsidField;
-    private TextField? _launchUriField;
     private Button?    _initializeButton;
     private Button?    _showNotificationButton;
     private Button?    _scheduleNotificationButton;
@@ -125,9 +122,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 
         _resultLabel               = root.Q<Label>("ResultTextBlock");
         _homeButton                = root.Q<Button>("HomeButton");
-        _isPackagedToggle          = root.Q<Toggle>("IsPackagedToggle");
-        _clsidField                = root.Q<TextField>("ClsidField");
-        _launchUriField            = root.Q<TextField>("LaunchUriField");
         _initializeButton          = root.Q<Button>("InitializeButton");
         _showNotificationButton    = root.Q<Button>("ShowNotificationButton");
         _scheduleNotificationButton = root.Q<Button>("ScheduleNotificationButton");
@@ -143,9 +137,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
         _setBadgeNewMessageButton  = root.Q<Button>("SetBadgeNewMessageButton");
         _setBadge1Button           = root.Q<Button>("SetBadge1Button");
         _clearBadgeButton          = root.Q<Button>("ClearBadgeButton");
-
-        if (_clsidField != null)     _clsidField.value     = "{00000000-0000-0000-0000-000000000000}";
-        if (_launchUriField != null) _launchUriField.value = "myapp://";
 
         if (_homeButton != null)                _homeButton.clicked                += OnHomeClicked;
         if (_initializeButton != null)          _initializeButton.clicked          += OnInitializeClicked;
@@ -180,17 +171,9 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnInitializeClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        bool isPackaged = _isPackagedToggle?.value ?? false;
-        string? clsid     = string.IsNullOrEmpty(_clsidField?.value)    ? null : _clsidField.value;
-        string? launchUri = string.IsNullOrEmpty(_launchUriField?.value) ? null : _launchUriField.value;
-
-        if (!isPackaged && clsid == null)
-        {
-            SetResult("clsid is required when not packaged.");
-            return;
-        }
-
-        WindowsNotificationManager.Instance.Initialize(isPackaged, clsid, launchUri, result =>
+        string iconPath = System.IO.Path.Combine(Application.streamingAssetsPath, "app-icon.png");
+        string iconUri = new Uri(iconPath).AbsoluteUri;
+        WindowsNotificationManager.Instance.Initialize(false, Application.productName, iconUri, result =>
         {
             SetResult(FormatResult("Initialize", result));
         });
