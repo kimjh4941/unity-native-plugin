@@ -26,19 +26,13 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     private Button?    _initializeButton;
     private Button?    _showNotificationButton;
     private Button?    _scheduleNotificationButton;
+    private Button?    _showProgressNotificationButton;
     private Button?    _updateProgressButton;
     private Button?    _cancelScheduledButton;
     private Button?    _removeByTagButton;
-    private Button?    _removeByIdButton;
     private Button?    _removeAllButton;
-    private Button?    _getAllButton;
     private Button?    _getSettingButton;
     private Button?    _openSettingsButton;
-    private Button?    _setBadgeAlertButton;
-    private Button?    _setBadgeNewMessageButton;
-    private Button?    _setBadge1Button;
-    private Button?    _clearBadgeButton;
-
     private void Awake()
     {
         Debug.Log($"[{LogTag}][{nameof(Awake)}]");
@@ -75,7 +69,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         WindowsNotificationManager.Instance.NotificationOperationCompleted += OnNotificationOperationCompleted;
         WindowsNotificationManager.Instance.NotificationInvoked            += OnNotificationInvoked;
-        WindowsNotificationManager.Instance.GetAllNotificationsCompleted   += OnGetAllNotificationsCompleted;
 #endif
     }
 
@@ -85,7 +78,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
         WindowsNotificationManager.Instance.NotificationOperationCompleted -= OnNotificationOperationCompleted;
         WindowsNotificationManager.Instance.NotificationInvoked            -= OnNotificationInvoked;
-        WindowsNotificationManager.Instance.GetAllNotificationsCompleted   -= OnGetAllNotificationsCompleted;
 #endif
     }
 
@@ -96,18 +88,13 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
         if (_initializeButton != null)          _initializeButton.clicked          -= OnInitializeClicked;
         if (_showNotificationButton != null)    _showNotificationButton.clicked    -= OnShowNotificationClicked;
         if (_scheduleNotificationButton != null) _scheduleNotificationButton.clicked -= OnScheduleNotificationClicked;
+        if (_showProgressNotificationButton != null) _showProgressNotificationButton.clicked -= OnShowProgressNotificationClicked;
         if (_updateProgressButton != null)      _updateProgressButton.clicked      -= OnUpdateProgressClicked;
         if (_cancelScheduledButton != null)     _cancelScheduledButton.clicked     -= OnCancelScheduledClicked;
         if (_removeByTagButton != null)         _removeByTagButton.clicked         -= OnRemoveByTagClicked;
-        if (_removeByIdButton != null)          _removeByIdButton.clicked          -= OnRemoveByIdClicked;
         if (_removeAllButton != null)           _removeAllButton.clicked           -= OnRemoveAllClicked;
-        if (_getAllButton != null)              _getAllButton.clicked              -= OnGetAllClicked;
         if (_getSettingButton != null)          _getSettingButton.clicked          -= OnGetSettingClicked;
         if (_openSettingsButton != null)        _openSettingsButton.clicked        -= OnOpenSettingsClicked;
-        if (_setBadgeAlertButton != null)       _setBadgeAlertButton.clicked       -= OnSetBadgeAlertClicked;
-        if (_setBadgeNewMessageButton != null)  _setBadgeNewMessageButton.clicked  -= OnSetBadgeNewMessageClicked;
-        if (_setBadge1Button != null)           _setBadge1Button.clicked           -= OnSetBadge1Clicked;
-        if (_clearBadgeButton != null)          _clearBadgeButton.clicked          -= OnClearBadgeClicked;
     }
 
     private void InitializeUI()
@@ -125,35 +112,25 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
         _initializeButton          = root.Q<Button>("InitializeButton");
         _showNotificationButton    = root.Q<Button>("ShowNotificationButton");
         _scheduleNotificationButton = root.Q<Button>("ScheduleNotificationButton");
+        _showProgressNotificationButton = root.Q<Button>("ShowProgressNotificationButton");
         _updateProgressButton      = root.Q<Button>("UpdateProgressButton");
         _cancelScheduledButton     = root.Q<Button>("CancelScheduledButton");
         _removeByTagButton         = root.Q<Button>("RemoveByTagButton");
-        _removeByIdButton          = root.Q<Button>("RemoveByIdButton");
         _removeAllButton           = root.Q<Button>("RemoveAllButton");
-        _getAllButton               = root.Q<Button>("GetAllButton");
         _getSettingButton          = root.Q<Button>("GetSettingButton");
         _openSettingsButton        = root.Q<Button>("OpenSettingsButton");
-        _setBadgeAlertButton       = root.Q<Button>("SetBadgeAlertButton");
-        _setBadgeNewMessageButton  = root.Q<Button>("SetBadgeNewMessageButton");
-        _setBadge1Button           = root.Q<Button>("SetBadge1Button");
-        _clearBadgeButton          = root.Q<Button>("ClearBadgeButton");
 
         if (_homeButton != null)                _homeButton.clicked                += OnHomeClicked;
         if (_initializeButton != null)          _initializeButton.clicked          += OnInitializeClicked;
         if (_showNotificationButton != null)    _showNotificationButton.clicked    += OnShowNotificationClicked;
         if (_scheduleNotificationButton != null) _scheduleNotificationButton.clicked += OnScheduleNotificationClicked;
+        if (_showProgressNotificationButton != null) _showProgressNotificationButton.clicked += OnShowProgressNotificationClicked;
         if (_updateProgressButton != null)      _updateProgressButton.clicked      += OnUpdateProgressClicked;
         if (_cancelScheduledButton != null)     _cancelScheduledButton.clicked     += OnCancelScheduledClicked;
         if (_removeByTagButton != null)         _removeByTagButton.clicked         += OnRemoveByTagClicked;
-        if (_removeByIdButton != null)          _removeByIdButton.clicked          += OnRemoveByIdClicked;
         if (_removeAllButton != null)           _removeAllButton.clicked           += OnRemoveAllClicked;
-        if (_getAllButton != null)              _getAllButton.clicked              += OnGetAllClicked;
         if (_getSettingButton != null)          _getSettingButton.clicked          += OnGetSettingClicked;
         if (_openSettingsButton != null)        _openSettingsButton.clicked        += OnOpenSettingsClicked;
-        if (_setBadgeAlertButton != null)       _setBadgeAlertButton.clicked       += OnSetBadgeAlertClicked;
-        if (_setBadgeNewMessageButton != null)  _setBadgeNewMessageButton.clicked  += OnSetBadgeNewMessageClicked;
-        if (_setBadge1Button != null)           _setBadge1Button.clicked           += OnSetBadge1Clicked;
-        if (_clearBadgeButton != null)          _clearBadgeButton.clicked          += OnClearBadgeClicked;
     }
 
     // ── Button Handlers ──────────────────────────────────────────────────────
@@ -200,12 +177,59 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnScheduleNotificationClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        var json = WindowsNotificationJsonBuilder.BuildNotificationPayload(BuildSamplePayload());
-        long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddSeconds(30).ToUnixTimeMilliseconds();
+        var payload = new WindowsNotificationPayload
+        {
+            Title   = "Guild Battle Starts Soon",
+            Body    = "Battle queue opens in 1 minute. Finalize your loadout and deploy.",
+            Tag     = SampleNotificationTag,
+            Group   = SampleNotificationGroup,
+            Buttons = new List<WindowsNotificationButtonPayload>
+            {
+                new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
+            }
+        };
+        var json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+        long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
         WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnixMs, result =>
         {
-            SetResult(FormatResult("ScheduleNotification (+30s)", result));
+            SetResult(FormatResult("ScheduleNotification (+1m)", result));
         });
+#else
+        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
+#endif
+    }
+
+    private void OnShowProgressNotificationClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnShowProgressNotificationClicked)}]");
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        _sequenceNumber = 0;
+        var payload = new WindowsNotificationPayload
+        {
+            Title    = "Downloading...",
+            Tag      = SampleNotificationTag,
+            Group    = SampleNotificationGroup,
+            Progress = new WindowsNotificationProgressPayload { Value = 0.3, ValueStr = "30%", Status = "Downloading" }
+        };
+        var json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+        WindowsNotificationManager.Instance.ShowNotification(json, result =>
+        {
+            SetResult(FormatResult("ShowProgressNotification", result));
+        });
+#else
+        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
+#endif
+    }
+
+    private void OnCancelScheduledClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnCancelScheduledClicked)}]");
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        WindowsNotificationManager.Instance.CancelScheduledNotification(
+            SampleNotificationTag, SampleNotificationGroup, result =>
+            {
+                SetResult(FormatResult("CancelScheduledNotification", result));
+            });
 #else
         SetResult("Windows Standalone only. Run this sample on Windows to verify.");
 #endif
@@ -227,20 +251,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
-    private void OnCancelScheduledClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnCancelScheduledClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.CancelScheduledNotification(
-            SampleNotificationTag, SampleNotificationGroup, result =>
-            {
-                SetResult(FormatResult("CancelScheduledNotification", result));
-            });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
     private void OnRemoveByTagClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveByTagClicked)}]");
@@ -255,19 +265,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
-    private void OnRemoveByIdClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnRemoveByIdClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.RemoveNotificationById(1u, result =>
-        {
-            SetResult(FormatResult("RemoveById (id=1)", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
     private void OnRemoveAllClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveAllClicked)}]");
@@ -275,21 +272,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
         WindowsNotificationManager.Instance.RemoveAllNotifications(result =>
         {
             SetResult(FormatResult("RemoveAllNotifications", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
-    private void OnGetAllClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnGetAllClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.GetAllNotifications((json, result) =>
-        {
-            SetResult(result.IsSuccess
-                ? $"✓ GetAllNotifications:\n{json}"
-                : $"✗ GetAllNotifications\nError: {result.ErrorMessage}");
         });
 #else
         SetResult("Windows Standalone only. Run this sample on Windows to verify.");
@@ -320,58 +302,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 #endif
     }
 
-    private void OnSetBadgeAlertClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnSetBadgeAlertClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.SetBadge((int)WindowsBadgeValue.Alert, result =>
-        {
-            SetResult(FormatResult("SetBadge(Alert)", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
-    private void OnSetBadgeNewMessageClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnSetBadgeNewMessageClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.SetBadge((int)WindowsBadgeValue.NewMessage, result =>
-        {
-            SetResult(FormatResult("SetBadge(NewMessage)", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
-    private void OnSetBadge1Clicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnSetBadge1Clicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.SetBadge(1, result =>
-        {
-            SetResult(FormatResult("SetBadge(1)", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
-    private void OnClearBadgeClicked()
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnClearBadgeClicked)}]");
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        WindowsNotificationManager.Instance.SetBadge((int)WindowsBadgeValue.Clear, result =>
-        {
-            SetResult(FormatResult("ClearBadge", result));
-        });
-#else
-        SetResult("Windows Standalone only. Run this sample on Windows to verify.");
-#endif
-    }
-
     // ── Event Handlers ───────────────────────────────────────────────────────
 
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -386,11 +316,6 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
         SetResult($"NotificationInvoked: {argsJson}");
     }
 
-    private void OnGetAllNotificationsCompleted(string? json, WindowsNotificationResult result)
-    {
-        Debug.Log($"[{LogTag}][{nameof(OnGetAllNotificationsCompleted)}] isSuccess: {result.IsSuccess}");
-        // Handled by per-call callback in OnGetAllClicked; this global event is supplemental
-    }
 #endif
 
     // ── Helpers ───────────────────────────────────────────────────────────────

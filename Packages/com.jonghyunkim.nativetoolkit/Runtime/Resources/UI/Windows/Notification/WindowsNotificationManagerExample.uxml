@@ -20,40 +20,32 @@
                 <ui:VisualElement class="win-notif-section">
                     <ui:Label text="Show Notification" class="win-notif-section-title" />
                     <ui:Button name="ShowNotificationButton" class="win-notif-button" text="ShowNotification" />
-                    <ui:Button name="ScheduleNotificationButton" class="win-notif-button" text="ScheduleNotification (+30s)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Scheduled Notification" class="win-notif-section-title" />
+                    <ui:Button name="ScheduleNotificationButton" class="win-notif-button" text="ScheduleNotification (+1m)" />
+                    <ui:Button name="CancelScheduledButton" class="win-notif-secondary-button" text="CancelScheduledNotification" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="win-notif-section">
                     <ui:Label text="Update Progress" class="win-notif-section-title" />
+                    <ui:Button name="ShowProgressNotificationButton" class="win-notif-button" text="ShowProgressNotification" />
                     <ui:Button name="UpdateProgressButton" class="win-notif-button" text="UpdateNotificationProgress" />
-                </ui:VisualElement>
-
-                <ui:VisualElement class="win-notif-section">
-                    <ui:Label text="Cancel Scheduled" class="win-notif-section-title" />
-                    <ui:Button name="CancelScheduledButton" class="win-notif-secondary-button" text="CancelScheduledNotification" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="win-notif-section">
                     <ui:Label text="Remove" class="win-notif-section-title" />
                     <ui:Button name="RemoveByTagButton" class="win-notif-secondary-button" text="RemoveNotificationsByTag" />
-                    <ui:Button name="RemoveByIdButton" class="win-notif-secondary-button" text="RemoveNotificationById (id=1)" />
                     <ui:Button name="RemoveAllButton" class="win-notif-secondary-button" text="RemoveAllNotifications" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="win-notif-section">
                     <ui:Label text="Query" class="win-notif-section-title" />
-                    <ui:Button name="GetAllButton" class="win-notif-button" text="GetAllNotifications" />
                     <ui:Button name="GetSettingButton" class="win-notif-button" text="GetNotificationSetting" />
                     <ui:Button name="OpenSettingsButton" class="win-notif-secondary-button" text="OpenNotificationSettings" />
                 </ui:VisualElement>
 
-                <ui:VisualElement class="win-notif-section">
-                    <ui:Label text="Badge" class="win-notif-section-title" />
-                    <ui:Button name="SetBadgeAlertButton" class="win-notif-button" text="SetBadge(Alert)" />
-                    <ui:Button name="SetBadgeNewMessageButton" class="win-notif-button" text="SetBadge(NewMessage)" />
-                    <ui:Button name="SetBadge1Button" class="win-notif-button" text="SetBadge(1)" />
-                    <ui:Button name="ClearBadgeButton" class="win-notif-secondary-button" text="ClearBadge" />
-                </ui:VisualElement>
 
             </ui:VisualElement>
         </ui:ScrollView>

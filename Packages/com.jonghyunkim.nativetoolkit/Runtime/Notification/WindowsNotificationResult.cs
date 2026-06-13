@@ -48,6 +48,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
             5 => "WinRT HRESULT failure",
             6 => "Badge operation failed",
             7 => "Invalid parameter",
+            8 => "This operation is not supported for the current app type",
             _ => $"Unknown error ({code})"
         };
     }
