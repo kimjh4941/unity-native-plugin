@@ -921,7 +921,7 @@ Windows 알림은 `WindowsNotificationManager`를 통해 제공됩니다. 샘플
 #### 요구 사항
 
 - Windows 11 이상
-- 대상 머신에 [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads)이 설치되어 있어야 함
+- 대상 머신에 [Windows App Runtime 1.7.2 (1.7.250513003)](https://learn.microsoft.com/ko-kr/windows/apps/windows-app-sdk/downloads-archive)이 설치되어 있어야 함
 - `StreamingAssets/app-icon.png` — 이 경로에 알림 아이콘을 배치하면 Unity가 빌드 출력에 자동으로 포함합니다
 
 #### 네임스페이스 임포트

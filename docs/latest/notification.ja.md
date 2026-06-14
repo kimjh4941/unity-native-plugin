@@ -921,7 +921,7 @@ Windows 通知は `WindowsNotificationManager` を通じて提供されます。
 #### 要件
 
 - Windows 11 以降
-- [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) がターゲットマシンにインストール済みであること
+- [Windows App Runtime 1.7.2 (1.7.250513003)](https://learn.microsoft.com/ja-jp/windows/apps/windows-app-sdk/downloads-archive) がターゲットマシンにインストール済みであること
 - `StreamingAssets/app-icon.png` — このパスに通知アイコンを配置すると Unity がビルド出力に自動的に含めます
 
 #### 名前空間のインポート

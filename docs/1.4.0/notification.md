@@ -921,7 +921,7 @@ Windows notifications are provided through `WindowsNotificationManager`. The sam
 #### Requirements
 
 - Windows 11 or later
-- [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) installed on the target machine
+- [Windows App Runtime 1.7.2 (1.7.250513003)](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads-archive) installed on the target machine
 - `StreamingAssets/app-icon.png` — place the notification icon at this path; Unity includes it in the build output automatically
 
 #### Import the namespace
