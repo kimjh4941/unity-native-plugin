@@ -33,6 +33,14 @@
     - [カテゴリ / アクションを登録する](#カテゴリ--アクションを登録する)
     - [イベントを受け取る](#イベントを受け取る)
 - [Windows](#windows)
+  - [セットアップ](#セットアップ-1)
+  - [初期化](#初期化)
+  - [通知を表示する](#通知を表示する)
+  - [スケジュール通知](#スケジュール通知-2)
+  - [進捗を更新する](#進捗を更新する)
+  - [通知を削除する](#通知を削除する)
+  - [クエリ](#クエリ-1)
+  - [イベントを受け取る](#イベントを受け取る-1)
 - [macOS](#macos)
   - [サポート機能](#サポート機能-1)
   - [基本セットアップ](#基本セットアップ-1)
@@ -894,7 +902,291 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## Windows
 
-（準備中）
+Windows 通知は `WindowsNotificationManager` を通じて提供されます。サンプルシーンでは、初期化、即時通知、スケジュール通知、進捗バー通知、通知の削除、通知許可のクエリを、Unity でビルドされたアンパッケージ Win32 アプリ上でデモします。
+
+### サポート機能
+
+- Windows App SDK ランタイムの初期化と通知コールバックの登録
+- 即時通知の表示
+- スケジュール通知の登録
+- スケジュール通知のキャンセル
+- 進捗バー通知の表示と更新
+- タグ指定または全件での通知削除
+- 通知許可設定のクエリ
+- システム通知設定を開く
+- 通知アクティベーションイベントの受信（コールドスタート起動を含む）
+
+### セットアップ
+
+#### 要件
+
+- Windows 11 以降
+- [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) がターゲットマシンにインストール済みであること
+- `StreamingAssets/app-icon.png` — このパスに通知アイコンを配置すると Unity がビルド出力に自動的に含めます
+
+#### 名前空間のインポート
+
+```csharp
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+```
+
+> **注意:** すべての Windows 通知 API 呼び出しを `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` で囲み、エディター上でネイティブ呼び出しが実行されないようにしてください。
+
+### 初期化
+
+他の通知 API を呼び出す前に `Initialize` を一度呼び出してください。アンパッケージアプリ（すべての Unity Windows スタンドアロンビルド）の場合は `isPackaged: false` を渡し、表示名とアイコン URI を指定してください。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+string iconPath = System.IO.Path.Combine(Application.streamingAssetsPath, "app-icon.png");
+string iconUri  = new Uri(iconPath).AbsoluteUri; // file:/// URI 形式
+
+WindowsNotificationManager.Instance.Initialize(
+    isPackaged: false,
+    displayName: Application.productName,
+    iconUri: iconUri,
+    onResult: result =>
+    {
+        if (result.IsSuccess)
+            Debug.Log("Windows 通知を初期化しました");
+        else
+            Debug.LogError($"Initialize 失敗: {result.ErrorMessage}");
+    });
+#endif
+```
+
+> **注意:** `iconUri` はアンパッケージアプリで必須です。`new Uri(path).AbsoluteUri` により、Windows App SDK が要求する `file:///` 形式の URI が生成されます。
+
+
+### 通知を表示する
+
+#### 即時通知
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "エナジー補充完了",
+    Body    = "部隊の休息が完了しました。次のレイドに挑みましょう。",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "開く", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="720" />
+</p>
+
+### スケジュール通知
+
+#### 通知をスケジュールする
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "ギルドバトル間もなく開始",
+    Body    = "1分後にバトルキューが開きます。編成を確認して出撃してください。",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "開く", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
+
+WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnixMs, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="720" />
+</p>
+
+#### スケジュール通知をキャンセルする
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.CancelScheduledNotification(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"CancelScheduled: {result.IsSuccess}"));
+#endif
+```
+
+
+### 進捗を更新する
+
+先に進捗バー通知を表示してから `UpdateNotificationProgress` を呼び出してください。両方の呼び出しで同じ `tag` と `group` を使用する必要があります。`sequenceNumber` は更新のたびに増加させてください。
+
+#### 進捗通知を表示する
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint sequenceNumber = 0; // 新しい進捗通知を表示するときにリセット
+
+var payload = new WindowsNotificationPayload
+{
+    Title    = "ダウンロード中...",
+    Tag      = "win-sample-notification",
+    Group    = "win-sample-group",
+    Progress = new WindowsNotificationProgressPayload
+    {
+        Value    = 0.3,
+        ValueStr = "30%",
+        Status   = "ダウンロード中"
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowProgressNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="720" />
+</p>
+
+#### 進捗を更新する
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+sequenceNumber++; // 前回の値より大きい値を指定する必要があります
+
+WindowsNotificationManager.Instance.UpdateNotificationProgress(
+    tag:            "win-sample-notification",
+    group:          "win-sample-group",
+    value:          0.5,
+    valueStr:       "50%",
+    status:         "ダウンロード中...",
+    sequenceNumber: sequenceNumber,
+    onResult: result =>
+    {
+        if (!result.IsSuccess && result.ErrorCode == 4)
+            Debug.LogWarning("進捗通知が見つかりません。先に ShowProgressNotification を呼び出してください。");
+        else
+            Debug.Log($"UpdateProgress: {result.IsSuccess}");
+    });
+#endif
+```
+
+> **注意:** `UpdateNotificationProgress` を呼び出す前に `ShowProgressNotification` を呼び出してください。進捗通知が通知センターにない場合、エラーコード `4`（`NOTIFICATION_ERROR_PROGRESS_NOT_FOUND`）が返されます。
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="720" />
+</p>
+
+### 通知を削除する
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// タグとグループに一致する通知を削除する
+WindowsNotificationManager.Instance.RemoveNotificationsByTag(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"RemoveByTag: {result.IsSuccess}"));
+
+// 通知センターのすべての通知を削除する
+WindowsNotificationManager.Instance.RemoveAllNotifications(result =>
+{
+    Debug.Log($"RemoveAll: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### クエリ
+
+#### 通知許可設定
+
+`GetNotificationSetting` は同期的に即座に値を返します。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationSetting setting = WindowsNotificationManager.Instance.GetNotificationSetting();
+Debug.Log($"NotificationSetting: {setting}");
+// Enabled / DisabledForApplication / DisabledForUser / DisabledByGroupPolicy / DisabledByManifest / Unknown
+#endif
+```
+
+#### 通知設定を開く
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.OpenNotificationSettings(result =>
+{
+    Debug.Log($"OpenNotificationSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### イベントを受け取る
+
+`OnEnable` でサブスクライブし、`OnDisable` でアンサブスクライブしてください。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            += OnNotificationInvoked;
+}
+
+private void OnDisable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted -= OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            -= OnNotificationInvoked;
+}
+
+private void OnOperationCompleted(WindowsNotificationResult result)
+{
+    Debug.Log($"Operation={result.Operation}, IsSuccess={result.IsSuccess}");
+}
+
+private void OnNotificationInvoked(string argsJson)
+{
+    // ユーザーが通知またはアクションボタンをクリックしたときに発火します。
+    // コールドスタート時にも発火します: 通知クリックでアプリが起動した場合は
+    // シーンロード後に Initialize() を呼び出すとアクティベーション引数を受け取れます。
+    // argsJson 例: {"action":"open"}
+    Debug.Log($"NotificationInvoked: {argsJson}");
+}
+#endif
+```
+
+#### オペレーション定数
+
+| 定数 | 説明 |
+|---|---|
+| `WindowsNotificationManager.OperationInitialize` | `Initialize` 完了 |
+| `WindowsNotificationManager.OperationShow` | `ShowNotification` 完了 |
+| `WindowsNotificationManager.OperationSchedule` | `ScheduleNotification` 完了 |
+| `WindowsNotificationManager.OperationCancelScheduled` | `CancelScheduledNotification` 完了 |
+| `WindowsNotificationManager.OperationUpdateProgress` | `UpdateNotificationProgress` 完了 |
+| `WindowsNotificationManager.OperationRemoveByTag` | `RemoveNotificationsByTag` 完了 |
+| `WindowsNotificationManager.OperationRemoveAll` | `RemoveAllNotifications` 完了 |
+| `WindowsNotificationManager.OperationOpenSettings` | `OpenNotificationSettings` 完了 |
 
 ---
 

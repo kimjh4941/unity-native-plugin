@@ -33,6 +33,14 @@ Language:
     - [Register categories and actions](#register-categories-and-actions)
     - [Receive events](#receive-events)
 - [Windows](#windows)
+  - [Setup](#setup-1)
+  - [Initialize](#initialize)
+  - [Show notification](#show-notification)
+  - [Scheduled notifications](#scheduled-notifications-2)
+  - [Update progress](#update-progress)
+  - [Remove notifications](#remove-notifications)
+  - [Query](#query-1)
+  - [Receive events](#receive-events-1)
 - [macOS](#macos)
   - [Supported capabilities](#supported-capabilities-1)
   - [Basic setup](#basic-setup-1)
@@ -894,7 +902,291 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## Windows
 
-(Coming soon)
+Windows notifications are provided through `WindowsNotificationManager`. The sample scene demonstrates initialization, immediate notifications, scheduled notifications, progress-bar notifications, removing notifications, and querying notification permission — all for unpackaged Win32 apps built with Unity.
+
+### Supported capabilities
+
+- Initialize the Windows App SDK runtime and register the notification callback
+- Show immediate notifications
+- Schedule notifications for future delivery
+- Cancel scheduled notifications
+- Show and update progress-bar notifications
+- Remove notifications by tag or remove all
+- Query notification permission setting
+- Open system notification settings
+- Receive notification activation events (including cold-start activation)
+
+### Setup
+
+#### Requirements
+
+- Windows 11 or later
+- [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) installed on the target machine
+- `StreamingAssets/app-icon.png` — place the notification icon at this path; Unity includes it in the build output automatically
+
+#### Import the namespace
+
+```csharp
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+```
+
+> **Note:** Wrap all Windows notification calls in `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` to prevent native calls from running in the Editor.
+
+### Initialize
+
+Call `Initialize` once before using any other notification API. For unpackaged apps (all Unity Windows standalone builds), pass `isPackaged: false` along with a display name and icon URI.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+string iconPath = System.IO.Path.Combine(Application.streamingAssetsPath, "app-icon.png");
+string iconUri  = new Uri(iconPath).AbsoluteUri; // file:/// URI format
+
+WindowsNotificationManager.Instance.Initialize(
+    isPackaged: false,
+    displayName: Application.productName,
+    iconUri: iconUri,
+    onResult: result =>
+    {
+        if (result.IsSuccess)
+            Debug.Log("Windows notification initialized");
+        else
+            Debug.LogError($"Initialize failed: {result.ErrorMessage}");
+    });
+#endif
+```
+
+> **Note:** `iconUri` is required for unpackaged apps. `new Uri(path).AbsoluteUri` produces the `file:///` format expected by the Windows App SDK.
+
+
+### Show notification
+
+#### Immediate notification
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "Energy Refilled",
+    Body    = "Your squad is fully rested. Jump back in and clear the next raid.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="720" />
+</p>
+
+### Scheduled notifications
+
+#### Schedule
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "Guild Battle Starts Soon",
+    Body    = "Battle queue opens in 1 minute. Finalize your loadout and deploy.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
+
+WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnixMs, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="720" />
+</p>
+
+#### Cancel scheduled
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.CancelScheduledNotification(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"CancelScheduled: {result.IsSuccess}"));
+#endif
+```
+
+
+### Update progress
+
+Show a progress-bar notification first, then update it with `UpdateNotificationProgress`. Both calls must use the same `tag` and `group`. `_sequenceNumber` must increase on each update call.
+
+#### Show progress notification
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint sequenceNumber = 0; // reset when showing a new progress notification
+
+var payload = new WindowsNotificationPayload
+{
+    Title    = "Downloading...",
+    Tag      = "win-sample-notification",
+    Group    = "win-sample-group",
+    Progress = new WindowsNotificationProgressPayload
+    {
+        Value    = 0.3,
+        ValueStr = "30%",
+        Status   = "Downloading"
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowProgressNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="720" />
+</p>
+
+#### Update progress
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+sequenceNumber++; // must be greater than the previous value
+
+WindowsNotificationManager.Instance.UpdateNotificationProgress(
+    tag:            "win-sample-notification",
+    group:          "win-sample-group",
+    value:          0.5,
+    valueStr:       "50%",
+    status:         "Downloading...",
+    sequenceNumber: sequenceNumber,
+    onResult: result =>
+    {
+        if (!result.IsSuccess && result.ErrorCode == 4)
+            Debug.LogWarning("Progress notification not found. Call ShowProgressNotification first.");
+        else
+            Debug.Log($"UpdateProgress: {result.IsSuccess}");
+    });
+#endif
+```
+
+> **Note:** Call `ShowProgressNotification` before `UpdateNotificationProgress`. If the progress notification is no longer visible in Notification Center, error code `4` (`NOTIFICATION_ERROR_PROGRESS_NOT_FOUND`) is returned.
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="720" />
+</p>
+
+### Remove notifications
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// Remove notifications matching a specific tag and group
+WindowsNotificationManager.Instance.RemoveNotificationsByTag(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"RemoveByTag: {result.IsSuccess}"));
+
+// Remove all notifications from Notification Center
+WindowsNotificationManager.Instance.RemoveAllNotifications(result =>
+{
+    Debug.Log($"RemoveAll: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### Query
+
+#### Notification permission setting
+
+`GetNotificationSetting` is synchronous and returns immediately.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationSetting setting = WindowsNotificationManager.Instance.GetNotificationSetting();
+Debug.Log($"NotificationSetting: {setting}");
+// Enabled / DisabledForApplication / DisabledForUser / DisabledByGroupPolicy / DisabledByManifest / Unknown
+#endif
+```
+
+#### Open notification settings
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.OpenNotificationSettings(result =>
+{
+    Debug.Log($"OpenNotificationSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### Receive events
+
+Subscribe in `OnEnable` and unsubscribe in `OnDisable`.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            += OnNotificationInvoked;
+}
+
+private void OnDisable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted -= OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            -= OnNotificationInvoked;
+}
+
+private void OnOperationCompleted(WindowsNotificationResult result)
+{
+    Debug.Log($"Operation={result.Operation}, IsSuccess={result.IsSuccess}");
+}
+
+private void OnNotificationInvoked(string argsJson)
+{
+    // Fired when the user clicks the notification or an action button.
+    // Also fired on cold start: if the app was launched by clicking a notification,
+    // call Initialize() after the scene loads to receive the activation args.
+    // argsJson example: {"action":"open"}
+    Debug.Log($"NotificationInvoked: {argsJson}");
+}
+#endif
+```
+
+#### Operation constants
+
+| Constant | Description |
+|---|---|
+| `WindowsNotificationManager.OperationInitialize` | `Initialize` completed |
+| `WindowsNotificationManager.OperationShow` | `ShowNotification` completed |
+| `WindowsNotificationManager.OperationSchedule` | `ScheduleNotification` completed |
+| `WindowsNotificationManager.OperationCancelScheduled` | `CancelScheduledNotification` completed |
+| `WindowsNotificationManager.OperationUpdateProgress` | `UpdateNotificationProgress` completed |
+| `WindowsNotificationManager.OperationRemoveByTag` | `RemoveNotificationsByTag` completed |
+| `WindowsNotificationManager.OperationRemoveAll` | `RemoveAllNotifications` completed |
+| `WindowsNotificationManager.OperationOpenSettings` | `OpenNotificationSettings` completed |
 
 ---
 

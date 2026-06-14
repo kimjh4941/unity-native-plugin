@@ -878,7 +878,7 @@ WindowsDialogManager.Instance.ShowDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowDialog.png" alt="Example_WindowsDialogManager_ShowDialog" width="300" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowDialog.png" alt="Example_WindowsDialogManager_ShowDialog" width="300" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -931,7 +931,7 @@ WindowsDialogManager.Instance.ShowFileDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowFileDialog.png" alt="Example_WindowsDialogManager_ShowFileDialog" width="1000" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowFileDialog.png" alt="Example_WindowsDialogManager_ShowFileDialog" width="1000" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -986,7 +986,7 @@ WindowsDialogManager.Instance.ShowMultiFileDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowMultiFileDialog.png" alt="Example_WindowsDialogManager_ShowMultiFileDialog" width="1000" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowMultiFileDialog.png" alt="Example_WindowsDialogManager_ShowMultiFileDialog" width="1000" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -1041,7 +1041,7 @@ WindowsDialogManager.Instance.ShowFolderDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowFolderDialog.png" alt="Example_WindowsDialogManager_ShowFolderDialog" width="1000" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowFolderDialog.png" alt="Example_WindowsDialogManager_ShowFolderDialog" width="1000" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -1096,7 +1096,7 @@ WindowsDialogManager.Instance.ShowMultiFolderDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowMultiFolderDialog.png" alt="Example_WindowsDialogManager_ShowMultiFolderDialog" width="1000" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowMultiFolderDialog.png" alt="Example_WindowsDialogManager_ShowMultiFolderDialog" width="1000" />
 </p>
 - 결과는 이벤트로 받습니다.
 
@@ -1154,7 +1154,7 @@ WindowsDialogManager.Instance.ShowSaveFileDialog(
 ```
 
 <p align="center">
-  <img src="images/windows/Example_WindowsDialogManager_ShowSaveFileDialog.png" alt="Example_WindowsDialogManager_ShowSaveFileDialog" width="1000" />
+  <img src="images/windows/dialog/Example_WindowsDialogManager_ShowSaveFileDialog.png" alt="Example_WindowsDialogManager_ShowSaveFileDialog" width="1000" />
 </p>
 - 결과는 이벤트로 받습니다.
 

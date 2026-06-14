@@ -8,7 +8,7 @@
 
 # バージョン
 
-## 1.3.0
+## 1.4.0
 
 # 対応 OS バージョン
 
@@ -64,6 +64,16 @@
   - 複数フォルダ選択ダイアログ
   - ファイル保存ダイアログ
 
+- 通知機能
+  - 即時通知
+  - スケジュール通知
+  - スケジュール通知のキャンセル
+  - 進捗バー通知の表示と更新
+  - タグ指定または全件での通知削除
+  - 通知許可設定のクエリ
+  - システム通知設定を開く
+  - 通知アクティベーションイベントの受信（コールドスタート起動を含む）
+
 ## Mac
 
 - ダイアログ機能
@@ -87,7 +97,6 @@
 
 - シェア機能
 - クリップボード連携
-- 通知機能 (Windows)
 
 # はじめに
 
@@ -97,7 +106,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.3.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.4.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降

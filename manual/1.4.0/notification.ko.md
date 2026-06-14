@@ -33,6 +33,14 @@
     - [카테고리와 액션 등록](#카테고리와-액션-등록)
     - [이벤트 수신](#이벤트-수신)
 - [Windows](#windows)
+  - [설정](#설정-1)
+  - [초기화](#초기화)
+  - [알림 표시](#알림-표시)
+  - [예약 알림](#예약-알림-2)
+  - [진행률 업데이트](#진행률-업데이트)
+  - [알림 제거](#알림-제거)
+  - [쿼리](#쿼리-1)
+  - [이벤트 수신](#이벤트-수신-1)
 - [macOS](#macos)
   - [지원 기능](#지원-기능-1)
   - [기본 설정](#기본-설정-1)
@@ -894,7 +902,291 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 ## Windows
 
-（준비 중）
+Windows 알림은 `WindowsNotificationManager`를 통해 제공됩니다. 샘플 씬에서는 초기화, 즉시 알림, 예약 알림, 진행률 바 알림, 알림 삭제, 알림 권한 쿼리를 Unity로 빌드한 언패키지 Win32 앱에서 시연합니다.
+
+### 지원 기능
+
+- Windows App SDK 런타임 초기화 및 알림 콜백 등록
+- 즉시 알림 표시
+- 예약 알림 등록
+- 예약 알림 취소
+- 진행률 바 알림 표시 및 업데이트
+- 태그 지정 또는 전체 알림 삭제
+- 알림 권한 설정 쿼리
+- 시스템 알림 설정 열기
+- 알림 활성화 이벤트 수신 (콜드 스타트 포함)
+
+### 설정
+
+#### 요구 사항
+
+- Windows 11 이상
+- 대상 머신에 [Windows App Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads)이 설치되어 있어야 함
+- `StreamingAssets/app-icon.png` — 이 경로에 알림 아이콘을 배치하면 Unity가 빌드 출력에 자동으로 포함합니다
+
+#### 네임스페이스 임포트
+
+```csharp
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+```
+
+> **참고:** 모든 Windows 알림 API 호출을 `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR`로 감싸 에디터에서 네이티브 호출이 실행되지 않도록 하세요.
+
+### 초기화
+
+다른 알림 API를 호출하기 전에 `Initialize`를 한 번 호출하세요. 언패키지 앱(모든 Unity Windows 스탠드얼론 빌드)의 경우 `isPackaged: false`와 함께 표시 이름과 아이콘 URI를 지정하세요.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+string iconPath = System.IO.Path.Combine(Application.streamingAssetsPath, "app-icon.png");
+string iconUri  = new Uri(iconPath).AbsoluteUri; // file:/// URI 형식
+
+WindowsNotificationManager.Instance.Initialize(
+    isPackaged: false,
+    displayName: Application.productName,
+    iconUri: iconUri,
+    onResult: result =>
+    {
+        if (result.IsSuccess)
+            Debug.Log("Windows 알림 초기화 완료");
+        else
+            Debug.LogError($"Initialize 실패: {result.ErrorMessage}");
+    });
+#endif
+```
+
+> **참고:** `iconUri`는 언패키지 앱에서 필수입니다. `new Uri(path).AbsoluteUri`를 사용하면 Windows App SDK가 요구하는 `file:///` 형식의 URI가 생성됩니다.
+
+
+### 알림 표시
+
+#### 즉시 알림
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "에너지 충전 완료",
+    Body    = "부대의 휴식이 완료되었습니다. 다음 레이드에 도전하세요.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "열기", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="720" />
+</p>
+
+### 예약 알림
+
+#### 알림 예약
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "길드 배틀 곧 시작",
+    Body    = "1분 후 배틀 큐가 열립니다. 편성을 확인하고 출격하세요.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "열기", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
+
+WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnixMs, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="720" />
+</p>
+
+#### 예약 알림 취소
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.CancelScheduledNotification(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"CancelScheduled: {result.IsSuccess}"));
+#endif
+```
+
+
+### 진행률 업데이트
+
+진행률 바 알림을 먼저 표시한 후 `UpdateNotificationProgress`를 호출하세요. 두 호출에서 동일한 `tag`와 `group`을 사용해야 합니다. `sequenceNumber`는 업데이트마다 증가시켜야 합니다.
+
+#### 진행률 알림 표시
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint sequenceNumber = 0; // 새 진행률 알림 표시 시 초기화
+
+var payload = new WindowsNotificationPayload
+{
+    Title    = "다운로드 중...",
+    Tag      = "win-sample-notification",
+    Group    = "win-sample-group",
+    Progress = new WindowsNotificationProgressPayload
+    {
+        Value    = 0.3,
+        ValueStr = "30%",
+        Status   = "다운로드 중"
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowProgressNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="720" />
+</p>
+
+#### 진행률 업데이트
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+sequenceNumber++; // 이전 값보다 큰 값이어야 합니다
+
+WindowsNotificationManager.Instance.UpdateNotificationProgress(
+    tag:            "win-sample-notification",
+    group:          "win-sample-group",
+    value:          0.5,
+    valueStr:       "50%",
+    status:         "다운로드 중...",
+    sequenceNumber: sequenceNumber,
+    onResult: result =>
+    {
+        if (!result.IsSuccess && result.ErrorCode == 4)
+            Debug.LogWarning("진행률 알림을 찾을 수 없습니다. 먼저 ShowProgressNotification을 호출하세요.");
+        else
+            Debug.Log($"UpdateProgress: {result.IsSuccess}");
+    });
+#endif
+```
+
+> **참고:** `UpdateNotificationProgress`를 호출하기 전에 `ShowProgressNotification`을 호출하세요. 진행률 알림이 알림 센터에 없으면 오류 코드 `4`(`NOTIFICATION_ERROR_PROGRESS_NOT_FOUND`)가 반환됩니다.
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="720" />
+</p>
+
+### 알림 제거
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// 특정 태그와 그룹에 해당하는 알림 제거
+WindowsNotificationManager.Instance.RemoveNotificationsByTag(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"RemoveByTag: {result.IsSuccess}"));
+
+// 알림 센터의 모든 알림 제거
+WindowsNotificationManager.Instance.RemoveAllNotifications(result =>
+{
+    Debug.Log($"RemoveAll: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### 쿼리
+
+#### 알림 권한 설정
+
+`GetNotificationSetting`은 동기적으로 즉시 값을 반환합니다.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationSetting setting = WindowsNotificationManager.Instance.GetNotificationSetting();
+Debug.Log($"NotificationSetting: {setting}");
+// Enabled / DisabledForApplication / DisabledForUser / DisabledByGroupPolicy / DisabledByManifest / Unknown
+#endif
+```
+
+#### 알림 설정 열기
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.OpenNotificationSettings(result =>
+{
+    Debug.Log($"OpenNotificationSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### 이벤트 수신
+
+`OnEnable`에서 구독하고 `OnDisable`에서 구독을 해제하세요.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            += OnNotificationInvoked;
+}
+
+private void OnDisable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted -= OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            -= OnNotificationInvoked;
+}
+
+private void OnOperationCompleted(WindowsNotificationResult result)
+{
+    Debug.Log($"Operation={result.Operation}, IsSuccess={result.IsSuccess}");
+}
+
+private void OnNotificationInvoked(string argsJson)
+{
+    // 사용자가 알림 또는 액션 버튼을 클릭했을 때 발생합니다.
+    // 콜드 스타트 시에도 발생합니다: 알림 클릭으로 앱이 실행된 경우
+    // 씬 로드 후 Initialize()를 호출하면 활성화 인수를 받을 수 있습니다.
+    // argsJson 예: {"action":"open"}
+    Debug.Log($"NotificationInvoked: {argsJson}");
+}
+#endif
+```
+
+#### 오퍼레이션 상수
+
+| 상수 | 설명 |
+|---|---|
+| `WindowsNotificationManager.OperationInitialize` | `Initialize` 완료 |
+| `WindowsNotificationManager.OperationShow` | `ShowNotification` 완료 |
+| `WindowsNotificationManager.OperationSchedule` | `ScheduleNotification` 완료 |
+| `WindowsNotificationManager.OperationCancelScheduled` | `CancelScheduledNotification` 완료 |
+| `WindowsNotificationManager.OperationUpdateProgress` | `UpdateNotificationProgress` 완료 |
+| `WindowsNotificationManager.OperationRemoveByTag` | `RemoveNotificationsByTag` 완료 |
+| `WindowsNotificationManager.OperationRemoveAll` | `RemoveAllNotifications` 완료 |
+| `WindowsNotificationManager.OperationOpenSettings` | `OpenNotificationSettings` 완료 |
 
 ---
 
