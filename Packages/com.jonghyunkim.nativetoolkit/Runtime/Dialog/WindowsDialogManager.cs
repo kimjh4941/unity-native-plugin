@@ -18,9 +18,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Dialog
     public class WindowsDialogManager : MonoBehaviour
     {
 #if DEVELOPMENT_BUILD
-        private const string DLL_NAME = "UnityWindowsNativeToolkit-Debug.dll";
+        private const string DLL_NAME = "unity-windows-native-toolkit-debug";
 #else
-        private const string DLL_NAME = "UnityWindowsNativeToolkit.dll";
+        private const string DLL_NAME = "unity-windows-native-toolkit";
 #endif
 
         private static WindowsDialogManager? _instance;

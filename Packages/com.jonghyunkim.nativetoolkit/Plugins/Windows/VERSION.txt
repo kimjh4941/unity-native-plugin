@@ -1,0 +1,2 @@
+unity-windows-native-toolkit.dll 1.1.0
+source: https://github.com/kimjh4941/native-toolkit/blob/main/dist/1.4.0/windows/windows-native-toolkit-1.1.0.dll

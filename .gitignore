@@ -74,7 +74,9 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 # Claude Code
-.claude/
+.claude/*
+!.claude/skills
+!.claude/skills/**
 
 # Native Toolkit Documentation (ignore generated outputs)
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/api/*

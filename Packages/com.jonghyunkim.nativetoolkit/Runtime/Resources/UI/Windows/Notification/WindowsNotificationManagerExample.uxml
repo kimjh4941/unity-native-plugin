@@ -1,0 +1,53 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="WindowsNotificationManagerExampleStyle.uss" />
+    <ui:VisualElement class="win-notif-root">
+        <ui:VisualElement class="win-notif-header">
+            <ui:Button name="HomeButton" class="win-notif-secondary-button" text="Back To Home" />
+            <ui:Label text="WindowsNotificationManager Example" class="win-notif-title" />
+            <ui:Label text="Windows App SDK notification scenarios." class="win-notif-subtitle" />
+            <ui:VisualElement class="win-notif-result-border">
+                <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="win-notif-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="win-notif-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="win-notif-content">
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Initialize" class="win-notif-section-title" />
+                    <ui:Button name="InitializeButton" class="win-notif-button" text="Initialize" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Show Notification" class="win-notif-section-title" />
+                    <ui:Button name="ShowNotificationButton" class="win-notif-button" text="ShowNotification" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Scheduled Notification" class="win-notif-section-title" />
+                    <ui:Button name="ScheduleNotificationButton" class="win-notif-button" text="ScheduleNotification (+1m)" />
+                    <ui:Button name="CancelScheduledButton" class="win-notif-secondary-button" text="CancelScheduledNotification" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Update Progress" class="win-notif-section-title" />
+                    <ui:Button name="ShowProgressNotificationButton" class="win-notif-button" text="ShowProgressNotification" />
+                    <ui:Button name="UpdateProgressButton" class="win-notif-button" text="UpdateNotificationProgress" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Remove" class="win-notif-section-title" />
+                    <ui:Button name="RemoveByTagButton" class="win-notif-secondary-button" text="RemoveNotificationsByTag" />
+                    <ui:Button name="RemoveAllButton" class="win-notif-secondary-button" text="RemoveAllNotifications" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="win-notif-section">
+                    <ui:Label text="Query" class="win-notif-section-title" />
+                    <ui:Button name="GetSettingButton" class="win-notif-button" text="GetNotificationSetting" />
+                    <ui:Button name="OpenSettingsButton" class="win-notif-secondary-button" text="OpenNotificationSettings" />
+                </ui:VisualElement>
+
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

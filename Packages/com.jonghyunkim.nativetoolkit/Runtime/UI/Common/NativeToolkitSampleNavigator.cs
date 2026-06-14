@@ -64,6 +64,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowWindowsNotification(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+        ApplyScreen<WindowsNotificationManagerExampleController>(
+            uiDocument,
+            "UI/Windows/Notification/WindowsNotificationManagerExample",
+            "UI/Windows/Notification/WindowsNotificationManagerExampleStyle");
+#endif
+    }
+
     public static void ShowMacDialog(UIDocument uiDocument)
     {
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
@@ -129,6 +139,7 @@ public static class NativeToolkitSampleNavigator
 #endif
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
         RemoveIfExists<WindowsDialogManagerExampleController>(gameObject);
+        RemoveIfExists<WindowsNotificationManagerExampleController>(gameObject);
 #endif
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
         RemoveIfExists<MacDialogManagerExampleController>(gameObject);
