@@ -163,6 +163,7 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowNotificationClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        if (!IsNotificationPermitted()) return;
         var json = WindowsNotificationJsonBuilder.BuildNotificationPayload(BuildSamplePayload());
         WindowsNotificationManager.Instance.ShowNotification(json, result =>
         {
@@ -177,6 +178,7 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnScheduleNotificationClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        if (!IsNotificationPermitted()) return;
         var payload = new WindowsNotificationPayload
         {
             Title   = "Guild Battle Starts Soon",
@@ -203,6 +205,7 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShowProgressNotificationClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        if (!IsNotificationPermitted()) return;
         _sequenceNumber = 0;
         var payload = new WindowsNotificationPayload
         {
@@ -239,12 +242,16 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnUpdateProgressClicked)}]");
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        if (!IsNotificationPermitted()) return;
         _sequenceNumber++;
         WindowsNotificationManager.Instance.UpdateNotificationProgress(
             SampleNotificationTag, SampleNotificationGroup,
             0.5, "50%", "Downloading...", _sequenceNumber, result =>
             {
-                SetResult(FormatResult($"UpdateProgress (seq={_sequenceNumber})", result));
+                if (result.ErrorCode == 4)
+                    SetResult("✗ UpdateProgress\nProgress notification not found.\nPress 'ShowProgressNotification' first.");
+                else
+                    SetResult(FormatResult($"UpdateProgress (seq={_sequenceNumber})", result));
             });
 #else
         SetResult("Windows Standalone only. Run this sample on Windows to verify.");
@@ -333,6 +340,19 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
                 new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
             }
         };
+    }
+
+    private bool IsNotificationPermitted()
+    {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        var setting = WindowsNotificationManager.Instance.GetNotificationSetting();
+        if (setting != WindowsNotificationSetting.Enabled)
+        {
+            SetResult($"✗ Notifications are disabled ({setting}).\nUse 'OpenNotificationSettings' to enable them.");
+            return false;
+        }
+#endif
+        return true;
     }
 
     private static string FormatResult(string label, WindowsNotificationResult result)
