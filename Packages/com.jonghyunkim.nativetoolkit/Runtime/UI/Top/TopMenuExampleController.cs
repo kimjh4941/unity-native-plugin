@@ -62,7 +62,7 @@ public class TopMenuExampleController : MonoBehaviour
             _dialogButton.clicked += OnDialogClicked;
         }
 
-#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN || UNITY_EDITOR
         if (_notificationButton != null)
         {
             _notificationButton.clicked += OnNotificationClicked;
@@ -104,7 +104,7 @@ public class TopMenuExampleController : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.DisplayDialog(
             "Notification Feature",
-            "This feature runs natively on Android, iOS, or macOS.\nRun on an Android, iOS, or macOS player for full functionality.",
+            "This feature runs natively on Android, iOS, macOS, or Windows.\nRun on an Android, iOS, macOS, or Windows player for full functionality.",
             "OK");
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidNotification(uiDocument);
@@ -112,6 +112,8 @@ public class TopMenuExampleController : MonoBehaviour
         NativeToolkitSampleNavigator.ShowIosNotification(uiDocument);
 #elif UNITY_STANDALONE_OSX
         NativeToolkitSampleNavigator.ShowMacNotification(uiDocument);
+#elif UNITY_STANDALONE_WIN
+        NativeToolkitSampleNavigator.ShowWindowsNotification(uiDocument);
 #endif
     }
 }

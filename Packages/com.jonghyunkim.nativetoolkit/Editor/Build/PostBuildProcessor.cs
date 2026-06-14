@@ -146,7 +146,9 @@ public static class PostBuildProcessor
             }
             // Source and destination paths
             string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary-Debug.pdb";
-            string pdbDst = Path.Combine(@"D:\Build\Windows\unity-native-plugin_Data", @"Plugins\x86_64\WindowsLibrary-Debug.pdb");
+            string buildDir = Path.GetDirectoryName(pathToBuiltProject);
+            string appName = Path.GetFileNameWithoutExtension(pathToBuiltProject);
+            string pdbDst = Path.Combine(buildDir, appName + "_Data", "Plugins", "x86_64", "WindowsLibrary-Debug.pdb");
             
             try
             {

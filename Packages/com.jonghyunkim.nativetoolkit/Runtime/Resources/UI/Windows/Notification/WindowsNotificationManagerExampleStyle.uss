@@ -1,0 +1,151 @@
+.win-notif-root {
+    flex-grow: 1;
+    background-color: #1E1E1E;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.win-notif-header {
+    background-color: #F3F3F3;
+    padding: 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.win-notif-title {
+    font-size: 24px;
+    color: #111111;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.win-notif-subtitle {
+    font-size: 14px;
+    color: #666666;
+    -unity-text-align: upper-center;
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.win-notif-result-border {
+    background-color: #D3D3D3;
+    border-radius: 4px;
+}
+
+.win-notif-result-text {
+    padding: 10px;
+    font-size: 14px;
+    color: #111111;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+.win-notif-scroll {
+    flex-grow: 1;
+}
+
+.win-notif-content {
+    background-color: #F3F3F3;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0 16px 16px 16px;
+    gap: 12px;
+}
+
+.win-notif-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.win-notif-section-title {
+    font-size: 18px;
+    color: #111111;
+    -unity-font-style: bold;
+    white-space: normal;
+    margin-top: 4px;
+}
+
+.win-notif-button {
+    background-color: #0078D4;
+    color: white;
+    font-size: 24px;
+    width: 100%;
+    min-height: 50px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 4px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.win-notif-button:hover {
+    background-color: #005A9E;
+}
+
+.win-notif-button:active {
+    background-color: #003E73;
+}
+
+.win-notif-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
+
+.win-notif-secondary-button {
+    background-color: #636366;
+    color: white;
+    font-size: 24px;
+    width: 100%;
+    min-height: 50px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 4px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.win-notif-secondary-button:hover {
+    background-color: #48484A;
+}
+
+.win-notif-secondary-button:active {
+    background-color: #3A3A3C;
+}
+
+.win-notif-input-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.win-notif-label {
+    font-size: 16px;
+    color: #111111;
+    width: 90px;
+    flex-shrink: 0;
+    white-space: normal;
+}
+
+.win-notif-textfield {
+    flex-grow: 1;
+    font-size: 16px;
+}
+
+.win-notif-toggle {
+    font-size: 16px;
+    color: #111111;
+}

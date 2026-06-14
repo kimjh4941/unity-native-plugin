@@ -4,19 +4,17 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 /// <summary>
 /// Pre-build processor that (1) temporarily disables libraries for non-target platforms to keep
 /// the build artifact clean, and (2) copies native plugin binaries from native-toolkit dist folder
-/// to Assets/Plugins for Android/iOS/macOS, or triggers Windows native build pipeline.
+/// to Plugins for Android/iOS/macOS/Windows.
 /// </summary>
 public class PreBuildProcessor : IPreprocessBuildWithReport
 {
-    private const string NativeToolkitDistRoot = "/Users/jonghyunkim/Desktop/native-toolkit/dist";
+    private const string NativeToolkitDistRoot = @"C:\Users\User\Desktop\native-toolkit\dist";
 
     public int callbackOrder => 0;
 
@@ -54,7 +52,11 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else if (report.summary.platform == BuildTarget.StandaloneWindows64)
         {
-            BuildWindowsLibraries(config);
+            string latestVersion = FindLatestVersionInDist();
+            if (!string.IsNullOrEmpty(latestVersion))
+            {
+                CopyWindowsLibraries(config, latestVersion);
+            }
         }
         else if (report.summary.platform == BuildTarget.StandaloneOSX)
         {
@@ -298,195 +300,105 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Copies Windows DLL built for Debug/Release to Plugins/Windows/Library.
+    /// Copies Windows DLL (Debug/Release) from dist folder to Plugins/Windows.
     /// </summary>
-    private void BuildWindowsLibraries(string config)
+    private void CopyWindowsLibraries(string config, string version)
     {
-        UnityEngine.Debug.Log($"[Build][Windows] Pre-build steps started. Config={config}");
+        UnityEngine.Debug.Log($"[Build][Windows] Copying libraries from dist (config={config}, version={version})");
 
-        // Step 1: Build WindowsLibrary.dll using MSBuild
-        if (!BuildWindowsLibraryDll(config))
+        bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
+        string distWinDir = Path.Combine(NativeToolkitDistRoot, version, "windows");
+
+        if (!Directory.Exists(distWinDir))
         {
-            UnityEngine.Debug.LogError("[Build][Windows] Aborting pre-build due to build failure.");
+            UnityEngine.Debug.LogError($"[Build][Windows] Windows dist directory not found: {distWinDir}");
             return;
         }
 
-        // Step 2: Copy the built DLL to Unity Plugins folder
-        const string baseDir = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64";
-        var dllFileName = config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
-            ? "WindowsLibrary-Debug.dll"
-            : "WindowsLibrary.dll";
-        string dllSrc = Path.Combine(baseDir, config, "WindowsLibraryExample", "AppX", dllFileName);
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
-        string dllDst = Path.Combine(
-            destDir,
-            config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase)
-                ? "UnityWindowsNativeToolkit-Debug.dll"
-                : "UnityWindowsNativeToolkit.dll");
 
-        try
+        // Clean existing native-toolkit DLL files only (preserve third-party DLLs like Bootstrap)
+        if (Directory.Exists(destDir))
         {
-            if (Directory.Exists(destDir))
+            foreach (string dll in Directory.GetFiles(destDir, "unity-windows-native-toolkit*.dll"))
             {
-                Directory.Delete(destDir, true);
+                File.Delete(dll);
+                UnityEngine.Debug.Log($"[Build][Windows] Deleted old DLL: {dll}");
             }
+        }
+        else
+        {
             Directory.CreateDirectory(destDir);
-            File.Copy(dllSrc, dllDst, true);
-            UnityEngine.Debug.Log($"[Build][Windows] Copied {Path.GetFileName(dllDst)} (config={config}) to {destDir}");
-
-            // Apply plugin import settings (enable only for Windows)
-            string assetPath = $"Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/{Path.GetFileName(dllDst)}";
-            ConfigureWindowsPluginImporter(assetPath);
-        }
-        catch (System.Exception ex)
-        {
-            UnityEngine.Debug.LogError($"[Build][Windows] Failed to copy {Path.GetFileName(dllDst)}: " + ex.Message);
         }
 
-        UnityEngine.Debug.Log("[Build][Windows] Pre-build steps completed.");
+        string selectedDll = FindDllNameInDist(distWinDir, "windows-native-toolkit-", "[Build][Windows]", isDevelopmentBuild);
+        if (string.IsNullOrEmpty(selectedDll))
+            return;
+
+        string destName = isDevelopmentBuild ? "unity-windows-native-toolkit-debug.dll" : "unity-windows-native-toolkit.dll";
+        string srcPath = Path.Combine(distWinDir, selectedDll);
+        string dstPath = Path.Combine(destDir, destName);
+        File.Copy(srcPath, dstPath, true);
+        UnityEngine.Debug.Log($"[Build][Windows] Copied {selectedDll} → {destName} to {destDir}");
+
+        AssetDatabase.Refresh();
+
+        string assetPath = $"Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/{destName}";
+        ConfigureWindowsPluginImporter(assetPath);
+
+        UnityEngine.Debug.Log($"[Build][Windows] Copy completed to {destDir}");
     }
 
     /// <summary>
-    /// Builds WindowsLibrary.dll using MSBuild.
+    /// Finds a DLL file name in dist using prefix and build-mode filter.
     /// </summary>
-    private bool BuildWindowsLibraryDll(string config)
+    private string FindDllNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
     {
-        UnityEngine.Debug.Log($"[Build][Windows] Building WindowsLibrary.dll (config={config})...");
-
-        // MSBuild path (Visual Studio 2022)
-        string msbuildPath = FindMSBuildPath();
-        if (string.IsNullOrEmpty(msbuildPath))
+        if (!Directory.Exists(distDir))
         {
-            UnityEngine.Debug.LogError("[Build][Windows] MSBuild.exe not found. Please install Visual Studio 2022.");
-            return false;
+            UnityEngine.Debug.LogError($"{logPrefix} Dist directory not found: {distDir}");
+            return null;
         }
 
-        // Solution file path
-        string solutionPath = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\WindowsLibraryExample.sln";
-        if (!File.Exists(solutionPath))
+        string selectedName = null;
+        bool hasMultipleMatches = false;
+        string[] candidates = Directory.GetFiles(distDir, "*.dll");
+
+        foreach (string candidatePath in candidates)
         {
-            UnityEngine.Debug.LogError($"[Build][Windows] Solution file not found: {solutionPath}");
-            return false;
-        }
+            string candidateName = Path.GetFileName(candidatePath);
+            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
 
-        // MSBuild arguments
-        string configuration = config.Equals("Debug", System.StringComparison.OrdinalIgnoreCase) ? "Debug" : "Release";
-        string arguments = $"\"{solutionPath}\" /p:Configuration={configuration} /p:Platform=x64 /t:WindowsLibrary /m";
+            bool isDebugName = candidateName.EndsWith("-debug.dll", StringComparison.OrdinalIgnoreCase);
+            bool matched = isDevelopmentBuild ? isDebugName : !isDebugName;
+            if (!matched)
+                continue;
 
-        try
-        {
-            // Start MSBuild process
-            var processStartInfo = new ProcessStartInfo
+            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
             {
-                FileName = msbuildPath,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            TryApplyShiftJisEncoding(processStartInfo);
-
-            using (var process = Process.Start(processStartInfo))
-            {
-                if (process == null)
-                {
-                    UnityEngine.Debug.LogError("[Build][Windows] Failed to start MSBuild process.");
-                    return false;
-                }
-
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
-
-                bool buildSucceeded = process.ExitCode == 0;
-                if (!buildSucceeded && ContainsRegsvrFailure(output, error))
-                {
-                    UnityEngine.Debug.LogWarning("[Build][Windows] MSBuild post-build regsvr32 step failed; skipping COM registration.");
-                    buildSucceeded = true;
-                }
-
-                if (buildSucceeded)
-                {
-                    UnityEngine.Debug.Log($"[Build][Windows] WindowsLibrary.dll built successfully (config={configuration}).");
-                    UnityEngine.Debug.Log($"[Build][Windows] MSBuild output:\n{output}");
-                    return true;
-                }
-                else
-                {
-                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild failed with exit code {process.ExitCode}.");
-                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild output:\n{output}");
-                    UnityEngine.Debug.LogError($"[Build][Windows] MSBuild error:\n{error}");
-                    return false;
-                }
+                hasMultipleMatches = selectedName != null || hasMultipleMatches;
+                selectedName = candidateName;
             }
-        }
-        catch (System.Exception ex)
-        {
-            UnityEngine.Debug.LogError($"[Build][Windows] Exception during MSBuild: {ex.Message}");
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Finds MSBuild.exe path (Visual Studio 2022).
-    /// </summary>
-    private string FindMSBuildPath()
-    {
-        // Common MSBuild paths for Visual Studio 2022
-        string[] possiblePaths = new string[]
-        {
-            @"D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
-        };
-
-        foreach (string path in possiblePaths)
-        {
-            if (File.Exists(path))
+            else
             {
-                UnityEngine.Debug.Log($"[Build][Windows] Found MSBuild.exe: {path}");
-                return path;
+                hasMultipleMatches = true;
             }
         }
 
-        // Try to find MSBuild using vswhere.exe
-        string vswherePath = @"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe";
-        if (File.Exists(vswherePath))
+        if (selectedName == null)
         {
-            try
-            {
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = vswherePath,
-                    Arguments = "-latest -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using (var process = System.Diagnostics.Process.Start(processStartInfo))
-                {
-                    if (process != null)
-                    {
-                        string output = process.StandardOutput.ReadToEnd().Trim();
-                        process.WaitForExit();
-
-                        if (!string.IsNullOrEmpty(output) && File.Exists(output))
-                        {
-                            UnityEngine.Debug.Log($"[Build][Windows] Found MSBuild.exe via vswhere: {output}");
-                            return output;
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                UnityEngine.Debug.LogError($"[Build][Windows] Failed to run vswhere.exe: {ex.Message}");
-            }
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} DLL not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
         }
 
-        UnityEngine.Debug.LogError("[Build][Windows] MSBuild.exe not found. Please install Visual Studio 2022.");
-        return null;
+        if (hasMultipleMatches)
+            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple DLL matches found. Selected: {selectedName}");
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected DLL: {selectedName}");
+        return selectedName;
     }
 
     /// <summary>
@@ -705,23 +617,4 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         UnityEngine.Debug.Log($"[Build][Windows] Import settings updated (Windows only): {assetPath}");
     }
 
-    // Sets Shift_JIS encoding for MSBuild process output to handle Japanese characters.
-    private void TryApplyShiftJisEncoding(ProcessStartInfo startInfo)
-    {
-        try
-        {
-            startInfo.StandardOutputEncoding = Encoding.GetEncoding("shift_jis");
-            startInfo.StandardErrorEncoding = Encoding.GetEncoding("shift_jis");
-        }
-        catch
-        {
-            // Encoding not available; fall back to default
-        }
-    }
-
-    // Checks if build failure was caused by a post-build COM registration step (regsvr32) which is not critical.
-    private bool ContainsRegsvrFailure(string output, string error)
-    {
-        return (output + error).Contains("regsvr32") || (output + error).Contains("REGSVR32");
-    }
 }
