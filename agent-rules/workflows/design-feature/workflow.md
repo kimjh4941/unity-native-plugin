@@ -26,6 +26,16 @@
    - エラーケースと返却仕様（`isSuccess` / `errorMessage`）をネイティブ実装から把握する
    - **ネイティブ側にすでに存在する実装をこのプロジェクトで再実装しない**
 
+   Android の場合は `android_library` も追加で参照する:
+
+   - `/Users/jonghyunkim/Desktop/native-toolkit/android/android_library/src/main/java/android/library/`
+   - domain error 定義・repository 実装など、Unity 公開層（`unity_android_plugin`）の背後にある実装を把握する
+
+   Android の場合は同梱 AAR の内容も確認する:
+
+   - `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/` 配下の AAR を展開し、`AndroidManifest.xml` と `res/` に何が内包されているかを把握する
+   - manifest 宣言やリソース（FileProvider の `res/xml/` 等）が AAR に含まれていない場合、利用アプリ側に追加設定が必要になる可能性がある。設計段階で配置責任を確定する
+
 4. 既存の C# 実装を確認する（必須）
 
    `Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下の既存実装を読み込み、パターン・命名・構造を把握する。
@@ -53,12 +63,26 @@
      - C# 側の `[DllImport]` / `AndroidJavaObject` 呼び出し方針
    - **変更ファイル一覧**
      - 新規作成 / 既存変更 / 非変更を分類して列挙する（`Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下）
+     - テストファイル（`Tests/Runtime/` 配下）も変更一覧に含める
+     - `.meta` ファイルは Unity が自動生成するため記載しない
      - **サンプルアプリ（ExampleController・UXML/USS・サンプルシーン）は対象外とする。** これらは `design-sample-scene` スキルで別途設計するため、本計画書には含めない
    - **実装詳細**（implement-feature ステップ3で行う内容）
      - クラス・メソッド・イベント設計（Singleton・delegate・event シグネチャ）
+     - **callback 提供方針**（既存 Manager パターンに準拠）
+       - 共通イベント（`event Action<Result>`）: 常に発火。横断的なハンドリング用
+       - 個別 callback（`Action<Result>? onResult = null`）: 任意。各操作メソッドの引数として提供し、未指定でも共通イベントは発火する
+       - 個別 callback は `IosNotificationManager` の per-call callback 方式に準拠し、同一操作の連続呼び出しは last-registered wins
+       - 設計書には共通イベントと個別 callback の両方のシグネチャ、発火タイミング、dispatch 順序（共通 → 個別）を明記する
      - スレッド契約・メモリ契約・エラー契約の実装方針
      - 依存関係の実装順序（Bridge → Manager → テスト）
-   - **エラーケース一覧と返却仕様**
+     - Android で `AndroidJavaProxy` を使うコールバックがある場合、IL2CPP 制約を明記する
+       - proxy メソッドは `public` 非 static にする
+       - メソッド名・引数型を native インターフェースに完全一致させる
+       - `[MonoPInvokeCallback]` は不要（`AndroidJavaProxy` 方式のため）
+   - **エラーケース一覧と返却仕様（層別に分けて記載する）**
+     - parser 層: JSON 検証失敗（`Failed to {operation}: ...` 形式で返る）
+     - use case / repository 層: ドメインエラー（個別の errorMessage 文言）
+     - C# Bridge 層: 非対応プラットフォーム・未初期化・`Call` 例外（`{operation} could not be started.` 等）
    - **テスト方針**（EditMode / PlayMode / 手動確認の分担）
 
    保存先: `artifact/designs/<feature>/`
