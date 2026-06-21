@@ -83,3 +83,7 @@ crashlytics-build.properties
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/obj/*
 /Packages/com.jonghyunkim.nativetoolkit/Documentation~/site/*
 /Packages/com.jonghyunkim.nativetoolkit/Editor/Build/obj/*
+
+# Auto-generated Unity meta files for AAR-derived Android library folders and Windows plugin files
+/Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib.meta
+/Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt.meta
