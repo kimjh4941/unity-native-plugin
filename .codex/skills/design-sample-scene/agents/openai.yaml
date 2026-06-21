@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Sample Scene"
+  short_description: "Wrap the shared sample scene design workflow."
+  default_prompt: "Read agent-rules/workflows/design-sample-scene/workflow.md and execute it as the source of truth."

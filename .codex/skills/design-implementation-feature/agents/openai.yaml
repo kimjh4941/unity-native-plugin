@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Implementation Feature"
+  short_description: "Wrap the shared implementation design workflow."
+  default_prompt: "Read agent-rules/workflows/design-implementation-feature/workflow.md and execute it as the source of truth."

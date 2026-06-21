@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Implementation Feature"
+  short_description: "Wrap the shared feature review workflow."
+  default_prompt: "Read agent-rules/workflows/review-implementation-feature/workflow.md and execute it as the source of truth."
