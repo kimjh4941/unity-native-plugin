@@ -14,7 +14,23 @@ using System.Linq;
 /// </summary>
 public class PreBuildProcessor : IPreprocessBuildWithReport
 {
-    private const string NativeToolkitDistRoot = @"C:\Users\User\Desktop\native-toolkit\dist";
+    // Resolved at runtime: sibling repo "native-toolkit/dist" relative to the Unity project root,
+    // or overridden by the NATIVE_TOOLKIT_DIST_ROOT environment variable.
+    private static string NativeToolkitDistRoot
+    {
+        get
+        {
+            string envPath = System.Environment.GetEnvironmentVariable("NATIVE_TOOLKIT_DIST_ROOT");
+            if (!string.IsNullOrEmpty(envPath))
+            {
+                return envPath;
+            }
+
+            // Project root is one level above Application.dataPath (the "Assets" folder).
+            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return Path.GetFullPath(Path.Combine(projectRoot, "..", "native-toolkit", "dist"));
+        }
+    }
 
     public int callbackOrder => 0;
 
@@ -191,10 +207,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             return;
         }
 
-        // Expected file names in dist
-        string aarSuffix = config == "Debug" ? "-debug" : "";
-        string sourceAar1 = Path.Combine(distAndroidDir, $"android-native-toolkit-{version}{aarSuffix}.aar");
-        string sourceAar2 = Path.Combine(distAndroidDir, $"unity-android-native-toolkit-{version}{aarSuffix}.aar");
+        bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
@@ -213,28 +226,73 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             Directory.CreateDirectory(destDir);
         }
 
-        // Copy AAR files
-        if (File.Exists(sourceAar1))
+        // Copy AAR files located by prefix search (filename version may differ from directory version)
+        string selectedAar1 = FindAarNameInDist(distAndroidDir, "android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedAar1))
         {
-            File.Copy(sourceAar1, Path.Combine(destDir, Path.GetFileName(sourceAar1)), true);
-            UnityEngine.Debug.Log($"[Build][Android] Copied {Path.GetFileName(sourceAar1)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][Android] AAR not found: {sourceAar1}");
+            File.Copy(Path.Combine(distAndroidDir, selectedAar1), Path.Combine(destDir, selectedAar1), true);
+            UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar1}");
         }
 
-        if (File.Exists(sourceAar2))
+        string selectedAar2 = FindAarNameInDist(distAndroidDir, "unity-android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
+        if (!string.IsNullOrEmpty(selectedAar2))
         {
-            File.Copy(sourceAar2, Path.Combine(destDir, Path.GetFileName(sourceAar2)), true);
-            UnityEngine.Debug.Log($"[Build][Android] Copied {Path.GetFileName(sourceAar2)}");
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[Build][Android] AAR not found: {sourceAar2}");
+            File.Copy(Path.Combine(distAndroidDir, selectedAar2), Path.Combine(destDir, selectedAar2), true);
+            UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar2}");
         }
 
         UnityEngine.Debug.Log($"[Build][Android] Copy completed to {destDir}");
+    }
+
+    /// <summary>
+    /// Finds an AAR file name in dist using prefix and build-mode filter.
+    /// </summary>
+    private string FindAarNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
+    {
+        if (!Directory.Exists(distDir))
+        {
+            UnityEngine.Debug.LogError($"{logPrefix} Dist directory not found: {distDir}");
+            return null;
+        }
+
+        string selectedName = null;
+        bool hasMultipleMatches = false;
+        string[] candidates = Directory.GetFiles(distDir, "*.aar");
+
+        foreach (string candidatePath in candidates)
+        {
+            string candidateName = Path.GetFileName(candidatePath);
+            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            bool isDebugName = candidateName.EndsWith("-debug.aar", StringComparison.OrdinalIgnoreCase);
+            bool matched = isDevelopmentBuild ? isDebugName : !isDebugName;
+            if (!matched)
+                continue;
+
+            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
+            {
+                hasMultipleMatches = selectedName != null || hasMultipleMatches;
+                selectedName = candidateName;
+            }
+            else
+            {
+                hasMultipleMatches = true;
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} AAR not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
+        }
+
+        if (hasMultipleMatches)
+            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple AAR matches found. Selected: {selectedName}");
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected AAR: {selectedName}");
+        return selectedName;
     }
 
     /// <summary>

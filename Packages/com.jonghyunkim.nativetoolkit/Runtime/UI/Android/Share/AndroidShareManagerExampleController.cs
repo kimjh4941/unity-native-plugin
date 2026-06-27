@@ -582,7 +582,9 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             texture.SetPixels(pixels);
             texture.Apply();
             byte[] pngBytes = texture.EncodeToPNG();
-            string path = Path.Combine(Application.temporaryCachePath, fileName);
+            // Use persistentDataPath (external-files-path) which is covered by the native FileProvider.
+            // temporaryCachePath maps to external cache dir which is not in the FileProvider config.
+            string path = Path.Combine(Application.persistentDataPath, fileName);
             File.WriteAllBytes(path, pngBytes);
             return path;
         }
@@ -594,7 +596,8 @@ public class AndroidShareManagerExampleController : MonoBehaviour
 
     private static string CreateSampleTextFile(string fileName, string content)
     {
-        string path = Path.Combine(Application.temporaryCachePath, fileName);
+        // Use persistentDataPath (external-files-path) which is covered by the native FileProvider.
+        string path = Path.Combine(Application.persistentDataPath, fileName);
         File.WriteAllText(path, content);
         return path;
     }
