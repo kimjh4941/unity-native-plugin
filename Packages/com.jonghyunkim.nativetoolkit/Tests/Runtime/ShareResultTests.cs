@@ -53,5 +53,31 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual("shareWithCallback", result.Operation);
             Assert.IsNull(result.SelectedPackageName);
         }
+
+        // (7) ShareChooserActionResult stores ActionId
+        [Test]
+        public void ShareChooserActionResult_WithActionId_StoresValue()
+        {
+            var result = new ShareChooserActionResult("com.example.action");
+
+            Assert.AreEqual("com.example.action", result.ActionId);
+        }
+
+        // (8) ShareChooserActionResult normalizes null to string.Empty
+        [Test]
+        public void ShareChooserActionResult_NullActionId_NormalizedToEmpty()
+        {
+            var result = new ShareChooserActionResult(null!);
+
+            Assert.AreEqual(string.Empty, result.ActionId);
+        }
+
+        [Test]
+        public void ShareChooserActionResult_EmptyActionId_StoredAsEmpty()
+        {
+            var result = new ShareChooserActionResult(string.Empty);
+
+            Assert.AreEqual(string.Empty, result.ActionId);
+        }
     }
 }

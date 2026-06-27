@@ -48,6 +48,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
         private static AndroidShareManager? _instance;
         private AndroidJavaObject? pluginInstance;
         private ShareOperationListenerProxy? operationListener;
+        private ShareChooserActionListenerProxy? chooserActionListener;
+        private readonly ShareChooserActionCallbackCoordinator _chooserCoordinator =
+            new ShareChooserActionCallbackCoordinator(a => UnityMainThreadDispatcher.Instance.Enqueue(a));
 
         /// <summary>
         /// Occurs when any native share operation completes. Fires for both success and failure on
@@ -62,6 +65,20 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
         /// <c>onSelected</c> callback.
         /// </summary>
         public event Action<ShareCallbackResult>? ShareCallbackReceived;
+
+        /// <summary>
+        /// Occurs when the user taps a custom chooser action in the Sharesheet (API 34+, Android
+        /// only). Chooser actions are only registered when using <see cref="ShareText"/>; this
+        /// event is not fired for <see cref="ShareWithCallback"/> calls even if
+        /// <see cref="ShareTextPayload.chooserActions"/> is set. No callback fires if the action
+        /// is never tapped or on API levels below 34. Always fired before the per-call
+        /// <c>onChooserAction</c> callback.
+        /// </summary>
+        public event Action<ShareChooserActionResult>? ShareChooserActionTapped
+        {
+            add => _chooserCoordinator.ChooserActionTapped += value;
+            remove => _chooserCoordinator.ChooserActionTapped -= value;
+        }
 
         // last-registered wins for same-operation concurrent calls (matches IosNotificationManager pattern)
         private readonly Dictionary<string, Action<ShareOperationResult>?> _pendingOperationCallbacks = new();
@@ -109,10 +126,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
             if (_instance == this)
             {
                 ClearShareOperationListener();
+                ClearShareChooserActionListener();
                 pluginInstance?.Dispose();
                 pluginInstance = null;
                 _pendingOperationCallbacks.Clear();
                 _pendingShareSelectedCallback = null;
+                _chooserCoordinator.Clear();
                 _instance = null;
             }
         }
@@ -141,20 +160,52 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
 
                 operationListener ??= new ShareOperationListenerProxy(this);
                 pluginInstance.Call("setShareOperationListener", operationListener);
+
+                chooserActionListener ??= new ShareChooserActionListenerProxy(this);
+                try
+                {
+                    pluginInstance.Call("setShareChooserActionListener", chooserActionListener);
+                }
+                catch (Exception ex)
+                {
+                    // Older AAR without chooser-action support: degrade gracefully, keep share working.
+                    Debug.LogWarning($"[{LogTag}] setShareChooserActionListener unavailable (AAR may be outdated): {ex.Message}");
+                }
+
                 Debug.Log($"[{LogTag}] pluginInstance initialized successfully.");
             }
         }
 
         /// <summary>
-        /// Shares plain text via the Android share sheet.
+        /// Shares plain text via the Android Sharesheet.
+        /// Custom chooser actions (API 34+) are registered only for this <see cref="ShareText"/>
+        /// call; a tap is reported via <see cref="ShareChooserActionTapped"/> and
+        /// <paramref name="onChooserAction"/>. Chooser actions passed to
+        /// <see cref="ShareWithCallback"/> are NOT registered for callbacks. To receive a
+        /// callback, each chooser action must use a unique, non-blank intentAction other than
+        /// <c>android.intent.action.SEND</c>. No callback fires if the action is never tapped,
+        /// or on API levels below 34.
         /// </summary>
         /// <param name="payload">Text content and optional metadata to share.</param>
         /// <param name="onResult">Optional callback invoked with the launch result. The global
         /// <see cref="ShareOperationCompleted"/> event always fires regardless of this parameter.</param>
-        public void ShareText(ShareTextPayload payload, Action<ShareOperationResult>? onResult = null)
+        /// <param name="onChooserAction">Optional per-call callback fired when a custom chooser
+        /// action is tapped. Replaces the previous per-call callback (last-registered wins);
+        /// passing null clears the previous registration. The global
+        /// <see cref="ShareChooserActionTapped"/> event always fires regardless of this
+        /// parameter.</param>
+        public void ShareText(
+            ShareTextPayload payload,
+            Action<ShareOperationResult>? onResult = null,
+            Action<ShareChooserActionResult>? onChooserAction = null)
         {
+            Debug.Log($"[{LogTag}][{nameof(ShareText)}] hasCallback: {onResult != null}, hasChooserCallback: {onChooserAction != null}, chooserActionCount: {payload.chooserActions?.Length ?? 0}");
+            if (payload.chooserActions != null && payload.chooserActions.Length > 5)
+            {
+                Debug.LogWarning($"[{LogTag}] Android shows at most 5 custom chooser actions; extra actions may be ignored");
+            }
+            _chooserCoordinator.Register(onChooserAction);
             string json = AndroidShareJsonBuilder.BuildShareTextJson(payload);
-            Debug.Log($"[{LogTag}][{nameof(ShareText)}] json: {json}, hasCallback: {onResult != null}");
             CallOperation(OperationShareText, json, onResult);
         }
 
@@ -240,6 +291,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
         /// selects an app, the package name is delivered via <paramref name="onSelected"/> (and
         /// <see cref="ShareCallbackReceived"/>). Cancelling or choosing Copy/Edit does not fire
         /// <paramref name="onSelected"/>.
+        /// <para>
+        /// Note: <see cref="ShareTextPayload.chooserActions"/> are NOT registered for callbacks
+        /// when using this method. Use <see cref="ShareText"/> with an
+        /// <c>onChooserAction</c> callback to receive chooser action taps.
+        /// </para>
         /// </summary>
         /// <param name="payload">Text content and optional metadata to share.</param>
         /// <param name="onStarted">Optional callback for the chooser launch result.</param>
@@ -249,6 +305,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
             Action<ShareOperationResult>? onStarted = null,
             Action<ShareCallbackResult>? onSelected = null)
         {
+            if (payload.chooserActions != null && payload.chooserActions.Length > 0)
+            {
+                Debug.LogWarning($"[{LogTag}] chooser actions are ignored by ShareWithCallback; use ShareText to receive chooser action callbacks");
+            }
             string json = AndroidShareJsonBuilder.BuildShareTextJson(payload);
             Debug.Log($"[{LogTag}][{nameof(ShareWithCallback)}] json: {json}, hasStartedCallback: {onStarted != null}, hasSelectedCallback: {onSelected != null}");
             _pendingShareSelectedCallback = onSelected;
@@ -370,6 +430,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
             });
         }
 
+        private void FireChooserAction(ShareChooserActionResult result)
+        {
+            _chooserCoordinator.Fire(result);
+        }
+
         private void ClearShareOperationListener()
         {
             if (pluginInstance == null)
@@ -385,6 +450,39 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
             {
                 Debug.LogWarning($"[{LogTag}] clearShareOperationListener failed: {ex.Message}");
             }
+        }
+
+        private void ClearShareChooserActionListener()
+        {
+            if (pluginInstance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                pluginInstance.Call("clearShareChooserActionListener");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[{LogTag}] clearShareChooserActionListener failed: {ex.Message}");
+            }
+        }
+
+        private sealed class ShareChooserActionListenerProxy : AndroidJavaProxy
+        {
+            private readonly AndroidShareManager owner;
+
+            public ShareChooserActionListenerProxy(AndroidShareManager owner)
+                : base("android.unity.share.UnityAndroidShareManager$ShareChooserActionListener")
+            {
+                this.owner = owner;
+            }
+
+            // Must be public so IL2CPP can resolve the call from Java.
+            // Method name and signature must exactly match the native interface.
+            public void onChooserAction(string actionId)
+                => owner.FireChooserAction(new ShareChooserActionResult(actionId));
         }
 
         private sealed class ShareOperationListenerProxy : AndroidJavaProxy

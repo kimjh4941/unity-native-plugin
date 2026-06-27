@@ -1,0 +1,70 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="AndroidShareManagerExampleStyle.uss" />
+    <ui:VisualElement class="android-share-root">
+        <ui:VisualElement class="android-share-header">
+            <ui:Button name="HomeButton" class="android-secondary-button" text="Back To Home" />
+            <ui:Label text="AndroidShareManager Example" class="android-share-title" />
+            <ui:Label text="Share text, images, and files. Custom chooser actions require Android 14 (API 34) or later." class="android-share-subtitle" />
+            <ui:VisualElement class="android-result-border">
+                <ui:Label name="ResultTextBlock" text="Android share sample ready. Run on an Android device to test sharing." class="android-result-text" />
+            </ui:VisualElement>
+            <ui:VisualElement class="android-result-border">
+                <ui:Label name="CallbackTextBlock" text="Share with callback result will appear here." class="android-result-text" />
+            </ui:VisualElement>
+            <ui:VisualElement class="android-result-border">
+                <ui:Label name="ChooserActionTextBlock" text="Custom action result will appear here." class="android-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="android-share-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="android-share-content">
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Text Share" class="android-section-title" />
+                    <ui:Button name="ShareTextButton" class="android-share-button" text="Share Text" />
+                    <ui:Button name="ShareUrlButton" class="android-share-button" text="Share URL" />
+                    <ui:Button name="ShareCustomActionButton" class="android-share-button" text="Share Text with Custom Action (API 34+)" />
+                    <ui:Button name="ShareWithSubjectTitleButton" class="android-share-button" text="Share with Subject and Title" />
+                    <ui:Button name="ShareRichPreviewButton" class="android-share-button" text="Share with Rich Preview" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Image Share" class="android-section-title" />
+                    <ui:Button name="ShareImageButton" class="android-share-button" text="Share Image" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Multiple Images" class="android-section-title" />
+                    <ui:Button name="ShareImagesButton" class="android-share-button" text="Share Multiple Images" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="File Share" class="android-section-title" />
+                    <ui:Button name="ShareFileButton" class="android-share-button" text="Share File" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Multiple Files" class="android-section-title" />
+                    <ui:Button name="ShareFilesButton" class="android-share-button" text="Share Multiple Files" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Direct Share Target" class="android-section-title" />
+                    <ui:Button name="RegisterDirectShareTargetButton" class="android-share-button" text="Register Direct Share Target" />
+                    <ui:Button name="RemoveDirectShareTargetButton" class="android-secondary-button" text="Remove Direct Share Targets" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Share with Callback" class="android-section-title" />
+                    <ui:Button name="ShareWithCallbackButton" class="android-share-button" text="Share with Callback" />
+                    <ui:Button name="CancelPendingCallbackButton" class="android-secondary-button" text="Cancel Pending Callback" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Error Handling" class="android-section-title" />
+                    <ui:Button name="ShareInvalidFileButton" class="android-secondary-button" text="Share Invalid File" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

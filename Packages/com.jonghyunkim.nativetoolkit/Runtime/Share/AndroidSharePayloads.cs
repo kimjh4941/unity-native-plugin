@@ -17,9 +17,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
         public string iconBase64 = string.Empty;
 
         /// <summary>
-        /// Intent action broadcast when this chooser action is tapped.
-        /// Defaults to <c>android.intent.action.SEND</c> on the native side when omitted.
-        /// The receiving broadcast receiver must be declared in the app's manifest.
+        /// Intent action string broadcast when this chooser action is tapped (API 34+).
+        /// To receive a tap callback via <see cref="AndroidShareManager.ShareChooserActionTapped"/>
+        /// or the <c>onChooserAction</c> parameter of <c>ShareText</c>, each action must use a
+        /// unique, non-blank value other than <c>android.intent.action.SEND</c>. Actions with a
+        /// blank value or <c>android.intent.action.SEND</c> are filtered by the native layer and
+        /// will not trigger callbacks. The receiver is registered dynamically by the native toolkit;
+        /// no manifest declaration is required.
         /// </summary>
         public string? intentAction;
     }

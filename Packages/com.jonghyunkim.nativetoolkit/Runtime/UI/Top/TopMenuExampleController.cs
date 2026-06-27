@@ -12,6 +12,7 @@ public class TopMenuExampleController : MonoBehaviour
 
     private Button? _dialogButton;
     private Button? _notificationButton;
+    private Button? _shareButton;
 
     private void Start()
     {
@@ -42,6 +43,11 @@ public class TopMenuExampleController : MonoBehaviour
         {
             _notificationButton.clicked -= OnNotificationClicked;
         }
+
+        if (_shareButton != null)
+        {
+            _shareButton.clicked -= OnShareClicked;
+        }
     }
 
     private void InitializeUI()
@@ -56,6 +62,7 @@ public class TopMenuExampleController : MonoBehaviour
 
         _dialogButton = root.Q<Button>("DialogFeatureButton");
         _notificationButton = root.Q<Button>("NotificationFeatureButton");
+        _shareButton = root.Q<Button>("ShareFeatureButton");
 
         if (_dialogButton != null)
         {
@@ -73,6 +80,19 @@ public class TopMenuExampleController : MonoBehaviour
         {
             Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Notification feature is not supported on this platform. Hiding button.");
             _notificationButton.style.display = DisplayStyle.None;
+        }
+#endif
+
+#if UNITY_ANDROID || UNITY_EDITOR
+        if (_shareButton != null)
+        {
+            _shareButton.clicked += OnShareClicked;
+        }
+#else
+        if (_shareButton != null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Share feature is only supported on Android. Hiding button.");
+            _shareButton.style.display = DisplayStyle.None;
         }
 #endif
     }
@@ -114,6 +134,15 @@ public class TopMenuExampleController : MonoBehaviour
         NativeToolkitSampleNavigator.ShowMacNotification(uiDocument);
 #elif UNITY_STANDALONE_WIN
         NativeToolkitSampleNavigator.ShowWindowsNotification(uiDocument);
+#endif
+    }
+
+    private void OnShareClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnShareClicked)}]");
+        if (uiDocument == null) return;
+#if UNITY_EDITOR || UNITY_ANDROID
+        NativeToolkitSampleNavigator.ShowAndroidShare(uiDocument);
 #endif
     }
 }

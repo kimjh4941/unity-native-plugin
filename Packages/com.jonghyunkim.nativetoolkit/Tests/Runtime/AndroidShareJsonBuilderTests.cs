@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using NUnit.Framework;
 using JonghyunKim.NativeToolkit.Runtime.Share;
 
@@ -86,6 +87,53 @@ namespace JonghyunKim.NativeToolkit.Tests
             string json = AndroidShareJsonBuilder.BuildShareTextJson(payload);
 
             StringAssert.DoesNotContain("\"chooserActions\"", json);
+        }
+
+        // (9) intentAction present → included in JSON (callback contract root)
+        [Test]
+        public void BuildShareTextJson_ChooserActionWithIntentAction_IncludesIntentAction()
+        {
+            var payload = new ShareTextPayload
+            {
+                text = "hello",
+                chooserActions = new[]
+                {
+                    new ChooserActionPayload
+                    {
+                        label = "Save",
+                        iconBase64 = "B64",
+                        intentAction = "com.example.action.SAVE"
+                    }
+                }
+            };
+
+            string json = AndroidShareJsonBuilder.BuildShareTextJson(payload);
+
+            StringAssert.Contains("\"intentAction\":\"com.example.action.SAVE\"", json);
+        }
+
+        // (11) Multiple chooserActions preserve array order
+        [Test]
+        public void BuildShareTextJson_MultipleChooserActions_PreservesOrder()
+        {
+            var payload = new ShareTextPayload
+            {
+                text = "hello",
+                chooserActions = new[]
+                {
+                    new ChooserActionPayload { label = "First",  iconBase64 = "B1", intentAction = "com.example.action.FIRST"  },
+                    new ChooserActionPayload { label = "Second", iconBase64 = "B2", intentAction = "com.example.action.SECOND" },
+                    new ChooserActionPayload { label = "Third",  iconBase64 = "B3", intentAction = "com.example.action.THIRD"  }
+                }
+            };
+
+            string json = AndroidShareJsonBuilder.BuildShareTextJson(payload);
+
+            int firstPos  = json.IndexOf("FIRST",  StringComparison.Ordinal);
+            int secondPos = json.IndexOf("SECOND", StringComparison.Ordinal);
+            int thirdPos  = json.IndexOf("THIRD",  StringComparison.Ordinal);
+            Assert.Less(firstPos,  secondPos, "FIRST must appear before SECOND");
+            Assert.Less(secondPos, thirdPos,  "SECOND must appear before THIRD");
         }
 
         [Test]
