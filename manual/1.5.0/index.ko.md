@@ -8,7 +8,7 @@
 
 # 버전
 
-## 1.4.0
+## 1.5.0
 
 # 지원 OS 버전
 
@@ -36,6 +36,16 @@
   - 알림 작업
   - 전체 화면 알림
   - 사용자 정의 보기 알림
+
+- 공유 기능
+  - 텍스트 / URL 공유
+  - 이미지 / 다중 이미지 공유
+  - 파일 / 다중 파일 공유
+  - 커스텀 Chooser 액션 (API 34+)
+  - 리치 프리뷰
+  - 다이렉트 공유 타겟 등록
+  - 콜백 포함 공유
+  - 대기 중 콜백 취소
 
 ## iOS
 
@@ -95,7 +105,6 @@
 
 ## 추가 예정 기능
 
-- 공유
 - 클립보드 연동
 
 # 시작하기
@@ -106,7 +115,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.4.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
@@ -170,3 +179,4 @@
 
 - [다이얼로그](dialog.ko.md)
 - [알림](notification.ko.md)
+- [공유](share.ko.md)

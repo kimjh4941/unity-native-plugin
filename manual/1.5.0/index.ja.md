@@ -8,7 +8,7 @@
 
 # バージョン
 
-## 1.4.0
+## 1.5.0
 
 # 対応 OS バージョン
 
@@ -36,6 +36,16 @@
   - 通知アクション
   - フルスクリーン表示
   - カスタムビュー
+
+- 共有機能
+  - テキスト / URL 共有
+  - 画像 / 複数画像共有
+  - ファイル / 複数ファイル共有
+  - カスタム Chooser アクション（API 34+）
+  - リッチプレビュー
+  - ダイレクト共有ターゲット登録
+  - コールバック付き共有
+  - 保留コールバックのキャンセル
 
 ## iOS
 
@@ -95,7 +105,6 @@
 
 ## 追加予定機能
 
-- シェア機能
 - クリップボード連携
 
 # はじめに
@@ -106,7 +115,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.4.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -170,3 +179,4 @@
 
 - [ダイアログ機能](dialog.ja.md)
 - [通知機能](notification.ja.md)
+- [共有機能](share.ja.md)
