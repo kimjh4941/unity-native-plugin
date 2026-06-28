@@ -571,17 +571,22 @@ public class AndroidShareManagerExampleController : MonoBehaviour
 
     private string CreateSampleImage(string fileName)
     {
-        var texture = new Texture2D(128, 128);
+        var source = Resources.Load<Texture2D>("Images/share_sample_image");
+        if (source == null)
+            throw new InvalidOperationException("share_sample_image not found in Resources.");
+
+        // EncodeToPNG requires a readable texture. Use RenderTexture blit to read
+        // pixels without requiring Read/Write enabled in the import settings.
+        var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(source, rt);
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var readable = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
         try
         {
-            var pixels = new Color[128 * 128];
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                pixels[i] = new Color(0.12f, 0.53f, 0.90f);
-            }
-            texture.SetPixels(pixels);
-            texture.Apply();
-            byte[] pngBytes = texture.EncodeToPNG();
+            readable.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+            readable.Apply();
+            byte[] pngBytes = readable.EncodeToPNG();
             // Use persistentDataPath (external-files-path) which is covered by the native FileProvider.
             // temporaryCachePath maps to external cache dir which is not in the FileProvider config.
             string path = Path.Combine(Application.persistentDataPath, fileName);
@@ -590,7 +595,9 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
         finally
         {
-            Destroy(texture);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Destroy(readable);
         }
     }
 
