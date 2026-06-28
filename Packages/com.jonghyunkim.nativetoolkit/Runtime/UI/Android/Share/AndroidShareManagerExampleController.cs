@@ -615,14 +615,16 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         if (source == null)
             throw new InvalidOperationException("share_sample_image not found in Resources.");
 
-        var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        // Scale down to 64x64 to stay within Android Binder transaction size limit.
+        const int IconSize = 64;
+        var rt = RenderTexture.GetTemporary(IconSize, IconSize, 0, RenderTextureFormat.ARGB32);
         Graphics.Blit(source, rt);
         var prev = RenderTexture.active;
         RenderTexture.active = rt;
-        var readable = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+        var readable = new Texture2D(IconSize, IconSize, TextureFormat.RGBA32, false);
         try
         {
-            readable.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+            readable.ReadPixels(new Rect(0, 0, IconSize, IconSize), 0, 0);
             readable.Apply();
             return Convert.ToBase64String(readable.EncodeToPNG());
         }
