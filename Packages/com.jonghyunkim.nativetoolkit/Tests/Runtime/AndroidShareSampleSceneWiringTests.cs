@@ -43,9 +43,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static readonly string[] RequiredShareLabelNames =
         {
-            "ResultTextBlock",
-            "CallbackTextBlock",
-            "ChooserActionTextBlock"
+            "ResultTextBlock"
         };
 
         [Test]

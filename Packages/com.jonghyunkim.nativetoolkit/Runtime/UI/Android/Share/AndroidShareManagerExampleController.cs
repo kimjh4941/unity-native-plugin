@@ -22,8 +22,13 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         "com.jonghyunkim.nativetoolkit.SHARE_CUSTOM_ACTION_OPEN";
 
     private Label? _resultLabel;
-    private Label? _callbackLabel;
-    private Label? _chooserActionLabel;
+    private string _pendingOperationTitle = string.Empty;
+
+    private void SetPendingOperation(string title)
+    {
+        _pendingOperationTitle = title;
+        SetResult($"Requested: {title}");
+    }
 
     private Button? _homeButton;
     private Button? _shareTextButton;
@@ -115,8 +120,6 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
-        _callbackLabel = root.Q<Label>("CallbackTextBlock");
-        _chooserActionLabel = root.Q<Label>("ChooserActionTextBlock");
 
         _homeButton = root.Q<Button>("HomeButton");
         _shareTextButton = root.Q<Button>("ShareTextButton");
@@ -164,7 +167,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share plain text");
+        SetPendingOperation("Share plain text");
         AndroidShareManager.Instance.ShareText(new ShareTextPayload
         {
             text = "Hello from Unity! This is a plain text share sample."
@@ -178,7 +181,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareUrlClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share URL");
+        SetPendingOperation("Share URL");
         AndroidShareManager.Instance.ShareText(new ShareTextPayload
         {
             text = "https://unity.com",
@@ -193,11 +196,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareCustomActionClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share text with custom chooser action");
-        if (_chooserActionLabel != null)
-        {
-            _chooserActionLabel.text = "Waiting for custom action tap...";
-        }
+        SetPendingOperation("Share text with custom chooser action");
 
         string iconBase64;
         try
@@ -239,7 +238,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareWithSubjectTitleClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share with subject and title");
+        SetPendingOperation("Share with subject and title");
         AndroidShareManager.Instance.ShareText(new ShareTextPayload
         {
             text = "This is a share sample with subject and title from Unity.",
@@ -268,7 +267,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Share with rich preview");
+        SetPendingOperation("Share with rich preview");
         AndroidShareManager.Instance.ShareText(new ShareTextPayload
         {
             text = "Check out this rich preview share from Unity!",
@@ -302,7 +301,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Share image");
+        SetPendingOperation("Share image");
         AndroidShareManager.Instance.ShareImage(new ShareImagePayload
         {
             filePath = imagePath,
@@ -337,7 +336,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Share multiple images");
+        SetPendingOperation("Share multiple images");
         AndroidShareManager.Instance.ShareImages(new ShareImagesPayload
         {
             filePaths = new[] { imagePath1, imagePath2 }
@@ -369,7 +368,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Share file");
+        SetPendingOperation("Share file");
         AndroidShareManager.Instance.ShareFile(new ShareFilePayload
         {
             filePath = filePath
@@ -403,7 +402,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Share multiple files");
+        SetPendingOperation("Share multiple files");
         AndroidShareManager.Instance.ShareFiles(new ShareFilesPayload
         {
             filePaths = new[] { filePath1, filePath2 }
@@ -429,7 +428,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        SetResult("Requested: Register Direct Share target");
+        SetPendingOperation("Register Direct Share target");
         AndroidShareManager.Instance.RegisterDirectShareTarget(new DirectShareTargetPayload
         {
             id = SampleDirectShareTargetId,
@@ -445,7 +444,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveDirectShareTargetClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Remove Direct Share targets");
+        SetPendingOperation("Remove Direct Share targets");
         AndroidShareManager.Instance.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload
         {
             ids = new[] { SampleDirectShareTargetId }
@@ -459,11 +458,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareWithCallbackClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share with callback");
-        if (_callbackLabel != null)
-        {
-            _callbackLabel.text = "Waiting for app selection...";
-        }
+        SetPendingOperation("Share with callback");
 
         AndroidShareManager.Instance.ShareWithCallback(
             new ShareTextPayload
@@ -483,10 +478,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             onSelected: result =>
             {
                 string pkg = result.SelectedPackageName ?? "(unknown)";
-                if (_callbackLabel != null)
-                {
-                    _callbackLabel.text = $"[onSelected] Selected: {pkg}";
-                }
+                SetResult($"[onSelected] Selected: {pkg}");
                 Debug.Log($"[{LogTag}] onSelected: {pkg}");
             });
 #else
@@ -498,7 +490,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCancelPendingCallbackClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Cancel pending callback");
+        SetPendingOperation("Cancel pending callback");
         AndroidShareManager.Instance.CancelPendingShareCallback();
 #else
         SetResult("Android device only. Run this sample on Android to cancel a pending share callback.");
@@ -509,7 +501,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareInvalidFileClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
-        SetResult("Requested: Share invalid file (error handling demo)");
+        SetPendingOperation("Share invalid file (error handling demo)");
         AndroidShareManager.Instance.ShareFile(new ShareFilePayload
         {
             filePath = "/invalid/path/that/does/not/exist/sample.txt"
@@ -524,7 +516,11 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareOperationCompleted)}] operation: {result.Operation}, isSuccess: {result.IsSuccess}");
         string status = result.IsSuccess ? "Success" : "Failed";
-        string msg = $"[event] {GetOperationTitle(result.Operation)}: {status}";
+        string title = !string.IsNullOrEmpty(_pendingOperationTitle)
+            ? _pendingOperationTitle
+            : GetOperationTitle(result.Operation);
+        _pendingOperationTitle = string.Empty;
+        string msg = $"[event] {title}: {status}";
         if (!string.IsNullOrEmpty(result.ErrorMessage))
         {
             msg += $"\nError: {result.ErrorMessage}";
@@ -536,19 +532,13 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareCallbackReceived)}] operation: {result.Operation}, package: {result.SelectedPackageName}");
         string pkg = result.SelectedPackageName ?? "(unknown)";
-        if (_callbackLabel != null)
-        {
-            _callbackLabel.text = $"[event] ShareCallback: Selected {pkg}";
-        }
+        SetResult($"[event] ShareCallback: Selected {pkg}");
     }
 
     private void OnShareChooserActionTapped(ShareChooserActionResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareChooserActionTapped)}] actionId: {result.ActionId}");
-        if (_chooserActionLabel != null)
-        {
-            _chooserActionLabel.text = $"[event] ChooserAction: {result.ActionId}";
-        }
+        SetResult($"[event] ChooserAction: {result.ActionId}");
     }
 
     private static string GetOperationTitle(string operation)
