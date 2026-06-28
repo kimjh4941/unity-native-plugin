@@ -611,22 +611,26 @@ public class AndroidShareManagerExampleController : MonoBehaviour
 
     private string CreateSampleIconBase64()
     {
-        var texture = new Texture2D(64, 64);
+        var source = Resources.Load<Texture2D>("Images/share_sample_image");
+        if (source == null)
+            throw new InvalidOperationException("share_sample_image not found in Resources.");
+
+        var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(source, rt);
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var readable = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
         try
         {
-            var pixels = new Color[64 * 64];
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                pixels[i] = new Color(0.12f, 0.53f, 0.90f);
-            }
-            texture.SetPixels(pixels);
-            texture.Apply();
-            byte[] pngBytes = texture.EncodeToPNG();
-            return Convert.ToBase64String(pngBytes);
+            readable.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+            readable.Apply();
+            return Convert.ToBase64String(readable.EncodeToPNG());
         }
         finally
         {
-            Destroy(texture);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Destroy(readable);
         }
     }
 
