@@ -7,7 +7,7 @@ set -euo pipefail
 #   ./scripts/publish_docs.sh <version>
 #
 # Examples:
-#   ./scripts/publish_docs.sh 1.2.0
+#   ./scripts/publish_docs.sh 1.5.0
 
 usage() {
   cat <<'USAGE'
