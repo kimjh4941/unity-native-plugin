@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Feature"
+  short_description: "Wrap the shared feature design workflow."
+  default_prompt: "Read agent-rules/workflows/design-feature/workflow.md and execute it as the source of truth."

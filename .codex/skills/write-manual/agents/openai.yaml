@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Manual"
+  short_description: "Wrap the shared manual publishing workflow."
+  default_prompt: "Read agent-rules/workflows/write-manual/workflow.md and execute it as the source of truth."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release"
+  short_description: "Wrap the shared release execution workflow."
+  default_prompt: "Read agent-rules/workflows/release/workflow.md and execute it as the source of truth."

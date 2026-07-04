@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Message"
+  short_description: "Wrap the shared commit message workflow."
+  default_prompt: "Read agent-rules/workflows/commit-msg/workflow.md and execute it as the source of truth."

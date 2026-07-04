@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.4.0
+- 1.5.0
 
 ## Supported OS Versions
 
@@ -38,6 +38,15 @@ Other languages:
   - Full-screen notifications
   - DecoratedCustomView notifications
   - Progress notifications (Foreground Service)
+- Share features
+  - Share text / URL
+  - Share image / multiple images
+  - Share file / multiple files
+  - Custom Chooser actions (API 34+)
+  - Rich preview
+  - Direct Share target registration
+  - Share with callback
+  - Cancel pending callback
 
 ### iOS
 
@@ -96,7 +105,6 @@ Other languages:
 
 ## Planned Features
 
-- Share
 - Clipboard integration
 
 ## Installation
@@ -105,7 +113,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.4.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
 - Click "install".
 - Requirements:
   - Unity 6+
