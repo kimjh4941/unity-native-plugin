@@ -34,6 +34,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowAndroidShare(UIDocument uiDocument)
+    {
+#if UNITY_ANDROID || UNITY_EDITOR
+        ApplyScreen<AndroidShareManagerExampleController>(
+            uiDocument,
+            "UI/Android/Share/AndroidShareManagerExample",
+            "UI/Android/Share/AndroidShareManagerExampleStyle");
+#endif
+    }
+
     public static void ShowIosDialog(UIDocument uiDocument)
     {
 #if UNITY_IOS || UNITY_EDITOR
@@ -132,6 +142,7 @@ public static class NativeToolkitSampleNavigator
 #if UNITY_ANDROID || UNITY_EDITOR
         RemoveIfExists<AndroidDialogManagerExampleController>(gameObject);
         RemoveIfExists<AndroidNotificationManagerExampleController>(gameObject);
+        RemoveIfExists<AndroidShareManagerExampleController>(gameObject);
 #endif
 #if UNITY_IOS || UNITY_EDITOR
         RemoveIfExists<IosDialogManagerExampleController>(gameObject);

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement Feature"
+  short_description: "Wrap the shared feature implementation workflow."
+  default_prompt: "Read agent-rules/workflows/implement-feature/workflow.md and execute it as the source of truth."

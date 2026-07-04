@@ -37,32 +37,15 @@
      - 入力バリデーション方針の明示
      - 手動確認観点の網羅性
 
-5. 別モデルにレビュー依頼を実施する（必須）
-   - runSubagent を使用して別のエージェントにレビューを依頼する
-   - 下記を含むレビュー指示を送る:
-     - 対象ファイル内容（全文）
-     - レビュー観点（Step 4 で設定したもの）
-     - 対象プラットフォーム・機能情報（ファイルから自動抽出）
-     - 出力形式指示: JSON 形式で以下の構造を要求
-       ```json
-       {
-         "strengths": ["強み1", "強み2", ...],
-         "improvements": [
-           {
-             "section": "対象セクション名",
-             "issue": "問題点",
-             "severity": "high|medium|low",
-             "suggestion": "改善提案"
-           },
-           ...
-         ],
-         "missing_items": ["不足項目1", "不足項目2", ...],
-         "overall_assessment": "総合評価（文章）"
-       }
-       ```
+5. レビューを実施する（必須）
+   - ステップ4で設定した観点をもとに、対象ファイルを自分でレビューする
+   - 以下の構造で結果をまとめる:
+     - 強み（strengths）
+     - 改善点（improvements）: セクション名・問題点・severity（high/medium/low）・改善提案
+     - 不足項目（missing_items）
+     - 総合評価（overall_assessment）
 
 6. レビュー結果を整理・表示する（必須）
-   - レビュー結果の JSON を解析する
    - 強み（strengths）を表示する
    - 改善点（improvements）を severity 順に表示する:
      - `high`: 高優先度

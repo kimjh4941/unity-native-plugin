@@ -23,6 +23,14 @@
    - 実装前に次の既存サンプルコードを必ず確認する:
      - `Packages/com.jonghyunkim.nativetoolkit/Runtime/UI/` 配下の ExampleController 群
      - `Assets/Samples/Native Toolkit/` 配下のサンプルシーン
+   - native-toolkit 側のサンプルアプリ構成も必ず参照する（機能の見せ方・操作導線・結果表示の整合性確認のため）:
+     - リポジトリルート: `/Users/jonghyunkim/Desktop/native-toolkit/`
+     - プラットフォーム別サンプルアプリ:
+       - Android: `android/AndroidLibraryExample/app/src/main/java/.../example/`（例: `ShareSampleScreen.kt`, `ReceivedShareScreen.kt`, `ShareChooserActionReceiver.kt`）
+       - iOS: `ios/IosLibraryExample/`
+       - macOS: `mac/MacLibraryExample/`
+       - Windows: `windows/WindowsLibraryExample/`
+     - native サンプルアプリで提供している機能一覧・操作単位・結果/エラー表示の見せ方を Unity サンプルシーンに反映できないか検討し、差分があれば明記する
    - 次の観点で深掘りし、差分方針を先に確定する:
      - 画面構成（どの ExampleController / シーンで機能を見せるか）
      - 状態管理（入力値・実行中・結果表示の管理方法）
@@ -58,6 +66,7 @@
      - エラー表示（errorMessage）
    - **変更ファイル一覧**
      - 新規作成 / 既存変更 / 非変更を分類して列挙する
+     - `.meta` ファイルは Unity が自動生成するため記載しない
    - **実装方針**
      - 再利用する既存コンポーネントと追加するコンポーネント
      - 共通実装パターンのどこを維持しどこを拡張するか

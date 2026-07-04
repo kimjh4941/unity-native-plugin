@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Document"
+  short_description: "Wrap the shared document review workflow."
+  default_prompt: "Read agent-rules/workflows/review-document/workflow.md and execute it as the source of truth."

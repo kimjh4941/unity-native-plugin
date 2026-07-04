@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Implementation Sample Scene"
+  short_description: "Wrap the shared sample scene review workflow."
+  default_prompt: "Read agent-rules/workflows/review-implementation-sample-scene/workflow.md and execute it as the source of truth."
