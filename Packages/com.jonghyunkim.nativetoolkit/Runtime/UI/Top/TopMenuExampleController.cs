@@ -141,12 +141,11 @@ public class TopMenuExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareClicked)}]");
         if (uiDocument == null) return;
-#if UNITY_EDITOR && UNITY_IOS
-        // iOS build target selected in the Editor: preview the iOS Share sample.
-        NativeToolkitSampleNavigator.ShowIosShare(uiDocument);
-#elif UNITY_EDITOR
-        // Any other build target in the Editor: keep the existing Android Share preview.
-        NativeToolkitSampleNavigator.ShowAndroidShare(uiDocument);
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.DisplayDialog(
+            "Share Feature",
+            "This feature runs natively on Android or iOS.\nRun on an Android or iOS player for full functionality.",
+            "OK");
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidShare(uiDocument);
 #elif UNITY_IOS

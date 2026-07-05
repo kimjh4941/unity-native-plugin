@@ -760,5 +760,3 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 });
 #endif
 ```
-
-> **注記:** エディター上や非 iOS デバイスで `Share` を呼び出した場合も失敗となり、`ErrorMessage` には `"iOS share is only available on an iOS device."` が設定されます。これにより、実機がなくてもエディターのサンプルシーンでナビゲーションと結果表示の動作を確認できます。

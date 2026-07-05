@@ -760,5 +760,3 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 });
 #endif
 ```
-
-> **Note:** Calling `Share` in the Editor or on a non-iOS device also results in a failure, with `ErrorMessage` set to `"iOS share is only available on an iOS device."` This lets you verify the Editor sample scene's navigation and result display without a physical device.
