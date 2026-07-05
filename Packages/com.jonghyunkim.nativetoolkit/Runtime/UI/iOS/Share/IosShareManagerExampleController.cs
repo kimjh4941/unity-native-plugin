@@ -377,6 +377,7 @@ public class IosShareManagerExampleController : MonoBehaviour
 
     private string CreateSampleImage(string fileName)
     {
+        Debug.Log($"[{LogTag}][{nameof(CreateSampleImage)}] fileName: {fileName}");
         var source = Resources.Load<Texture2D>("Images/share_sample_image");
         if (source == null)
             throw new InvalidOperationException("share_sample_image not found in Resources.");
@@ -407,6 +408,7 @@ public class IosShareManagerExampleController : MonoBehaviour
 
     private static string CreateSampleTextFile(string fileName, string content)
     {
+        Debug.Log($"[{LogTag}][{nameof(CreateSampleTextFile)}] fileName: {fileName}, content: {content}");
         string path = Path.Combine(Application.persistentDataPath, fileName);
         File.WriteAllText(path, content);
         return path;
