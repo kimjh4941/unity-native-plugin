@@ -79,5 +79,47 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(string.Empty, result.ActionId);
         }
+
+        [Test]
+        public void IosShareResult_Success_Completed_StoresValues()
+        {
+            var result = IosShareResult.Success(completed: true, activityType: "com.apple.UIKit.activity.Mail");
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Completed);
+            Assert.AreEqual("com.apple.UIKit.activity.Mail", result.ActivityType);
+            Assert.IsNull(result.ErrorMessage);
+        }
+
+        [Test]
+        public void IosShareResult_Success_Cancelled_IsNotAnError()
+        {
+            var result = IosShareResult.Success(completed: false, activityType: null);
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsFalse(result.Completed);
+            Assert.IsNull(result.ActivityType);
+            Assert.IsNull(result.ErrorMessage);
+        }
+
+        [Test]
+        public void IosShareResult_Failure_SetsErrorMessage()
+        {
+            var result = IosShareResult.Failure("No shareable items were provided.");
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsFalse(result.Completed);
+            Assert.IsNull(result.ActivityType);
+            Assert.AreEqual("No shareable items were provided.", result.ErrorMessage);
+        }
+
+        [Test]
+        public void IosShareResult_Success_ErrorMessageIsNull_Invariant()
+        {
+            var result = IosShareResult.Success(completed: true, activityType: null);
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsNull(result.ErrorMessage, "ErrorMessage must be null when IsSuccess is true.");
+        }
     }
 }
