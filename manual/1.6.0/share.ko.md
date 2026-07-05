@@ -28,6 +28,20 @@
   - [대기 중 콜백 취소](#대기-중-콜백-취소)
   - [이벤트 수신](#이벤트-수신)
   - [에러 처리](#에러-처리)
+- [iOS](#ios)
+  - [설정](#설정-1)
+  - [텍스트 공유](#텍스트-공유-1)
+  - [URL 공유](#url-공유-1)
+  - [프리뷰 포함 URL 공유](#프리뷰-포함-url-공유)
+  - [이미지 공유](#이미지-공유-1)
+  - [다중 이미지 공유](#다중-이미지-공유-1)
+  - [파일 공유](#파일-공유-1)
+  - [다중 파일 공유](#다중-파일-공유-1)
+  - [텍스트와 URL 공유](#텍스트와-url-공유)
+  - [제목 포함 공유](#제목-포함-공유)
+  - [특정 액티비티 제외 공유](#특정-액티비티-제외-공유)
+  - [결과 수신](#결과-수신)
+  - [에러 처리](#에러-처리-1)
 
 ---
 
@@ -438,3 +452,313 @@ AndroidShareManager.Instance.ShareFile(new ShareFilePayload
 });
 #endif
 ```
+
+---
+
+## iOS
+
+### 설정
+
+#### 네임스페이스 가져오기
+
+`IosShareManager`는 iOS 빌드 타겟이 선택되어 있는 한 에디터를 포함해 항상 컴파일됩니다. 에디터나 iOS가 아닌 기기에서 `Share`를 호출해도 크래시하지 않고 즉시 실패 결과를 반환합니다([에러 처리](#에러-처리-1) 참조).
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Share;
+#endif
+```
+
+#### 이미지·파일 공유 시 경로
+
+Android와 달리 iOS에는 FileProvider 제약이 없습니다. `Application.persistentDataPath` 아래의 파일은 그대로 공유할 수 있습니다.
+
+```csharp
+string path = Path.Combine(Application.persistentDataPath, "my_image.png");
+```
+
+---
+
+### 텍스트 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Shared from Unity Native Toolkit") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareText.png" alt="Example_IosShareManager_ShareText" width="400" />
+</p>
+
+---
+
+### URL 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareUrl.png" alt="Example_IosShareManager_ShareUrl" width="400" />
+</p>
+
+---
+
+### 프리뷰 포함 URL 공유
+
+`previewTitle`을 지정하면 공유 시트의 콘텐츠 프리뷰 영역에 표시되는 제목을 설정할 수 있습니다.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") },
+    previewTitle = "Unity"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareUrlPreview.png" alt="Example_IosShareManager_ShareUrlPreview" width="400" />
+</p>
+
+---
+
+### 이미지 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string imagePath = Path.Combine(Application.persistentDataPath, "share_sample_image.png");
+// Share를 호출하기 전에 imagePath에 PNG 파일을 작성해 두세요.
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image(imagePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareImage.png" alt="Example_IosShareManager_ShareImage" width="400" />
+</p>
+
+---
+
+### 다중 이미지 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string imagePath1 = Path.Combine(Application.persistentDataPath, "share_sample_image_1.png");
+string imagePath2 = Path.Combine(Application.persistentDataPath, "share_sample_image_2.png");
+// Share를 호출하기 전에 각 경로에 PNG 파일을 작성해 두세요.
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image(imagePath1), IosShareItem.Image(imagePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareImages.png" alt="Example_IosShareManager_ShareImages" width="400" />
+</p>
+
+---
+
+### 파일 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string filePath = Path.Combine(Application.persistentDataPath, "share_sample_file.txt");
+File.WriteAllText(filePath, "This is a sample text file shared from Unity Native Toolkit.");
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File(filePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareFile.png" alt="Example_IosShareManager_ShareFile" width="400" />
+</p>
+
+---
+
+### 다중 파일 공유
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string filePath1 = Path.Combine(Application.persistentDataPath, "share_sample_file_1.txt");
+string filePath2 = Path.Combine(Application.persistentDataPath, "share_sample_file_2.txt");
+File.WriteAllText(filePath1, "Sample file 1 from Unity Native Toolkit.");
+File.WriteAllText(filePath2, "Sample file 2 from Unity Native Toolkit.");
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File(filePath1), IosShareItem.File(filePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareFiles.png" alt="Example_IosShareManager_ShareFiles" width="400" />
+</p>
+
+---
+
+### 텍스트와 URL 공유
+
+한 번의 `Share` 호출로 서로 다른 종류의 여러 아이템을 함께 공유할 수 있습니다.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Check this out"), IosShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareMultiple.png" alt="Example_IosShareManager_ShareMultiple" width="400" />
+</p>
+
+---
+
+### 제목 포함 공유
+
+`subject`는 Mail 등의 액티비티에서 메시지 제목으로 사용됩니다.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Body text") },
+    subject = "Sample Subject"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareWithSubject.png" alt="Example_IosShareManager_ShareWithSubject" width="400" />
+</p>
+
+---
+
+### 특정 액티비티 제외 공유
+
+`excludedActivityTypes`를 지정하면 공유 시트에서 지정한 액티비티 타입(raw identifier)을 숨길 수 있습니다.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") },
+    excludedActivityTypes = new[]
+    {
+        "com.apple.UIKit.activity.CopyToPasteboard",
+        "com.apple.UIKit.activity.PostToFacebook"
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareExcludingActivities.png" alt="Example_IosShareManager_ShareExcludingActivities" width="400" />
+</p>
+
+> **참고:** 특정 액티비티 타입이 실제로 공유 시트에 표시되는지 여부는 기기와 설치된 앱에 따라 달라집니다. Facebook과 같은 서드파티 액티비티는 테스트 기기에 설치되어 있지 않을 수 있으므로, `com.apple.UIKit.activity.CopyToPasteboard`(복사)를 주요 확인 대상으로 삼으세요.
+
+---
+
+### 결과 수신
+
+화면 전환 후 오래된 참조를 피하기 위해 `OnEnable`에서 `ShareCompleted`를 구독하고 `OnDisable`에서 해제합니다. `ShareCompleted`는 `Share`에 전달한 개별 콜백보다 항상 먼저 발생합니다.
+
+```csharp
+private void OnEnable()
+{
+#if UNITY_IOS || UNITY_EDITOR
+    IosShareManager.Instance.ShareCompleted += OnShareCompleted;
+#endif
+}
+
+private void OnDisable()
+{
+#if UNITY_IOS || UNITY_EDITOR
+    IosShareManager.Instance.ShareCompleted -= OnShareCompleted;
+#endif
+}
+
+#if UNITY_IOS || UNITY_EDITOR
+private void OnShareCompleted(IosShareResult result)
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"Share failed: {result.ErrorMessage}");
+        return;
+    }
+
+    if (result.Completed)
+    {
+        Debug.Log($"Share completed: activityType={result.ActivityType}");
+    }
+    else
+    {
+        Debug.Log("Share cancelled by the user.");
+    }
+}
+#endif
+```
+
+> **참고:** 사용자의 취소는 에러로 취급되지 않습니다. `IsSuccess`는 `true`, `Completed`는 `false`가 되며 `ActivityType`은 `null`이 됩니다.
+
+---
+
+### 에러 처리
+
+모든 `Share` 호출 결과는 `ShareCompleted`(및 `Share`에 전달한 개별 콜백)를 통해 보고됩니다. `IsSuccess`가 `false`인 경우 `ErrorMessage`는 항상 non-null입니다.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+// 아이템 없음: 공유 시트를 표시하지 않고 즉시 실패합니다.
+// ErrorMessage: "No shareable items were provided."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = Array.Empty<IosShareItem>()
+});
+
+// 유효하지 않은 URL 문자열: 네이티브 유효성 검사 오류로 실패합니다.
+// ErrorMessage: "Invalid URL: not a valid url."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("not a valid url") }
+});
+
+// 파일 없음: 네이티브 레이어가 파일을 찾지 못하면 실패합니다.
+// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File("/nonexistent/share-missing.txt") }
+});
+
+// 이미지 없음: 네이티브 레이어가 이미지를 로드하지 못하면 실패합니다.
+// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }
+});
+#endif
+```
+
+> **참고:** 에디터나 iOS가 아닌 기기에서 `Share`를 호출해도 실패하며, `ErrorMessage`에는 `"iOS share is only available on an iOS device."`가 설정됩니다. 이를 통해 실제 기기 없이도 에디터 샘플 씬에서 내비게이션과 결과 표시 동작을 확인할 수 있습니다.

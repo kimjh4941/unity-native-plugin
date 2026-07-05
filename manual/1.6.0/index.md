@@ -3,12 +3,12 @@
 [English](index.md) | [Korean](index.ko.md) | [Japanese](index.ja.md)
 
 - A toolkit that provides native features for Unity 6+.
-- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs and notifications via singleton APIs per platform.
+- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, and sharing via singleton APIs per platform.
 - Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build project setup.
 
 # Version
 
-## 1.5.0
+## 1.6.0
 
 # Supported OS Versions
 
@@ -63,6 +63,13 @@
   - Update / cancel / remove delivered / fetch state
   - Badge count management
   - Category registration / actions / text input actions
+- Share features
+  - Share text / URL / URL with preview
+  - Share image / multiple images
+  - Share file / multiple files
+  - Share text and URL together
+  - Share with subject
+  - Exclude specific activities from the share sheet
 
 ## Windows
 
@@ -115,7 +122,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
 - Click "install".
 - Requirements:
   - Unity 6+

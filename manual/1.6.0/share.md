@@ -28,6 +28,20 @@ Language:
   - [Cancel Pending Callback](#cancel-pending-callback)
   - [Receive Events](#receive-events)
   - [Error Handling](#error-handling)
+- [iOS](#ios)
+  - [Setup](#setup-1)
+  - [Share Text](#share-text-1)
+  - [Share URL](#share-url-1)
+  - [Share URL with Preview](#share-url-with-preview)
+  - [Share Image](#share-image-1)
+  - [Share Multiple Images](#share-multiple-images-1)
+  - [Share File](#share-file-1)
+  - [Share Multiple Files](#share-multiple-files-1)
+  - [Share Text and URL](#share-text-and-url)
+  - [Share with Subject](#share-with-subject)
+  - [Share Excluding Activities](#share-excluding-activities)
+  - [Receive results](#receive-results)
+  - [Error Handling](#error-handling-1)
 
 ---
 
@@ -438,3 +452,313 @@ AndroidShareManager.Instance.ShareFile(new ShareFilePayload
 });
 #endif
 ```
+
+---
+
+## iOS
+
+### Setup
+
+#### Import the namespace
+
+`IosShareManager` compiles whenever the iOS build target is selected, including in the Editor. Calling `Share` in the Editor or on a non-iOS device does not crash; it returns an immediate failure result instead (see [Error Handling](#error-handling-1)).
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Share;
+#endif
+```
+
+#### File paths for sharing images and files
+
+Unlike Android, iOS has no FileProvider restriction. Any file under `Application.persistentDataPath` can be shared directly.
+
+```csharp
+string path = Path.Combine(Application.persistentDataPath, "my_image.png");
+```
+
+---
+
+### Share Text
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Shared from Unity Native Toolkit") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareText.png" alt="Example_IosShareManager_ShareText" width="400" />
+</p>
+
+---
+
+### Share URL
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareUrl.png" alt="Example_IosShareManager_ShareUrl" width="400" />
+</p>
+
+---
+
+### Share URL with Preview
+
+`previewTitle` sets the title shown in the share sheet's content preview area.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") },
+    previewTitle = "Unity"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareUrlPreview.png" alt="Example_IosShareManager_ShareUrlPreview" width="400" />
+</p>
+
+---
+
+### Share Image
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string imagePath = Path.Combine(Application.persistentDataPath, "share_sample_image.png");
+// Write a PNG file to imagePath before calling Share.
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image(imagePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareImage.png" alt="Example_IosShareManager_ShareImage" width="400" />
+</p>
+
+---
+
+### Share Multiple Images
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string imagePath1 = Path.Combine(Application.persistentDataPath, "share_sample_image_1.png");
+string imagePath2 = Path.Combine(Application.persistentDataPath, "share_sample_image_2.png");
+// Write PNG files to the paths before calling Share.
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image(imagePath1), IosShareItem.Image(imagePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareImages.png" alt="Example_IosShareManager_ShareImages" width="400" />
+</p>
+
+---
+
+### Share File
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string filePath = Path.Combine(Application.persistentDataPath, "share_sample_file.txt");
+File.WriteAllText(filePath, "This is a sample text file shared from Unity Native Toolkit.");
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File(filePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareFile.png" alt="Example_IosShareManager_ShareFile" width="400" />
+</p>
+
+---
+
+### Share Multiple Files
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+string filePath1 = Path.Combine(Application.persistentDataPath, "share_sample_file_1.txt");
+string filePath2 = Path.Combine(Application.persistentDataPath, "share_sample_file_2.txt");
+File.WriteAllText(filePath1, "Sample file 1 from Unity Native Toolkit.");
+File.WriteAllText(filePath2, "Sample file 2 from Unity Native Toolkit.");
+
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File(filePath1), IosShareItem.File(filePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareFiles.png" alt="Example_IosShareManager_ShareFiles" width="400" />
+</p>
+
+---
+
+### Share Text and URL
+
+Multiple items of different types can be shared together in a single `Share` call.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Check this out"), IosShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareMultiple.png" alt="Example_IosShareManager_ShareMultiple" width="400" />
+</p>
+
+---
+
+### Share with Subject
+
+`subject` is used by Mail and similar activities as the message subject line.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Text("Body text") },
+    subject = "Sample Subject"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareWithSubject.png" alt="Example_IosShareManager_ShareWithSubject" width="400" />
+</p>
+
+---
+
+### Share Excluding Activities
+
+`excludedActivityTypes` hides the specified activity types (raw identifiers) from the share sheet.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("https://unity.com") },
+    excludedActivityTypes = new[]
+    {
+        "com.apple.UIKit.activity.CopyToPasteboard",
+        "com.apple.UIKit.activity.PostToFacebook"
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/ios/share/Example_IosShareManager_ShareExcludingActivities.png" alt="Example_IosShareManager_ShareExcludingActivities" width="400" />
+</p>
+
+> **Note:** Whether a given activity type actually appears in the share sheet also depends on the device and installed apps. Verify with `com.apple.UIKit.activity.CopyToPasteboard` (Copy) as the primary check, since third-party activities such as Facebook may or may not be installed on the test device.
+
+---
+
+### Receive results
+
+Subscribe to `ShareCompleted` on `OnEnable` and unsubscribe on `OnDisable` to avoid stale references after screen transitions. `ShareCompleted` always fires before the optional per-call callback passed to `Share`.
+
+```csharp
+private void OnEnable()
+{
+#if UNITY_IOS || UNITY_EDITOR
+    IosShareManager.Instance.ShareCompleted += OnShareCompleted;
+#endif
+}
+
+private void OnDisable()
+{
+#if UNITY_IOS || UNITY_EDITOR
+    IosShareManager.Instance.ShareCompleted -= OnShareCompleted;
+#endif
+}
+
+#if UNITY_IOS || UNITY_EDITOR
+private void OnShareCompleted(IosShareResult result)
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"Share failed: {result.ErrorMessage}");
+        return;
+    }
+
+    if (result.Completed)
+    {
+        Debug.Log($"Share completed: activityType={result.ActivityType}");
+    }
+    else
+    {
+        Debug.Log("Share cancelled by the user.");
+    }
+}
+#endif
+```
+
+> **Note:** User cancellation is not an error: `IsSuccess` is `true` and `Completed` is `false`, with `ActivityType` set to `null`.
+
+---
+
+### Error Handling
+
+All `Share` calls report their outcome via `ShareCompleted` (and the optional per-call callback passed to `Share`). The `ErrorMessage` field is guaranteed to be non-null whenever `IsSuccess` is `false`.
+
+```csharp
+#if UNITY_IOS || UNITY_EDITOR
+// No items: fails immediately without presenting the share sheet.
+// ErrorMessage: "No shareable items were provided."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = Array.Empty<IosShareItem>()
+});
+
+// Invalid URL string: fails with a native validation error.
+// ErrorMessage: "Invalid URL: not a valid url."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Url("not a valid url") }
+});
+
+// Missing file: fails when the native layer cannot find the file.
+// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.File("/nonexistent/share-missing.txt") }
+});
+
+// Missing image: fails when the native layer cannot load the image.
+// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+IosShareManager.Instance.Share(new IosShareContentPayload
+{
+    items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }
+});
+#endif
+```
+
+> **Note:** Calling `Share` in the Editor or on a non-iOS device also results in a failure, with `ErrorMessage` set to `"iOS share is only available on an iOS device."` This lets you verify the Editor sample scene's navigation and result display without a physical device.

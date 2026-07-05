@@ -3,12 +3,12 @@
 [English](index.md) | [Korean](index.ko.md) | [Japanese](index.ja.md)
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
-- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
+- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
 - Editor 창을 통해 네이티브 라이브러리와 Gradle/Xcode 설정을 추가하여 빌드 후 프로젝트 정리를 워크플로로 제공합니다.
 
 # 버전
 
-## 1.5.0
+## 1.6.0
 
 # 지원 OS 버전
 
@@ -63,6 +63,13 @@
   - 알림 업데이트 / 취소 / 전달 완료 알림 삭제 / 상태 조회
   - 배지 개수 설정
   - 카테고리 등록 / 액션 / 텍스트 입력 액션
+- 공유 기능
+  - 텍스트 / URL / 프리뷰 포함 URL 공유
+  - 이미지 / 다중 이미지 공유
+  - 파일 / 다중 파일 공유
+  - 텍스트와 URL 동시 공유
+  - 제목 포함 공유
+  - 공유 시트에서 특정 액티비티 제외
 
 ## Windows
 
@@ -115,7 +122,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
