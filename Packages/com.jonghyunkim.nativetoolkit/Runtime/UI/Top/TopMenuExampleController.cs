@@ -83,7 +83,7 @@ public class TopMenuExampleController : MonoBehaviour
         }
 #endif
 
-#if UNITY_ANDROID || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
         if (_shareButton != null)
         {
             _shareButton.clicked += OnShareClicked;
@@ -91,7 +91,7 @@ public class TopMenuExampleController : MonoBehaviour
 #else
         if (_shareButton != null)
         {
-            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Share feature is only supported on Android. Hiding button.");
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Share feature is only supported on Android and iOS. Hiding button.");
             _shareButton.style.display = DisplayStyle.None;
         }
 #endif
@@ -141,8 +141,16 @@ public class TopMenuExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareClicked)}]");
         if (uiDocument == null) return;
-#if UNITY_EDITOR || UNITY_ANDROID
+#if UNITY_EDITOR && UNITY_IOS
+        // iOS build target selected in the Editor: preview the iOS Share sample.
+        NativeToolkitSampleNavigator.ShowIosShare(uiDocument);
+#elif UNITY_EDITOR
+        // Any other build target in the Editor: keep the existing Android Share preview.
         NativeToolkitSampleNavigator.ShowAndroidShare(uiDocument);
+#elif UNITY_ANDROID
+        NativeToolkitSampleNavigator.ShowAndroidShare(uiDocument);
+#elif UNITY_IOS
+        NativeToolkitSampleNavigator.ShowIosShare(uiDocument);
 #endif
     }
 }
