@@ -121,5 +121,24 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(result.IsSuccess);
             Assert.IsNull(result.ErrorMessage, "ErrorMessage must be null when IsSuccess is true.");
         }
+
+        [Test]
+        public void IosShareResult_Failure_NullError_NormalizesMessage()
+        {
+            var result = IosShareResult.Failure(null);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsNotNull(result.ErrorMessage, "ErrorMessage must be non-null when IsSuccess is false.");
+            Assert.AreEqual("Unknown error.", result.ErrorMessage);
+        }
+
+        [Test]
+        public void IosShareResult_Failure_WhitespaceError_NormalizesMessage()
+        {
+            var result = IosShareResult.Failure("   ");
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual("Unknown error.", result.ErrorMessage);
+        }
     }
 }

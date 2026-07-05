@@ -26,7 +26,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
         public string? ActivityType { get; }
 
         /// <summary>
-        /// Gets the error message when the operation failed, otherwise <c>null</c>.
+        /// Gets the error message when the operation failed. Guaranteed to be non-null whenever
+        /// <see cref="IsSuccess"/> is <c>false</c>.
         /// </summary>
         public string? ErrorMessage { get; }
 
@@ -40,12 +41,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
             new(true, completed, activityType, null);
 
         /// <summary>
-        /// Creates a failed share result.
+        /// Creates a failed share result. A <c>null</c> or blank <paramref name="error"/> is
+        /// normalized to a default message so <see cref="ErrorMessage"/> is always non-null when
+        /// <see cref="IsSuccess"/> is <c>false</c>.
         /// </summary>
         /// <param name="error">The error message describing the failure.</param>
         /// <returns>A failed <see cref="IosShareResult"/>.</returns>
         public static IosShareResult Failure(string? error) =>
-            new(false, false, null, error);
+            new(false, false, null, string.IsNullOrWhiteSpace(error) ? "Unknown error." : error);
 
         private IosShareResult(bool isSuccess, bool completed, string? activityType, string? errorMessage)
         {
