@@ -64,6 +64,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowIosShare(UIDocument uiDocument)
+    {
+#if UNITY_IOS || UNITY_EDITOR
+        ApplyScreen<IosShareManagerExampleController>(
+            uiDocument,
+            "UI/iOS/Share/IosShareManagerExample",
+            "UI/iOS/Share/IosShareManagerExampleStyle");
+#endif
+    }
+
     public static void ShowWindowsDialog(UIDocument uiDocument)
     {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
@@ -147,6 +157,7 @@ public static class NativeToolkitSampleNavigator
 #if UNITY_IOS || UNITY_EDITOR
         RemoveIfExists<IosDialogManagerExampleController>(gameObject);
         RemoveIfExists<IosNotificationManagerExampleController>(gameObject);
+        RemoveIfExists<IosShareManagerExampleController>(gameObject);
 #endif
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
         RemoveIfExists<WindowsDialogManagerExampleController>(gameObject);

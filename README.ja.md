@@ -1,7 +1,7 @@
 # Unity Native Toolkit (Unity 6)
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
-- パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知などのネイティブ機能をシングルトン API で扱えます。
+- パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知・共有などのネイティブ機能をシングルトン API で扱えます。
 - Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
 
 他言語 README:
@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.5.0
+- 1.6.0
 
 ## 対応 OS バージョン
 
@@ -64,6 +64,13 @@
   - 通知更新 / キャンセル / 配信済み削除 / 状態取得
   - バッジ数設定
   - カテゴリ登録 / アクション / テキスト入力アクション
+- 共有機能
+  - テキスト / URL / プレビュー付きURL共有
+  - 画像 / 複数画像共有
+  - ファイル / 複数ファイル共有
+  - テキストとURLの同時共有
+  - 件名付き共有
+  - 共有シートから特定アクティビティを除外
 
 ### Windows
 
@@ -113,7 +120,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.5.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -136,7 +143,7 @@
 ## Native Toolkit
 
 - native-toolkit は、各プラットフォームのネイティブ機能を統一的に扱うためのツールキットです。
-- パッケージには Android / iOS / Windows / macOS 向けのネイティブプラグインとサンプルが含まれ、ダイアログ・通知などのネイティブ機能をシングルトン API で利用できます。
+- パッケージには Android / iOS / Windows / macOS 向けのネイティブプラグインとサンプルが含まれ、ダイアログ・通知・共有などのネイティブ機能をシングルトン API で利用できます。
 - Repository: https://github.com/kimjh4941/native-toolkit
 
 ## ライセンス

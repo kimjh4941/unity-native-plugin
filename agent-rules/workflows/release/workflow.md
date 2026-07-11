@@ -83,11 +83,21 @@
 
 （ステップ5 でマージした場合のみ実行）
 
+- **マージ方式は必ず `--merge`（merge commit）を使用する。squash は使用しない**
+  - 理由: develop→main を squash すると、main 側のコミットが develop の履歴と親子関係を持たなくなる
+    - 次回リリース時に `git merge-base develop main` が実際より古いコミットまで遡ってしまい、develop 側で既に取り込み済みの変更が「両側で別々に変更された」と誤認されて偽コンフリクトが発生する
+    - feature→develop 側（ステップ5）は squash のままで問題ない（トピックブランチ整理が目的で、develop 自身の履歴の連続性には影響しないため）
+
 1. `git fetch origin && git checkout develop && git pull origin develop` を実行する
 2. `gh pr create --base main --title "Release v<version>" --body "<ステップ4のリリースノート>"` を実行する
 3. PR URL を表示する
 4. 「develop → main PR をマージしますか？」を確認する:
-   - マージする: `gh pr merge <PR番号> --<squash|merge>` を実行する
+   - マージする: `gh pr merge <PR番号> --merge` を実行する
+     - コンフリクトが発生した場合:
+       - `gh pr checkout <PR番号> && git fetch origin main` を実行する
+       - コンフリクトファイルについて、`origin/main` 側の blob ハッシュが develop の過去コミット（前回リリース時点など）の blob ハッシュと一致するか確認する（squash-merge 由来の偽コンフリクトである可能性が高いため）
+       - 一致する場合: `git merge -X ours origin/main` で develop 側の内容を採用してマージし、push する
+       - 一致しない場合（真のコンフリクト）: 内容を確認しユーザーに解決方針を確認する
    - あとで手動でマージする: PR URL を表示し、「手動マージ後にタグ・GitHub Release を作成しますか？」を確認する
      - 作成する: ステップ7 へ
      - スキップ: 終了
