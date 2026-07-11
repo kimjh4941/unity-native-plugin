@@ -55,11 +55,18 @@
    - 総合評価を表示する
 
 7. レビュー結果をファイルに保存する（必須）
-   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<os>-<feature>-<document-type>-review.md`
+   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
      - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）
      - `<feature>`: 対象ファイルのパスから自動抽出（例: `notification`）
      - `<document-type>`: ファイル種別に応じて `design` / `implementation-feature` / `sample-scene-design` など
-     - 例: `artifact/reviews/notification/2026-05-16-macos-notification-implementation-feature-review.md`
+     - `vN`: レビュー結果のバージョン。**必ずバージョンを付与し、既存ファイルは上書きしない**
+     - 例: `artifact/reviews/notification/2026-05-16-macos-notification-implementation-feature-review-v1.md`
+   - **バージョン採番ルール（必須）:**
+     - 保存先ディレクトリ内で、同じ `YYYY-MM-DD-<os>-<feature>-<document-type>-review` プレフィックスを持つ
+       既存ファイルを探索する
+     - 既存がなければ `v1` で新規作成する
+     - 既存がある場合は、最も大きい `vN` を見つけて `v(N+1)` で新規作成する（**既存ファイルは上書きしない**）
+     - バージョンサフィックスがない旧形式のファイル（`...-review.md`）が存在する場合は `v1` とみなす
    - ファイル形式（Markdown）:
      ```
      # レビュー結果
