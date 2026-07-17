@@ -59,27 +59,36 @@
 
 ### 3.1 実機手動確認（macOS Standalone プレイヤー、macOS 15 以降）
 
-| 観点 | 操作 | 期待結果 |
-| --- | --- | --- |
-| TopMenu 導線 | TopMenu で Share ボタン押下 | macOS Share サンプル画面へ遷移する |
-| Picker - Basic/Multiple/Filter | 各ボタン押下 | 共有ピッカーが提示される（**mouseDown 依存・要検証**）。選択完了で `completed=true, service=...`、キャンセルで `completed=false` |
-| Share Excluding Services | ボタン押下 | "Add to Reading List" がピッカー候補から除外される（ベストエフォート） |
-| Share via Mail | ボタン押下 | Mail 作成画面が起動し、recipients/subject が反映される（`ShareViaService`・verified-safe） |
-| Share Empty | ボタン押下 | `No shareable items were provided.` |
-| Share Invalid URL | ボタン押下 | `Invalid URL: not a valid url.` |
-| Share Missing File | ボタン押下 | `File not found at path: /nonexistent/share-missing.txt.` |
-| Share Missing Image | ボタン押下 | `Failed to load image at path: /nonexistent/share-missing.png.` |
-| Share Unknown Service | ボタン押下 | `Sharing service unavailable: invalid.service.` |
-| Home 導線 | Home ボタン押下 | TopMenu へ戻る |
+| 観点 | 操作 | 期待結果 | 確認結果 |
+| --- | --- | --- | --- |
+| TopMenu 導線 | TopMenu で Share ボタン押下 | macOS Share サンプル画面へ遷移する | 確認済み |
+| Picker - Basic/Multiple/Filter | 各ボタン押下 | 共有ピッカーが提示される（**mouseDown 依存・要検証**）。選択完了で `completed=true, service=...`、キャンセルで `completed=false` | 確認済み |
+| Share Excluding Services | ボタン押下 | "Add to Reading List" がピッカー候補から除外される（ベストエフォート） | 確認済み |
+| Share via Mail | ボタン押下 | Mail 作成画面が起動し、recipients/subject が反映される（`ShareViaService`・verified-safe） | 確認済み |
+| Share Empty | ボタン押下 | `No shareable items were provided.` | 確認済み |
+| Share Invalid URL | ボタン押下 | `Invalid URL: not a valid url.` | 確認済み |
+| Share Missing File | ボタン押下 | `File not found at path: /nonexistent/share-missing.txt.` | 確認済み |
+| Share Missing Image | ボタン押下 | `Failed to load image at path: /nonexistent/share-missing.png.` | 確認済み |
+| Share Unknown Service | ボタン押下 | `Sharing service unavailable: invalid.service.` | 確認済み |
+| Home 導線 | Home ボタン押下 | TopMenu へ戻る | 確認済み |
+
+### 3.1.1 実機確認結果（追記: 2026-07-12）
+
+- 実機 macOS で上記 3.1 の全項目（サンプル画面の全ボタン + Home 導線）を確認済み。いずれも期待結果どおりで、`ResultTextBlock` の結果表示も問題なし
+- **Share Text**（Picker - Basic）確認時、以下のシステムログが出力されたが、いずれも `MacShareManager` の完了コールバック到達前に発生する AppKit/CoreAudio/Metal 側の既知の無害なログであり、アプリ側の `ShareError` / `Failure` 分岐には該当しないことを確認した:
+  - `HALC_ProxyIOContext.cpp: skipping cycle due to overload`（CoreAudio HAL 内部ログ）
+  - `Unable to create bundle at URL ((null)): normalized URL null`（`NSSharingServicePicker` が候補サービスのバンドル解決時に出す既知ログ）
+  - `precondition failure: unable to load binary archive for shader library: .../IconRendering.framework/...binary.metallib`（ピッカーのサービスアイコン描画時の Metal シェーダーキャッシュ警告）
+  - 2 回目の `[sharingServicesForItems] proposed: 0` は AppKit 側の内部再クエリで、`excludedServiceTitles` が空のため `SharePickerPresenter.swift` 側のフィルタは関与していない
+- 上記はコンソール出力のみで、`IsSuccess`/`ErrorMessage` には影響しない。他のボタンでも同種のログが出ることがあるが、結果表示が正常であるため機能上は無害と判断する
 
 ### 3.2 未実施項目（理由付き）
 
 | 項目 | 理由 |
 | --- | --- |
-| 上記 3.1 の全実機確認 | 実機 macOS 15 以降が必要。本セッションでは未実施（要実機確認） |
-| 共有ピッカー本体の提示・選択・キャンセル | ネイティブモーダル UI + mouseDown 依存で自動化不可。実機手動のみ |
-| Mail 起動後の結果 | 他アプリ（Mail）内部 UI のため自動化・本セッションでの検証対象外 |
-| `excludedServiceTitles` の実効フィルタ | ネイティブピッカー内部表示のため自動化不可、実機手動確認が必要 |
+| 共有ピッカー本体の提示・選択・キャンセルの自動化 | ネイティブモーダル UI + mouseDown 依存で自動化不可。3.1.1 のとおり実機手動で確認済み、自動テスト化は対象外 |
+| Mail 起動後の結果の自動化 | 他アプリ（Mail）内部 UI のため自動化不可。3.1.1 のとおり実機手動で確認済み |
+| `excludedServiceTitles` の実効フィルタの自動化 | ネイティブピッカー内部表示のため自動化不可。3.1.1 のとおり実機手動で確認済み |
 | PlayMode 自動化テスト（計画書 §6.2 の任意項目） | 本セッションでは実装せず。理由: Unity Editor が同一プロジェクトで起動中のため PlayMode 実行検証ができず、実装の優先度を EditMode 配線テストに絞った |
 
 ## 4. ビルド結果
@@ -107,8 +116,8 @@
 - ○ 計画書 §2〜§5 の画面要件・変更ファイル一覧・実装詳細の反映
 - ○ 既存 ExampleController パターンとの整合（維持/拡張の区別を明記）
 - ○ コンパイル検証（Runtime / Tests、dotnet build 経由）
-- △ Unity Editor 上でのコンパイル確認・UXML/USS インポート確認（Editor 起動中のため未実施、手動確認が必要）
-- △ 実機 macOS での手動確認（picker mouseDown 挙動、Mail 起動、excludedServiceTitles フィルタ）
+- ○ Unity Editor 上でのコンパイル確認・UXML/USS インポート確認（実機実行が成立したことにより間接確認済み。§3.1.1）
+- ○ 実機 macOS での手動確認（picker mouseDown 挙動、Mail 起動、excludedServiceTitles フィルタを含む全項目。§3.1/§3.1.1）
 - - PlayMode 自動化（計画書 §6.2 の任意項目、本セッションでは未実装）
 
 ## 7. ステップ8 実行確認
