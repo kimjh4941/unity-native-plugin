@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.6.0
+- 1.7.0
 
 ## Supported OS Versions
 
@@ -110,6 +110,14 @@ Other languages:
   - Badge count management
   - Category registration / actions / text input actions
 
+- Share features
+  - Share text / URL
+  - Share image / multiple images
+  - Share file / multiple files
+  - Share text and URL together
+  - Share excluding services
+  - Share via a named service (e.g. Mail)
+
 ## Planned Features
 
 - Clipboard integration
@@ -120,7 +128,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
 - Click "install".
 - Requirements:
   - Unity 6+

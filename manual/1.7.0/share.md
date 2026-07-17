@@ -42,6 +42,19 @@ Language:
   - [Share Excluding Activities](#share-excluding-activities)
   - [Receive results](#receive-results)
   - [Error Handling](#error-handling-1)
+- [macOS](#macos)
+  - [Setup](#setup-2)
+  - [Share Text](#share-text-2)
+  - [Share URL](#share-url-2)
+  - [Share Image](#share-image-2)
+  - [Share File](#share-file-2)
+  - [Share Multiple Images](#share-multiple-images-2)
+  - [Share Multiple Files](#share-multiple-files-2)
+  - [Share Text and URL](#share-text-and-url-1)
+  - [Share Excluding Services](#share-excluding-services)
+  - [Share via a Named Service (Mail)](#share-via-a-named-service-mail)
+  - [Receive results](#receive-results-1)
+  - [Error Handling](#error-handling-2)
 
 ---
 
@@ -757,6 +770,302 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }
+});
+#endif
+```
+
+---
+
+## macOS
+
+macOS sharing is provided through `MacShareManager`. It exposes two entry points: `Share` presents the system sharing service picker (`NSSharingServicePicker`), and `ShareViaService` performs a single named service directly without showing the picker.
+
+> **Note:** `Share` (the picker) must be invoked from a user-initiated action, such as a button click, since `NSSharingServicePicker.show(...)` requires a `mouseDown` event context. `ShareViaService` does not have this requirement and is the more reliable path when you need a deterministic result (for example, always sharing via Mail).
+
+### Setup
+
+#### Import the namespace
+
+`MacShareManager` compiles whenever the macOS Standalone build target is selected, including in the Editor. Calling `Share` or `ShareViaService` in the Editor or on a non-macOS player does not crash; it returns an immediate failure result instead (see [Error Handling](#error-handling-2)).
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Share;
+#endif
+```
+
+#### File paths for sharing images and files
+
+macOS has no FileProvider-style restriction. Any file under `Application.persistentDataPath` can be shared directly.
+
+```csharp
+string path = Path.Combine(Application.persistentDataPath, "my_image.png");
+```
+
+---
+
+### Share Text
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Shared from Unity Native Toolkit") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareText.png" alt="Example_MacShareManager_ShareText" width="400" />
+</p>
+
+---
+
+### Share URL
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareUrl.png" alt="Example_MacShareManager_ShareUrl" width="400" />
+</p>
+
+---
+
+### Share Image
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath = Path.Combine(Application.persistentDataPath, "share_sample_image.png");
+// Write a PNG file to imagePath before calling Share.
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImage.png" alt="Example_MacShareManager_ShareImage" width="400" />
+</p>
+
+---
+
+### Share File
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath = Path.Combine(Application.persistentDataPath, "share_sample_file.txt");
+File.WriteAllText(filePath, "This is a sample text file shared from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFile.png" alt="Example_MacShareManager_ShareFile" width="400" />
+</p>
+
+---
+
+### Share Multiple Images
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath1 = Path.Combine(Application.persistentDataPath, "share_sample_image_1.png");
+string imagePath2 = Path.Combine(Application.persistentDataPath, "share_sample_image_2.png");
+// Write PNG files to the paths before calling Share.
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath1), MacShareItem.Image(imagePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImages.png" alt="Example_MacShareManager_ShareImages" width="400" />
+</p>
+
+---
+
+### Share Multiple Files
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath1 = Path.Combine(Application.persistentDataPath, "share_sample_file_1.txt");
+string filePath2 = Path.Combine(Application.persistentDataPath, "share_sample_file_2.txt");
+File.WriteAllText(filePath1, "Sample file 1 from Unity Native Toolkit.");
+File.WriteAllText(filePath2, "Sample file 2 from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath1), MacShareItem.File(filePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFiles.png" alt="Example_MacShareManager_ShareFiles" width="400" />
+</p>
+
+---
+
+### Share Text and URL
+
+Multiple items of different types can be shared together in a single `Share` call.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Check this out"), MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareTextAndUrl.png" alt="Example_MacShareManager_ShareTextAndUrl" width="400" />
+</p>
+
+---
+
+### Share Excluding Services
+
+`excludedServiceTitles` hides services whose display title matches one of the given strings (best-effort match against `NSSharingService.title`).
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") },
+    excludedServiceTitles = new[] { "Add to Reading List" }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareExcludingServices.png" alt="Example_MacShareManager_ShareExcludingServices" width="400" />
+</p>
+
+---
+
+### Share via a Named Service (Mail)
+
+`ShareViaService` performs a single named sharing service directly, without presenting the picker. `recipients` and `subject` are applied when the target service supports them (for example, Mail). Use `MacShareServiceNames` for known raw service identifiers.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.ShareViaService(MacShareServiceNames.MailCompose, new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") },
+    recipients = new[] { "test@example.com" },
+    subject = "Sample Subject"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareViaMail.png" alt="Example_MacShareManager_ShareViaMail" width="400" />
+</p>
+
+> **Note:** `MacShareServiceNames` holds well-known raw `NSSharingService.Name` identifiers such as `MailCompose`. These are input identifiers for `ShareViaService`, not the display names returned in `MacShareResult.ServiceName`.
+
+---
+
+### Receive results
+
+Subscribe to `ShareCompleted` on `OnEnable` and unsubscribe on `OnDisable` to avoid stale references after screen transitions. `ShareCompleted` fires for both `Share` and `ShareViaService`, and it always fires before the optional per-call callback passed to either method.
+
+```csharp
+private void OnEnable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted += OnShareCompleted;
+#endif
+}
+
+private void OnDisable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted -= OnShareCompleted;
+#endif
+}
+
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private void OnShareCompleted(MacShareResult result)
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"Share failed: {result.ErrorMessage}");
+        return;
+    }
+
+    if (result.Completed)
+    {
+        Debug.Log($"Share completed: service={result.ServiceName}");
+    }
+    else
+    {
+        Debug.Log("Share cancelled by the user.");
+    }
+}
+#endif
+```
+
+> **Note:** User cancellation is not an error: `IsSuccess` is `true` and `Completed` is `false`, with `ServiceName` set to `null`.
+
+---
+
+### Error Handling
+
+All `Share` and `ShareViaService` calls report their outcome via `ShareCompleted` (and the optional per-call callback). The `ErrorMessage` field is guaranteed to be non-null whenever `IsSuccess` is `false`.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+// No items: fails immediately without presenting the picker.
+// ErrorMessage: "No shareable items were provided."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = Array.Empty<MacShareItem>()
+});
+
+// Invalid URL string: fails with a native validation error.
+// ErrorMessage: "Invalid URL: not a valid url."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("not a valid url") }
+});
+
+// Missing file: fails when the native layer cannot find the file.
+// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File("/nonexistent/share-missing.txt") }
+});
+
+// Missing image: fails when the native layer cannot load the image.
+// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image("/nonexistent/share-missing.png") }
+});
+
+// Unknown service: fails when the named service does not exist or cannot perform.
+// ErrorMessage: "Sharing service unavailable: invalid.service."
+MacShareManager.Instance.ShareViaService("invalid.service", new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") }
 });
 #endif
 ```

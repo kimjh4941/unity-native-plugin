@@ -42,6 +42,19 @@
   - [특정 액티비티 제외 공유](#특정-액티비티-제외-공유)
   - [결과 수신](#결과-수신)
   - [에러 처리](#에러-처리-1)
+- [macOS](#macos)
+  - [설정](#설정-2)
+  - [텍스트 공유](#텍스트-공유-2)
+  - [URL 공유](#url-공유-2)
+  - [이미지 공유](#이미지-공유-2)
+  - [파일 공유](#파일-공유-2)
+  - [다중 이미지 공유](#다중-이미지-공유-2)
+  - [다중 파일 공유](#다중-파일-공유-2)
+  - [텍스트와 URL 공유](#텍스트와-url-공유-1)
+  - [서비스 제외 공유](#서비스-제외-공유)
+  - [지정 서비스 경유 공유 (Mail)](#지정-서비스-경유-공유-mail)
+  - [결과 수신](#결과-수신-1)
+  - [에러 처리](#에러-처리-2)
 
 ---
 
@@ -757,6 +770,302 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }
+});
+#endif
+```
+
+---
+
+## macOS
+
+macOS 공유 기능은 `MacShareManager`를 통해 제공됩니다. 두 가지 진입점을 제공합니다. `Share`는 시스템 공유 서비스 피커(`NSSharingServicePicker`)를 표시하고, `ShareViaService`는 피커를 표시하지 않고 지정한 서비스 하나를 직접 실행합니다.
+
+> **참고:** `Share`(피커)는 `NSSharingServicePicker.show(...)`가 `mouseDown` 이벤트 컨텍스트를 요구하므로, 버튼 클릭과 같은 사용자 시작 액션에서 호출해야 합니다. `ShareViaService`는 이 제약이 없으며, 결정적인 결과가 필요한 경우(예: 항상 Mail로 공유) 더 안정적인 방법입니다.
+
+### 설정
+
+#### 네임스페이스 임포트
+
+`MacShareManager`는 macOS Standalone 빌드 타겟이 선택되어 있는 한 에디터를 포함하여 컴파일됩니다. 에디터나 macOS가 아닌 플레이어에서 `Share` 또는 `ShareViaService`를 호출해도 크래시하지 않고, 즉시 실패 결과를 반환합니다([에러 처리](#에러-처리-2) 참고).
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Share;
+#endif
+```
+
+#### 이미지·파일 공유 시 경로
+
+macOS에는 Android와 같은 FileProvider 제약이 없습니다. `Application.persistentDataPath` 아래의 모든 파일을 직접 공유할 수 있습니다.
+
+```csharp
+string path = Path.Combine(Application.persistentDataPath, "my_image.png");
+```
+
+---
+
+### 텍스트 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Shared from Unity Native Toolkit") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareText.png" alt="Example_MacShareManager_ShareText" width="400" />
+</p>
+
+---
+
+### URL 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareUrl.png" alt="Example_MacShareManager_ShareUrl" width="400" />
+</p>
+
+---
+
+### 이미지 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath = Path.Combine(Application.persistentDataPath, "share_sample_image.png");
+// Share를 호출하기 전에 imagePath에 PNG 파일을 씁니다.
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImage.png" alt="Example_MacShareManager_ShareImage" width="400" />
+</p>
+
+---
+
+### 파일 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath = Path.Combine(Application.persistentDataPath, "share_sample_file.txt");
+File.WriteAllText(filePath, "This is a sample text file shared from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFile.png" alt="Example_MacShareManager_ShareFile" width="400" />
+</p>
+
+---
+
+### 다중 이미지 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath1 = Path.Combine(Application.persistentDataPath, "share_sample_image_1.png");
+string imagePath2 = Path.Combine(Application.persistentDataPath, "share_sample_image_2.png");
+// Share를 호출하기 전에 각 경로에 PNG 파일을 씁니다.
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath1), MacShareItem.Image(imagePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImages.png" alt="Example_MacShareManager_ShareImages" width="400" />
+</p>
+
+---
+
+### 다중 파일 공유
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath1 = Path.Combine(Application.persistentDataPath, "share_sample_file_1.txt");
+string filePath2 = Path.Combine(Application.persistentDataPath, "share_sample_file_2.txt");
+File.WriteAllText(filePath1, "Sample file 1 from Unity Native Toolkit.");
+File.WriteAllText(filePath2, "Sample file 2 from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath1), MacShareItem.File(filePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFiles.png" alt="Example_MacShareManager_ShareFiles" width="400" />
+</p>
+
+---
+
+### 텍스트와 URL 공유
+
+서로 다른 종류의 여러 아이템을 하나의 `Share` 호출로 함께 공유할 수 있습니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Check this out"), MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareTextAndUrl.png" alt="Example_MacShareManager_ShareTextAndUrl" width="400" />
+</p>
+
+---
+
+### 서비스 제외 공유
+
+`excludedServiceTitles`는 지정한 문자열과 일치하는 표시 제목을 가진 서비스를 숨깁니다(`NSSharingService.title`에 대한 베스트 에포트 매칭).
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") },
+    excludedServiceTitles = new[] { "Add to Reading List" }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareExcludingServices.png" alt="Example_MacShareManager_ShareExcludingServices" width="400" />
+</p>
+
+---
+
+### 지정 서비스 경유 공유 (Mail)
+
+`ShareViaService`는 피커를 표시하지 않고 지정한 하나의 공유 서비스를 직접 실행합니다. `recipients`와 `subject`는 대상 서비스가 이를 지원하는 경우(예: Mail)에 적용됩니다. 알려진 raw 서비스 식별자는 `MacShareServiceNames`를 사용하세요.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.ShareViaService(MacShareServiceNames.MailCompose, new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") },
+    recipients = new[] { "test@example.com" },
+    subject = "Sample Subject"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareViaMail.png" alt="Example_MacShareManager_ShareViaMail" width="400" />
+</p>
+
+> **참고:** `MacShareServiceNames`에는 `MailCompose`와 같이 잘 알려진 raw `NSSharingService.Name` 식별자가 정의되어 있습니다. 이는 `ShareViaService`에 전달하는 입력 식별자이며, `MacShareResult.ServiceName`으로 반환되는 표시 이름이 아닙니다.
+
+---
+
+### 결과 수신
+
+화면 전환 후 오래된 참조를 방지하기 위해 `OnEnable`에서 `ShareCompleted`를 구독하고 `OnDisable`에서 해제하세요. `ShareCompleted`는 `Share`와 `ShareViaService` 모두에서 발생하며, 두 메서드에 전달한 개별 콜백보다 항상 먼저 발생합니다.
+
+```csharp
+private void OnEnable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted += OnShareCompleted;
+#endif
+}
+
+private void OnDisable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted -= OnShareCompleted;
+#endif
+}
+
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private void OnShareCompleted(MacShareResult result)
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"공유 실패: {result.ErrorMessage}");
+        return;
+    }
+
+    if (result.Completed)
+    {
+        Debug.Log($"공유 완료: service={result.ServiceName}");
+    }
+    else
+    {
+        Debug.Log("사용자가 공유를 취소했습니다.");
+    }
+}
+#endif
+```
+
+> **참고:** 사용자 취소는 에러가 아닙니다. `IsSuccess`는 `true`, `Completed`는 `false`이며 `ServiceName`은 `null`이 됩니다.
+
+---
+
+### 에러 처리
+
+모든 `Share` / `ShareViaService` 호출은 `ShareCompleted`(및 선택적 개별 콜백)를 통해 결과를 전달합니다. `IsSuccess`가 `false`일 때 `ErrorMessage`는 항상 non-null입니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+// 아이템 없음: 피커를 표시하지 않고 즉시 실패합니다.
+// ErrorMessage: "No shareable items were provided."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = Array.Empty<MacShareItem>()
+});
+
+// 잘못된 URL 문자열: 네이티브 검증 오류로 실패합니다.
+// ErrorMessage: "Invalid URL: not a valid url."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("not a valid url") }
+});
+
+// 파일 없음: 네이티브 레이어가 파일을 찾지 못하면 실패합니다.
+// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File("/nonexistent/share-missing.txt") }
+});
+
+// 이미지 없음: 네이티브 레이어가 이미지를 로드하지 못하면 실패합니다.
+// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image("/nonexistent/share-missing.png") }
+});
+
+// 알 수 없는 서비스: 지정한 서비스가 존재하지 않거나 실행할 수 없으면 실패합니다.
+// ErrorMessage: "Sharing service unavailable: invalid.service."
+MacShareManager.Instance.ShareViaService("invalid.service", new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") }
 });
 #endif
 ```

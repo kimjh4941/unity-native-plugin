@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.6.0
+- 1.7.0
 
 ## 対応 OS バージョン
 
@@ -110,6 +110,14 @@
   - バッジ数設定
   - カテゴリ登録 / アクション / テキスト入力アクション
 
+- 共有機能
+  - テキスト / URL 共有
+  - 画像 / 複数画像共有
+  - ファイル / 複数ファイル共有
+  - テキストと URL の同時共有
+  - サービスを除外した共有
+  - 名前付きサービス経由の共有（Mail 等）
+
 ## 追加予定機能
 
 - クリップボード連携
@@ -120,7 +128,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降

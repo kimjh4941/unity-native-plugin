@@ -110,6 +110,14 @@
   - Badge count management
   - Category registration / actions / text input actions
 
+- Share features
+  - Share text / URL
+  - Share image / multiple images
+  - Share file / multiple files
+  - Share text and URL together
+  - Share excluding services
+  - Share via a named service (e.g. Mail)
+
 ## Planned Features
 
 - Clipboard integration

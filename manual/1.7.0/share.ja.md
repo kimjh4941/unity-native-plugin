@@ -42,6 +42,19 @@
   - [特定アクティビティを除外した共有](#特定アクティビティを除外した共有)
   - [結果の受信](#結果の受信)
   - [エラーハンドリング](#エラーハンドリング-1)
+- [macOS](#macos)
+  - [セットアップ](#セットアップ-2)
+  - [テキスト共有](#テキスト共有-2)
+  - [URL共有](#url共有-2)
+  - [画像共有](#画像共有-2)
+  - [ファイル共有](#ファイル共有-2)
+  - [複数画像共有](#複数画像共有-2)
+  - [複数ファイル共有](#複数ファイル共有-2)
+  - [テキストとURLの共有](#テキストとurlの共有-1)
+  - [サービスを除外した共有](#サービスを除外した共有)
+  - [名前付きサービス経由の共有（Mail）](#名前付きサービス経由の共有mail)
+  - [結果の受信](#結果の受信-1)
+  - [エラーハンドリング](#エラーハンドリング-2)
 
 ---
 
@@ -757,6 +770,302 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }
+});
+#endif
+```
+
+---
+
+## macOS
+
+macOS の共有機能は `MacShareManager` を通じて提供されます。2つのエントリーポイントを公開しています。`Share` はシステムの共有サービスピッカー（`NSSharingServicePicker`）を提示し、`ShareViaService` はピッカーを表示せずに単一の名前付きサービスを直接実行します。
+
+> **注意:** `Share`（ピッカー）は、`NSSharingServicePicker.show(...)` が `mouseDown` イベントコンテキストを要求するため、ボタンクリックなどユーザー起点のアクションから呼び出す必要があります。`ShareViaService` にはこの制約がなく、確定的な結果が必要な場合（例: 常に Mail 経由で共有する）はより信頼できる方法です。
+
+### セットアップ
+
+#### 名前空間のインポート
+
+`MacShareManager` は macOS Standalone ビルドターゲットが選択されている限り、エディタを含めてコンパイルされます。エディタや非 macOS プレイヤー上で `Share` や `ShareViaService` を呼び出してもクラッシュせず、代わりに即座に失敗結果が返ります（[エラーハンドリング](#エラーハンドリング-2)を参照）。
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Share;
+#endif
+```
+
+#### 画像・ファイル共有時のパス
+
+macOS には Android のような FileProvider 制約はありません。`Application.persistentDataPath` 配下の任意のファイルを直接共有できます。
+
+```csharp
+string path = Path.Combine(Application.persistentDataPath, "my_image.png");
+```
+
+---
+
+### テキスト共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Shared from Unity Native Toolkit") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareText.png" alt="Example_MacShareManager_ShareText" width="400" />
+</p>
+
+---
+
+### URL共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareUrl.png" alt="Example_MacShareManager_ShareUrl" width="400" />
+</p>
+
+---
+
+### 画像共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath = Path.Combine(Application.persistentDataPath, "share_sample_image.png");
+// Share を呼ぶ前に imagePath へ PNG ファイルを書き込みます。
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImage.png" alt="Example_MacShareManager_ShareImage" width="400" />
+</p>
+
+---
+
+### ファイル共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath = Path.Combine(Application.persistentDataPath, "share_sample_file.txt");
+File.WriteAllText(filePath, "This is a sample text file shared from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFile.png" alt="Example_MacShareManager_ShareFile" width="400" />
+</p>
+
+---
+
+### 複数画像共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string imagePath1 = Path.Combine(Application.persistentDataPath, "share_sample_image_1.png");
+string imagePath2 = Path.Combine(Application.persistentDataPath, "share_sample_image_2.png");
+// Share を呼ぶ前に各パスへ PNG ファイルを書き込みます。
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image(imagePath1), MacShareItem.Image(imagePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareImages.png" alt="Example_MacShareManager_ShareImages" width="400" />
+</p>
+
+---
+
+### 複数ファイル共有
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+string filePath1 = Path.Combine(Application.persistentDataPath, "share_sample_file_1.txt");
+string filePath2 = Path.Combine(Application.persistentDataPath, "share_sample_file_2.txt");
+File.WriteAllText(filePath1, "Sample file 1 from Unity Native Toolkit.");
+File.WriteAllText(filePath2, "Sample file 2 from Unity Native Toolkit.");
+
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File(filePath1), MacShareItem.File(filePath2) }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareFiles.png" alt="Example_MacShareManager_ShareFiles" width="400" />
+</p>
+
+---
+
+### テキストとURLの共有
+
+異なる種類の複数アイテムを1回の `Share` 呼び出しでまとめて共有できます。
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Check this out"), MacShareItem.Url("https://unity.com") }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareTextAndUrl.png" alt="Example_MacShareManager_ShareTextAndUrl" width="400" />
+</p>
+
+---
+
+### サービスを除外した共有
+
+`excludedServiceTitles` は、指定した文字列と一致する表示タイトルを持つサービスを非表示にします（`NSSharingService.title` に対するベストエフォートマッチ）。
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("https://unity.com") },
+    excludedServiceTitles = new[] { "Add to Reading List" }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareExcludingServices.png" alt="Example_MacShareManager_ShareExcludingServices" width="400" />
+</p>
+
+---
+
+### 名前付きサービス経由の共有（Mail）
+
+`ShareViaService` はピッカーを表示せずに、単一の名前付き共有サービスを直接実行します。`recipients` と `subject` は、対象サービスがこれらをサポートする場合（例: Mail）に適用されます。既知の raw サービス識別子には `MacShareServiceNames` を使用します。
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacShareManager.Instance.ShareViaService(MacShareServiceNames.MailCompose, new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") },
+    recipients = new[] { "test@example.com" },
+    subject = "Sample Subject"
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/share/Example_MacShareManager_ShareViaMail.png" alt="Example_MacShareManager_ShareViaMail" width="400" />
+</p>
+
+> **注意:** `MacShareServiceNames` には `MailCompose` など、既知の raw `NSSharingService.Name` 識別子が定義されています。これらは `ShareViaService` への入力用識別子であり、`MacShareResult.ServiceName` で返される表示名ではありません。
+
+---
+
+### 結果の受信
+
+`OnEnable` で `ShareCompleted` を購読し、`OnDisable` で解除することで、画面遷移後の古い参照を避けられます。`ShareCompleted` は `Share` と `ShareViaService` の両方で発火し、どちらのメソッドに渡した個別コールバックよりも常に先に発火します。
+
+```csharp
+private void OnEnable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted += OnShareCompleted;
+#endif
+}
+
+private void OnDisable()
+{
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+    MacShareManager.Instance.ShareCompleted -= OnShareCompleted;
+#endif
+}
+
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private void OnShareCompleted(MacShareResult result)
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"共有に失敗しました: {result.ErrorMessage}");
+        return;
+    }
+
+    if (result.Completed)
+    {
+        Debug.Log($"共有が完了しました: service={result.ServiceName}");
+    }
+    else
+    {
+        Debug.Log("ユーザーが共有をキャンセルしました。");
+    }
+}
+#endif
+```
+
+> **注意:** ユーザーによるキャンセルはエラーではありません。`IsSuccess` は `true`、`Completed` は `false` となり、`ServiceName` は `null` になります。
+
+---
+
+### エラーハンドリング
+
+すべての `Share` / `ShareViaService` 呼び出しは、結果を `ShareCompleted`（および任意の個別コールバック）経由で通知します。`IsSuccess` が `false` のとき、`ErrorMessage` は必ず非 null です。
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+// アイテムなし: ピッカーを表示せず即座に失敗します。
+// ErrorMessage: "No shareable items were provided."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = Array.Empty<MacShareItem>()
+});
+
+// 無効なURL文字列: ネイティブ側の検証エラーで失敗します。
+// ErrorMessage: "Invalid URL: not a valid url."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Url("not a valid url") }
+});
+
+// ファイル不在: ネイティブ側がファイルを見つけられない場合に失敗します。
+// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.File("/nonexistent/share-missing.txt") }
+});
+
+// 画像不在: ネイティブ側が画像を読み込めない場合に失敗します。
+// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+MacShareManager.Instance.Share(new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Image("/nonexistent/share-missing.png") }
+});
+
+// 不明なサービス: 指定したサービスが存在しない、または実行できない場合に失敗します。
+// ErrorMessage: "Sharing service unavailable: invalid.service."
+MacShareManager.Instance.ShareViaService("invalid.service", new MacShareContentPayload
+{
+    items = new[] { MacShareItem.Text("Body text") }
 });
 #endif
 ```
