@@ -114,6 +114,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowMacShare(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+        ApplyScreen<MacShareManagerExampleController>(
+            uiDocument,
+            "UI/macOS/Share/MacShareManagerExample",
+            "UI/macOS/Share/MacShareManagerExampleStyle");
+#endif
+    }
+
     private static void ApplyScreen<TController>(UIDocument uiDocument, string visualTreeResourcePath, string styleResourcePath)
         where TController : MonoBehaviour
     {
@@ -166,6 +176,7 @@ public static class NativeToolkitSampleNavigator
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
         RemoveIfExists<MacDialogManagerExampleController>(gameObject);
         RemoveIfExists<MacNotificationManagerExampleController>(gameObject);
+        RemoveIfExists<MacShareManagerExampleController>(gameObject);
 #endif
     }
 

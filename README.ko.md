@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.6.0
+- 1.7.0
 
 ## 지원 OS 버전
 
@@ -110,6 +110,14 @@
   - 배지 카운트 관리
   - 카테고리 등록 / 액션 / 텍스트 입력 액션
 
+- 공유 기능
+  - 텍스트 / URL 공유
+  - 이미지 / 다중 이미지 공유
+  - 파일 / 다중 파일 공유
+  - 텍스트와 URL 동시 공유
+  - 서비스 제외 공유
+  - 지정 서비스 경유 공유 (Mail 등)
+
 ## 추가 예정 기능
 
 - 클립보드 연동
@@ -120,7 +128,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.6.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상

@@ -1,0 +1,52 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="MacShareManagerExampleStyle.uss" />
+    <ui:VisualElement class="mac-share-root">
+        <ui:VisualElement class="mac-share-header">
+            <ui:Button name="HomeButton" class="mac-share-secondary-button" text="Back To Home" />
+            <ui:Label text="MacShareManager Example" class="mac-share-title" />
+            <ui:Label text="Present the macOS sharing service picker, or perform a service directly, for text, URL, image, and file content." class="mac-share-subtitle" />
+            <ui:VisualElement class="mac-share-result-border">
+                <ui:Label name="ResultTextBlock" text="macOS share sample ready. Run on a macOS Standalone player to verify sharing." class="mac-share-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="mac-share-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="mac-share-content">
+
+                <ui:VisualElement class="mac-share-section">
+                    <ui:Label text="Picker - Basic" class="mac-share-section-title" />
+                    <ui:Button name="ShareTextButton" class="mac-share-button" text="Share Text" />
+                    <ui:Button name="ShareUrlButton" class="mac-share-button" text="Share URL" />
+                    <ui:Button name="ShareImageButton" class="mac-share-button" text="Share Image" />
+                    <ui:Button name="ShareFileButton" class="mac-share-button" text="Share File" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-share-section">
+                    <ui:Label text="Picker - Multiple" class="mac-share-section-title" />
+                    <ui:Button name="ShareImagesButton" class="mac-share-button" text="Share Multiple Images" />
+                    <ui:Button name="ShareFilesButton" class="mac-share-button" text="Share Multiple Files" />
+                    <ui:Button name="ShareTextAndUrlButton" class="mac-share-button" text="Share Text + URL" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-share-section">
+                    <ui:Label text="Picker - Filter" class="mac-share-section-title" />
+                    <ui:Button name="ShareExcludingServicesButton" class="mac-share-button" text="Share Excluding Services" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-share-section">
+                    <ui:Label text="Direct Service" class="mac-share-section-title" />
+                    <ui:Button name="ShareViaMailButton" class="mac-share-button" text="Share via Mail" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-share-section">
+                    <ui:Label text="Error Handling" class="mac-share-section-title" />
+                    <ui:Button name="ShareEmptyButton" class="mac-share-secondary-button" text="Share Empty (error)" />
+                    <ui:Button name="ShareInvalidUrlButton" class="mac-share-secondary-button" text="Share Invalid URL" />
+                    <ui:Button name="ShareMissingFileButton" class="mac-share-secondary-button" text="Share Missing File" />
+                    <ui:Button name="ShareMissingImageButton" class="mac-share-secondary-button" text="Share Missing Image" />
+                    <ui:Button name="ShareUnknownServiceButton" class="mac-share-secondary-button" text="Share Unknown Service" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
