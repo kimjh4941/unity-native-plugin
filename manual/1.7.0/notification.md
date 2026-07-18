@@ -985,7 +985,7 @@ WindowsNotificationManager.Instance.ShowNotification(json, result =>
 ```
 
 <p align="center">
-  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="720" />
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="800" />
 </p>
 
 ### Scheduled notifications
@@ -1017,7 +1017,7 @@ WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnix
 ```
 
 <p align="center">
-  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="720" />
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="800" />
 </p>
 
 #### Cancel scheduled
@@ -1064,7 +1064,7 @@ WindowsNotificationManager.Instance.ShowNotification(json, result =>
 ```
 
 <p align="center">
-  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="720" />
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="800" />
 </p>
 
 #### Update progress
@@ -1093,7 +1093,7 @@ WindowsNotificationManager.Instance.UpdateNotificationProgress(
 > **Note:** Call `ShowProgressNotification` before `UpdateNotificationProgress`. If the progress notification is no longer visible in Notification Center, error code `4` (`NOTIFICATION_ERROR_PROGRESS_NOT_FOUND`) is returned.
 
 <p align="center">
-  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="720" />
+  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="800" />
 </p>
 
 ### Remove notifications
@@ -1254,7 +1254,7 @@ MacNotificationManager.Instance.OpenSettings(result =>
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="800" />
 </p>
 
 ---
@@ -1288,7 +1288,7 @@ MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="800" />
 </p>
 
 #### Time interval trigger
@@ -1312,7 +1312,7 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="800" />
 </p>
 
 #### Calendar trigger
@@ -1346,7 +1346,7 @@ MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, resul
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_ShowCalendar.png" alt="Example_MacNotificationManager_ShowCalendar" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowCalendar.png" alt="Example_MacNotificationManager_ShowCalendar" width="800" />
 </p>
 
 ---
@@ -1396,7 +1396,7 @@ MacNotificationManager.Instance.RemoveAllDeliveredNotifications();
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="800" />
 </p>
 
 ---
@@ -1468,7 +1468,7 @@ MacNotificationManager.Instance.CancelAllScheduledNotifications();
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="800" />
 </p>
 
 ---
@@ -1570,7 +1570,7 @@ MacNotificationManager.Instance.RemoveCategory("mac-sample-category", result =>
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="800" />
 </p>
 
 ---
@@ -1606,5 +1606,5 @@ private void OnNotificationTextInputActionReceived(MacNotificationTextInputActio
 ```
 
 <p align="center">
-    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="720" />
+    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="800" />
 </p>

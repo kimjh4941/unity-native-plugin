@@ -816,7 +816,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareText.png" alt="Example_MacShareManager_ShareText" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareText.png" alt="Example_MacShareManager_ShareText" width="800" />
 </p>
 
 ---
@@ -833,7 +833,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareUrl.png" alt="Example_MacShareManager_ShareUrl" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareUrl.png" alt="Example_MacShareManager_ShareUrl" width="800" />
 </p>
 
 ---
@@ -853,7 +853,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareImage.png" alt="Example_MacShareManager_ShareImage" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareImage.png" alt="Example_MacShareManager_ShareImage" width="800" />
 </p>
 
 ---
@@ -873,7 +873,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareFile.png" alt="Example_MacShareManager_ShareFile" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareFile.png" alt="Example_MacShareManager_ShareFile" width="800" />
 </p>
 
 ---
@@ -894,7 +894,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareImages.png" alt="Example_MacShareManager_ShareImages" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareImages.png" alt="Example_MacShareManager_ShareImages" width="800" />
 </p>
 
 ---
@@ -916,7 +916,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareFiles.png" alt="Example_MacShareManager_ShareFiles" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareFiles.png" alt="Example_MacShareManager_ShareFiles" width="800" />
 </p>
 
 ---
@@ -935,7 +935,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareTextAndUrl.png" alt="Example_MacShareManager_ShareTextAndUrl" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareTextAndUrl.png" alt="Example_MacShareManager_ShareTextAndUrl" width="800" />
 </p>
 
 ---
@@ -955,7 +955,7 @@ MacShareManager.Instance.Share(new MacShareContentPayload
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareExcludingServices.png" alt="Example_MacShareManager_ShareExcludingServices" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareExcludingServices.png" alt="Example_MacShareManager_ShareExcludingServices" width="800" />
 </p>
 
 ---
@@ -976,7 +976,7 @@ MacShareManager.Instance.ShareViaService(MacShareServiceNames.MailCompose, new M
 ```
 
 <p align="center">
-    <img src="images/mac/share/Example_MacShareManager_ShareViaMail.png" alt="Example_MacShareManager_ShareViaMail" width="400" />
+    <img src="images/mac/share/Example_MacShareManager_ShareViaMail.png" alt="Example_MacShareManager_ShareViaMail" width="800" />
 </p>
 
 > **Note:** `MacShareServiceNames` holds well-known raw `NSSharingService.Name` identifiers such as `MailCompose`. These are input identifiers for `ShareViaService`, not the display names returned in `MacShareResult.ServiceName`.
