@@ -1,0 +1,69 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="AndroidClipboardManagerExampleStyle.uss" />
+    <ui:VisualElement class="android-clipboard-root">
+        <ui:VisualElement class="android-clipboard-header">
+            <ui:Button name="HomeButton" class="android-secondary-button" text="Back To Home" />
+            <ui:Label text="AndroidClipboardManager Example" class="android-clipboard-title" />
+            <ui:Label text="Copy, read, and observe the clipboard. Sensitive-content suppression requires Android 13 (API 33) or later." class="android-clipboard-subtitle" />
+            <ui:VisualElement class="android-result-border">
+                <ui:Label name="ResultTextBlock" text="Android clipboard sample ready. Run on an Android device to test." class="android-result-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ScrollView class="android-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="android-clipboard-content">
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Copy" class="android-section-title" />
+                    <ui:Button name="CopyPlainTextButton" class="android-clipboard-button" text="Copy Plain Text" />
+                    <ui:Button name="CopyEmptyPlainTextButton" class="android-secondary-button" text="Copy Plain Text (empty, allowed)" />
+                    <ui:Button name="CopyHtmlTextButton" class="android-clipboard-button" text="Copy HTML Text" />
+                    <ui:Button name="CopyHtmlEmptyPlainTextButton" class="android-secondary-button" text="Copy HTML Text (empty plain text, allowed)" />
+                    <ui:Button name="CopyUriButton" class="android-clipboard-button" text="Copy URI (content:// via FileProvider)" />
+                    <ui:Button name="CopyMultipleTextButton" class="android-clipboard-button" text="Copy Multiple Text (includes an empty item)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Copy - Sensitive" class="android-section-title" />
+                    <ui:Label text="Preview suppression only takes effect on Android 13 (API 33) or later." class="android-section-note" />
+                    <ui:Button name="CopySensitiveTextButton" class="android-clipboard-button" text="Copy Sensitive Text" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Game Use Cases" class="android-section-title" />
+                    <ui:Label text="Typical in-game clipboard flows. Copying a screenshot puts a content:// URI on the clipboard; whether the receiving app can read it depends on the device and the target app." class="android-section-note" />
+                    <ui:Button name="CopyInviteCodeButton" class="android-clipboard-button" text="Copy Invite Code" />
+                    <ui:Button name="PasteCodeButton" class="android-clipboard-button" text="Paste Code From Clipboard" />
+                    <ui:Button name="CopyScreenshotButton" class="android-clipboard-button" text="Copy Screenshot (content://)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Read / Inspect" class="android-section-title" />
+                    <ui:Button name="ReadClipboardButton" class="android-clipboard-button" text="Read Clipboard" />
+                    <ui:Button name="HasClipButton" class="android-clipboard-button" text="Has Clip" />
+                    <ui:Button name="GetDescriptionButton" class="android-clipboard-button" text="Get Description" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Clear" class="android-section-title" />
+                    <ui:Button name="ClearClipboardButton" class="android-secondary-button" text="Clear Clipboard" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Observe" class="android-section-title" />
+                    <ui:Label text="Observation is only reliable while this app is in the foreground (Android 10+ restriction). Starting observation reports no result; change the clipboard to verify it works." class="android-section-note" />
+                    <ui:Button name="StartObservingButton" class="android-clipboard-button" text="Start Observing" />
+                    <ui:Button name="StopObservingButton" class="android-secondary-button" text="Stop Observing" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="android-section">
+                    <ui:Label text="Error Cases" class="android-section-title" />
+                    <ui:Button name="CopyEmptyHtmlButton" class="android-secondary-button" text="Copy HTML (empty) -&gt; EmptyContent" />
+                    <ui:Button name="CopyEmptyItemsButton" class="android-secondary-button" text="Copy Multiple (empty list) -&gt; EmptyItemList" />
+                    <ui:Button name="CopyBlankUriButton" class="android-secondary-button" text="Copy URI (blank) -&gt; InvalidUri" />
+                    <ui:Button name="CopyHttpUriButton" class="android-secondary-button" text="Copy URI (http scheme) -&gt; InvalidUri" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
