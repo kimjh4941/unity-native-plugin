@@ -241,16 +241,17 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 ### 基本方針
 
 - 新機能は ExampleController 単位で手動確認項目を定義する
-- Manager の初期化・イベント購読・コールバック転送は EditMode テストで検証する
+- コールバックの dispatch 順序・結果型の不変条件は、**ネイティブ呼び出しから分離した
+  `internal static` の純粋関数**として切り出し、EditMode テストで検証する
+  - Manager の `Awake` / `Initialize` は `AndroidJavaObject` / `DllImport` に触れるため、
+    **Manager インスタンスを生成するテストは EditMode では書かない**
+  - Manager 全体の初期化・イベント購読を通す検証は PlayMode 以降で行う（詳細は `./testing.md`）
 - プラットフォーム依存の動作（実機での表示確認等）は手動確認項目として明記する
 
-### テストフレームワーク
+### テスト層とツール選定
 
-| 種別 | フレームワーク | 備考 |
-|------|--------------|------|
-| EditMode | NUnit (Unity Test Runner) | ネイティブ呼び出しなし |
-| PlayMode | NUnit (Unity Test Runner) | シーン上での動作確認 |
-| 手動確認 | 実機 / Unity Editor | ネイティブ Bridge 依存の項目 |
+テストの層モデル（EditMode / PlayMode / OS 境界）とプラットフォーム別のツール選定は
+**`./testing.md` を正本とする**。この節では重複して定義しない。
 
 ### テストの確認タイミング
 
