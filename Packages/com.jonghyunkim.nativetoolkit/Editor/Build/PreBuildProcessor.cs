@@ -212,40 +212,49 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
 
-        // Clean existing AAR files
-        if (Directory.Exists(destDir))
+        // Resolve every source BEFORE deleting anything. Deleting first and then failing to find a
+        // replacement would leave the project with no native libraries at all.
+        string selectedAar1 = FindAarNameInDist(distAndroidDir, "android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
+        string selectedAar2 = FindAarNameInDist(distAndroidDir, "unity-android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
+
+        if (string.IsNullOrEmpty(selectedAar1) || string.IsNullOrEmpty(selectedAar2))
         {
+            UnityEngine.Debug.LogError(
+                $"[Build][Android] Aborting copy: could not resolve both AARs in {distAndroidDir}. " +
+                "Existing libraries were left untouched.");
+            return;
+        }
+
+        if (!Directory.Exists(destDir))
+        {
+            Directory.CreateDirectory(destDir);
+        }
+        else
+        {
+            // Clean existing AAR files only now that both replacements are known to exist.
             foreach (string aarFile in Directory.GetFiles(destDir, "*.aar"))
             {
                 File.Delete(aarFile);
                 UnityEngine.Debug.Log($"[Build][Android] Deleted old AAR: {aarFile}");
             }
         }
-        else
-        {
-            Directory.CreateDirectory(destDir);
-        }
 
         // Copy AAR files located by prefix search (filename version may differ from directory version)
-        string selectedAar1 = FindAarNameInDist(distAndroidDir, "android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedAar1))
-        {
-            File.Copy(Path.Combine(distAndroidDir, selectedAar1), Path.Combine(destDir, selectedAar1), true);
-            UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar1}");
-        }
+        File.Copy(Path.Combine(distAndroidDir, selectedAar1), Path.Combine(destDir, selectedAar1), true);
+        UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar1}");
 
-        string selectedAar2 = FindAarNameInDist(distAndroidDir, "unity-android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedAar2))
-        {
-            File.Copy(Path.Combine(distAndroidDir, selectedAar2), Path.Combine(destDir, selectedAar2), true);
-            UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar2}");
-        }
+        File.Copy(Path.Combine(distAndroidDir, selectedAar2), Path.Combine(destDir, selectedAar2), true);
+        UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar2}");
 
         UnityEngine.Debug.Log($"[Build][Android] Copy completed to {destDir}");
     }
 
     /// <summary>
     /// Finds an AAR file name in dist using prefix and build-mode filter.
+    /// For development builds, falls back to the release AAR when no <c>-debug.aar</c> variant is
+    /// published: dist does not always ship debug artifacts, and a test player build is always a
+    /// development build (UnityEditor.TestRunner PlayerLauncher forces BuildOptions.Development),
+    /// so without this fallback on-device test runs could never resolve a library.
     /// </summary>
     private string FindAarNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
     {
@@ -255,9 +264,39 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             return null;
         }
 
+        string[] candidates = Directory.GetFiles(distDir, "*.aar");
+
+        string selectedName = SelectAarName(candidates, prefix, preferDebug: isDevelopmentBuild, logPrefix);
+
+        if (selectedName == null && isDevelopmentBuild)
+        {
+            selectedName = SelectAarName(candidates, prefix, preferDebug: false, logPrefix);
+            if (selectedName != null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"{logPrefix} No -debug.aar published for prefix={prefix}; falling back to the release AAR: {selectedName}");
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} AAR not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
+        }
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected AAR: {selectedName}");
+        return selectedName;
+    }
+
+    /// <summary>
+    /// Picks the highest-sorting AAR matching <paramref name="prefix"/> and the requested debug/release
+    /// flavour. Returns null when no candidate matches.
+    /// </summary>
+    private static string SelectAarName(string[] candidates, string prefix, bool preferDebug, string logPrefix)
+    {
         string selectedName = null;
         bool hasMultipleMatches = false;
-        string[] candidates = Directory.GetFiles(distDir, "*.aar");
 
         foreach (string candidatePath in candidates)
         {
@@ -266,8 +305,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
                 continue;
 
             bool isDebugName = candidateName.EndsWith("-debug.aar", StringComparison.OrdinalIgnoreCase);
-            bool matched = isDevelopmentBuild ? isDebugName : !isDebugName;
-            if (!matched)
+            if (isDebugName != preferDebug)
                 continue;
 
             if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
@@ -281,17 +319,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             }
         }
 
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates.Select(Path.GetFileName));
-            UnityEngine.Debug.LogError($"{logPrefix} AAR not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
-            return null;
-        }
-
-        if (hasMultipleMatches)
+        if (selectedName != null && hasMultipleMatches)
             UnityEngine.Debug.LogWarning($"{logPrefix} Multiple AAR matches found. Selected: {selectedName}");
 
-        UnityEngine.Debug.Log($"{logPrefix} Selected AAR: {selectedName}");
         return selectedName;
     }
 
@@ -315,35 +345,37 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
-        // Clean existing xcframeworks
-        if (Directory.Exists(destDir))
+        // Resolve every source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        string selectedXcf1 = FindXcframeworkNameInDist(distIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
+        string selectedXcf2 = FindXcframeworkNameInDist(distIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
+
+        if (string.IsNullOrEmpty(selectedXcf1) || string.IsNullOrEmpty(selectedXcf2))
         {
+            UnityEngine.Debug.LogError(
+                $"[Build][iOS] Aborting copy: could not resolve both XCFrameworks in {distIosDir}. " +
+                "Existing libraries were left untouched.");
+            return;
+        }
+
+        if (!Directory.Exists(destDir))
+        {
+            Directory.CreateDirectory(destDir);
+        }
+        else
+        {
+            // Clean existing xcframeworks only now that both replacements are known to exist.
             foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
             {
                 Directory.Delete(xcfDir, true);
                 UnityEngine.Debug.Log($"[Build][iOS] Deleted old XCFramework: {xcfDir}");
             }
         }
-        else
-        {
-            Directory.CreateDirectory(destDir);
-        }
 
-        string selectedXcf1 = FindXcframeworkNameInDist(distIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedXcf1))
-        {
-            string sourceXcf1 = Path.Combine(distIosDir, selectedXcf1);
-            CopyDirectory(sourceXcf1, Path.Combine(destDir, selectedXcf1));
-            UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf1}");
-        }
+        CopyDirectory(Path.Combine(distIosDir, selectedXcf1), Path.Combine(destDir, selectedXcf1));
+        UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf1}");
 
-        string selectedXcf2 = FindXcframeworkNameInDist(distIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedXcf2))
-        {
-            string sourceXcf2 = Path.Combine(distIosDir, selectedXcf2);
-            CopyDirectory(sourceXcf2, Path.Combine(destDir, selectedXcf2));
-            UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf2}");
-        }
+        CopyDirectory(Path.Combine(distIosDir, selectedXcf2), Path.Combine(destDir, selectedXcf2));
+        UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf2}");
 
         AssetDatabase.Refresh();
 
@@ -376,23 +408,30 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
 
-        // Clean existing native-toolkit DLL files only (preserve third-party DLLs like Bootstrap)
-        if (Directory.Exists(destDir))
+        // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        string selectedDll = FindDllNameInDist(distWinDir, "windows-native-toolkit-", "[Build][Windows]", isDevelopmentBuild);
+        if (string.IsNullOrEmpty(selectedDll))
         {
+            UnityEngine.Debug.LogError(
+                $"[Build][Windows] Aborting copy: could not resolve a DLL in {distWinDir}. " +
+                "Existing libraries were left untouched.");
+            return;
+        }
+
+        if (!Directory.Exists(destDir))
+        {
+            Directory.CreateDirectory(destDir);
+        }
+        else
+        {
+            // Clean existing native-toolkit DLL files only (preserve third-party DLLs like Bootstrap),
+            // now that the replacement is known to exist.
             foreach (string dll in Directory.GetFiles(destDir, "unity-windows-native-toolkit*.dll"))
             {
                 File.Delete(dll);
                 UnityEngine.Debug.Log($"[Build][Windows] Deleted old DLL: {dll}");
             }
         }
-        else
-        {
-            Directory.CreateDirectory(destDir);
-        }
-
-        string selectedDll = FindDllNameInDist(distWinDir, "windows-native-toolkit-", "[Build][Windows]", isDevelopmentBuild);
-        if (string.IsNullOrEmpty(selectedDll))
-            return;
 
         string destName = isDevelopmentBuild ? "unity-windows-native-toolkit-debug.dll" : "unity-windows-native-toolkit.dll";
         string srcPath = Path.Combine(distWinDir, selectedDll);
@@ -410,6 +449,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
     /// <summary>
     /// Finds a DLL file name in dist using prefix and build-mode filter.
+    /// Falls back to the release DLL when no <c>-debug.dll</c> variant is published (see
+    /// <see cref="FindAarNameInDist"/> for the rationale).
     /// </summary>
     private string FindDllNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
     {
@@ -419,9 +460,39 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             return null;
         }
 
+        string[] candidates = Directory.GetFiles(distDir, "*.dll");
+
+        string selectedName = SelectDllName(candidates, prefix, preferDebug: isDevelopmentBuild, logPrefix);
+
+        if (selectedName == null && isDevelopmentBuild)
+        {
+            selectedName = SelectDllName(candidates, prefix, preferDebug: false, logPrefix);
+            if (selectedName != null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"{logPrefix} No -debug.dll published for prefix={prefix}; falling back to the release DLL: {selectedName}");
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} DLL not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
+        }
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected DLL: {selectedName}");
+        return selectedName;
+    }
+
+    /// <summary>
+    /// Picks the highest-sorting DLL matching <paramref name="prefix"/> and the requested debug/release
+    /// flavour. Returns null when no candidate matches.
+    /// </summary>
+    private static string SelectDllName(string[] candidates, string prefix, bool preferDebug, string logPrefix)
+    {
         string selectedName = null;
         bool hasMultipleMatches = false;
-        string[] candidates = Directory.GetFiles(distDir, "*.dll");
 
         foreach (string candidatePath in candidates)
         {
@@ -430,8 +501,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
                 continue;
 
             bool isDebugName = candidateName.EndsWith("-debug.dll", StringComparison.OrdinalIgnoreCase);
-            bool matched = isDevelopmentBuild ? isDebugName : !isDebugName;
-            if (!matched)
+            if (isDebugName != preferDebug)
                 continue;
 
             if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
@@ -445,17 +515,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             }
         }
 
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates.Select(Path.GetFileName));
-            UnityEngine.Debug.LogError($"{logPrefix} DLL not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
-            return null;
-        }
-
-        if (hasMultipleMatches)
+        if (selectedName != null && hasMultipleMatches)
             UnityEngine.Debug.LogWarning($"{logPrefix} Multiple DLL matches found. Selected: {selectedName}");
 
-        UnityEngine.Debug.Log($"{logPrefix} Selected DLL: {selectedName}");
         return selectedName;
     }
 
@@ -479,27 +541,32 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
 
-        // Clean existing xcframeworks
-        if (Directory.Exists(destDir))
+        // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        string selectedXcf2 = FindXcframeworkNameInDist(distMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
+        if (string.IsNullOrEmpty(selectedXcf2))
         {
+            UnityEngine.Debug.LogError(
+                $"[Build][macOS] Aborting copy: could not resolve an XCFramework in {distMacDir}. " +
+                "Existing libraries were left untouched.");
+            return;
+        }
+
+        if (!Directory.Exists(destDir))
+        {
+            Directory.CreateDirectory(destDir);
+        }
+        else
+        {
+            // Clean existing xcframeworks only now that the replacement is known to exist.
             foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
             {
                 Directory.Delete(xcfDir, true);
                 UnityEngine.Debug.Log($"[Build][macOS] Deleted old XCFramework: {xcfDir}");
             }
         }
-        else
-        {
-            Directory.CreateDirectory(destDir);
-        }
 
-        string selectedXcf2 = FindXcframeworkNameInDist(distMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
-        if (!string.IsNullOrEmpty(selectedXcf2))
-        {
-            string sourceXcf2 = Path.Combine(distMacDir, selectedXcf2);
-            CopyDirectory(sourceXcf2, Path.Combine(destDir, selectedXcf2));
-            UnityEngine.Debug.Log($"[Build][macOS] Copied {selectedXcf2}");
-        }
+        CopyDirectory(Path.Combine(distMacDir, selectedXcf2), Path.Combine(destDir, selectedXcf2));
+        UnityEngine.Debug.Log($"[Build][macOS] Copied {selectedXcf2}");
 
         AssetDatabase.Refresh();
 
@@ -515,6 +582,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
     /// <summary>
     /// Finds an XCFramework folder name in dist using prefix and build-mode filter.
+    /// Falls back to the release XCFramework when no <c>-debug.xcframework</c> variant is published
+    /// (see <see cref="FindAarNameInDist"/> for the rationale).
     /// </summary>
     private string FindXcframeworkNameInDist(string distDir, string prefix, string xcfSuffix, string logPrefix, bool isDevelopmentBuild)
     {
@@ -524,9 +593,39 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             return null;
         }
 
+        string[] candidates = Directory.GetDirectories(distDir, "*.xcframework");
+
+        string selectedName = SelectXcframeworkName(candidates, prefix, xcfSuffix, preferDebug: isDevelopmentBuild, logPrefix);
+
+        if (selectedName == null && isDevelopmentBuild)
+        {
+            selectedName = SelectXcframeworkName(candidates, prefix, xcfSuffix: string.Empty, preferDebug: false, logPrefix);
+            if (selectedName != null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"{logPrefix} No -debug.xcframework published for prefix={prefix}; falling back to the release XCFramework: {selectedName}");
+            }
+        }
+
+        if (selectedName == null)
+        {
+            string available = string.Join(", ", candidates.Select(Path.GetFileName));
+            UnityEngine.Debug.LogError($"{logPrefix} XCFramework not found. prefix={prefix}, xcfSuffix={xcfSuffix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
+            return null;
+        }
+
+        UnityEngine.Debug.Log($"{logPrefix} Selected XCFramework: {selectedName}");
+        return selectedName;
+    }
+
+    /// <summary>
+    /// Picks the highest-sorting XCFramework matching <paramref name="prefix"/> and the requested
+    /// debug/release flavour. Returns null when no candidate matches.
+    /// </summary>
+    private static string SelectXcframeworkName(string[] candidates, string prefix, string xcfSuffix, bool preferDebug, string logPrefix)
+    {
         string selectedName = null;
         bool hasMultipleMatches = false;
-        string[] candidates = Directory.GetDirectories(distDir, "*.xcframework");
 
         foreach (string candidatePath in candidates)
         {
@@ -539,7 +638,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             bool isDebugName = candidateName.EndsWith("-debug.xcframework", StringComparison.OrdinalIgnoreCase);
             bool suffixMatched;
 
-            if (isDevelopmentBuild)
+            if (preferDebug)
             {
                 suffixMatched = candidateName.EndsWith(xcfSuffix + ".xcframework", StringComparison.OrdinalIgnoreCase);
             }
@@ -564,19 +663,11 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             }
         }
 
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates.Select(Path.GetFileName));
-            UnityEngine.Debug.LogError($"{logPrefix} XCFramework not found. prefix={prefix}, xcfSuffix={xcfSuffix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
-            return null;
-        }
-
-        if (hasMultipleMatches)
+        if (selectedName != null && hasMultipleMatches)
         {
             UnityEngine.Debug.LogWarning($"{logPrefix} Multiple XCFramework matches found. Selected: {selectedName}");
         }
 
-        UnityEngine.Debug.Log($"{logPrefix} Selected XCFramework: {selectedName}");
         return selectedName;
     }
 

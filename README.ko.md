@@ -1,7 +1,7 @@
 # Unity Native Toolkit (Unity 6)
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
-- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
+- 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유·클립보드 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
 - Editor 창을 통해 네이티브 라이브러리와 Gradle/Xcode 설정을 추가하여 빌드 후 프로젝트 정리를 워크플로로 제공합니다.
 
 다른 언어 README:
@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.7.0
+- 1.8.0
 
 ## 지원 OS 버전
 
@@ -47,6 +47,12 @@
   - 다이렉트 공유 타겟 등록
   - 콜백 포함 공유
   - 대기 중 콜백 취소
+- 클립보드 기능
+  - 일반 텍스트 / HTML 텍스트 / URI / 다중 텍스트 복사
+  - 민감한 콘텐츠 미리보기 억제 (Android 13+)
+  - 클립보드 읽기 / 클립 존재 여부 확인 / 본문에 접근하지 않는 메타데이터 조회
+  - 클립보드 변경 관찰
+  - 게임 활용 사례: 초대 코드, 코드 붙여넣기, 스크린샷 복사
 
 ### iOS
 
@@ -118,17 +124,13 @@
   - 서비스 제외 공유
   - 지정 서비스 경유 공유 (Mail 등)
 
-## 추가 예정 기능
-
-- 클립보드 연동
-
 ## 설치
 
 - Unity 6을 실행합니다.
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상

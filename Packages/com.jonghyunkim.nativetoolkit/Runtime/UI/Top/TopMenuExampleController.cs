@@ -13,6 +13,7 @@ public class TopMenuExampleController : MonoBehaviour
     private Button? _dialogButton;
     private Button? _notificationButton;
     private Button? _shareButton;
+    private Button? _clipboardButton;
 
     private void Start()
     {
@@ -48,6 +49,11 @@ public class TopMenuExampleController : MonoBehaviour
         {
             _shareButton.clicked -= OnShareClicked;
         }
+
+        if (_clipboardButton != null)
+        {
+            _clipboardButton.clicked -= OnClipboardClicked;
+        }
     }
 
     private void InitializeUI()
@@ -63,6 +69,7 @@ public class TopMenuExampleController : MonoBehaviour
         _dialogButton = root.Q<Button>("DialogFeatureButton");
         _notificationButton = root.Q<Button>("NotificationFeatureButton");
         _shareButton = root.Q<Button>("ShareFeatureButton");
+        _clipboardButton = root.Q<Button>("ClipboardFeatureButton");
 
         if (_dialogButton != null)
         {
@@ -93,6 +100,19 @@ public class TopMenuExampleController : MonoBehaviour
         {
             Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Share feature is only supported on Android, iOS, and macOS. Hiding button.");
             _shareButton.style.display = DisplayStyle.None;
+        }
+#endif
+
+#if UNITY_ANDROID || UNITY_EDITOR
+        if (_clipboardButton != null)
+        {
+            _clipboardButton.clicked += OnClipboardClicked;
+        }
+#else
+        if (_clipboardButton != null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Clipboard feature is only supported on Android. Hiding button.");
+            _clipboardButton.style.display = DisplayStyle.None;
         }
 #endif
     }
@@ -152,6 +172,20 @@ public class TopMenuExampleController : MonoBehaviour
         NativeToolkitSampleNavigator.ShowIosShare(uiDocument);
 #elif UNITY_STANDALONE_OSX
         NativeToolkitSampleNavigator.ShowMacShare(uiDocument);
+#endif
+    }
+
+    private void OnClipboardClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnClipboardClicked)}]");
+        if (uiDocument == null) return;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.DisplayDialog(
+            "Clipboard Feature",
+            "This feature runs natively on Android.\nRun on an Android player for full functionality.",
+            "OK");
+#elif UNITY_ANDROID
+        NativeToolkitSampleNavigator.ShowAndroidClipboard(uiDocument);
 #endif
     }
 }

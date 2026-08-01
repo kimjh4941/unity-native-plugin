@@ -44,6 +44,16 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    public static void ShowAndroidClipboard(UIDocument uiDocument)
+    {
+#if UNITY_ANDROID || UNITY_EDITOR
+        ApplyScreen<AndroidClipboardManagerExampleController>(
+            uiDocument,
+            "UI/Android/Clipboard/AndroidClipboardManagerExample",
+            "UI/Android/Clipboard/AndroidClipboardManagerExampleStyle");
+#endif
+    }
+
     public static void ShowIosDialog(UIDocument uiDocument)
     {
 #if UNITY_IOS || UNITY_EDITOR
@@ -163,6 +173,7 @@ public static class NativeToolkitSampleNavigator
         RemoveIfExists<AndroidDialogManagerExampleController>(gameObject);
         RemoveIfExists<AndroidNotificationManagerExampleController>(gameObject);
         RemoveIfExists<AndroidShareManagerExampleController>(gameObject);
+        RemoveIfExists<AndroidClipboardManagerExampleController>(gameObject);
 #endif
 #if UNITY_IOS || UNITY_EDITOR
         RemoveIfExists<IosDialogManagerExampleController>(gameObject);
