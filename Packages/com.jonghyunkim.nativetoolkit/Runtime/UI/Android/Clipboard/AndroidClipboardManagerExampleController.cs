@@ -17,6 +17,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
     private const string ShareFileProviderAuthoritySuffix = ".native_toolkit.share.fileprovider";
 
     private Label? _resultLabel;
+    private ScrollView? _resultScrollView;
     private string _pendingOperationTitle = string.Empty;
     private int _changeCount;
 
@@ -120,6 +121,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _resultScrollView = root.Q<ScrollView>("ResultScrollView");
 
         _homeButton = root.Q<Button>("HomeButton");
         _copyPlainTextButton = root.Q<Button>("CopyPlainTextButton");
@@ -671,6 +673,13 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         if (_resultLabel != null)
         {
             _resultLabel.text = message;
+        }
+
+        // The result area is fixed height and scrolls. Without this, a new result inherits the
+        // previous scroll position and its first lines would be hidden above the viewport.
+        if (_resultScrollView != null)
+        {
+            _resultScrollView.scrollOffset = Vector2.zero;
         }
     }
 }

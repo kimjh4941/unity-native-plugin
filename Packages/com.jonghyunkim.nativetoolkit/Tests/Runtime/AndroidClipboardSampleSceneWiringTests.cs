@@ -109,6 +109,28 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
         }
 
+        /// <summary>
+        /// The controller resets this ScrollView's offset on every result, so a rename would
+        /// silently leave new results scrolled to the previous position.
+        /// </summary>
+        [Test]
+        public void ClipboardUxml_ContainsResultScrollView()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(ClipboardUxmlPath);
+            if (asset == null)
+            {
+                Assert.Ignore($"UXML not found at AssetDatabase path: {ClipboardUxmlPath}");
+                return;
+            }
+
+            var root = asset.Instantiate();
+            var scrollView = root.Q<ScrollView>("ResultScrollView");
+            Assert.IsNotNull(scrollView, "ScrollView 'ResultScrollView' not found in AndroidClipboardManagerExample.uxml");
+            Assert.IsNotNull(
+                scrollView.Q<Label>("ResultTextBlock"),
+                "Label 'ResultTextBlock' must live inside 'ResultScrollView' for the fixed-height result area to scroll.");
+        }
+
         [Test]
         public void TopMenuUxml_ContainsClipboardFeatureButton()
         {

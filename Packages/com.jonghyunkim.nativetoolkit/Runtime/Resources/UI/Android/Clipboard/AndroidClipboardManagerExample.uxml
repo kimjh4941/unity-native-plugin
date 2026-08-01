@@ -6,7 +6,9 @@
             <ui:Label text="AndroidClipboardManager Example" class="android-clipboard-title" />
             <ui:Label text="Copy, read, and observe the clipboard. Sensitive-content suppression requires Android 13 (API 33) or later." class="android-clipboard-subtitle" />
             <ui:VisualElement class="android-result-border">
-                <ui:Label name="ResultTextBlock" text="Android clipboard sample ready. Run on an Android device to test." class="android-result-text" />
+                <ui:ScrollView name="ResultScrollView" class="android-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="Android clipboard sample ready. Run on an Android device to test." class="android-result-text" />
+                </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:ScrollView class="android-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">

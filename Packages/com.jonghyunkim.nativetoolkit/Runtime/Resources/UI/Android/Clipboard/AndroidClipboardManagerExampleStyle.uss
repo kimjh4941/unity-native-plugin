@@ -45,9 +45,20 @@
     white-space: normal;
 }
 
+/*
+ * Fixed height: Read / GetDescription can return long clipboard contents, and letting the
+ * result area grow would push the button list off screen. The text scrolls inside instead.
+ * flex-shrink: 0 keeps the header from compressing it when content is long.
+ */
 .android-result-border {
     background-color: #EEEEEE;
     border-radius: 8px;
+    height: 80px;
+    flex-shrink: 0;
+}
+
+.android-result-scroll {
+    flex-grow: 1;
 }
 
 .android-section {
