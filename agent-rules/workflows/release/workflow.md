@@ -31,8 +31,10 @@
 | manual | `manual/<version>/` に `*.md` `*.ja.md` `*.ko.md` の各マニュアルが存在すること |
 | docs | `docs/<version>/` が存在すること |
 | package.json バージョン | `Packages/com.jonghyunkim.nativetoolkit/package.json` の `"version"` フィールドが `<version>` と一致すること |
+| package.json 内容の鮮度 | `package.json` の `"description"` / `"keywords"` が、`README.md` の `## Features` 見出しに列挙された機能（Dialog / Notification / Share / Clipboard 等）を漏れなく反映していること |
 
 - `package.json` のバージョンが異なる場合は自動的に更新し、コミットしてから続行する
+- `package.json` の `description` / `keywords` が `README.md` の機能一覧と食い違う場合（新機能追加時にこれらの更新が漏れているケースが多い）は自動修正せず、不足している機能名を提示してユーザーに更新するか確認する
 - ❌ が1件でもある場合はユーザーに「チェックに未通過の項目があります。続行しますか？」を確認する:
   - 続行する: 次へ
   - キャンセル: 終了
