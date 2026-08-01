@@ -8,7 +8,7 @@
 
 # 버전
 
-## 1.7.0
+## 1.8.0
 
 # 지원 OS 버전
 
@@ -46,6 +46,13 @@
   - 다이렉트 공유 타겟 등록
   - 콜백 포함 공유
   - 대기 중 콜백 취소
+
+- 클립보드 기능
+  - 일반 텍스트 / HTML 텍스트 / URI / 다중 텍스트 복사
+  - 민감한 콘텐츠 미리보기 억제 (Android 13+)
+  - 클립보드 읽기 / 클립 존재 여부 확인 / 본문에 접근하지 않는 메타데이터 조회
+  - 클립보드 변경 관찰
+  - 게임 활용 사례: 초대 코드, 코드 붙여넣기, 스크린샷 복사
 
 ## iOS
 
@@ -118,10 +125,6 @@
   - 서비스 제외 공유
   - 지정 서비스 경유 공유 (Mail 등)
 
-## 추가 예정 기능
-
-- 클립보드 연동
-
 # 시작하기
 
 ## 설치
@@ -130,7 +133,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
@@ -195,3 +198,4 @@
 - [다이얼로그](dialog.ko.md)
 - [알림](notification.ko.md)
 - [공유](share.ko.md)
+- [클립보드](clipboard.ko.md)

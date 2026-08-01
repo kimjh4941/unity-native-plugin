@@ -8,7 +8,7 @@
 
 # バージョン
 
-## 1.7.0
+## 1.8.0
 
 # 対応 OS バージョン
 
@@ -46,6 +46,13 @@
   - ダイレクト共有ターゲット登録
   - コールバック付き共有
   - 保留コールバックのキャンセル
+
+- クリップボード機能
+  - プレーンテキスト / HTMLテキスト / URI / 複数テキストのコピー
+  - 機微コンテンツのプレビュー抑制（Android 13+）
+  - クリップボードの読み取り / クリップの有無判定 / 本文に触れないメタデータ取得
+  - クリップボード変化の監視
+  - ゲームでの利用例: 招待コード、コードの貼り付け、スクリーンショットのコピー
 
 ## iOS
 
@@ -118,10 +125,6 @@
   - サービスを除外した共有
   - 名前付きサービス経由の共有（Mail 等）
 
-## 追加予定機能
-
-- クリップボード連携
-
 # はじめに
 
 ## インストール
@@ -130,7 +133,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -195,3 +198,4 @@
 - [ダイアログ機能](dialog.ja.md)
 - [通知機能](notification.ja.md)
 - [共有機能](share.ja.md)
+- [クリップボード機能](clipboard.ja.md)

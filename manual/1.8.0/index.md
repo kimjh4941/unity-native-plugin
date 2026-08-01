@@ -8,7 +8,7 @@
 
 # Version
 
-## 1.7.0
+## 1.8.0
 
 # Supported OS Versions
 
@@ -46,6 +46,13 @@
   - Direct Share target registration
   - Share with callback
   - Cancel pending callback
+
+- Clipboard features
+  - Copy plain text / HTML text / URI / multiple text
+  - Sensitive-content preview suppression (Android 13+)
+  - Read clipboard content / check for a clip / get metadata without touching the clip body
+  - Observe clipboard changes
+  - Game use cases: invite codes, pasting a code, copying a screenshot
 
 ## iOS
 
@@ -118,10 +125,6 @@
   - Share excluding services
   - Share via a named service (e.g. Mail)
 
-## Planned Features
-
-- Clipboard integration
-
 # Getting Started
 
 ## Installation
@@ -130,7 +133,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
 - Click "install".
 - Requirements:
   - Unity 6+
@@ -195,3 +198,4 @@
 - [Dialog](dialog.md)
 - [Notification](notification.md)
 - [Share](share.md)
+- [Clipboard](clipboard.md)

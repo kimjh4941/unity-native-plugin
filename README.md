@@ -1,7 +1,7 @@
 # Unity Native Toolkit (Unity 6)
 
 - A toolkit that provides native features for Unity 6+.
-- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, and sharing via singleton APIs per platform.
+- The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, sharing, and clipboard access via singleton APIs per platform.
 - Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build setup.
 
 Other languages:
@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.7.0
+- 1.8.0
 
 ## Supported OS Versions
 
@@ -47,6 +47,12 @@ Other languages:
   - Direct Share target registration
   - Share with callback
   - Cancel pending callback
+- Clipboard features
+  - Copy plain text / HTML text / URI / multiple text
+  - Sensitive-content preview suppression (Android 13+)
+  - Read clipboard content / check for a clip / get metadata without touching the clip body
+  - Observe clipboard changes
+  - Game use cases: invite codes, pasting a code, copying a screenshot
 
 ### iOS
 
@@ -118,17 +124,13 @@ Other languages:
   - Share excluding services
   - Share via a named service (e.g. Mail)
 
-## Planned Features
-
-- Clipboard integration
-
 ## Installation
 
 - Open Unity 6.
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.7.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
 - Click "install".
 - Requirements:
   - Unity 6+
