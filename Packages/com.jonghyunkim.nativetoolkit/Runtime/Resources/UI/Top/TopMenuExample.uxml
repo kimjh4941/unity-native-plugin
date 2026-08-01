@@ -7,6 +7,7 @@
             <ui:Button name="DialogFeatureButton" text="Dialog" class="top-button" />
             <ui:Button name="NotificationFeatureButton" text="Notification" class="top-button top-button-secondary" />
             <ui:Button name="ShareFeatureButton" text="Share" class="top-button top-button-secondary" />
+            <ui:Button name="ClipboardFeatureButton" text="Clipboard" class="top-button top-button-secondary" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
