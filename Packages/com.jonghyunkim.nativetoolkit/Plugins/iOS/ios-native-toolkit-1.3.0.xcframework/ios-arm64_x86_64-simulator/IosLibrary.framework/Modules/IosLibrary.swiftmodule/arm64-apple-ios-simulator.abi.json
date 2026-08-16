@@ -31964,7 +31964,7 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Clipboard\/Data\/Repository\/PasteboardResolver.swift",
       "kind": "StringLiteral",
-      "offset": 478,
+      "offset": 462,
       "length": 20,
       "value": "\"PasteboardResolver\""
     },
@@ -32160,14 +32160,14 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Clipboard\/IosClipboardManager.swift",
       "kind": "StringLiteral",
-      "offset": 2288,
+      "offset": 2669,
       "length": 21,
       "value": "\"IosClipboardManager\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Clipboard\/IosClipboardManager.swift",
       "kind": "IntegerLiteral",
-      "offset": 2854,
+      "offset": 3235,
       "length": 1,
       "value": "0"
     },

@@ -382,9 +382,13 @@ SWIFT_CLASS("_TtC10IosLibrary18ClipboardRedaction")
 /// never embeds input values. <code>.cancelled</code> is reported as <code>isSuccess == false</code>; callers may treat
 /// <code>errorCode == "CLIPBOARD_CANCELLED"</code> as a normal, ignorable outcome.
 /// <h2>Named pasteboard lifetime</h2>
-/// Named/unique pasteboards are <em>not persistent</em>: they exist only while the app that created
-/// them is running. They are suitable only for transferring data while both sides are alive —
-/// never for persistent sharing (use an App Group shared container for that instead).
+/// Named/unique pasteboards are <em>not a persistent store</em>, but their contents are <em>not
+/// guaranteed to be discarded when the creating process exits</em> either. Measured on iOS 18.7.2:
+/// after force-quitting the app and relaunching it, a named pasteboard written before the quit
+/// was still readable. The system does not specify when such a pasteboard is reclaimed.
+/// Use these scopes only to hand data between live apps, and <em>delete sensitive data explicitly
+/// with <code>removePasteboard(_:)</code></em> — never rely on app termination to discard it. For sharing that
+/// must outlive the creating app by design, use an App Group shared container instead.
 /// <h2>append vs copy</h2>
 /// <code>append</code> cannot carry <code>ClipboardCopyOptions</code>, and does <em>not</em> guarantee that privacy options
 /// set by a prior <code>copy</code> apply to the appended item. Sensitive data should always use <code>copy</code>.
