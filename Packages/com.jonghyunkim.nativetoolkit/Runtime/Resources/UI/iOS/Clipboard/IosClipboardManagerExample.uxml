@@ -4,8 +4,6 @@
         <ui:VisualElement class="ios-clipboard-header">
             <ui:Button name="HomeButton" class="ios-secondary-button" text="Back To Home" />
             <ui:Label text="IosClipboardManager Example" class="ios-clipboard-title" />
-            <ui:Label text="For iOS 18 or later devices. In the Editor every operation returns CLIPBOARD_BRIDGE_UNAVAILABLE." class="ios-clipboard-subtitle" />
-            <ui:Label name="SubtitleValidationLabel" text="Inputs that would throw in C# (blank pasteboard name, non-finite color) are not exposed as buttons; only native error contracts are shown below." class="ios-clipboard-subtitle" />
             <ui:VisualElement class="ios-clipboard-result-border">
                 <ui:ScrollView name="ResultScrollView" class="ios-clipboard-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
                     <ui:Label name="ResultTextBlock" text="iOS clipboard sample ready. Run on an iOS device to test." class="ios-clipboard-result-text" />
@@ -15,6 +13,12 @@
         </ui:VisualElement>
         <ui:ScrollView class="ios-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="ios-clipboard-content">
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="About" class="ios-clipboard-section-title" />
+                    <ui:Label text="For iOS 18 or later devices. In the Editor every operation returns CLIPBOARD_BRIDGE_UNAVAILABLE." class="ios-clipboard-section-note" />
+                    <ui:Label name="SubtitleValidationLabel" text="Inputs that would throw in C# (blank pasteboard name, non-finite color) are not exposed as buttons; only native error contracts are shown below." class="ios-clipboard-section-note" />
+                </ui:VisualElement>
 
                 <ui:VisualElement class="ios-clipboard-section">
                     <ui:Label text="Scope" class="ios-clipboard-section-title" />

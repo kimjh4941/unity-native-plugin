@@ -7,11 +7,16 @@
     height: 100%;
 }
 
+/*
+ * Capped at half the screen: on a device the header would otherwise take most of it, leaving the
+ * button list a few rows tall. The explanatory text lives in the scrolling About section instead.
+ */
 .ios-clipboard-header {
     background-color: rgba(255, 255, 255, 1);
-    padding: 16px;
-    gap: 8px;
+    padding: 12px 16px;
+    gap: 6px;
     flex-shrink: 0;
+    max-height: 50%;
     display: flex;
     flex-direction: column;
 }
@@ -24,13 +29,6 @@
     white-space: normal;
 }
 
-.ios-clipboard-subtitle {
-    font-size: 12px;
-    color: #8E8E93;
-    -unity-text-align: upper-center;
-    white-space: normal;
-}
-
 /*
  * Fixed height: results are single lines, but a long native error message wraps. Letting the
  * result area grow would push the button list off screen, so the text scrolls inside instead.
@@ -39,7 +37,7 @@
 .ios-clipboard-result-border {
     background-color: #EEEEEE;
     border-radius: 8px;
-    height: 72px;
+    height: 64px;
     flex-shrink: 0;
 }
 
@@ -65,6 +63,7 @@
 
 .ios-clipboard-scroll {
     flex-grow: 1;
+    min-height: 50%;
 }
 
 .ios-clipboard-content {

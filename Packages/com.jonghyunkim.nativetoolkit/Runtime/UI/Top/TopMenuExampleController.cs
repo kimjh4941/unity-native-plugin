@@ -180,19 +180,10 @@ public class TopMenuExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnClipboardClicked)}]");
         if (uiDocument == null) return;
 #if UNITY_EDITOR
-        // Unlike the other three features, the clipboard sample screen is reachable in the Editor so
-        // its wiring and the bridge-unavailable path can be exercised without a device. This
-        // asymmetry is deliberate: the Android clipboard screen is already verified on device, and
-        // routing by active build target here would add a branch this sample does not need.
-        bool open = UnityEditor.EditorUtility.DisplayDialog(
+        UnityEditor.EditorUtility.DisplayDialog(
             "Clipboard Feature",
-            "This feature runs natively on Android or iOS.\n" +
-            "Opening the sample screen in the Editor lets you check the layout; every operation will " +
-            "report CLIPBOARD_BRIDGE_UNAVAILABLE.",
-            "Open Sample Screen",
-            "Close");
-        if (!open) return;
-        NativeToolkitSampleNavigator.ShowIosClipboard(uiDocument);
+            "This feature runs natively on Android or iOS.\nRun on an Android or iOS player for full functionality.",
+            "OK");
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidClipboard(uiDocument);
 #elif UNITY_IOS
