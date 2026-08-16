@@ -103,7 +103,7 @@ public class TopMenuExampleController : MonoBehaviour
         }
 #endif
 
-#if UNITY_ANDROID || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_EDITOR
         if (_clipboardButton != null)
         {
             _clipboardButton.clicked += OnClipboardClicked;
@@ -111,7 +111,7 @@ public class TopMenuExampleController : MonoBehaviour
 #else
         if (_clipboardButton != null)
         {
-            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Clipboard feature is only supported on Android. Hiding button.");
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Clipboard feature is only supported on Android and iOS. Hiding button.");
             _clipboardButton.style.display = DisplayStyle.None;
         }
 #endif
@@ -180,12 +180,23 @@ public class TopMenuExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnClipboardClicked)}]");
         if (uiDocument == null) return;
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.DisplayDialog(
+        // Unlike the other three features, the clipboard sample screen is reachable in the Editor so
+        // its wiring and the bridge-unavailable path can be exercised without a device. This
+        // asymmetry is deliberate: the Android clipboard screen is already verified on device, and
+        // routing by active build target here would add a branch this sample does not need.
+        bool open = UnityEditor.EditorUtility.DisplayDialog(
             "Clipboard Feature",
-            "This feature runs natively on Android.\nRun on an Android player for full functionality.",
-            "OK");
+            "This feature runs natively on Android or iOS.\n" +
+            "Opening the sample screen in the Editor lets you check the layout; every operation will " +
+            "report CLIPBOARD_BRIDGE_UNAVAILABLE.",
+            "Open Sample Screen",
+            "Close");
+        if (!open) return;
+        NativeToolkitSampleNavigator.ShowIosClipboard(uiDocument);
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidClipboard(uiDocument);
+#elif UNITY_IOS
+        NativeToolkitSampleNavigator.ShowIosClipboard(uiDocument);
 #endif
     }
 }

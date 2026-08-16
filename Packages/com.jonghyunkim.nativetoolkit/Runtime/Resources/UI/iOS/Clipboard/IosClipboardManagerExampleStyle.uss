@@ -1,0 +1,152 @@
+.ios-clipboard-root {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.ios-clipboard-header {
+    background-color: rgba(255, 255, 255, 1);
+    padding: 16px;
+    gap: 8px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ios-clipboard-title {
+    font-size: 20px;
+    color: #1C1C1E;
+    -unity-font-style: bold;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+.ios-clipboard-subtitle {
+    font-size: 12px;
+    color: #8E8E93;
+    -unity-text-align: upper-center;
+    white-space: normal;
+}
+
+/*
+ * Fixed height: results are single lines, but a long native error message wraps. Letting the
+ * result area grow would push the button list off screen, so the text scrolls inside instead.
+ * flex-shrink: 0 keeps the header from compressing it.
+ */
+.ios-clipboard-result-border {
+    background-color: #EEEEEE;
+    border-radius: 8px;
+    height: 72px;
+    flex-shrink: 0;
+}
+
+.ios-clipboard-result-scroll {
+    flex-grow: 1;
+}
+
+.ios-clipboard-result-text {
+    padding: 10px;
+    font-size: 12px;
+    color: #212121;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+.ios-clipboard-status-text {
+    font-size: 12px;
+    color: #1C1C1E;
+    -unity-font-style: bold;
+    -unity-text-align: upper-left;
+    white-space: normal;
+}
+
+.ios-clipboard-scroll {
+    flex-grow: 1;
+}
+
+.ios-clipboard-content {
+    background-color: rgba(255, 255, 255, 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0 16px 16px 16px;
+    gap: 12px;
+}
+
+.ios-clipboard-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ios-clipboard-section-title {
+    font-size: 15px;
+    color: #263238;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.ios-clipboard-section-note {
+    font-size: 11px;
+    color: #757575;
+    white-space: normal;
+}
+
+.ios-clipboard-button {
+    background-color: #007AFF;
+    color: white;
+    font-size: 14px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.ios-clipboard-button:hover {
+    background-color: #0056D6;
+}
+
+.ios-clipboard-button:active {
+    background-color: #0046AA;
+}
+
+.ios-clipboard-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
+
+.ios-secondary-button {
+    background-color: #8E8E93;
+    color: white;
+    font-size: 14px;
+    width: 100%;
+    min-height: 46px;
+    height: auto;
+    -unity-text-align: middle-center;
+    border-width: 0;
+    border-radius: 8px;
+    white-space: normal;
+    overflow: visible;
+    padding: 8px 12px;
+}
+
+.ios-secondary-button:hover {
+    background-color: #6E6E73;
+}
+
+.ios-secondary-button:active {
+    background-color: #5A5A5E;
+}
+
+.ios-secondary-button:disabled {
+    background-color: #CCCCCC;
+    color: #999999;
+}
