@@ -139,6 +139,19 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual("on (pending)", IosClipboardSampleResult.FormatObservingState(true, true));
         }
 
+        [Test]
+        public void FormatPatternKinds_NamesTheDetectedKinds()
+        {
+            var patterns = new[]
+            {
+                IosClipboardDetectionPattern.Number,
+                IosClipboardDetectionPattern.ProbableWebSearch
+            };
+
+            Assert.AreEqual("Number,ProbableWebSearch", IosClipboardSampleResult.FormatPatternKinds(patterns));
+            Assert.AreEqual("-", IosClipboardSampleResult.FormatPatternKinds(System.Array.Empty<IosClipboardDetectionPattern>()));
+        }
+
         // ── Observation ownership ────────────────────────────────────────────
 
         [Test]

@@ -48,7 +48,7 @@
 
                 <ui:VisualElement class="ios-clipboard-section">
                     <ui:Label text="Copy Options" class="ios-clipboard-section-title" />
-                    <ui:Label text="The local-only pair and the baseline body have different lengths, so Read on another device can tell them apart from textLen alone." class="ios-clipboard-section-note" />
+                    <ui:Label text="The local-only pair and the baseline body have different lengths, so Read on another device can tell them apart from textLen alone. Whether localOnly actually suppresses transfer to nearby devices is not something this screen can show." class="ios-clipboard-section-note" />
                     <ui:Button name="CopyLocalOnlyTrueButton" class="ios-clipboard-button" text="Copy (localOnly = true)" />
                     <ui:Button name="CopyLocalOnlyFalseButton" class="ios-clipboard-button" text="Copy (localOnly = false)" />
                     <ui:Button name="CopyDeviceBaselineButton" class="ios-secondary-button" text="Copy Device Baseline" />

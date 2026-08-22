@@ -2,6 +2,7 @@
 
 #if UNITY_IOS || UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.Text;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 
@@ -88,6 +89,18 @@ internal static class IosClipboardSampleResult
     /// enough to tell the failure modes apart.
     /// </remarks>
     internal static string DescribeException(Exception exception) => exception.GetType().Name;
+
+    /// <summary>
+    /// Joins detected pattern kinds for display.
+    /// </summary>
+    /// <remarks>
+    /// Kinds are enum names, not clipboard content: DetectValues already shows the same
+    /// information as per-category counts. The detected values themselves are never shown.
+    /// Without this, a result of "patterns=2" cannot say which two were found, so the manual
+    /// check that number and probableWebSearch only appear on their own fixtures is unverifiable.
+    /// </remarks>
+    internal static string FormatPatternKinds(IReadOnlyList<IosClipboardDetectionPattern> patterns) =>
+        patterns.Count == 0 ? "-" : string.Join(",", patterns);
 
     /// <remarks>
     /// The size read and the directory cleanup are reported independently: cleanup must be

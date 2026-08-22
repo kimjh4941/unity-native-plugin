@@ -988,7 +988,10 @@ public class IosClipboardManagerExampleController : MonoBehaviour
                 return;
             }
 
-            SetResult(IosClipboardSampleResult.FormatSuccess(context, $"patterns={result.Patterns.Count}"));
+            SetResult(IosClipboardSampleResult.FormatSuccess(
+                context,
+                $"patterns={result.Patterns.Count} " +
+                $"kinds={IosClipboardSampleResult.FormatPatternKinds(result.Patterns)}"));
         });
     }
 
