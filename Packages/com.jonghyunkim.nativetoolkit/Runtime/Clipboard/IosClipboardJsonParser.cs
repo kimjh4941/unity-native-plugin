@@ -32,6 +32,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         internal const string UnknownErrorCode = "CLIPBOARD_UNKNOWN";
         internal const string ContentTooLargeErrorCode = "CLIPBOARD_CONTENT_TOO_LARGE";
 
+        /// <summary>
+        /// A load the caller cancelled. Documented as a normal outcome, so it is logged at info
+        /// level: reporting it as an error would put a red entry in the console - and a false
+        /// positive in any error monitoring - every time CancelLoads does its job.
+        /// </summary>
+        internal const string CancelledErrorCode = "CLIPBOARD_CANCELLED";
+
         internal const string NoDataMessage = "Clipboard bridge returned no data.";
         internal const string ParseFailedMessage = "Failed to parse the clipboard response.";
         internal const string DecodeFailedMessage = "Failed to decode the clipboard data.";
@@ -465,8 +472,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 }
             }
 
-            Debug.LogError($"[{LogTag}][{nameof(ReadErrorInfo)}] errorCode: {code ?? UnknownErrorCode}, " +
-                           $"hasDetails: {domain != null}");
+            string logLine = $"[{LogTag}][{nameof(ReadErrorInfo)}] errorCode: {code ?? UnknownErrorCode}, " +
+                             $"hasDetails: {domain != null}";
+            if (code == CancelledErrorCode)
+            {
+                Debug.Log(logLine);
+            }
+            else
+            {
+                Debug.LogError(logLine);
+            }
             return IosClipboardErrorInfo.Create(code, message, domain, nativeCode);
         }
 

@@ -2,7 +2,9 @@
 
 #if UNITY_IOS || UNITY_EDITOR
 using System;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 
@@ -616,6 +618,19 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void ParseLoadedItemResult_ImageDataWithEscapedSlashes_Decodes()
+        {
+            // Reproduces the on-device response: the native side serializes with
+            // JSONSerialization, which escapes '/' as "\/", and '/' is part of the base64 alphabet.
+            IosClipboardLoadedItemResult result = IosClipboardJsonParser.ParseLoadedItemResult(
+                "{\"ok\":true,\"data\":{\"kind\":\"imageData\",\"base64\":\"\\/\\/\\/\\/\",\"utType\":\"public.png\"}}");
+
+            Assert.IsTrue(result.IsSuccess, "an escaped slash is valid JSON and valid base64");
+            Assert.AreEqual(new byte[] { 255, 255, 255 }, result.Item!.Data);
+            Assert.AreEqual("public.png", result.Item.UtType);
+        }
+
+        [Test]
         public void ParseLoadedItemResult_UnknownOrFutureKind_IsSuccess()
         {
             IgnoreExpectedParserErrorLogs();
@@ -646,12 +661,27 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ParseLoadedItemResult_CancelledEnvelope_IsAFailureWithTheCancelledCode()
         {
-            IgnoreExpectedParserErrorLogs();
+            // Deliberately does NOT ignore failing messages: a cancelled load is a documented normal
+            // outcome, so it must not reach Debug.LogError. An error log fails this test, which is
+            // the regression guard for that rule.
             IosClipboardLoadedItemResult result = IosClipboardJsonParser.ParseLoadedItemResult(
                 "{\"ok\":false,\"error\":{\"code\":\"CLIPBOARD_CANCELLED\",\"message\":\"The clipboard load was cancelled.\"}}");
 
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("CLIPBOARD_CANCELLED", result.Error!.Value.Code);
+        }
+
+        [Test]
+        public void ParseLoadedItemResult_OtherFailureEnvelope_StillLogsAnError()
+        {
+            // The counterpart: only cancellation is downgraded, every other code stays an error.
+            LogAssert.Expect(LogType.Error, new Regex("errorCode: CLIPBOARD_UNAVAILABLE"));
+
+            IosClipboardLoadedItemResult result = IosClipboardJsonParser.ParseLoadedItemResult(
+                "{\"ok\":false,\"error\":{\"code\":\"CLIPBOARD_UNAVAILABLE\",\"message\":\"Unavailable.\"}}");
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual("CLIPBOARD_UNAVAILABLE", result.Error!.Value.Code);
         }
 
         // ── checkForegroundChange ───────────────────────────────────────────────

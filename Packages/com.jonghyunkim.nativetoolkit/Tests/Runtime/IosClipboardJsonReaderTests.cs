@@ -385,6 +385,35 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void TryGetBase64Bytes_SlashEscapedToken_RoundTripsPayload()
+        {
+            // '/' belongs to the base64 alphabet, and Apple's JSONSerialization escapes it as "\/"
+            // unless .withoutEscapingSlashes is set, so real device payloads arrive escaped.
+            var payload = new byte[] { 255, 255, 255 };
+            string escaped = Convert.ToBase64String(payload).Replace("/", "\\/");
+            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
+
+            JsonBase64Status status = root.GetMemberOrNull("b")!.TryGetBase64Bytes(long.MaxValue, out byte[]? bytes);
+
+            Assert.AreEqual(JsonBase64Status.Success, status);
+            Assert.AreEqual(payload, bytes);
+        }
+
+        [Test]
+        public void TryGetBase64Bytes_SlashEscapedToken_StillHonoursTheLimit()
+        {
+            // The limit must be measured on the unescaped token, not on the longer escaped source.
+            var payload = new byte[] { 255, 255, 255 };
+            string escaped = Convert.ToBase64String(payload).Replace("/", "\\/");
+            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
+
+            Assert.AreEqual(
+                JsonBase64Status.TooLarge,
+                root.GetMemberOrNull("b")!.TryGetBase64Bytes(2, out byte[]? bytes));
+            Assert.IsNull(bytes);
+        }
+
+        [Test]
         public void TryGetBase64Bytes_EscapedToken_ReportsMalformed()
         {
             // Canonical base64 never needs escaping, so an escaped token must not take the

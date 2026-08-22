@@ -200,7 +200,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>
         /// Decodes a base64 string member without materializing it as a managed string.
         /// The limit is checked from the exact decoded length before any buffer is allocated, so
-        /// an oversized payload never costs memory.
+        /// an oversized payload never costs memory. A token whose slashes arrive escaped is copied
+        /// into a char buffer first, which is the one case that does allocate ahead of the check.
         /// </summary>
         /// <param name="maxDecodedLength">Inclusive upper bound on the decoded byte count.</param>
         /// <param name="bytes">Decoded bytes on success, otherwise null.</param>
@@ -213,14 +214,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return JsonBase64Status.NotAString;
             }
 
-            // Canonical base64 contains no characters that require JSON escaping, so an escaped
-            // token cannot be valid base64 and must not take the zero-copy path.
+            // '/' is part of the base64 alphabet and JSON producers may escape it as "\/", which
+            // Apple's JSONSerialization does unless .withoutEscapingSlashes is set. Such a payload
+            // is valid base64, so it is unescaped into a buffer first; only "\/" can appear, and any
+            // other escape means the token is not canonical base64.
+            ReadOnlySpan<char> span;
             if (_hasEscapes)
             {
-                return JsonBase64Status.Malformed;
+                if (!TryUnescapeSlashes(_source!, _start, _length, out char[]? unescaped, out int unescapedLength))
+                {
+                    return JsonBase64Status.Malformed;
+                }
+                span = unescaped!.AsSpan(0, unescapedLength);
+            }
+            else
+            {
+                span = _source!.AsSpan(_start, _length);
             }
 
-            ReadOnlySpan<char> span = _source!.AsSpan(_start, _length);
             if (!TryGetDecodedLength(span, out long decodedLength))
             {
                 return JsonBase64Status.Malformed;
@@ -239,6 +250,43 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
             bytes = buffer;
             return JsonBase64Status.Success;
+        }
+
+        /// <summary>
+        /// Copies a string token with only "\/" escapes into a buffer, dropping the backslashes.
+        /// </summary>
+        /// <remarks>
+        /// Used only for base64, where '/' is the single escapable character the alphabet contains.
+        /// Any other escape means the token is not base64 at all, so it is rejected rather than
+        /// decoded generically: that keeps this path from allocating for a value it cannot use.
+        /// </remarks>
+        private static bool TryUnescapeSlashes(string source, int start, int length, out char[]? buffer, out int written)
+        {
+            buffer = null;
+            written = 0;
+            var result = new char[length];
+            int end = start + length;
+            int index = 0;
+            for (int i = start; i < end; i++)
+            {
+                char current = source[i];
+                if (current != '\\')
+                {
+                    result[index++] = current;
+                    continue;
+                }
+
+                if (i + 1 >= end || source[i + 1] != '/')
+                {
+                    return false;
+                }
+                result[index++] = '/';
+                i++;
+            }
+
+            buffer = result;
+            written = index;
+            return true;
         }
 
         /// <summary>
