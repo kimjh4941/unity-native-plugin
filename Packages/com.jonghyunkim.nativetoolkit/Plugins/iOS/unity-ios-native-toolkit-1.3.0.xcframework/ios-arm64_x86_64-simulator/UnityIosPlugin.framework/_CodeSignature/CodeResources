@@ -14,11 +14,11 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		Az2I2kJjule48xgCcDK6aQeB/Ug=
+		ZW1L6RLpZYM7xoMLAvAQbkvRv70=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
-		83XHzJ4jsIPMgTDOREUeZgZ0CUA=
+		UzmStsLUXn2A/fwAcGqwldfONws=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
@@ -38,7 +38,7 @@
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
-		83XHzJ4jsIPMgTDOREUeZgZ0CUA=
+		UzmStsLUXn2A/fwAcGqwldfONws=
 		</data>
 		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
@@ -81,7 +81,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			CN1UVnBEXvahIvhGqyReQZKzBoA7J9vG/WUDKFAJBzY=
+			y/1B0Jw2yIYatEZUvvhF9m7ShKkSEuJKGaCluYE5+eM=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
@@ -116,7 +116,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			CN1UVnBEXvahIvhGqyReQZKzBoA7J9vG/WUDKFAJBzY=
+			y/1B0Jw2yIYatEZUvvhF9m7ShKkSEuJKGaCluYE5+eM=
 			</data>
 		</dict>
 		<key>Modules/UnityIosPlugin.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
