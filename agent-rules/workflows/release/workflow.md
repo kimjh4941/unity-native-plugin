@@ -30,11 +30,18 @@
 | Plugins | `Packages/com.jonghyunkim.nativetoolkit/Plugins/` に `Android` `iOS` `macOS` `Windows` ディレクトリが存在すること |
 | manual | `manual/<version>/` に `*.md` `*.ja.md` `*.ko.md` の各マニュアルが存在すること |
 | docs | `docs/<version>/` が存在すること |
+| manual 整合 | `./scripts/verify_manual.sh <version>` が停止項目 0 件で終了すること（画像リンク切れ・アンカー切れ・バージョン参照の不一致・docs 未同期を検出する。警告項目は ❌ にしない） |
 | package.json バージョン | `Packages/com.jonghyunkim.nativetoolkit/package.json` の `"version"` フィールドが `<version>` と一致すること |
 | package.json 内容の鮮度 | `package.json` の `"description"` / `"keywords"` が、`README.md` の `## Features` 見出しに列挙された機能（Dialog / Notification / Share / Clipboard 等）を漏れなく反映していること |
 
 - `package.json` のバージョンが異なる場合は自動的に更新し、コミットしてから続行する
 - `package.json` の `description` / `keywords` が `README.md` の機能一覧と食い違う場合（新機能追加時にこれらの更新が漏れているケースが多い）は自動修正せず、不足している機能名を提示してユーザーに更新するか確認する
+
+**manual 整合が ❌ の場合は、続行前に内訳を提示する。**
+`./scripts/verify_manual.sh <前バージョン>` も実行して差分を取り、今回のリリースで作り込んだものか、前バージョンから引き継いだものかを区別して示す。
+docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行漏れなので、その場で解消してよい。
+詳細は `agent-rules/workflows/verify-manual/workflow.md` を参照する。
+
 - ❌ が1件でもある場合はユーザーに「チェックに未通過の項目があります。続行しますか？」を確認する:
   - 続行する: 次へ
   - キャンセル: 終了
