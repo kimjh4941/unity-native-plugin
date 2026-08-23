@@ -109,9 +109,9 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
   - **偽コンフリクトを防いでいるのはこのステップだけである。** ステップ5 の方式は無関係なので、
     ステップ5 を merge commit にしたことをもって「コンフリクト対策が済んだ」と考えないこと
 - `--delete-branch` は付けない（`develop` は残す必要がある）
-- マージ済みの feature ブランチは remote に残っている（`--delete-branch` を指定しても削除されていない）。
-  過去の feature ブランチから develop へ再度マージしないこと。squash 済みのものを再マージすると
-  同じ変更が二重に入る
+- ステップ5 の `--delete-branch` により feature ブランチは remote から削除される。
+  ローカルに残る `origin/feature/*` は古い remote-tracking ref なので、`git fetch --prune` で消える
+  （`git branch -r` だけを見て「削除されていない」と誤認しないこと）
 
 1. `git fetch origin && git checkout develop && git pull origin develop` を実行する
 2. `gh pr create --base main --title "Release v<version>" --body "<ステップ4のリリースノート>"` を実行する
