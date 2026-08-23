@@ -193,7 +193,7 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 ### URIのコピー
 
-`content://` URI（画像やファイルへの参照など）をコピーします。URI文字列の組み立て方は前述の[content:// URI](#content-uriコピー-uricopy-screenshotに必要)を参照してください。
+`content://` URI（画像やファイルへの参照など）をコピーします。URI文字列の組み立て方は前述の[content:// URI](#content-uricopy-uricopy-screenshotに必要)を参照してください。
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -890,8 +890,11 @@ IosClipboardManager.Instance.Copy(
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
+// 呼び出しごとに一意の接尾辞を付け、Read で追記されたアイテムを区別できるようにする。
+string marker = "APPENDED-MARKER-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
 IosClipboardManager.Instance.Append(
-    IosClipboardContent.PlainText("APPENDED-MARKER-0001"),
+    IosClipboardContent.PlainText(marker),
     _scope,
     result => Debug.Log($"Append: {result.IsSuccess}"));
 #endif

@@ -890,8 +890,11 @@ IosClipboardManager.Instance.Copy(
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
+// 호출마다 고유한 접미사를 붙여 Read에서 추가된 아이템을 구분할 수 있게 한다.
+string marker = "APPENDED-MARKER-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
 IosClipboardManager.Instance.Append(
-    IosClipboardContent.PlainText("APPENDED-MARKER-0001"),
+    IosClipboardContent.PlainText(marker),
     _scope,
     result => Debug.Log($"Append: {result.IsSuccess}"));
 #endif

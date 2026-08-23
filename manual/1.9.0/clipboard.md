@@ -890,8 +890,11 @@ IosClipboardManager.Instance.Copy(
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
+// A unique suffix per call, so the appended items can be told apart on Read.
+string marker = "APPENDED-MARKER-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
 IosClipboardManager.Instance.Append(
-    IosClipboardContent.PlainText("APPENDED-MARKER-0001"),
+    IosClipboardContent.PlainText(marker),
     _scope,
     result => Debug.Log($"Append: {result.IsSuccess}"));
 #endif
