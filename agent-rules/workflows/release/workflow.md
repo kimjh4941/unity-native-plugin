@@ -15,9 +15,17 @@
 1. **リリースバージョン** — ステップ1 で取得済みの場合はスキップ
    - 例: `1.3.0`
 
-2. **マージ方式** — デフォルト: squash
-   - `squash`: コミットをまとめてマージ
+2. **マージ方式**（ステップ5 の feature→develop に適用する） — デフォルト: merge commit
    - `merge commit`: コミット履歴をそのままマージ
+   - `squash`: コミットをまとめてマージ
+   - どちらを選んでも偽コンフリクトは起きない。これは履歴の粒度の選択である
+     - 偽コンフリクトを防いでいるのはステップ6 の `--merge` であり、ステップ5 の方式は関係しない
+       （develop→main は毎回マージするが、feature ブランチから develop へ再度マージすることはない）
+   - 1.9.0 以降は merge commit に統一している。`/commit-msg` で 1 コミットずつ理由を書き込む
+     運用のため、squash するとその記述が main の履歴から失われるため
+     - 1.8.0 以前は squash で運用していた。`git log <前タグ>..<タグ>` の件数がバージョン間で
+       揃わないのはこのため（1.7.0..1.8.0 は 5 件で、うち UNT-8 の作業は
+       `feature: feature/UNT-8 (#21)` の 1 件に潰れている）
 
 ## ステップ3: リリース前チェックリスト
 
@@ -85,7 +93,8 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 1. `gh pr create --base develop --title "feature: <現在のブランチ名>" --body "<ステップ4のリリースノート>"` を実行する
 2. PR URL を表示する
 3. 「PR をマージしますか？」を確認する:
-   - マージする: `gh pr merge <PR番号> --<squash|merge> --delete-branch` を実行する
+   - マージする: `gh pr merge <PR番号> --<merge|squash> --delete-branch` を実行する
+     （ステップ2 で選択した方式。既定は `--merge`）
    - あとで手動でマージする: PR URL を表示して終了
 
 ## ステップ6: develop → main PR を作成する
@@ -93,9 +102,16 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 （ステップ5 でマージした場合のみ実行）
 
 - **マージ方式は必ず `--merge`（merge commit）を使用する。squash は使用しない**
+  - ステップ2 の選択にかかわらず、ここは常に `--merge` である
   - 理由: develop→main を squash すると、main 側のコミットが develop の履歴と親子関係を持たなくなる
     - 次回リリース時に `git merge-base develop main` が実際より古いコミットまで遡ってしまい、develop 側で既に取り込み済みの変更が「両側で別々に変更された」と誤認されて偽コンフリクトが発生する
-    - feature→develop 側（ステップ5）は squash のままで問題ない（トピックブランチ整理が目的で、develop 自身の履歴の連続性には影響しないため）
+    - `--merge` ならマージコミットの第 2 親が develop の先端になるため、`git merge-base` が正しい位置を指す
+  - **偽コンフリクトを防いでいるのはこのステップだけである。** ステップ5 の方式は無関係なので、
+    ステップ5 を merge commit にしたことをもって「コンフリクト対策が済んだ」と考えないこと
+- `--delete-branch` は付けない（`develop` は残す必要がある）
+- マージ済みの feature ブランチは remote に残っている（`--delete-branch` を指定しても削除されていない）。
+  過去の feature ブランチから develop へ再度マージしないこと。squash 済みのものを再マージすると
+  同じ変更が二重に入る
 
 1. `git fetch origin && git checkout develop && git pull origin develop` を実行する
 2. `gh pr create --base main --title "Release v<version>" --body "<ステップ4のリリースノート>"` を実行する
