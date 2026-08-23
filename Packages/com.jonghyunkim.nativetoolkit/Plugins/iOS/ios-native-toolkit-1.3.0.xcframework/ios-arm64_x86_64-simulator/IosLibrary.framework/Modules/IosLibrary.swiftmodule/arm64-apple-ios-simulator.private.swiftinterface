@@ -1,0 +1,936 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2.4 effective-5.10 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)
+// swift-module-flags: -target arm64-apple-ios18.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name IosLibrary
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2.4
+import CoreLocation
+import DataDetection
+import Foundation
+@_exported import IosLibrary
+import LinkPresentation
+import Swift
+import UIKit
+import UniformTypeIdentifiers
+import UserNotifications
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public protocol ClipboardClock : Swift.Sendable {
+  func now() -> Foundation.Date
+}
+public struct SystemClock : IosLibrary.ClipboardClock {
+  public init()
+  public func now() -> Foundation.Date
+}
+@_Concurrency.MainActor public protocol ClipboardItemLoader : AnyObject, Swift.Sendable {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  @_Concurrency.MainActor func load(_ request: IosLibrary.ClipboardLoadRequest, scope: IosLibrary.PasteboardScope, completion: @escaping (Swift.Result<IosLibrary.ClipboardLoadedItem, IosLibrary.ClipboardError>) -> Swift.Void) -> any IosLibrary.ClipboardLoadToken
+  #endif
+  @_Concurrency.MainActor func cancelAll()
+}
+@_Concurrency.MainActor public protocol ClipboardLoadToken : AnyObject, Swift.Sendable {
+  @_Concurrency.MainActor func cancel()
+}
+@_Concurrency.MainActor public protocol ClipboardRepository : AnyObject, Swift.Sendable {
+  @_Concurrency.MainActor func createPasteboard(_ request: IosLibrary.PasteboardCreationRequest) throws -> IosLibrary.PasteboardScope
+  @_Concurrency.MainActor func removePasteboard(_ scope: IosLibrary.PasteboardScope) throws
+  @_Concurrency.MainActor func copy(_ content: IosLibrary.ClipboardContent, options: IosLibrary.ClipboardCopyOptions, scope: IosLibrary.PasteboardScope) async throws
+  @_Concurrency.MainActor func append(_ content: IosLibrary.ClipboardContent, scope: IosLibrary.PasteboardScope) async throws
+  @_Concurrency.MainActor func read(scope: IosLibrary.PasteboardScope) throws -> IosLibrary.ClipboardReadResult
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor func readData(utType: Swift.String, scope: IosLibrary.PasteboardScope) throws -> Foundation.Data?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor func snapshot(matchingTypes: [Swift.String]?, scope: IosLibrary.PasteboardScope) throws -> IosLibrary.ClipboardSnapshot
+  #endif
+  @_Concurrency.MainActor func clear(scope: IosLibrary.PasteboardScope) throws
+  @_Concurrency.MainActor func changeCount(scope: IosLibrary.PasteboardScope) throws -> Swift.Int
+  @_Concurrency.MainActor func detectPatterns(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope) async throws -> Swift.Set<IosLibrary.ClipboardDetectionPattern>
+  @_Concurrency.MainActor func detectValues(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope) async throws -> IosLibrary.ClipboardDetectedValues
+}
+public protocol ClipboardTypeIdentifierValidating : Swift.Sendable {
+  func validateGeneric(_ identifier: Swift.String) throws
+  func validateImage(_ identifier: Swift.String) throws
+}
+@_Concurrency.MainActor public struct AppendContentUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, contentValidator: IosLibrary.ClipboardContentValidator = ClipboardContentValidator(), typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating)
+  @_Concurrency.MainActor public func execute(_ content: IosLibrary.ClipboardContent, scope: IosLibrary.PasteboardScope) async throws
+}
+@_Concurrency.MainActor public struct CancelAllLoadsUseCase {
+  @_Concurrency.MainActor public init(loader: any IosLibrary.ClipboardItemLoader)
+  @_Concurrency.MainActor public func execute()
+}
+@_Concurrency.MainActor final public class CheckForegroundChangeUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  @_Concurrency.MainActor final public func resync(scope: IosLibrary.PasteboardScope)
+  @_Concurrency.MainActor final public func markReported(scope: IosLibrary.PasteboardScope)
+  @_Concurrency.MainActor final public func execute(scope: IosLibrary.PasteboardScope) -> Swift.Bool
+  @objc deinit
+}
+@_Concurrency.MainActor public struct ClearClipboardUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  @_Concurrency.MainActor public func execute(scope: IosLibrary.PasteboardScope) throws
+}
+public struct ClipboardChangeTracker : Swift.Sendable {
+  public init(baseline: Swift.Int)
+  public mutating func resync(to current: Swift.Int)
+  public mutating func markReported(current: Swift.Int)
+  public mutating func hasChanged(current: Swift.Int) -> Swift.Bool
+}
+public struct ClipboardContentValidator : Swift.Sendable {
+  public init(clock: any IosLibrary.ClipboardClock = SystemClock(), limits: IosLibrary.ClipboardLimits = .default)
+  public func validate(_ content: IosLibrary.ClipboardContent) throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func validateExpirationDate(_ date: Foundation.Date?) throws
+  #endif
+}
+@_Concurrency.MainActor public struct ClipboardUseCases {
+  @_Concurrency.MainActor public let copyContent: IosLibrary.CopyContentUseCase
+  @_Concurrency.MainActor public let appendContent: IosLibrary.AppendContentUseCase
+  @_Concurrency.MainActor public let readContent: IosLibrary.ReadContentUseCase
+  @_Concurrency.MainActor public let readData: IosLibrary.ReadDataUseCase
+  @_Concurrency.MainActor public let getSnapshot: IosLibrary.GetSnapshotUseCase
+  @_Concurrency.MainActor public let clearClipboard: IosLibrary.ClearClipboardUseCase
+  @_Concurrency.MainActor public let createPasteboard: IosLibrary.CreatePasteboardUseCase
+  @_Concurrency.MainActor public let removePasteboard: IosLibrary.RemovePasteboardUseCase
+  @_Concurrency.MainActor public let detectPatterns: IosLibrary.DetectPatternsUseCase
+  @_Concurrency.MainActor public let detectValues: IosLibrary.DetectValuesUseCase
+  @_Concurrency.MainActor public let loadItem: IosLibrary.LoadItemUseCase
+  @_Concurrency.MainActor public let cancelAllLoads: IosLibrary.CancelAllLoadsUseCase
+  @_Concurrency.MainActor public let checkForegroundChange: IosLibrary.CheckForegroundChangeUseCase
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, loader: any IosLibrary.ClipboardItemLoader, typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating, contentValidator: IosLibrary.ClipboardContentValidator = ClipboardContentValidator(), timeouts: IosLibrary.ClipboardTimeouts = .default)
+}
+@_Concurrency.MainActor public struct CopyContentUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, contentValidator: IosLibrary.ClipboardContentValidator = ClipboardContentValidator(), typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating)
+  @_Concurrency.MainActor public func execute(_ content: IosLibrary.ClipboardContent, options: IosLibrary.ClipboardCopyOptions, scope: IosLibrary.PasteboardScope) async throws
+}
+@_Concurrency.MainActor public struct CreatePasteboardUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  @_Concurrency.MainActor public func execute(_ request: IosLibrary.PasteboardCreationRequest) throws -> IosLibrary.PasteboardScope
+}
+@_Concurrency.MainActor public struct DetectPatternsUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, timeouts: IosLibrary.ClipboardTimeouts = .default)
+  @_Concurrency.MainActor public func execute(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope) async throws -> Swift.Set<IosLibrary.ClipboardDetectionPattern>
+}
+@_Concurrency.MainActor public struct DetectValuesUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, timeouts: IosLibrary.ClipboardTimeouts = .default)
+  @_Concurrency.MainActor public func execute(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope) async throws -> IosLibrary.ClipboardDetectedValues
+}
+@_Concurrency.MainActor public struct GetSnapshotUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor public func execute(matchingTypes: [Swift.String]?, scope: IosLibrary.PasteboardScope) throws -> IosLibrary.ClipboardSnapshot
+  #endif
+}
+@_Concurrency.MainActor public struct LoadItemUseCase {
+  @_Concurrency.MainActor public init(loader: any IosLibrary.ClipboardItemLoader)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  @_Concurrency.MainActor public func execute(_ request: IosLibrary.ClipboardLoadRequest, scope: IosLibrary.PasteboardScope, completion: @escaping (Swift.Result<IosLibrary.ClipboardLoadedItem, IosLibrary.ClipboardError>) -> Swift.Void) -> any IosLibrary.ClipboardLoadToken
+  #endif
+}
+@_Concurrency.MainActor public struct ReadContentUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  @_Concurrency.MainActor public func execute(scope: IosLibrary.PasteboardScope) throws -> IosLibrary.ClipboardReadResult
+}
+@_Concurrency.MainActor public struct ReadDataUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository, typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor public func execute(utType: Swift.String, scope: IosLibrary.PasteboardScope) throws -> Foundation.Data?
+  #endif
+}
+@_Concurrency.MainActor public struct RemovePasteboardUseCase {
+  @_Concurrency.MainActor public init(repository: any IosLibrary.ClipboardRepository)
+  @_Concurrency.MainActor public func execute(_ scope: IosLibrary.PasteboardScope) throws
+}
+@_inheritsConvenienceInitializers @objc final public class ClipboardRedaction : ObjectiveC.NSObject {
+  @objc public static func text(_ value: Swift.String) -> Swift.String
+  @objc public static func dataByteCount(_ byteCount: Swift.Int) -> Swift.String
+  @objc public static func json(_ value: Swift.String) -> Swift.String
+  @objc public static func path(_ value: Swift.String) -> Swift.String
+  @objc override dynamic public init()
+  @objc deinit
+}
+public struct ClipboardTypeIdentifierValidator : IosLibrary.ClipboardTypeIdentifierValidating {
+  public init()
+  public func validateGeneric(_ identifier: Swift.String) throws
+  public func validateImage(_ identifier: Swift.String) throws
+}
+public struct ClipboardChangeEvent : Swift.Equatable, Swift.Sendable {
+  public enum Kind : Swift.Equatable, Swift.Sendable {
+    case changed(typesAdded: [Swift.String], typesRemoved: [Swift.String])
+    case changedDetectedOnForeground
+    case removed
+    public static func == (a: IosLibrary.ClipboardChangeEvent.Kind, b: IosLibrary.ClipboardChangeEvent.Kind) -> Swift.Bool
+  }
+  public let kind: IosLibrary.ClipboardChangeEvent.Kind
+  public let scope: IosLibrary.PasteboardScope
+  public init(kind: IosLibrary.ClipboardChangeEvent.Kind, scope: IosLibrary.PasteboardScope)
+  public static func == (a: IosLibrary.ClipboardChangeEvent, b: IosLibrary.ClipboardChangeEvent) -> Swift.Bool
+}
+public enum ClipboardContent : Swift.Equatable, Swift.Sendable {
+  case plainText(Swift.String)
+  case htmlText(plain: Swift.String, html: Swift.String)
+  case url(Swift.String)
+  case imageFile(path: Swift.String)
+  case imageData(Foundation.Data, utType: Swift.String)
+  case color(red: Swift.Double, green: Swift.Double, blue: Swift.Double, alpha: Swift.Double)
+  case customData(Foundation.Data, utType: Swift.String)
+  case multipleText([Swift.String])
+  case multiRepresentation([Swift.String : Foundation.Data])
+  public static func == (a: IosLibrary.ClipboardContent, b: IosLibrary.ClipboardContent) -> Swift.Bool
+}
+public struct ClipboardCopyOptions : Swift.Equatable, Swift.Sendable {
+  public let localOnly: Swift.Bool
+  public let expirationDate: Foundation.Date?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(localOnly: Swift.Bool, expirationDate: Foundation.Date?)
+  #endif
+  public static let `default`: IosLibrary.ClipboardCopyOptions
+  public static func == (a: IosLibrary.ClipboardCopyOptions, b: IosLibrary.ClipboardCopyOptions) -> Swift.Bool
+}
+public struct ClipboardLabeledValue : Swift.Equatable, Swift.Sendable {
+  public let value: Swift.String
+  public let label: Swift.String?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(value: Swift.String, label: Swift.String?)
+  #endif
+  public static func == (a: IosLibrary.ClipboardLabeledValue, b: IosLibrary.ClipboardLabeledValue) -> Swift.Bool
+}
+public struct ClipboardPostalAddress : Swift.Equatable, Swift.Sendable {
+  public let street: Swift.String?
+  public let city: Swift.String?
+  public let state: Swift.String?
+  public let postalCode: Swift.String?
+  public let country: Swift.String?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(street: Swift.String?, city: Swift.String?, state: Swift.String?, postalCode: Swift.String?, country: Swift.String?)
+  #endif
+  public static func == (a: IosLibrary.ClipboardPostalAddress, b: IosLibrary.ClipboardPostalAddress) -> Swift.Bool
+}
+public struct ClipboardCalendarEvent : Swift.Equatable, Swift.Sendable {
+  public let startDate: Foundation.Date?
+  public let endDate: Foundation.Date?
+  public let startTimeZoneIdentifier: Swift.String?
+  public let endTimeZoneIdentifier: Swift.String?
+  public let isAllDay: Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(startDate: Foundation.Date?, endDate: Foundation.Date?, startTimeZoneIdentifier: Swift.String?, endTimeZoneIdentifier: Swift.String?, isAllDay: Swift.Bool)
+  #endif
+  public static func == (a: IosLibrary.ClipboardCalendarEvent, b: IosLibrary.ClipboardCalendarEvent) -> Swift.Bool
+}
+public struct ClipboardFlightNumber : Swift.Equatable, Swift.Sendable {
+  public let airline: Swift.String
+  public let flightNumber: Swift.String
+  public init(airline: Swift.String, flightNumber: Swift.String)
+  public static func == (a: IosLibrary.ClipboardFlightNumber, b: IosLibrary.ClipboardFlightNumber) -> Swift.Bool
+}
+public struct ClipboardMoneyAmount : Swift.Equatable, Swift.Sendable {
+  public let amount: Swift.Double
+  public let currency: Swift.String
+  public init(amount: Swift.Double, currency: Swift.String)
+  public static func == (a: IosLibrary.ClipboardMoneyAmount, b: IosLibrary.ClipboardMoneyAmount) -> Swift.Bool
+}
+public struct ClipboardShipmentTracking : Swift.Equatable, Swift.Sendable {
+  public let carrier: Swift.String
+  public let trackingNumber: Swift.String
+  public init(carrier: Swift.String, trackingNumber: Swift.String)
+  public static func == (a: IosLibrary.ClipboardShipmentTracking, b: IosLibrary.ClipboardShipmentTracking) -> Swift.Bool
+}
+public struct ClipboardDetectedValues : Swift.Equatable, Swift.Sendable {
+  public let detectedPatterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>
+  public let probableWebURL: Swift.String?
+  public let probableWebSearch: Swift.String?
+  public let number: Swift.Double?
+  public let links: [Swift.String]
+  public let emailAddresses: [IosLibrary.ClipboardLabeledValue]
+  public let phoneNumbers: [IosLibrary.ClipboardLabeledValue]
+  public let postalAddresses: [IosLibrary.ClipboardPostalAddress]
+  public let calendarEvents: [IosLibrary.ClipboardCalendarEvent]
+  public let flightNumbers: [IosLibrary.ClipboardFlightNumber]
+  public let moneyAmounts: [IosLibrary.ClipboardMoneyAmount]
+  public let shipmentTrackingNumbers: [IosLibrary.ClipboardShipmentTracking]
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(detectedPatterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, probableWebURL: Swift.String?, probableWebSearch: Swift.String?, number: Swift.Double?, links: [Swift.String], emailAddresses: [IosLibrary.ClipboardLabeledValue], phoneNumbers: [IosLibrary.ClipboardLabeledValue], postalAddresses: [IosLibrary.ClipboardPostalAddress], calendarEvents: [IosLibrary.ClipboardCalendarEvent], flightNumbers: [IosLibrary.ClipboardFlightNumber], moneyAmounts: [IosLibrary.ClipboardMoneyAmount], shipmentTrackingNumbers: [IosLibrary.ClipboardShipmentTracking])
+  #endif
+  public static let empty: IosLibrary.ClipboardDetectedValues
+  public static func == (a: IosLibrary.ClipboardDetectedValues, b: IosLibrary.ClipboardDetectedValues) -> Swift.Bool
+}
+public enum ClipboardDetectionPattern : Swift.String, Swift.CaseIterable, Swift.Sendable {
+  case probableWebURL
+  case probableWebSearch
+  case number
+  case link
+  case emailAddress
+  case phoneNumber
+  case postalAddress
+  case calendarEvent
+  case flightNumber
+  case moneyAmount
+  case shipmentTrackingNumber
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.String)
+  #endif
+  public typealias AllCases = [IosLibrary.ClipboardDetectionPattern]
+  public typealias RawValue = Swift.String
+  nonisolated public static var allCases: [IosLibrary.ClipboardDetectionPattern] {
+    get
+  }
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public enum ClipboardError : Swift.Error, Swift.Equatable {
+  case emptyContent
+  case emptyItemList
+  case emptyDetectionPatterns
+  case invalidURL(Swift.String)
+  case invalidTypeIdentifier(Swift.String)
+  case invalidPasteboardName(Swift.String)
+  case invalidColor
+  case invalidImageData
+  case invalidExpirationDate
+  case invalidRequest(Swift.String)
+  case contentTooLarge(byteCount: Swift.Int, limit: Swift.Int)
+  case fileNotFound(path: Swift.String)
+  case imageLoadFailed(path: Swift.String)
+  case imageEncodingFailed
+  case pasteboardUnavailable(name: Swift.String)
+  case cannotRemoveGeneralPasteboard
+  case noMatchingItem
+  case providerLoadFailed(IosLibrary.ClipboardFailureDetail)
+  case unexpectedType
+  case fileCopyFailed(IosLibrary.ClipboardFailureDetail)
+  case cancelled
+  case timedOut(operation: IosLibrary.ClipboardOperationKind)
+  case detectionFailed(IosLibrary.ClipboardFailureDetail)
+  case unknown(IosLibrary.ClipboardFailureDetail)
+  public static let unknownErrorCode: Swift.String
+  public static let unknownMessage: Swift.String
+  public static func == (a: IosLibrary.ClipboardError, b: IosLibrary.ClipboardError) -> Swift.Bool
+}
+extension IosLibrary.ClipboardError : Foundation.LocalizedError {
+  public var errorCode: Swift.String {
+    get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var errorDescription: Swift.String? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var diagnosticDetail: IosLibrary.ClipboardFailureDetail? {
+    get
+  }
+  #endif
+}
+public struct ClipboardFailureDetail : Swift.Equatable, Swift.Sendable {
+  public let domain: Swift.String
+  public let code: Swift.Int
+  public init(domain: Swift.String, code: Swift.Int, debugMessage: Swift.String)
+  public init(systemError: any Swift.Error)
+  public static func == (a: IosLibrary.ClipboardFailureDetail, b: IosLibrary.ClipboardFailureDetail) -> Swift.Bool
+}
+public struct ClipboardItemData : Swift.Equatable, Swift.Sendable {
+  public let typeIdentifiers: [Swift.String]
+  public let text: Swift.String?
+  public let urlString: Swift.String?
+  public let imageDataUTType: Swift.String?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(typeIdentifiers: [Swift.String], text: Swift.String?, urlString: Swift.String?, imageDataUTType: Swift.String?)
+  #endif
+  public static func == (a: IosLibrary.ClipboardItemData, b: IosLibrary.ClipboardItemData) -> Swift.Bool
+}
+public struct ClipboardReadResult : Swift.Equatable, Swift.Sendable {
+  public let items: [IosLibrary.ClipboardItemData]
+  public let numberOfItems: Swift.Int
+  public init(items: [IosLibrary.ClipboardItemData], numberOfItems: Swift.Int)
+  public static func == (a: IosLibrary.ClipboardReadResult, b: IosLibrary.ClipboardReadResult) -> Swift.Bool
+}
+public struct ClipboardLimits : Swift.Equatable, Swift.Sendable {
+  public let maxCopyByteCount: Swift.Int
+  public let maxLoadByteCount: Swift.Int
+  public let maxImagePixelCount: Swift.Int
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(maxCopyByteCount: Swift.Int, maxLoadByteCount: Swift.Int, maxImagePixelCount: Swift.Int)
+  #endif
+  public static let `default`: IosLibrary.ClipboardLimits
+  public static func == (a: IosLibrary.ClipboardLimits, b: IosLibrary.ClipboardLimits) -> Swift.Bool
+}
+public enum ClipboardLoadRequest : Swift.Equatable, Swift.Sendable {
+  case text
+  case url
+  case image
+  case file(utType: Swift.String)
+  public static func == (a: IosLibrary.ClipboardLoadRequest, b: IosLibrary.ClipboardLoadRequest) -> Swift.Bool
+}
+public enum ClipboardLoadedItem : Swift.Sendable, Swift.Equatable {
+  case text(Swift.String)
+  case url(Swift.String)
+  case imageData(Foundation.Data, utType: Swift.String)
+  case file(Foundation.URL)
+  public static func == (a: IosLibrary.ClipboardLoadedItem, b: IosLibrary.ClipboardLoadedItem) -> Swift.Bool
+}
+public enum ClipboardOperationKind : Swift.String, Swift.Sendable {
+  case detection
+  case providerLoad
+  case imageCoding
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.String)
+  #endif
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct ClipboardSnapshot : Swift.Equatable, Swift.Sendable {
+  public let hasStrings: Swift.Bool
+  public let hasURLs: Swift.Bool
+  public let hasImages: Swift.Bool
+  public let hasColors: Swift.Bool
+  public let numberOfItems: Swift.Int
+  public let typeIdentifiers: [Swift.String]
+  public let allTypeIdentifiers: [[Swift.String]]
+  public let matchingItemIndexes: [Swift.Int]?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(hasStrings: Swift.Bool, hasURLs: Swift.Bool, hasImages: Swift.Bool, hasColors: Swift.Bool, numberOfItems: Swift.Int, typeIdentifiers: [Swift.String], allTypeIdentifiers: [[Swift.String]], matchingItemIndexes: [Swift.Int]?)
+  #endif
+  public static func == (a: IosLibrary.ClipboardSnapshot, b: IosLibrary.ClipboardSnapshot) -> Swift.Bool
+}
+public struct ClipboardTimeouts : Swift.Equatable, Swift.Sendable {
+  public let detection: Foundation.TimeInterval
+  public let providerLoad: Foundation.TimeInterval
+  public let imageCoding: Foundation.TimeInterval
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(detection: Foundation.TimeInterval, providerLoad: Foundation.TimeInterval, imageCoding: Foundation.TimeInterval)
+  #endif
+  public static let `default`: IosLibrary.ClipboardTimeouts
+  public static func == (a: IosLibrary.ClipboardTimeouts, b: IosLibrary.ClipboardTimeouts) -> Swift.Bool
+}
+public enum PasteboardCreationRequest : Swift.Equatable, Swift.Sendable {
+  case named(Swift.String)
+  case unique
+  public static func == (a: IosLibrary.PasteboardCreationRequest, b: IosLibrary.PasteboardCreationRequest) -> Swift.Bool
+}
+public enum PasteboardScope : Swift.Equatable, Swift.Hashable, Swift.Sendable {
+  case general
+  case named(Swift.String)
+  case unique(Swift.String)
+  public static func == (a: IosLibrary.PasteboardScope, b: IosLibrary.PasteboardScope) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+@objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor final public class ClipboardPasteControlContainerView : UIKit.UIView {
+  @_Concurrency.MainActor final public var control: UIKit.UIPasteControl! {
+    get
+  }
+  @_Concurrency.MainActor final public var receiver: IosLibrary.ClipboardPasteReceiverView! {
+    get
+  }
+  @_Concurrency.MainActor final public var onPaste: (([IosLibrary.ClipboardLoadedItem]) -> Swift.Void)?
+  @_Concurrency.MainActor final public var onPartialFailure: (([IosLibrary.ClipboardError]) -> Swift.Void)?
+  @_Concurrency.MainActor final public var onPasteFailure: ((IosLibrary.ClipboardError) -> Swift.Void)?
+  @_Concurrency.MainActor public init(acceptedTypes: [Swift.String], displayMode: UIKit.UIPasteControl.DisplayMode = .iconAndLabel, typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating = ClipboardTypeIdentifierValidator()) throws
+  @_Concurrency.MainActor @objc override final public var intrinsicContentSize: CoreFoundation.CGSize {
+    @objc get
+  }
+  #if compiler(>=5.3) && $IsolatedDeinit
+  @objc isolated deinit
+  #else
+  @objc deinit
+  #endif
+}
+@objc @_hasMissingDesignatedInitializers @_Concurrency.MainActor final public class ClipboardPasteReceiverView : UIKit.UIView {
+  @_Concurrency.MainActor final public var onPaste: (([IosLibrary.ClipboardLoadedItem]) -> Swift.Void)?
+  @_Concurrency.MainActor final public var onPartialFailure: (([IosLibrary.ClipboardError]) -> Swift.Void)?
+  @_Concurrency.MainActor final public var onPasteFailure: ((IosLibrary.ClipboardError) -> Swift.Void)?
+  @_Concurrency.MainActor @objc override final public func canPaste(_ itemProviders: [Foundation.NSItemProvider]) -> Swift.Bool
+  @_Concurrency.MainActor @objc override final public func paste(itemProviders: [Foundation.NSItemProvider])
+  @objc deinit
+}
+@_Concurrency.MainActor public enum PasteControlFactory {
+  @_Concurrency.MainActor public static func makeComponents(acceptedTypes: [Swift.String], displayMode: UIKit.UIPasteControl.DisplayMode = .iconAndLabel, typeValidator: any IosLibrary.ClipboardTypeIdentifierValidating = ClipboardTypeIdentifierValidator()) throws -> (control: UIKit.UIPasteControl, receiver: IosLibrary.ClipboardPasteReceiverView)
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @_Concurrency.MainActor final public class IosClipboardManager : ObjectiveC.NSObject, @unchecked Swift.Sendable {
+  @_Concurrency.MainActor public static let shared: IosLibrary.IosClipboardManager
+  @_Concurrency.MainActor convenience public init(timeouts: IosLibrary.ClipboardTimeouts, limits: IosLibrary.ClipboardLimits)
+  #if compiler(>=5.3) && $IsolatedDeinit
+  @objc isolated deinit
+  #else
+  @objc deinit
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func copy(_ content: IosLibrary.ClipboardContent, options: IosLibrary.ClipboardCopyOptions = .default, scope: IosLibrary.PasteboardScope = .general, completion: ((Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @_Concurrency.MainActor final public func copy(_ content: IosLibrary.ClipboardContent, options: IosLibrary.ClipboardCopyOptions = .default, scope: IosLibrary.PasteboardScope = .general) async throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func append(_ content: IosLibrary.ClipboardContent, scope: IosLibrary.PasteboardScope = .general, completion: ((Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @_Concurrency.MainActor final public func append(_ content: IosLibrary.ClipboardContent, scope: IosLibrary.PasteboardScope = .general) async throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func read(scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, IosLibrary.ClipboardReadResult?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  @_Concurrency.MainActor final public func read(scope: IosLibrary.PasteboardScope = .general) async throws -> IosLibrary.ClipboardReadResult
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func readData(utType: Swift.String, scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, Foundation.Data?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func readData(utType: Swift.String, scope: IosLibrary.PasteboardScope = .general) async throws -> Foundation.Data?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func snapshot(matchingTypes: [Swift.String]? = nil, scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, IosLibrary.ClipboardSnapshot?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func snapshot(matchingTypes: [Swift.String]? = nil, scope: IosLibrary.PasteboardScope = .general) async throws -> IosLibrary.ClipboardSnapshot
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func clear(scope: IosLibrary.PasteboardScope = .general, completion: ((Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @_Concurrency.MainActor final public func clear(scope: IosLibrary.PasteboardScope = .general) async throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func createPasteboard(_ request: IosLibrary.PasteboardCreationRequest, completion: @escaping (Swift.Bool, IosLibrary.PasteboardScope?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  @_Concurrency.MainActor final public func createPasteboard(_ request: IosLibrary.PasteboardCreationRequest) async throws -> IosLibrary.PasteboardScope
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func removePasteboard(_ scope: IosLibrary.PasteboardScope, completion: ((Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @_Concurrency.MainActor final public func removePasteboard(_ scope: IosLibrary.PasteboardScope) async throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func detectPatterns(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, Swift.Set<IosLibrary.ClipboardDetectionPattern>?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  @_Concurrency.MainActor final public func detectPatterns(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope = .general) async throws -> Swift.Set<IosLibrary.ClipboardDetectionPattern>
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func detectValues(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, IosLibrary.ClipboardDetectedValues?, Swift.String?, Swift.String?) -> Swift.Void)
+  #endif
+  @_Concurrency.MainActor final public func detectValues(_ patterns: Swift.Set<IosLibrary.ClipboardDetectionPattern>, scope: IosLibrary.PasteboardScope = .general) async throws -> IosLibrary.ClipboardDetectedValues
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  @_Concurrency.MainActor final public func loadItem(_ request: IosLibrary.ClipboardLoadRequest, scope: IosLibrary.PasteboardScope = .general, completion: @escaping (Swift.Bool, IosLibrary.ClipboardLoadedItem?, Swift.String?, Swift.String?) -> Swift.Void) -> any IosLibrary.ClipboardLoadToken
+  #endif
+  @_Concurrency.MainActor final public func loadItem(_ request: IosLibrary.ClipboardLoadRequest, scope: IosLibrary.PasteboardScope = .general) async throws -> IosLibrary.ClipboardLoadedItem
+  @_Concurrency.MainActor final public func cancelAllLoads()
+  @_Concurrency.MainActor final public func startObserving(scope: IosLibrary.PasteboardScope = .general, onEvent: @escaping (IosLibrary.ClipboardChangeEvent) -> Swift.Void) throws
+  @_Concurrency.MainActor final public func stopObserving()
+  @_Concurrency.MainActor final public func checkForegroundChange(scope: IosLibrary.PasteboardScope = .general) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor final public func makePasteControl(acceptedTypes: [Swift.String], displayMode: UIKit.UIPasteControl.DisplayMode = .iconAndLabel, onPaste: @escaping ([IosLibrary.ClipboardLoadedItem]) -> Swift.Void, onPartialFailure: (([IosLibrary.ClipboardError]) -> Swift.Void)? = nil, onPasteFailure: ((IosLibrary.ClipboardError) -> Swift.Void)? = nil) throws -> IosLibrary.ClipboardPasteControlContainerView
+  #endif
+}
+@objc @_inheritsConvenienceInitializers @objcMembers public class Log : ObjectiveC.NSObject {
+  @objc public static func d(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func i(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func w(_ tag: Swift.String, _ message: Swift.String)
+  @objc public static func e(_ tag: Swift.String, _ message: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers public class IosDialogManager : ObjectiveC.NSObject {
+  public static let shared: IosLibrary.IosDialogManager
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showDialog(title: Swift.String? = nil, message: Swift.String? = nil, preferredStyle: UIKit.UIAlertController.Style = .alert, actions: [UIKit.UIAlertAction] = [], textFields: [(UIKit.UITextField) -> Swift.Void]? = nil, sourceView: UIKit.UIView? = nil, sourceRect: CoreFoundation.CGRect? = nil, barButtonItem: UIKit.UIBarButtonItem? = nil, permittedArrowDirections: UIKit.UIPopoverArrowDirection = .any, animated: Swift.Bool = true, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRootViewController() -> UIKit.UIViewController?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showAlert(title: Swift.String? = nil, message: Swift.String? = nil, buttonText: Swift.String? = "OK", onButton: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showConfirmDialog(title: Swift.String? = nil, message: Swift.String? = nil, confirmTitle: Swift.String? = "OK", cancelTitle: Swift.String? = "Cancel", onConfirm: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showDestructiveDialog(title: Swift.String? = nil, message: Swift.String? = nil, destructiveTitle: Swift.String? = "Delete", cancelTitle: Swift.String? = "Cancel", onDestructive: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showActionSheet(title: Swift.String? = nil, message: Swift.String? = nil, options: [Swift.String], cancelTitle: Swift.String = "Cancel", sourceView: UIKit.UIView, sourceRect: CoreFoundation.CGRect? = nil, animated: Swift.Bool = true, onAction: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showTextInputDialog(title: Swift.String? = nil, message: Swift.String? = nil, placeholder: Swift.String? = nil, confirmTitle: Swift.String? = "OK", cancelTitle: Swift.String? = "Cancel", enableConfirmWhenEmpty: Swift.Bool = true, onConfirm: ((Swift.String?, Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func showLoginDialog(title: Swift.String? = nil, message: Swift.String? = nil, usernamePlaceholder: Swift.String? = "Username", passwordPlaceholder: Swift.String? = "Password", loginTitle: Swift.String? = "Login", cancelTitle: Swift.String? = "Cancel", enableLoginWhenEmpty: Swift.Bool = true, onLogin: ((Swift.String?, Swift.String?, Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, onCancel: ((Swift.String?, Swift.Bool, Swift.String?) -> Swift.Void)? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @objc deinit
+}
+public protocol NotificationRepository {
+  #if compiler(>=5.3) && $NonescapableTypes
+  func show(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?) async throws
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  func update(identifier: Swift.String, content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?) async throws
+  #endif
+  func schedule(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger, identifier: Swift.String) async throws
+  func requestPermission(options: UserNotifications.UNAuthorizationOptions) async throws -> Swift.Bool
+  func setBadgeCount(_ count: Swift.Int) async throws
+  func cancel(identifier: Swift.String) async
+  func cancelAll() async
+  func removeDelivered(identifier: Swift.String) async
+  func removeAllDelivered() async
+  func cancelScheduled(identifier: Swift.String) async
+  func cancelAllScheduled() async
+  func getScheduled() async -> [IosLibrary.ScheduledNotification]
+  func getDelivered() async -> [IosLibrary.ActiveNotification]
+  func authorizationStatus() async -> IosLibrary.NotificationAuthorizationStatus
+  func openNotificationSettings()
+  func registerCategory(_ category: IosLibrary.NotificationCategory) async
+  func removeCategory(identifier: Swift.String) async
+}
+public struct RegisterNotificationCategoryUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(_ category: IosLibrary.NotificationCategory) async
+}
+public struct RemoveNotificationCategoryUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(identifier: Swift.String) async
+}
+public struct ShowNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func execute(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger? = nil) async throws
+  #endif
+}
+public struct UpdateNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func execute(identifier: Swift.String, content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?) async throws
+  #endif
+}
+public struct CancelNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(identifier: Swift.String) async
+}
+public struct CancelAllNotificationsUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async
+}
+public struct RemoveDeliveredNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(identifier: Swift.String) async
+}
+public struct RemoveAllDeliveredNotificationsUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async
+}
+public struct GetDeliveredNotificationsUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async -> [IosLibrary.ActiveNotification]
+}
+public struct HasNotificationPermissionUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async -> Swift.Bool
+}
+public struct GetAuthorizationStatusUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async -> IosLibrary.NotificationAuthorizationStatus
+}
+public struct ScheduleNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger, identifier: Swift.String) async throws
+}
+public struct CancelScheduledNotificationUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute(identifier: Swift.String) async
+}
+public struct CancelAllScheduledNotificationsUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async
+}
+public struct GetScheduledNotificationsUseCase {
+  public init(repository: any IosLibrary.NotificationRepository)
+  public func execute() async -> [IosLibrary.ScheduledNotification]
+}
+final public class NotificationRepositoryImpl : IosLibrary.NotificationRepository {
+  public init(center: UserNotifications.UNUserNotificationCenter = .current())
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func show(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?) async throws
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func update(identifier: Swift.String, content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?) async throws
+  #endif
+  final public func schedule(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger, identifier: Swift.String) async throws
+  final public func requestPermission(options: UserNotifications.UNAuthorizationOptions) async throws -> Swift.Bool
+  final public func setBadgeCount(_ count: Swift.Int) async throws
+  final public func cancel(identifier: Swift.String) async
+  final public func cancelAll() async
+  final public func removeDelivered(identifier: Swift.String) async
+  final public func removeAllDelivered() async
+  final public func cancelScheduled(identifier: Swift.String) async
+  final public func cancelAllScheduled() async
+  final public func getScheduled() async -> [IosLibrary.ScheduledNotification]
+  final public func getDelivered() async -> [IosLibrary.ActiveNotification]
+  final public func authorizationStatus() async -> IosLibrary.NotificationAuthorizationStatus
+  final public func openNotificationSettings()
+  final public func registerCategory(_ category: IosLibrary.NotificationCategory) async
+  final public func removeCategory(identifier: Swift.String) async
+  @objc deinit
+}
+public struct ActiveNotification {
+  public let identifier: Swift.String
+  public let title: Swift.String
+  public let subtitle: Swift.String?
+  public let body: Swift.String?
+  public let categoryIdentifier: Swift.String
+  public let date: Foundation.Date
+  public let userInfo: [Swift.AnyHashable : Any]
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(identifier: Swift.String, title: Swift.String, subtitle: Swift.String?, body: Swift.String?, categoryIdentifier: Swift.String, date: Foundation.Date, userInfo: [Swift.AnyHashable : Any])
+  #endif
+}
+public struct NotificationActionOptions : Swift.OptionSet {
+  public let rawValue: Swift.UInt
+  public init(rawValue: Swift.UInt)
+  public static let authenticationRequired: IosLibrary.NotificationActionOptions
+  public static let destructive: IosLibrary.NotificationActionOptions
+  public static let foreground: IosLibrary.NotificationActionOptions
+  public typealias ArrayLiteralElement = IosLibrary.NotificationActionOptions
+  public typealias Element = IosLibrary.NotificationActionOptions
+  public typealias RawValue = Swift.UInt
+}
+public struct NotificationAction {
+  public let identifier: Swift.String
+  public let title: Swift.String
+  public let sfSymbolName: Swift.String?
+  public let options: IosLibrary.NotificationActionOptions
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(identifier: Swift.String, title: Swift.String, sfSymbolName: Swift.String? = nil, options: IosLibrary.NotificationActionOptions = [])
+  #endif
+}
+public struct NotificationAttachment {
+  public let identifier: Swift.String
+  public let fileURL: Foundation.URL
+  public init(identifier: Swift.String, fileURL: Foundation.URL)
+}
+public enum NotificationAuthorizationStatus : Swift.String, Swift.Sendable {
+  case notDetermined
+  case denied
+  case authorized
+  case provisional
+  case ephemeral
+  case unknown
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.String)
+  #endif
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+public struct NotificationCategory {
+  public let identifier: Swift.String
+  public let actions: [IosLibrary.NotificationAction]
+  public let textInputActions: [IosLibrary.TextInputNotificationAction]
+  public let options: IosLibrary.NotificationCategoryOptions
+  public init(identifier: Swift.String, actions: [IosLibrary.NotificationAction] = [], textInputActions: [IosLibrary.TextInputNotificationAction] = [], options: IosLibrary.NotificationCategoryOptions = [])
+}
+public struct NotificationCategoryOptions : Swift.OptionSet {
+  public let rawValue: Swift.UInt
+  public init(rawValue: Swift.UInt)
+  public static let customDismissAction: IosLibrary.NotificationCategoryOptions
+  public static let allowInCarPlay: IosLibrary.NotificationCategoryOptions
+  public static let hiddenPreviewsShowTitle: IosLibrary.NotificationCategoryOptions
+  public static let allowAnnouncement: IosLibrary.NotificationCategoryOptions
+  public typealias ArrayLiteralElement = IosLibrary.NotificationCategoryOptions
+  public typealias Element = IosLibrary.NotificationCategoryOptions
+  public typealias RawValue = Swift.UInt
+}
+public struct NotificationContent {
+  public let id: Swift.String
+  public let title: Swift.String
+  public let subtitle: Swift.String?
+  public let body: Swift.String?
+  public let badge: Swift.Int?
+  public let sound: IosLibrary.NotificationSound?
+  public let categoryIdentifier: Swift.String?
+  public let interruptionLevel: IosLibrary.NotificationInterruptionLevel?
+  public let threadIdentifier: Swift.String?
+  public let targetContentIdentifier: Swift.String?
+  public let relevanceScore: Swift.Double?
+  public let filterCriteria: Swift.String?
+  public let userInfo: [Swift.String : Any]
+  public let attachments: [IosLibrary.NotificationAttachment]
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(id: Swift.String, title: Swift.String, subtitle: Swift.String? = nil, body: Swift.String? = nil, badge: Swift.Int? = nil, sound: IosLibrary.NotificationSound? = .default, categoryIdentifier: Swift.String? = nil, interruptionLevel: IosLibrary.NotificationInterruptionLevel? = nil, threadIdentifier: Swift.String? = nil, targetContentIdentifier: Swift.String? = nil, relevanceScore: Swift.Double? = nil, filterCriteria: Swift.String? = nil, userInfo: [Swift.String : Any] = [:], attachments: [IosLibrary.NotificationAttachment] = [])
+  #endif
+}
+public enum NotificationError : Swift.Error {
+  case permissionDenied
+  case permissionNotDetermined
+  case attachmentInvalidURL
+  case attachmentLoadFailed(any Swift.Error)
+  case addRequestFailed(any Swift.Error)
+  case setBadgeCountFailed(any Swift.Error)
+  case unknown(any Swift.Error)
+}
+public enum NotificationInterruptionLevel {
+  case passive
+  case active
+  case timeSensitive
+  case critical
+  public static func == (a: IosLibrary.NotificationInterruptionLevel, b: IosLibrary.NotificationInterruptionLevel) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+public enum NotificationSound {
+  case `default`
+  case defaultCritical
+  case named(Swift.String)
+}
+public enum NotificationTrigger {
+  case timeInterval(Foundation.TimeInterval, repeats: Swift.Bool)
+  case calendar(Foundation.DateComponents, repeats: Swift.Bool)
+  case location(identifier: Swift.String, latitude: Swift.Double, longitude: Swift.Double, radius: Swift.Double, notifyOnEntry: Swift.Bool, notifyOnExit: Swift.Bool)
+}
+public struct ScheduledNotification {
+  public let identifier: Swift.String
+  public let title: Swift.String
+  public let subtitle: Swift.String?
+  public let body: Swift.String?
+  public let categoryIdentifier: Swift.String
+  public let userInfo: [Swift.AnyHashable : Any]
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(identifier: Swift.String, title: Swift.String, subtitle: Swift.String?, body: Swift.String?, categoryIdentifier: Swift.String, userInfo: [Swift.AnyHashable : Any])
+  #endif
+}
+public struct TextInputNotificationAction {
+  public let identifier: Swift.String
+  public let title: Swift.String
+  public let buttonTitle: Swift.String
+  public let textInputPlaceholder: Swift.String
+  public init(identifier: Swift.String, title: Swift.String, buttonTitle: Swift.String, textInputPlaceholder: Swift.String)
+}
+@_hasMissingDesignatedInitializers final public class NotificationPermissionHelper {
+  public static let shared: IosLibrary.NotificationPermissionHelper
+  final public func requestPermission(options: UserNotifications.UNAuthorizationOptions = [.alert, .sound, .badge, .providesAppNotificationSettings]) async throws -> Swift.Bool
+  final public func authorizationStatus() async -> IosLibrary.NotificationAuthorizationStatus
+  final public func openNotificationSettings()
+  @objc deinit
+}
+public typealias NotificationActionHandler = (_ notificationIdentifier: Swift.String, _ actionIdentifier: Swift.String, _ userInfo: [Swift.AnyHashable : Any]) -> Swift.Void
+public typealias NotificationTextInputActionHandler = (_ notificationIdentifier: Swift.String, _ actionIdentifier: Swift.String, _ userText: Swift.String, _ userInfo: [Swift.AnyHashable : Any]) -> Swift.Void
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers final public class IosNotificationManager : ObjectiveC.NSObject {
+  public static let shared: IosLibrary.IosNotificationManager
+  final public var foregroundPresentationOptions: UserNotifications.UNNotificationPresentationOptions
+  final public var onActionReceived: IosLibrary.NotificationActionHandler?
+  final public var onTextInputActionReceived: IosLibrary.NotificationTextInputActionHandler?
+  public static func setup()
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func show(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger? = nil, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func update(identifier: Swift.String, content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger?, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  final public func cancel(identifier: Swift.String)
+  final public func cancelAll()
+  final public func removeDelivered(identifier: Swift.String)
+  final public func removeAllDelivered()
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func schedule(content: IosLibrary.NotificationContent, trigger: IosLibrary.NotificationTrigger, identifier: Swift.String, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  final public func cancelScheduled(identifier: Swift.String)
+  final public func cancelAllScheduled()
+  final public func getScheduled(completion: @escaping ([IosLibrary.ScheduledNotification]) -> Swift.Void)
+  final public func getDelivered(completion: @escaping ([IosLibrary.ActiveNotification]) -> Swift.Void)
+  final public func hasPermission(completion: @escaping (Swift.Bool) -> Swift.Void)
+  final public func authorizationStatus(completion: @escaping (IosLibrary.NotificationAuthorizationStatus) -> Swift.Void)
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func requestPermission(options: UserNotifications.UNAuthorizationOptions = [.alert, .sound, .badge], completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  final public func openNotificationSettings()
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func setBadgeCount(_ count: Swift.Int, completion: ((Swift.Bool, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  final public func registerCategory(_ category: IosLibrary.NotificationCategory)
+  final public func removeCategory(identifier: Swift.String)
+  @objc deinit
+}
+extension IosLibrary.IosNotificationManager : UserNotifications.UNUserNotificationCenterDelegate {
+  @objc final public func userNotificationCenter(_ center: UserNotifications.UNUserNotificationCenter, willPresent notification: UserNotifications.UNNotification, withCompletionHandler completionHandler: @escaping (UserNotifications.UNNotificationPresentationOptions) -> Swift.Void)
+  @objc final public func userNotificationCenter(_ center: UserNotifications.UNUserNotificationCenter, didReceive response: UserNotifications.UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Swift.Void)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func userNotificationCenter(_ center: UserNotifications.UNUserNotificationCenter, openSettingsFor notification: UserNotifications.UNNotification?)
+  #endif
+}
+public protocol ShareRepository {
+  func present(content: IosLibrary.ShareContent) async throws -> IosLibrary.ShareResult
+}
+public struct ShareContentUseCase {
+  public init(repository: any IosLibrary.ShareRepository)
+  public func execute(content: IosLibrary.ShareContent) async throws -> IosLibrary.ShareResult
+}
+public struct ShareContent {
+  public let items: [IosLibrary.ShareItem]
+  public let subject: Swift.String?
+  public let previewTitle: Swift.String?
+  public let excludedActivityTypes: [Swift.String]
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(items: [IosLibrary.ShareItem], subject: Swift.String? = nil, previewTitle: Swift.String? = nil, excludedActivityTypes: [Swift.String] = [])
+  #endif
+}
+public enum ShareError : Swift.Error {
+  case noValidItems
+  case invalidURL(Swift.String)
+  case imageLoadFailed(path: Swift.String)
+  case fileNotFound(path: Swift.String)
+  case noRootViewController
+  case presentationFailed(any Swift.Error)
+  case unknown(any Swift.Error)
+}
+extension IosLibrary.ShareError : Foundation.LocalizedError {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var errorDescription: Swift.String? {
+    get
+  }
+  #endif
+}
+public enum ShareItem {
+  case text(Swift.String)
+  case url(Swift.String)
+  case imageFile(path: Swift.String)
+  case file(path: Swift.String)
+}
+public struct ShareResult {
+  public let completed: Swift.Bool
+  public let activityType: Swift.String?
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(completed: Swift.Bool, activityType: Swift.String?)
+  #endif
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers final public class IosShareManager : ObjectiveC.NSObject {
+  public static let shared: IosLibrary.IosShareManager
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func share(content: IosLibrary.ShareContent, completion: ((Swift.Bool, Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)? = nil)
+  #endif
+  @discardableResult
+  final public func share(content: IosLibrary.ShareContent) async throws -> IosLibrary.ShareResult
+  @objc deinit
+}
+extension IosLibrary.AppendContentUseCase : Swift.Sendable {}
+extension IosLibrary.CancelAllLoadsUseCase : Swift.Sendable {}
+extension IosLibrary.CheckForegroundChangeUseCase : Swift.Sendable {}
+extension IosLibrary.ClearClipboardUseCase : Swift.Sendable {}
+extension IosLibrary.ClipboardUseCases : Swift.Sendable {}
+extension IosLibrary.CopyContentUseCase : Swift.Sendable {}
+extension IosLibrary.CreatePasteboardUseCase : Swift.Sendable {}
+extension IosLibrary.DetectPatternsUseCase : Swift.Sendable {}
+extension IosLibrary.DetectValuesUseCase : Swift.Sendable {}
+extension IosLibrary.GetSnapshotUseCase : Swift.Sendable {}
+extension IosLibrary.LoadItemUseCase : Swift.Sendable {}
+extension IosLibrary.ReadContentUseCase : Swift.Sendable {}
+extension IosLibrary.ReadDataUseCase : Swift.Sendable {}
+extension IosLibrary.RemovePasteboardUseCase : Swift.Sendable {}
+extension IosLibrary.ClipboardDetectionPattern : Swift.Equatable {}
+extension IosLibrary.ClipboardDetectionPattern : Swift.Hashable {}
+extension IosLibrary.ClipboardDetectionPattern : Swift.RawRepresentable {}
+extension IosLibrary.ClipboardOperationKind : Swift.Equatable {}
+extension IosLibrary.ClipboardOperationKind : Swift.Hashable {}
+extension IosLibrary.ClipboardOperationKind : Swift.RawRepresentable {}
+extension IosLibrary.PasteControlFactory : Swift.Sendable {}
+extension IosLibrary.NotificationAuthorizationStatus : Swift.Equatable {}
+extension IosLibrary.NotificationAuthorizationStatus : Swift.Hashable {}
+extension IosLibrary.NotificationAuthorizationStatus : Swift.RawRepresentable {}
+extension IosLibrary.NotificationInterruptionLevel : Swift.Equatable {}
+extension IosLibrary.NotificationInterruptionLevel : Swift.Hashable {}

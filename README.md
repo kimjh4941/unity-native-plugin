@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.8.0
+- 1.9.0
 
 ## Supported OS Versions
 
@@ -77,6 +77,16 @@ Other languages:
   - Share text and URL together
   - Share with subject
   - Exclude specific activities from the share sheet
+- Clipboard features
+  - Copy plain text / HTML text / URL / image file / image data / color / custom data
+  - Copy multiple text items and multi-representation items
+  - Copy options: local only and expiration
+  - Append items without replacing the content
+  - Read items, read raw data by type, and take a snapshot without reading the content
+  - Load an item as text, URL, image, or file, and cancel running loads
+  - Detect data patterns and detected values in the pasteboard text
+  - Named and unique pasteboards: create, use, and remove
+  - Observe clipboard changes and check for a change on foreground return
 
 ### Windows
 
@@ -130,7 +140,7 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
 - Click "install".
 - Requirements:
   - Unity 6+

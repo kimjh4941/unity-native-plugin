@@ -84,6 +84,20 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    /// <summary>
+    /// Replaces the current screen with the iOS clipboard sample.
+    /// </summary>
+    /// <param name="uiDocument">UIDocument that hosts the sample screens.</param>
+    public static void ShowIosClipboard(UIDocument uiDocument)
+    {
+#if UNITY_IOS || UNITY_EDITOR
+        ApplyScreen<IosClipboardManagerExampleController>(
+            uiDocument,
+            "UI/iOS/Clipboard/IosClipboardManagerExample",
+            "UI/iOS/Clipboard/IosClipboardManagerExampleStyle");
+#endif
+    }
+
     public static void ShowWindowsDialog(UIDocument uiDocument)
     {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
@@ -179,6 +193,7 @@ public static class NativeToolkitSampleNavigator
         RemoveIfExists<IosDialogManagerExampleController>(gameObject);
         RemoveIfExists<IosNotificationManagerExampleController>(gameObject);
         RemoveIfExists<IosShareManagerExampleController>(gameObject);
+        RemoveIfExists<IosClipboardManagerExampleController>(gameObject);
 #endif
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
         RemoveIfExists<WindowsDialogManagerExampleController>(gameObject);

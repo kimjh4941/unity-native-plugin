@@ -834,7 +834,10 @@ PlayerSettings:
   webGLCloseOnQuit: 0
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    Android: NATIVETOOLKIT_ENABLE_BUILD_STEPS
+    Standalone: NATIVETOOLKIT_ENABLE_BUILD_STEPS
+    iPhone: NATIVETOOLKIT_ENABLE_BUILD_STEPS
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

@@ -1,0 +1,134 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="IosClipboardManagerExampleStyle.uss" />
+    <ui:VisualElement class="ios-clipboard-root">
+        <ui:VisualElement class="ios-clipboard-header">
+            <ui:Button name="HomeButton" class="ios-secondary-button" text="Back To Home" />
+            <ui:Label text="IosClipboardManager Example" class="ios-clipboard-title" />
+            <ui:VisualElement class="ios-clipboard-result-border">
+                <ui:ScrollView name="ResultScrollView" class="ios-clipboard-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="iOS clipboard sample ready. Run on an iOS device to test." class="ios-clipboard-result-text" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+            <ui:Label name="StatusTextBlock" text="Scope: general | Observing: off | Events: 0" class="ios-clipboard-status-text" />
+        </ui:VisualElement>
+        <ui:ScrollView class="ios-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="ios-clipboard-content">
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="About" class="ios-clipboard-section-title" />
+                    <ui:Label text="For iOS 18 or later devices. In the Editor every operation returns CLIPBOARD_BRIDGE_UNAVAILABLE." class="ios-clipboard-section-note" />
+                    <ui:Label name="SubtitleValidationLabel" text="Inputs that would throw in C# (blank pasteboard name, non-finite color) are not exposed as buttons; only native error contracts are shown below." class="ios-clipboard-section-note" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Scope" class="ios-clipboard-section-title" />
+                    <ui:Label text="Every scoped operation below runs against the active scope. These buttons are disabled while observation is running." class="ios-clipboard-section-note" />
+                    <ui:Button name="UseGeneralButton" class="ios-clipboard-button" text="Use General" />
+                    <ui:Button name="CreateNamedPasteboardButton" class="ios-clipboard-button" text="Create Named Pasteboard" />
+                    <ui:Button name="UseFixedNamedScopeButton" class="ios-secondary-button" text="Use Fixed Named Scope (no create)" />
+                    <ui:Button name="CreateUniquePasteboardButton" class="ios-clipboard-button" text="Create Unique Pasteboard" />
+                    <ui:Button name="RemoveActivePasteboardButton" class="ios-secondary-button" text="Remove Active Pasteboard" />
+                    <ui:Button name="ProbeRemovedScopeButton" class="ios-secondary-button" text="Probe Last Removed Scope" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Copy" class="ios-clipboard-section-title" />
+                    <ui:Button name="CopyPlainTextButton" class="ios-clipboard-button" text="Copy Plain Text" />
+                    <ui:Button name="CopyEmptyPlainTextButton" class="ios-secondary-button" text="Copy Plain Text (empty)" />
+                    <ui:Button name="CopyHtmlTextButton" class="ios-clipboard-button" text="Copy HTML Text" />
+                    <ui:Button name="CopyUrlButton" class="ios-clipboard-button" text="Copy URL" />
+                    <ui:Button name="CopyImageFileButton" class="ios-clipboard-button" text="Copy Image File" />
+                    <ui:Button name="CopyImageDataButton" class="ios-clipboard-button" text="Copy Image Data (1x1 PNG)" />
+                    <ui:Button name="CopyColorButton" class="ios-clipboard-button" text="Copy Color" />
+                    <ui:Button name="CopyCustomDataButton" class="ios-clipboard-button" text="Copy Custom Data (public.data, 64 bytes)" />
+                    <ui:Button name="CopyMultipleTextButton" class="ios-clipboard-button" text="Copy Multiple Text" />
+                    <ui:Button name="CopyMultiRepresentationButton" class="ios-clipboard-button" text="Copy Multi Representation (text + custom UTI)" />
+                    <ui:Button name="CopyDetectionFixtureButton" class="ios-clipboard-button" text="Copy Detection Fixture" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Copy Options" class="ios-clipboard-section-title" />
+                    <ui:Label text="The local-only pair and the baseline body have different lengths, so Read on another device can tell them apart from textLen alone. Whether localOnly actually suppresses transfer to nearby devices is not something this screen can show." class="ios-clipboard-section-note" />
+                    <ui:Button name="CopyLocalOnlyTrueButton" class="ios-clipboard-button" text="Copy (localOnly = true)" />
+                    <ui:Button name="CopyLocalOnlyFalseButton" class="ios-clipboard-button" text="Copy (localOnly = false)" />
+                    <ui:Button name="CopyDeviceBaselineButton" class="ios-secondary-button" text="Copy Device Baseline" />
+                    <ui:Button name="CopyExpiringButton" class="ios-clipboard-button" text="Copy (expires in 30s)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Append" class="ios-clipboard-section-title" />
+                    <ui:Button name="AppendPlainTextButton" class="ios-clipboard-button" text="Append Plain Text" />
+                    <ui:Button name="AppendUrlButton" class="ios-clipboard-button" text="Append URL" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Read" class="ios-clipboard-section-title" />
+                    <ui:Label text="Results show counts and lengths only. Clipboard content is never shown or logged." class="ios-clipboard-section-note" />
+                    <ui:Button name="ReadButton" class="ios-clipboard-button" text="Read" />
+                    <ui:Button name="ReadDataPngButton" class="ios-clipboard-button" text="Read Data (public.png)" />
+                    <ui:Button name="SnapshotButton" class="ios-clipboard-button" text="Snapshot" />
+                    <ui:Button name="SnapshotMatchingButton" class="ios-clipboard-button" text="Snapshot (matching types)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Load" class="ios-clipboard-section-title" />
+                    <ui:Label text="Load File copies the item to a temporary location; this sample reads its size and then deletes the request directory it owns." class="ios-clipboard-section-note" />
+                    <ui:Button name="LoadTextButton" class="ios-clipboard-button" text="Load Text" />
+                    <ui:Button name="LoadUrlButton" class="ios-clipboard-button" text="Load URL" />
+                    <ui:Button name="LoadImageButton" class="ios-clipboard-button" text="Load Image" />
+                    <ui:Button name="LoadFileButton" class="ios-clipboard-button" text="Load File (public.data)" />
+                    <ui:Button name="LoadFileCustomButton" class="ios-clipboard-button" text="Load File (custom UTI)" />
+                    <ui:Button name="CancelLoadsButton" class="ios-secondary-button" text="Cancel Loads" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Detect" class="ios-clipboard-section-title" />
+                    <ui:Label text="Detection reports counts only. Detected values are never shown or logged. Number and web search are only detected on their own dedicated fixtures." class="ios-clipboard-section-note" />
+                    <ui:Button name="CopyNumberFixtureButton" class="ios-secondary-button" text="Copy Number Fixture" />
+                    <ui:Button name="CopySearchFixtureButton" class="ios-secondary-button" text="Copy Search Fixture" />
+                    <ui:Button name="DetectPatternsButton" class="ios-clipboard-button" text="Detect Patterns" />
+                    <ui:Button name="DetectValuesButton" class="ios-clipboard-button" text="Detect Values" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Observe" class="ios-clipboard-section-title" />
+                    <ui:Label text="Start and Stop share a single-flight key, so only one of them can be in flight. Restart replaces the current observation without stopping it first." class="ios-clipboard-section-note" />
+                    <ui:Button name="StartObservingButton" class="ios-clipboard-button" text="Start Observing" />
+                    <ui:Button name="RestartObservingButton" class="ios-clipboard-button" text="Restart Observing (no stop)" />
+                    <ui:Button name="StopObservingButton" class="ios-secondary-button" text="Stop Observing" />
+                    <ui:Button name="CheckForegroundChangeButton" class="ios-clipboard-button" text="Check Foreground Change" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Clear" class="ios-clipboard-section-title" />
+                    <ui:Button name="ClearActiveScopeButton" class="ios-secondary-button" text="Clear Active Scope" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Busy / Memory" class="ios-clipboard-section-title" />
+                    <ui:Label text="Only same-operation calls are serialized: a second call of the same operation is rejected with CLIPBOARD_BUSY, while different operations run concurrently." class="ios-clipboard-section-note" />
+                    <ui:Button name="BusyLoadItemTwiceButton" class="ios-clipboard-button" text="Busy: Load Item Twice" />
+                    <ui:Button name="SeedAndCancelLoadButton" class="ios-clipboard-button" text="Seed And Cancel Load" />
+                    <ui:Button name="BusyStartObservingTwiceButton" class="ios-clipboard-button" text="Busy: Start Observing Twice" />
+                    <ui:Button name="CopyLargeImageDataButton" class="ios-clipboard-button" text="Copy Large Image Data (~4 MiB)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ios-clipboard-section">
+                    <ui:Label text="Errors" class="ios-clipboard-section-title" />
+                    <ui:Label name="ErrorsSectionNote" text="Every button here demonstrates a stable CLIPBOARD_* result contract. C# constructor exceptions that occur before a Manager call are not represented." class="ios-clipboard-section-note" />
+                    <ui:Button name="ErrCopyMultipleEmptyButton" class="ios-secondary-button" text="Copy Multiple (empty) -&gt; EMPTY_ITEMS" />
+                    <ui:Button name="ErrCopyMultiRepEmptyButton" class="ios-secondary-button" text="Copy Multi Representation (empty) -&gt; EMPTY_ITEMS" />
+                    <ui:Button name="ErrCopyImageFileMissingButton" class="ios-secondary-button" text="Copy Image File (missing) -&gt; FILE_NOT_FOUND" />
+                    <ui:Button name="ErrCopyInvalidUtiButton" class="ios-secondary-button" text="Copy Custom Data (invalid UTI) -&gt; INVALID_TYPE" />
+                    <ui:Button name="ErrCopyInvalidUrlButton" class="ios-secondary-button" text="Copy URL (invalid) -&gt; INVALID_URL" />
+                    <ui:Button name="ErrCopyColorOutOfRangeButton" class="ios-secondary-button" text="Copy Color (out of range) -&gt; INVALID_COLOR" />
+                    <ui:Button name="ErrReadDataInvalidUtiButton" class="ios-secondary-button" text="Read Data (invalid UTI) -&gt; INVALID_TYPE" />
+                    <ui:Button name="ErrRemoveGeneralButton" class="ios-secondary-button" text="Remove General -&gt; CANNOT_REMOVE_GENERAL" />
+                    <ui:Button name="ErrObserveMissingNamedButton" class="ios-secondary-button" text="Observe Missing Named -&gt; UNAVAILABLE" />
+                    <ui:Button name="ErrDetectEmptyPatternsButton" class="ios-secondary-button" text="Detect (empty patterns) -&gt; EMPTY_PATTERNS" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
