@@ -8,7 +8,7 @@
 
 # バージョン
 
-## 1.8.0
+## 1.9.0
 
 # 対応 OS バージョン
 
@@ -77,6 +77,16 @@
   - テキストとURLの同時共有
   - 件名付き共有
   - 共有シートから特定アクティビティを除外
+- クリップボード機能
+  - プレーンテキスト / HTMLテキスト / URL / 画像ファイル / 画像データ / 色 / カスタムデータのコピー
+  - 複数テキスト・複数表現アイテムのコピー
+  - コピーオプション: ローカル限定・有効期限
+  - 内容を置き換えないアイテムの追記
+  - アイテムの読み取り、型指定での生データ読み取り、内容を読まないスナップショット
+  - テキスト / URL / 画像 / ファイルとしてのアイテムロードと、実行中ロードのキャンセル
+  - ペーストボードテキストのデータパターン検出と値の検出
+  - 名前付き / ユニークペーストボードの作成・利用・削除
+  - クリップボード変更の監視と、フォアグラウンド復帰時の変更確認
 
 ## Windows
 
@@ -133,7 +143,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
