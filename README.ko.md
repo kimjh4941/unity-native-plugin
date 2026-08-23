@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.8.0
+- 1.9.0
 
 ## 지원 OS 버전
 
@@ -77,6 +77,16 @@
   - 텍스트와 URL 동시 공유
   - 제목 포함 공유
   - 공유 시트에서 특정 액티비티 제외
+- 클립보드 기능
+  - 일반 텍스트 / HTML 텍스트 / URL / 이미지 파일 / 이미지 데이터 / 색상 / 커스텀 데이터 복사
+  - 다중 텍스트·다중 표현 아이템 복사
+  - 복사 옵션: 로컬 전용 및 만료
+  - 내용을 교체하지 않는 아이템 추가
+  - 아이템 읽기, 타입 지정 원시 데이터 읽기, 내용을 읽지 않는 스냅샷
+  - 텍스트 / URL / 이미지 / 파일로 아이템 로드 및 실행 중 로드 취소
+  - 페이스트보드 텍스트의 데이터 패턴 감지와 값 감지
+  - 이름 있는 / 고유 페이스트보드 생성·사용·삭제
+  - 클립보드 변경 관찰과 포그라운드 복귀 시 변경 확인
 
 ### Windows
 
@@ -130,7 +140,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.8.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
