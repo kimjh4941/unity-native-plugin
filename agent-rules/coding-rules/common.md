@@ -226,6 +226,60 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - `.meta` ファイルは Unity が自動生成するため、AI エージェントは作成しない
 
+### 命名: OS 接頭辞と、共通ファイルを作らない方針
+
+**`Runtime/<Feature>/` と `Tests/` 配下は、プラットフォーム単位で管理する。共通ファイルを作らない。**
+
+ファイル名と、その中の public / internal な型名には、対象プラットフォームを接頭辞で表す。**テストファイルも同じ規則に従う。**
+
+| 対象 | 接頭辞 | 例 |
+|---|---|---|
+| Android | `Android` | `AndroidClipboardManager.cs` |
+| iOS | `Ios` | `IosClipboardManager.cs` |
+| macOS | `Mac` | `MacClipboardManager.cs` |
+| Windows | `Windows` | `WindowsNotificationManager.cs` |
+
+- **機能ディレクトリに接頭辞なしのファイルを作らない。** 2 つのプラットフォームが同じロジックを必要とする場合も、**共通化せずそれぞれに持たせる**
+- ファイル名と、そのファイルが定義する主たる型の名前を一致させる
+- ディレクトリではプラットフォームを分けない（`UI/` を除く。後述）
+- **`Tests/Runtime/` と `Tests/PlayMode/` のファイル名・クラス名にも接頭辞を付ける。** テスト対象のプラットフォームがファイル名から分かることが目的
+  - 例: `MacClipboardJsonParserTests.cs` / `IosClipboardManagerDispatchTests.cs`
+  - **複数プラットフォームの型を 1 つのテストファイルで扱わない。** 対象ごとにファイルを分ける
+  - テストのコンパイルガードは対象型に合わせる（対象が `#if UNITY_STANDALONE_OSX \|\| UNITY_EDITOR` ならテストも同じ）
+
+**共通化しない理由:** プラットフォーム単位で管理できることを優先する。共有すると、片方のプラットフォームの都合で変更したときに、もう片方へ意図しない影響が及ぶ。実際に macOS Clipboard の設計時、iOS の JSON リーダーを共有化する案を検討したが、この方針により **`MacClipboardJsonReader` として複製する**ことにした。重複のコストより、プラットフォームごとに独立して変更できることを取る。
+
+**例外: `Runtime/Common/`**
+
+`Runtime/Common/` は**意図的に共通とした横断インフラの置き場所**であり、この方針の対象外とする。接頭辞を付けない。
+
+| ファイル | 位置づけ |
+|---|---|
+| `UnityMainThreadDispatcher.cs` | 全プラットフォームの Manager が使う。意図的な共通 |
+
+新しく `Common/` へ置く場合は、**機能ロジックではなく横断インフラであること**を条件とする。特定プラットフォームの機能に属するものは機能ディレクトリへ置き、接頭辞を付ける。
+
+**`UI/` のディレクトリ構成**
+
+`UI/` だけは `UI/<Platform>/<Feature>/` の構造を採る。ファイル名の接頭辞は同じ規則に従う。
+
+**既知の逸脱（新規実装で真似しない）: Runtime 11 件 + Tests 2 件**
+
+| 逸脱している型 | 実際の所属 |
+|---|---|
+| `Clipboard/ClipboardOperationResult` / `ClipboardReadResult`（`ClipItem` / `ClipContents` を含む） / `ClipboardDescriptionResult` | Android |
+| `Notification/NotificationResult` / `NotificationActionResult` / `NotificationReceivedResult` | Android |
+| `Share/ShareOperationResult` / `ShareCallbackResult` / `ShareChooserActionResult` / `ShareChooserActionCallbackCoordinator` | Android |
+| `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
+| `Tests/Runtime/ShareChooserActionCallbackCoordinatorTests` | Android（`ShareChooserActionCallbackCoordinator` のテスト） |
+| `Tests/Runtime/ShareResultTests` | Android（`ShareOperationResult` ほかのテスト。`IosShareResult` への言及も混在している） |
+
+原因は「その機能を最初に実装したプラットフォームが接頭辞を付けなかった」ことで、2 番目のプラットフォームを追加する際に付け直す手順が無かったためである。
+
+- **これらを他プラットフォームから使わないこと**
+- **これらを見て「接頭辞なしは共通の意味」と読まないこと。** `Common/` 配下だけが共通である
+- 改名は破壊的変更（すべて `public`）になるため別課題として扱う。詳細と対応案: `artifact/OS_PREFIX_VIOLATIONS.md`
+
 ---
 
 ## JSON によるデータ転送

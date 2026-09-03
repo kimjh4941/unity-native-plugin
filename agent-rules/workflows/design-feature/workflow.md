@@ -65,6 +65,7 @@
      - 新規作成 / 既存変更 / 非変更を分類して列挙する（`Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下）
      - テストファイル（`Tests/Runtime/` 配下）も変更一覧に含める
      - `.meta` ファイルは Unity が自動生成するため記載しない
+     - **ファイル名は `agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」に従う。** 機能ディレクトリの新規ファイルは必ず `Android` / `Ios` / `Mac` / `Windows` の接頭辞を付ける。**他プラットフォームの既存実装を共有化する案は採らない。** 同じロジックが必要なら、そのプラットフォーム用に複製して持たせる（`Runtime/Common/` の横断インフラのみが例外）
      - **サンプルアプリ（ExampleController・UXML/USS・サンプルシーン）は対象外とする。** これらは `design-sample-scene` スキルで別途設計するため、本計画書には含めない
    - **実装詳細**（implement-feature ステップ3で行う内容）
      - クラス・メソッド・イベント設計（Singleton・delegate・event シグネチャ）

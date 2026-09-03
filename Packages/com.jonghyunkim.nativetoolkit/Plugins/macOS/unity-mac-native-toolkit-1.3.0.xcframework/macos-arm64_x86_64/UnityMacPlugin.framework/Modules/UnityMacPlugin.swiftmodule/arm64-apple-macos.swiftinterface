@@ -1,0 +1,158 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2.4 effective-5.10 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)
+// swift-module-flags: -target arm64-apple-macos15.0 -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name UnityMacPlugin
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2.4
+import AppKit
+import Foundation
+import MacLibrary
+import Swift
+@_exported import UnityMacPlugin
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers final public class UnityMacClipboardManager : ObjectiveC.NSObject, @unchecked Swift.Sendable {
+  @objc public static let shared: UnityMacPlugin.UnityMacClipboardManager
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func copy(contentJson: Swift.String?, optionsJson: Swift.String?, scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func append(contentJson: Swift.String?, ownershipJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func read(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func readData(utType: Swift.String?, scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func snapshot(matchingTypesJson: Swift.String?, scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func clear(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func createPasteboard(requestJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func removePasteboard(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func detectPatterns(patternsJson: Swift.String?, scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func detectValues(patternsJson: Swift.String?, scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func detectMetadata(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func accessBehavior(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  @objc deinit
+}
+extension UnityMacPlugin.UnityMacClipboardManager {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func startObserving(scopeJson: Swift.String?, intervalSeconds: Swift.Double, onChange: (@Sendable (Swift.String) -> Swift.Void)?, handler: (@Sendable (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func stopObserving(handler: (@Sendable (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc final public func checkForegroundChange(scopeJson: Swift.String?, handler: (@Sendable (Swift.Bool, Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)?)
+  #endif
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers public class UnityMacDialogManager : ObjectiveC.NSObject {
+  @objc public static let shared: UnityMacPlugin.UnityMacDialogManager
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showDialog(title: Swift.String, message: Swift.String? = nil, buttonsJson: Swift.String, optionsJson: Swift.String, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showFileDialog(title: Swift.String, message: Swift.String? = nil, allowedContentTypes: [Swift.String]? = nil, directoryURL: Foundation.URL? = nil, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showMultiFileDialog(title: Swift.String, message: Swift.String? = nil, allowedContentTypes: [Swift.String]? = nil, directoryURL: Foundation.URL? = nil, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showFolderDialog(title: Swift.String, message: Swift.String? = nil, directoryURL: Foundation.URL? = nil, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showMultiFolderDialog(title: Swift.String, message: Swift.String? = nil, directoryURL: Foundation.URL? = nil, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func showSaveFileDialog(title: Swift.String, message: Swift.String? = nil, nameFieldStringValue: Swift.String? = nil, allowedContentTypes: [Swift.String]? = nil, directoryURL: Foundation.URL? = nil, completion: ((Foundation.NSDictionary?, Foundation.NSError?) -> Swift.Void)? = nil)
+  #endif
+  @objc deinit
+}
+final public class UnityMacNotificationJsonParser {
+  public init()
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func parseContent(_ json: Swift.String) -> Swift.Result<MacLibrary.NotificationContent, MacLibrary.BridgeError>
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func parseTrigger(_ json: Swift.String) -> Swift.Result<MacLibrary.NotificationTrigger, MacLibrary.BridgeError>
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func parseCategory(_ json: Swift.String) -> Swift.Result<MacLibrary.NotificationCategory, MacLibrary.BridgeError>
+  #endif
+  final public func toJson(scheduled notifications: [MacLibrary.ScheduledNotification]) -> Swift.String
+  final public func toJson(delivered notifications: [MacLibrary.ActiveNotification]) -> Swift.String
+  final public func toJson(status: MacLibrary.NotificationAuthorizationStatus) -> Swift.String
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers public class UnityMacNotificationManager : ObjectiveC.NSObject {
+  @objc public static let shared: UnityMacPlugin.UnityMacNotificationManager
+  @objc public func setup()
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func requestPermission(completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getAuthorizationStatus(completion: @escaping (Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func openNotificationSettings(completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func show(contentJson: Swift.String, triggerJson: Swift.String, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func update(identifier: Swift.String, contentJson: Swift.String, triggerJson: Swift.String, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func schedule(contentJson: Swift.String, triggerJson: Swift.String, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  @objc public func cancelScheduled(identifier: Swift.String)
+  @objc public func cancelAllScheduled()
+  @objc public func cancelNotification(identifier: Swift.String)
+  @objc public func cancelAllNotifications()
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getScheduled(completion: @escaping (Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getDelivered(completion: @escaping (Swift.String?, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  @objc public func removeDelivered(identifier: Swift.String)
+  @objc public func removeAllDelivered()
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func registerCategory(categoryJson: Swift.String, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func removeCategory(identifier: Swift.String, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  @objc public func hasPermission(completion: @escaping (Swift.Bool) -> Swift.Void)
+  @objc public func setActionReceivedHandler(_ handler: @escaping (Swift.String, Swift.String, Swift.String) -> Swift.Void)
+  @objc public func setTextInputActionReceivedHandler(_ handler: @escaping (Swift.String, Swift.String, Swift.String, Swift.String) -> Swift.Void)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func setBadgeCount(_ count: Swift.Int, completion: @escaping (Swift.Bool, Swift.Int, Swift.String?) -> Swift.Void)
+  #endif
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers public class UnityMacShareManager : ObjectiveC.NSObject {
+  @objc public static let shared: UnityMacPlugin.UnityMacShareManager
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func share(contentJson: Swift.String, handler: ((Swift.Bool, Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func shareViaService(serviceName: Swift.String, contentJson: Swift.String, handler: ((Swift.Bool, Swift.Bool, Swift.String?, Swift.String?) -> Swift.Void)?)
+  #endif
+  @objc deinit
+}
