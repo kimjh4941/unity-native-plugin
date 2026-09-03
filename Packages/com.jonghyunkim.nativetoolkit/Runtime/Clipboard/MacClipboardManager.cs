@@ -145,6 +145,66 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         public event Action<MacClipboardChangeCountResult>? ClearCompleted;
 
+        /// <summary>
+        /// Raised when an operation that returns no value completes, on success and failure alike.
+        /// Inspect <see cref="MacClipboardOperationResult.Operation"/> to tell them apart.
+        /// Always invoked before the per-call callback. See <see cref="OwnershipChanged"/> for how
+        /// this behaves after the Manager has been destroyed.
+        /// </summary>
+        public event Action<MacClipboardOperationResult>? ClipboardOperationCompleted;
+
+        /// <summary>
+        /// Raised when a snapshot completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardSnapshotResult>? SnapshotCompleted;
+
+        /// <summary>
+        /// Raised when a pasteboard creation completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacPasteboardScopeResult>? PasteboardCreated;
+
+        /// <summary>
+        /// Raised when a pattern detection completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardDetectedPatternsResult>? PatternsDetected;
+
+        /// <summary>
+        /// Raised when a value detection completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardDetectedValuesResult>? ValuesDetected;
+
+        /// <summary>
+        /// Raised when a metadata detection completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardDetectedMetadataResult>? MetadataDetected;
+
+        /// <summary>
+        /// Raised when an access-behaviour query completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardAccessBehaviorResult>? AccessBehaviorChecked;
+
+        /// <summary>
+        /// Raised when a foreground-change check completes, on success and failure alike.
+        /// Always invoked before the per-call callback.
+        /// </summary>
+        public event Action<MacClipboardForegroundChangeResult>? ForegroundChangeChecked;
+
+        /// <summary>
+        /// Raised for every clipboard change reported by an active observation.
+        /// Always invoked before the per-call <c>onChanged</c> registration.
+        /// <para>
+        /// Only a successful <see cref="StartObserving"/> makes this fire, and only that call's
+        /// registration receives events. A restart that is still in flight does not divert them.
+        /// </para>
+        /// </summary>
+        public event Action<MacClipboardChangeEvent>? ClipboardChanged;
+
         // ── Native interop ──────────────────────────────────────────────────────
 
         // The C header declares isSuccess as Objective-C BOOL (1 byte: _Bool on arm64, signed char
@@ -158,6 +218,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             string? json,
             long errorCode,
             string? errorMessage);
+
+        // Same contract minus the payload, for the operations that return no value.
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ClipboardCallback(
+            [MarshalAs(UnmanagedType.I1)] bool isSuccess,
+            long errorCode,
+            string? errorMessage);
+
+        // Change notifications carry only a payload: there is no success flag, because the native
+        // layer drops an event it cannot encode rather than reporting a failure.
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ClipboardChangeCallback(string? eventJson);
 
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
@@ -178,6 +250,44 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
         private static extern void clipboardClear(string scopeJson, ClipboardJsonCallback callback);
 
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardSnapshot(
+            string? matchingTypesJson, string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardCreatePasteboard(
+            string requestJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardRemovePasteboard(string scopeJson, ClipboardCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardDetectPatterns(
+            string patternsJson, string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardDetectValues(
+            string patternsJson, string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardDetectMetadata(string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardAccessBehavior(string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardCheckForegroundChange(
+            string scopeJson, ClipboardJsonCallback callback);
+
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardStartObserving(
+            string scopeJson, double intervalSeconds, ClipboardCallback callback,
+            ClipboardChangeCallback onChange);
+
+        // Nullable: teardown issues this with no completion callback of its own.
+        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void clipboardStopObserving(ClipboardCallback? callback);
+
         // Held in static readonly fields so the GC cannot collect the delegates while the native
         // side still holds their function pointers.
         private static readonly ClipboardJsonCallback s_copyDelegate = OnCopyResult;
@@ -185,6 +295,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         private static readonly ClipboardJsonCallback s_readDelegate = OnReadResult;
         private static readonly ClipboardJsonCallback s_readDataDelegate = OnReadDataResult;
         private static readonly ClipboardJsonCallback s_clearDelegate = OnClearResult;
+        private static readonly ClipboardJsonCallback s_snapshotDelegate = OnSnapshotResult;
+        private static readonly ClipboardJsonCallback s_createPasteboardDelegate = OnCreatePasteboardResult;
+        private static readonly ClipboardCallback s_removePasteboardDelegate = OnRemovePasteboardResult;
+        private static readonly ClipboardJsonCallback s_detectPatternsDelegate = OnDetectPatternsResult;
+        private static readonly ClipboardJsonCallback s_detectValuesDelegate = OnDetectValuesResult;
+        private static readonly ClipboardJsonCallback s_detectMetadataDelegate = OnDetectMetadataResult;
+        private static readonly ClipboardJsonCallback s_accessBehaviorDelegate = OnAccessBehaviorResult;
+        private static readonly ClipboardJsonCallback s_checkForegroundChangeDelegate =
+            OnCheckForegroundChangeResult;
+        private static readonly ClipboardCallback s_startObservingDelegate = OnStartObservingResult;
+        private static readonly ClipboardCallback s_stopObservingDelegate = OnStopObservingResult;
+        private static readonly ClipboardChangeCallback s_changeDelegate = OnClipboardChanged;
 #endif
 
         // ── Per-call callback slots ─────────────────────────────────────────────
@@ -196,6 +318,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         private static Action<MacClipboardReadResult>? s_onRead;
         private static Action<MacClipboardReadDataResult>? s_onReadData;
         private static Action<MacClipboardChangeCountResult>? s_onClear;
+        private static Action<MacClipboardSnapshotResult>? s_onSnapshot;
+        private static Action<MacPasteboardScopeResult>? s_onCreatePasteboard;
+        private static Action<MacClipboardOperationResult>? s_onRemovePasteboard;
+        private static Action<MacClipboardDetectedPatternsResult>? s_onDetectPatterns;
+        private static Action<MacClipboardDetectedValuesResult>? s_onDetectValues;
+        private static Action<MacClipboardDetectedMetadataResult>? s_onDetectMetadata;
+        private static Action<MacClipboardAccessBehaviorResult>? s_onAccessBehavior;
+        private static Action<MacClipboardForegroundChangeResult>? s_onCheckForegroundChange;
+        private static Action<MacClipboardOperationResult>? s_onStartObserving;
+        private static Action<MacClipboardOperationResult>? s_onStopObserving;
+
+        // Change registrations, kept in two slots rather than one (5.6.5). The native layer leaves
+        // an existing observation running when a restart fails, so the previous registration must
+        // stay live until a restart actually succeeds. Only the active slot receives events.
+        private static Action<MacClipboardChangeEvent>? s_onChanged;
+        private static Action<MacClipboardChangeEvent>? s_pendingOnChanged;
 
         // Operations awaiting a native callback. Touched only from the Unity main thread (public
         // API is guarded, native callbacks arrive on the main thread), so no lock is needed.
@@ -238,10 +376,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_isTerminated = true;
 
             RunDestroyCleanup(
-                // Nothing to stop yet: this stage exposes no way to start change observation, so
-                // no native observation can be running. Replaced with StopObservingForTeardown
-                // when observation lands.
-                stop: () => { },
+                stop: StopObservingForTeardown,
                 managedCleanup: () =>
                 {
                     try { ClearAllPendingCallbacks(); }
@@ -249,6 +384,32 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 });
 
             // s_dispatcher is deliberately left set: post-destruction rejections still need it.
+        }
+
+        /// <summary>
+        /// Stops native observation during teardown, bypassing the guard chain.
+        /// <para>
+        /// Bypassing is safe for managed state: the tombstone is already set, so no new operation
+        /// can start and every arriving callback is discarded. It is <b>not</b> safe for native
+        /// state on its own, because the native start and stop tasks carry no ordering guarantee: a
+        /// start submitted just before teardown can run after this stop and leave the poller
+        /// running. That gap is closed by reissuing this stop when a late successful start arrives
+        /// (see <see cref="HandleObservationControlCallback"/>).
+        /// </para>
+        /// </summary>
+        private static void StopObservingForTeardown()
+        {
+#if UNITY_EDITOR
+            // The P/Invoke below compiles to nothing in the Editor, so the call itself is what
+            // tests observe. Counts every issuance, teardown's own included (see the seam docs).
+            TeardownStopIssueCountForTests++;
+#endif
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+            if (Application.platform == RuntimePlatform.OSXPlayer)
+            {
+                clipboardStopObserving(null);
+            }
+#endif
         }
 
         /// <summary>
@@ -315,6 +476,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #if UNITY_EDITOR
             BridgeAvailableOverrideForTests = false;
             MaxRequestBytesOverrideForTests = null;
+            TeardownStopIssueCountForTests = 0;
 #endif
             ClearAllPendingCallbacks();
         }
@@ -326,6 +488,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_onRead = null;
             s_onReadData = null;
             s_onClear = null;
+            s_onSnapshot = null;
+            s_onCreatePasteboard = null;
+            s_onRemovePasteboard = null;
+            s_onDetectPatterns = null;
+            s_onDetectValues = null;
+            s_onDetectMetadata = null;
+            s_onAccessBehavior = null;
+            s_onCheckForegroundChange = null;
+            s_onStartObserving = null;
+            s_onStopObserving = null;
+            s_onChanged = null;
+            s_pendingOnChanged = null;
 
             s_inFlight.Clear();
         }
@@ -487,6 +661,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private static string CouldNotStartMessage(string operation) =>
             $"{operation} could not be started.";
+
+        // The observation operations share one single-flight key, so the generic
+        // "startObserving is already in progress." would be a lie when a stop is the one running.
+        private static string ObservationBusyMessage() =>
+            "Another observation control call is already in progress.";
 
         private static string RequestTooLargeMessage(long limitBytes) =>
             $"Clipboard content exceeds the {limitBytes} byte request limit.";
@@ -684,6 +863,96 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             Dispatch(result, _instance?.ClearCompleted, perCall);
         }
 
+        /// <summary>
+        /// Takes the per-call callback for an operation that returns no value. Selected by
+        /// operation name for the same reason as <see cref="TakeOwnershipCallback"/>: several
+        /// operations share this result type but own separate slots.
+        /// </summary>
+        private static Action<MacClipboardOperationResult>? TakeOperationCallback(string operation)
+        {
+            switch (operation)
+            {
+                case MacClipboardOperations.RemovePasteboard:
+                    { var cb = s_onRemovePasteboard; s_onRemovePasteboard = null; return cb; }
+                case MacClipboardOperations.StartObserving:
+                    { var cb = s_onStartObserving; s_onStartObserving = null; return cb; }
+                case MacClipboardOperations.StopObserving:
+                    { var cb = s_onStopObserving; s_onStopObserving = null; return cb; }
+                default: return null;
+            }
+        }
+
+        private static void FireOperationResult(MacClipboardOperationResult result, string inFlightKey)
+        {
+            Action<MacClipboardOperationResult>? perCall = TakeOperationCallback(result.Operation);
+            EndOperation(s_inFlight, inFlightKey);
+            Dispatch(result, _instance?.ClipboardOperationCompleted, perCall);
+        }
+
+        private static void FireSnapshotResult(MacClipboardSnapshotResult result)
+        {
+            Action<MacClipboardSnapshotResult>? perCall = s_onSnapshot;
+            s_onSnapshot = null;
+            EndOperation(s_inFlight, MacClipboardOperations.Snapshot);
+            Dispatch(result, _instance?.SnapshotCompleted, perCall);
+        }
+
+        private static void FireCreatePasteboardResult(MacPasteboardScopeResult result)
+        {
+            Action<MacPasteboardScopeResult>? perCall = s_onCreatePasteboard;
+            s_onCreatePasteboard = null;
+            EndOperation(s_inFlight, MacClipboardOperations.CreatePasteboard);
+            Dispatch(result, _instance?.PasteboardCreated, perCall);
+        }
+
+        private static void FireDetectPatternsResult(MacClipboardDetectedPatternsResult result)
+        {
+            Action<MacClipboardDetectedPatternsResult>? perCall = s_onDetectPatterns;
+            s_onDetectPatterns = null;
+            EndOperation(s_inFlight, MacClipboardOperations.DetectPatterns);
+            Dispatch(result, _instance?.PatternsDetected, perCall);
+        }
+
+        private static void FireDetectValuesResult(MacClipboardDetectedValuesResult result)
+        {
+            Action<MacClipboardDetectedValuesResult>? perCall = s_onDetectValues;
+            s_onDetectValues = null;
+            EndOperation(s_inFlight, MacClipboardOperations.DetectValues);
+            Dispatch(result, _instance?.ValuesDetected, perCall);
+        }
+
+        private static void FireDetectMetadataResult(MacClipboardDetectedMetadataResult result)
+        {
+            Action<MacClipboardDetectedMetadataResult>? perCall = s_onDetectMetadata;
+            s_onDetectMetadata = null;
+            EndOperation(s_inFlight, MacClipboardOperations.DetectMetadata);
+            Dispatch(result, _instance?.MetadataDetected, perCall);
+        }
+
+        private static void FireAccessBehaviorResult(MacClipboardAccessBehaviorResult result)
+        {
+            Action<MacClipboardAccessBehaviorResult>? perCall = s_onAccessBehavior;
+            s_onAccessBehavior = null;
+            EndOperation(s_inFlight, MacClipboardOperations.AccessBehavior);
+            Dispatch(result, _instance?.AccessBehaviorChecked, perCall);
+        }
+
+        private static void FireForegroundChangeResult(MacClipboardForegroundChangeResult result)
+        {
+            Action<MacClipboardForegroundChangeResult>? perCall = s_onCheckForegroundChange;
+            s_onCheckForegroundChange = null;
+            EndOperation(s_inFlight, MacClipboardOperations.CheckForegroundChange);
+            Dispatch(result, _instance?.ForegroundChangeChecked, perCall);
+        }
+
+        /// <summary>
+        /// Delivers a change event. Unlike the operation results this owns no in-flight marker and
+        /// clears no slot: a registration serves every event until observation is replaced or
+        /// stopped. Only the active registration is used, never the pending one.
+        /// </summary>
+        private static void FireClipboardChanged(MacClipboardChangeEvent changeEvent) =>
+            Dispatch(changeEvent, _instance?.ClipboardChanged, s_onChanged);
+
         // ── Public API ──────────────────────────────────────────────────────────
 
         /// <summary>
@@ -771,6 +1040,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             // Stage 7.
             s_onCopy = onResult;
             InvokeNative(
+                op,
                 op,
                 nativeCall: () =>
                 {
@@ -861,6 +1131,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_onAppend = onResult;
             InvokeNative(
                 op,
+                op,
                 nativeCall: () =>
                 {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
@@ -933,6 +1204,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
             s_onRead = onResult;
             InvokeNative(
+                op,
                 op,
                 nativeCall: () =>
                 {
@@ -1007,6 +1279,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_onReadData = onResult;
             InvokeNative(
                 op,
+                op,
                 nativeCall: () =>
                 {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
@@ -1066,6 +1339,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_onClear = onResult;
             InvokeNative(
                 op,
+                op,
                 nativeCall: () =>
                 {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
@@ -1076,31 +1350,777 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     MacClipboardChangeCountResult.Failure(MacClipboardErrorCodes.BridgeUnavailable, message)));
         }
 
+        /// <summary>
+        /// Reads pasteboard metadata without touching the payload: the change count, the types on
+        /// each item, and which items matched <paramref name="matchingTypes"/>.
+        /// Unity main thread only.
+        /// <para>
+        /// Not reading the payload is an optimisation, not a privacy contract. Like every read,
+        /// this may still be surfaced to the user.
+        /// </para>
+        /// <para>
+        /// Use this before <see cref="Read"/> when the pasteboard may be large: the types come back
+        /// without paying the memory cost of the content.
+        /// </para>
+        /// </summary>
+        /// <param name="matchingTypes">
+        /// Types to match, or <c>null</c> to request no matching. An empty list is not the same as
+        /// <c>null</c>: the native layer rejects it with
+        /// <see cref="MacClipboardErrorCodes.EmptyTypeFilter"/>.
+        /// </param>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">Optional per-call callback. <see cref="SnapshotCompleted"/> always fires first.</param>
+        public void Snapshot(
+            IReadOnlyList<string>? matchingTypes = null,
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardSnapshotResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.Snapshot;
+
+            Func<Action<MacClipboardSnapshotResult>?> commonSelector = () => this.SnapshotCompleted;
+            Func<int, string, MacClipboardSnapshotResult> failure =
+                (code, message) => MacClipboardSnapshotResult.Failure(code, message);
+
+            if (!TryPassGuards(op, onResult, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(Snapshot)}] matchingTypeCount: {matchingTypes?.Count ?? 0}, " +
+                      $"hasMatchingTypes: {matchingTypes != null}, hasScope: {scope != null}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string scopeJson;
+            string? matchingTypesJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+                matchingTypesJson = MacClipboardJsonBuilder.BuildMatchingTypesJson(matchingTypes);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(Snapshot)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onSnapshot = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardSnapshot(matchingTypesJson, scopeJson, s_snapshotDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireSnapshotResult(
+                    MacClipboardSnapshotResult.Failure(MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Creates a named or uniquely named pasteboard and returns the scope that refers to it.
+        /// Unity main thread only.
+        /// <para>
+        /// The pasteboard lives in the pasteboard server and <b>outlives this process</b>. Releasing
+        /// a unique one with <see cref="RemovePasteboard"/> is the caller's responsibility; this
+        /// Manager does not track what it created. Never put confidential data on a named
+        /// pasteboard, whose name any other process can guess.
+        /// </para>
+        /// </summary>
+        /// <param name="request">What to create. Must not be null.</param>
+        /// <param name="onResult">Optional per-call callback. <see cref="PasteboardCreated"/> always fires first.</param>
+        public void CreatePasteboard(
+            MacPasteboardCreationRequest request,
+            Action<MacPasteboardScopeResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.CreatePasteboard;
+
+            Func<Action<MacPasteboardScopeResult>?> commonSelector = () => this.PasteboardCreated;
+            Func<int, string, MacPasteboardScopeResult> failure =
+                (code, message) => MacPasteboardScopeResult.Failure(code, message);
+
+            if (!TryPassGuards(
+                    op, onResult, commonSelector, failure,
+                    validate: () => request == null
+                        ? (MacClipboardErrorCodes.InvalidRequest, "request must not be null.")
+                        : ((int Code, string Message)?)null))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(CreatePasteboard)}] kind: {request.Kind}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string requestJson;
+            try
+            {
+                requestJson = MacClipboardJsonBuilder.BuildCreateRequestJson(request);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(CreatePasteboard)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onCreatePasteboard = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardCreatePasteboard(requestJson, s_createPasteboardDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireCreatePasteboardResult(
+                    MacPasteboardScopeResult.Failure(MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Releases a named or unique pasteboard from the pasteboard server.
+        /// Unity main thread only.
+        /// <para>
+        /// The standard pasteboards cannot be released and fail with
+        /// <see cref="MacClipboardErrorCodes.CannotReleaseStandardPasteboard"/>. That covers the
+        /// general pasteboard and the font, ruler, find and drag pasteboards, and it is decided by
+        /// name: passing one of those names as a unique scope is rejected too.
+        /// </para>
+        /// </summary>
+        /// <param name="scope">Pasteboard to release. Must not be null.</param>
+        /// <param name="onResult">
+        /// Optional per-call callback. <see cref="ClipboardOperationCompleted"/> always fires first.
+        /// </param>
+        public void RemovePasteboard(
+            MacPasteboardScope scope,
+            Action<MacClipboardOperationResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.RemovePasteboard;
+
+            Func<Action<MacClipboardOperationResult>?> commonSelector = () => this.ClipboardOperationCompleted;
+            Func<int, string, MacClipboardOperationResult> failure =
+                (code, message) => MacClipboardOperationResult.Failure(op, code, message);
+
+            if (!TryPassGuards(
+                    op, onResult, commonSelector, failure,
+                    validate: () => scope == null
+                        ? (MacClipboardErrorCodes.InvalidRequest, "scope must not be null.")
+                        : ((int Code, string Message)?)null))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(RemovePasteboard)}] scopeKind: {scope.Kind}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string scopeJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(RemovePasteboard)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onRemovePasteboard = onResult;
+            // No onNativeFailureResult: this operation's result type is the one InvokeNative falls
+            // back to building, so the default path is already correct here.
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardRemovePasteboard(scopeJson, s_removePasteboardDelegate);
+#endif
+                });
+        }
+
+        /// <summary>
+        /// Reports which of the requested patterns appear on the pasteboard, without returning the
+        /// matched text. Unity main thread only.
+        /// <para>
+        /// Requires macOS 15.4 or later; earlier versions fail with
+        /// <see cref="MacClipboardErrorCodes.DetectionUnavailable"/>. Nothing matching is a success
+        /// with an empty list, not a failure.
+        /// </para>
+        /// </summary>
+        /// <param name="patterns">
+        /// Patterns to look for. Must not be null. An empty collection is rejected natively with
+        /// <see cref="MacClipboardErrorCodes.EmptyDetectionPatterns"/>.
+        /// </param>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">Optional per-call callback. <see cref="PatternsDetected"/> always fires first.</param>
+        public void DetectPatterns(
+            IReadOnlyCollection<MacClipboardDetectionPattern> patterns,
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardDetectedPatternsResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.DetectPatterns;
+
+            Func<Action<MacClipboardDetectedPatternsResult>?> commonSelector = () => this.PatternsDetected;
+            Func<int, string, MacClipboardDetectedPatternsResult> failure =
+                (code, message) => MacClipboardDetectedPatternsResult.Failure(code, message);
+
+            if (!TryPassGuards(
+                    op, onResult, commonSelector, failure,
+                    validate: () => patterns == null
+                        ? (MacClipboardErrorCodes.InvalidRequest, "patterns must not be null.")
+                        : ((int Code, string Message)?)null))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(DetectPatterns)}] patternCount: {patterns.Count}, " +
+                      $"hasScope: {scope != null}, hasCallback: {onResult != null}");
+
+            string patternsJson, scopeJson;
+            try
+            {
+                patternsJson = MacClipboardJsonBuilder.BuildPatternsJson(patterns);
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(DetectPatterns)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onDetectPatterns = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardDetectPatterns(patternsJson, scopeJson, s_detectPatternsDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireDetectPatternsResult(
+                    MacClipboardDetectedPatternsResult.Failure(
+                        MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Returns the values behind the requested patterns, such as the detected links or phone
+        /// numbers themselves. Unity main thread only.
+        /// <para>
+        /// Requires macOS 15.4 or later; earlier versions fail with
+        /// <see cref="MacClipboardErrorCodes.DetectionUnavailable"/>. Unlike
+        /// <see cref="DetectPatterns"/>, this returns clipboard content, so treat the result as
+        /// sensitive.
+        /// </para>
+        /// </summary>
+        /// <param name="patterns">Patterns to look for. Must not be null.</param>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">Optional per-call callback. <see cref="ValuesDetected"/> always fires first.</param>
+        public void DetectValues(
+            IReadOnlyCollection<MacClipboardDetectionPattern> patterns,
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardDetectedValuesResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.DetectValues;
+
+            Func<Action<MacClipboardDetectedValuesResult>?> commonSelector = () => this.ValuesDetected;
+            Func<int, string, MacClipboardDetectedValuesResult> failure =
+                (code, message) => MacClipboardDetectedValuesResult.Failure(code, message);
+
+            if (!TryPassGuards(
+                    op, onResult, commonSelector, failure,
+                    validate: () => patterns == null
+                        ? (MacClipboardErrorCodes.InvalidRequest, "patterns must not be null.")
+                        : ((int Code, string Message)?)null))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(DetectValues)}] patternCount: {patterns.Count}, " +
+                      $"hasScope: {scope != null}, hasCallback: {onResult != null}");
+
+            string patternsJson, scopeJson;
+            try
+            {
+                patternsJson = MacClipboardJsonBuilder.BuildPatternsJson(patterns);
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(DetectValues)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onDetectValues = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardDetectValues(patternsJson, scopeJson, s_detectValuesDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireDetectValuesResult(
+                    MacClipboardDetectedValuesResult.Failure(
+                        MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Reports the kind of content on the pasteboard, such as a web page or an image.
+        /// Unity main thread only.
+        /// <para>
+        /// Requires macOS 15.4 or later; earlier versions fail with
+        /// <see cref="MacClipboardErrorCodes.DetectionUnavailable"/>.
+        /// </para>
+        /// <para>
+        /// <b>Plain text fails</b> with <see cref="MacClipboardErrorCodes.DetectionFailed"/>, so a
+        /// failure here does not distinguish "nothing to report" from "could not report".
+        /// </para>
+        /// </summary>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">Optional per-call callback. <see cref="MetadataDetected"/> always fires first.</param>
+        public void DetectMetadata(
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardDetectedMetadataResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.DetectMetadata;
+
+            Func<Action<MacClipboardDetectedMetadataResult>?> commonSelector = () => this.MetadataDetected;
+            Func<int, string, MacClipboardDetectedMetadataResult> failure =
+                (code, message) => MacClipboardDetectedMetadataResult.Failure(code, message);
+
+            if (!TryPassGuards(op, onResult, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(DetectMetadata)}] hasScope: {scope != null}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string scopeJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(DetectMetadata)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onDetectMetadata = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardDetectMetadata(scopeJson, s_detectMetadataDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireDetectMetadataResult(
+                    MacClipboardDetectedMetadataResult.Failure(
+                        MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Reports how the system expects this app to access the pasteboard.
+        /// Unity main thread only.
+        /// <para>
+        /// On macOS earlier than 15.4 this <b>succeeds</b> with
+        /// <see cref="MacClipboardAccessBehavior.Unavailable"/> rather than failing.
+        /// </para>
+        /// </summary>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">
+        /// Optional per-call callback. <see cref="AccessBehaviorChecked"/> always fires first.
+        /// </param>
+        public void GetAccessBehavior(
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardAccessBehaviorResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.AccessBehavior;
+
+            Func<Action<MacClipboardAccessBehaviorResult>?> commonSelector = () => this.AccessBehaviorChecked;
+            Func<int, string, MacClipboardAccessBehaviorResult> failure =
+                (code, message) => MacClipboardAccessBehaviorResult.Failure(code, message);
+
+            if (!TryPassGuards(op, onResult, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(GetAccessBehavior)}] hasScope: {scope != null}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string scopeJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(GetAccessBehavior)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onAccessBehavior = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardAccessBehavior(scopeJson, s_accessBehaviorDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireAccessBehaviorResult(
+                    MacClipboardAccessBehaviorResult.Failure(
+                        MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Reports whether the pasteboard changed since this app was last in the foreground.
+        /// Unity main thread only.
+        /// <para>
+        /// <b>Use this instead of change observation, not alongside it.</b> Both share the same
+        /// per-scope tracker, so while a scope is being observed this reports <c>false</c> almost
+        /// always. The first call on a scope that is not being observed reports <c>true</c>.
+        /// </para>
+        /// </summary>
+        /// <param name="scope">Target pasteboard, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="onResult">
+        /// Optional per-call callback. <see cref="ForegroundChangeChecked"/> always fires first.
+        /// </param>
+        public void CheckForegroundChange(
+            MacPasteboardScope? scope = null,
+            Action<MacClipboardForegroundChangeResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.CheckForegroundChange;
+
+            Func<Action<MacClipboardForegroundChangeResult>?> commonSelector = () => this.ForegroundChangeChecked;
+            Func<int, string, MacClipboardForegroundChangeResult> failure =
+                (code, message) => MacClipboardForegroundChangeResult.Failure(code, message);
+
+            if (!TryPassGuards(op, onResult, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(CheckForegroundChange)}] hasScope: {scope != null}, " +
+                      $"hasCallback: {onResult != null}");
+
+            string scopeJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(CheckForegroundChange)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, op))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: already in progress.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, BusyMessage(op)),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            s_onCheckForegroundChange = onResult;
+            InvokeNative(
+                op,
+                op,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardCheckForegroundChange(scopeJson, s_checkForegroundChangeDelegate);
+#endif
+                },
+                onNativeFailureResult: message => FireForegroundChangeResult(
+                    MacClipboardForegroundChangeResult.Failure(
+                        MacClipboardErrorCodes.BridgeUnavailable, message)));
+        }
+
+        /// <summary>
+        /// Starts polling a pasteboard for changes. Unity main thread only.
+        /// <para>
+        /// Calling this again replaces the previous observation and its <paramref name="onChanged"/>
+        /// registration, silently. A restart that <b>fails</b> changes nothing: the native layer
+        /// validates the interval and resolves the scope before touching the running observation,
+        /// so a mistyped scope does not cost you the observation you already had.
+        /// </para>
+        /// <para>
+        /// <see cref="StartObserving"/> and <see cref="StopObserving"/> share one single-flight
+        /// key, because both mutate the same native subscription. A second control call while one
+        /// is pending is rejected with <see cref="MacClipboardErrorCodes.Busy"/>.
+        /// </para>
+        /// <para>
+        /// Observation pauses while the app is not active and catches up when it returns. Do not
+        /// combine it with <see cref="CheckForegroundChange"/> on the same scope: they share a
+        /// tracker, and the check will then almost always report no change.
+        /// </para>
+        /// <para>
+        /// An event the native layer cannot encode is dropped there without notice, so a missing
+        /// event is not observable from here.
+        /// </para>
+        /// </summary>
+        /// <param name="scope">Pasteboard to watch, or <c>null</c> for the general pasteboard.</param>
+        /// <param name="intervalSeconds">
+        /// Polling interval. Must be greater than 0 and at most 60; outside that the call fails
+        /// with <see cref="MacClipboardErrorCodes.InvalidConfiguration"/>.
+        /// </param>
+        /// <param name="onChanged">
+        /// Optional registration for change events, replaced by the next successful start.
+        /// <see cref="ClipboardChanged"/> fires whether or not this is supplied.
+        /// </param>
+        /// <param name="onStarted">
+        /// Optional per-call callback for the start itself.
+        /// <see cref="ClipboardOperationCompleted"/> always fires first.
+        /// </param>
+        public void StartObserving(
+            MacPasteboardScope? scope = null,
+            double intervalSeconds = MacClipboardLimits.DefaultObservationInterval,
+            Action<MacClipboardChangeEvent>? onChanged = null,
+            Action<MacClipboardOperationResult>? onStarted = null)
+        {
+            const string op = MacClipboardOperations.StartObserving;
+            const string key = MacClipboardOperations.ObservationControlKey;
+
+            Func<Action<MacClipboardOperationResult>?> commonSelector = () => this.ClipboardOperationCompleted;
+            Func<int, string, MacClipboardOperationResult> failure =
+                (code, message) => MacClipboardOperationResult.Failure(op, code, message);
+
+            // intervalSeconds is deliberately not validated here: the native layer rejects an
+            // out-of-range value with InvalidConfiguration, and checking it twice would give one
+            // condition two different error codes.
+            if (!TryPassGuards(op, onStarted, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(StartObserving)}] hasScope: {scope != null}, " +
+                      $"hasOnChanged: {onChanged != null}, hasCallback: {onStarted != null}");
+
+            string scopeJson;
+            try
+            {
+                scopeJson = MacClipboardJsonBuilder.BuildScopeJson(scope ?? MacPasteboardScope.General);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(StartObserving)}] build: {ex.Message}");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(op)),
+                    commonSelector(), onStarted);
+                return;
+            }
+
+            if (!TryBeginOperation(s_inFlight, key))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: another observation control call is pending.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, ObservationBusyMessage()),
+                    commonSelector(), onStarted);
+                return;
+            }
+
+            // Stage 7. The new registration goes to the pending slot only. The active one keeps
+            // receiving events until the native layer confirms the switch, matching the native
+            // behaviour of leaving the old observation running on a failed restart.
+            s_onStartObserving = onStarted;
+            s_pendingOnChanged = onChanged;
+
+            InvokeNative(
+                op,
+                key,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardStartObserving(
+                        scopeJson, intervalSeconds, s_startObservingDelegate, s_changeDelegate);
+#endif
+                },
+                // The native layer never saw this call, so the pending registration is abandoned
+                // and the active one is left exactly as it was.
+                onNativeFailure: () => s_pendingOnChanged = null);
+        }
+
+        /// <summary>
+        /// Stops change observation. Unity main thread only.
+        /// <para>
+        /// Idempotent: stopping when nothing is being observed succeeds. The registration is
+        /// released only once the native layer confirms the stop, so a failed stop leaves events
+        /// flowing, which is what the native layer is still doing.
+        /// </para>
+        /// <para>
+        /// Shares a single-flight key with <see cref="StartObserving"/>.
+        /// </para>
+        /// </summary>
+        /// <param name="onResult">
+        /// Optional per-call callback. <see cref="ClipboardOperationCompleted"/> always fires first.
+        /// </param>
+        public void StopObserving(Action<MacClipboardOperationResult>? onResult = null)
+        {
+            const string op = MacClipboardOperations.StopObserving;
+            const string key = MacClipboardOperations.ObservationControlKey;
+
+            Func<Action<MacClipboardOperationResult>?> commonSelector = () => this.ClipboardOperationCompleted;
+            Func<int, string, MacClipboardOperationResult> failure =
+                (code, message) => MacClipboardOperationResult.Failure(op, code, message);
+
+            if (!TryPassGuards(op, onResult, commonSelector, failure))
+            {
+                return;
+            }
+
+            Debug.Log($"[{LogTag}][{nameof(StopObserving)}] hasCallback: {onResult != null}");
+
+            // No request JSON to build, so stage 5 does not apply here.
+            if (!TryBeginOperation(s_inFlight, key))
+            {
+                Debug.LogWarning($"[{LogTag}] {op} rejected: another observation control call is pending.");
+                DispatchRejectedResult(
+                    failure(MacClipboardErrorCodes.Busy, ObservationBusyMessage()),
+                    commonSelector(), onResult);
+                return;
+            }
+
+            // No pending registration: a stop has nothing to promote, and the active registration
+            // is released on successful completion rather than here.
+            s_onStopObserving = onResult;
+
+            InvokeNative(
+                op,
+                key,
+                nativeCall: () =>
+                {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+                    clipboardStopObserving(s_stopObservingDelegate);
+#endif
+                });
+        }
+
         // ── Native invocation ───────────────────────────────────────────────────
 
         /// <summary>
         /// Issues the native call. This call already owns the in-flight marker and the per-call
         /// slot, so a P/Invoke failure takes the normal release path rather than the rejected one.
         /// <para>
-        /// <paramref name="onNativeFailureResult"/> is required rather than optional: every
-        /// operation here returns its own result type, and there is no result type this helper
-        /// could fall back to building on its own. Guessing one would send the wrong result to the
-        /// wrong event and leak the per-call slot. The operations that share
-        /// <see cref="MacClipboardOperationResult"/> do not exist yet; they arrive with change
-        /// observation, together with the shared fallback and the rollback hook a pending
-        /// observation registration needs.
+        /// <paramref name="onNativeFailureResult"/> is mandatory in practice for every operation
+        /// that does not return <see cref="MacClipboardOperationResult"/>. The fallback below can
+        /// only build that one type, so omitting it elsewhere would send the wrong result to the
+        /// wrong event and leave the per-call slot occupied forever.
         /// </para>
         /// </summary>
         /// <param name="operation">Operation name, used in messages and logs.</param>
+        /// <param name="inFlightKey">Single-flight key held by this call.</param>
         /// <param name="nativeCall">The P/Invoke itself.</param>
+        /// <param name="onNativeFailure">
+        /// Operation-specific rollback, run before the result is dispatched. Used to drop a pending
+        /// observation registration that never reached the native layer.
+        /// </param>
         /// <param name="onNativeFailureResult">
         /// Builds and dispatches the failure result, which is also what releases the in-flight
-        /// marker and the per-call slot.
+        /// marker and the per-call slot. Omit it only for operations whose result type is
+        /// <see cref="MacClipboardOperationResult"/>.
         /// </param>
         private static void InvokeNative(
             string operation,
+            string inFlightKey,
             Action nativeCall,
-            Action<string> onNativeFailureResult)
+            Action? onNativeFailure = null,
+            Action<string>? onNativeFailureResult = null)
         {
             try
             {
@@ -1109,7 +2129,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(InvokeNative)}] {operation}: {ex.Message}");
-                onNativeFailureResult(CouldNotStartMessage(operation));
+                onNativeFailure?.Invoke();
+
+                if (onNativeFailureResult != null)
+                {
+                    onNativeFailureResult(CouldNotStartMessage(operation));
+                    return;
+                }
+
+                FireOperationResult(
+                    MacClipboardOperationResult.Failure(
+                        operation, MacClipboardErrorCodes.BridgeUnavailable, CouldNotStartMessage(operation)),
+                    inFlightKey);
             }
         }
 
@@ -1154,6 +2185,57 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnClearResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
             HandleClearCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnSnapshotResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleSnapshotCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnCreatePasteboardResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleCreatePasteboardCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardCallback))]
+        private static void OnRemovePasteboardResult(bool isSuccess, long errorCode, string? errorMessage) =>
+            HandleRemovePasteboardCallback(isSuccess, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnDetectPatternsResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleDetectPatternsCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnDetectValuesResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleDetectValuesCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnDetectMetadataResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleDetectMetadataCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnAccessBehaviorResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleAccessBehaviorCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
+        private static void OnCheckForegroundChangeResult(
+            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
+            HandleForegroundChangeCallback(isSuccess, json, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardCallback))]
+        private static void OnStartObservingResult(bool isSuccess, long errorCode, string? errorMessage) =>
+            HandleObservationControlCallback(
+                MacClipboardOperations.StartObserving, isSuccess, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardCallback))]
+        private static void OnStopObservingResult(bool isSuccess, long errorCode, string? errorMessage) =>
+            HandleObservationControlCallback(
+                MacClipboardOperations.StopObserving, isSuccess, errorCode, errorMessage);
+
+        [MonoPInvokeCallback(typeof(ClipboardChangeCallback))]
+        private static void OnClipboardChanged(string? eventJson) => HandleChangeEvent(eventJson);
 #endif
 
         // The callback bodies live outside the narrow guard so the Editor completion seams can
@@ -1254,6 +2336,260 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             FireClearResult(MacClipboardChangeCountResult.Success(changeCount));
         }
 
+        private static void HandleSnapshotCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.Snapshot;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireSnapshotResult(MacClipboardSnapshotResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            if (!MacClipboardJsonParser.TryParseSnapshot(json, out MacClipboardSnapshot? snapshot)
+                || snapshot == null)
+            {
+                LogParseFailure(op);
+                FireSnapshotResult(MacClipboardSnapshotResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireSnapshotResult(MacClipboardSnapshotResult.Success(snapshot));
+        }
+
+        private static void HandleCreatePasteboardCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.CreatePasteboard;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireCreatePasteboardResult(MacPasteboardScopeResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            if (!MacClipboardJsonParser.TryParseScopeResult(json, out MacPasteboardScope? scope)
+                || scope == null)
+            {
+                LogParseFailure(op);
+                FireCreatePasteboardResult(MacPasteboardScopeResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireCreatePasteboardResult(MacPasteboardScopeResult.Success(scope));
+        }
+
+        // No payload to parse, so this is the one completion path with no 9006 branch.
+        private static void HandleRemovePasteboardCallback(
+            bool isSuccess, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.RemovePasteboard;
+            if (DiscardIfTerminated(op)) return;
+
+            FireOperationResult(
+                isSuccess
+                    ? MacClipboardOperationResult.Success(op)
+                    : MacClipboardOperationResult.Failure(op, errorCode, errorMessage),
+                op);
+        }
+
+        private static void HandleDetectPatternsCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.DetectPatterns;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireDetectPatternsResult(MacClipboardDetectedPatternsResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            // An empty array is a valid success: nothing matched.
+            if (!MacClipboardJsonParser.TryParsePatterns(
+                    json, out IReadOnlyList<MacClipboardDetectionPattern> patterns))
+            {
+                LogParseFailure(op);
+                FireDetectPatternsResult(MacClipboardDetectedPatternsResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireDetectPatternsResult(MacClipboardDetectedPatternsResult.Success(patterns));
+        }
+
+        private static void HandleDetectValuesCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.DetectValues;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireDetectValuesResult(MacClipboardDetectedValuesResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            if (!MacClipboardJsonParser.TryParseDetectedValues(json, out MacClipboardDetectedValues? values)
+                || values == null)
+            {
+                LogParseFailure(op);
+                FireDetectValuesResult(MacClipboardDetectedValuesResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireDetectValuesResult(MacClipboardDetectedValuesResult.Success(values));
+        }
+
+        private static void HandleDetectMetadataCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.DetectMetadata;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireDetectMetadataResult(MacClipboardDetectedMetadataResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            if (!MacClipboardJsonParser.TryParseDetectedMetadata(
+                    json, out MacClipboardDetectedMetadata? metadata) || metadata == null)
+            {
+                LogParseFailure(op);
+                FireDetectMetadataResult(MacClipboardDetectedMetadataResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireDetectMetadataResult(MacClipboardDetectedMetadataResult.Success(metadata));
+        }
+
+        private static void HandleAccessBehaviorCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.AccessBehavior;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireAccessBehaviorResult(MacClipboardAccessBehaviorResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            // An unknown behaviour string parses to Unknown rather than failing, so only a
+            // malformed response reaches the 9006 branch.
+            if (!MacClipboardJsonParser.TryParseAccessBehavior(json, out MacClipboardAccessBehavior behavior))
+            {
+                LogParseFailure(op);
+                FireAccessBehaviorResult(MacClipboardAccessBehaviorResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireAccessBehaviorResult(MacClipboardAccessBehaviorResult.Success(behavior));
+        }
+
+        private static void HandleForegroundChangeCallback(
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            const string op = MacClipboardOperations.CheckForegroundChange;
+            if (DiscardIfTerminated(op)) return;
+
+            if (!isSuccess)
+            {
+                FireForegroundChangeResult(
+                    MacClipboardForegroundChangeResult.Failure(errorCode, errorMessage));
+                return;
+            }
+
+            if (!MacClipboardJsonParser.TryParseBool(json, out bool changed))
+            {
+                LogParseFailure(op);
+                FireForegroundChangeResult(MacClipboardForegroundChangeResult.Failure(
+                    MacClipboardErrorCodes.ResponseParseFailed, ResponseParseFailedMessage));
+                return;
+            }
+
+            FireForegroundChangeResult(MacClipboardForegroundChangeResult.Success(changed));
+        }
+
+        /// <summary>
+        /// Completion path shared by startObserving and stopObserving, which share a single-flight
+        /// key and both mutate the change registration.
+        /// <para>
+        /// Single-flight makes the owner unambiguous: at most one control call is outstanding, so
+        /// the completion that arrives can only belong to the pending slot's owner. That is why no
+        /// generation counter is needed to tell registrations apart.
+        /// </para>
+        /// </summary>
+        private static void HandleObservationControlCallback(
+            string operation, bool isSuccess, long errorCode, string? errorMessage)
+        {
+            if (DiscardIfTerminated(operation))
+            {
+                // The managed side is safe to drop, but a start that succeeded has left a native
+                // poller running: teardown's own stop may have been executed before it. Reissuing
+                // the stop closes that window. stopObserving is idempotent, so reissuing when the
+                // two did not cross is harmless. A failed start began nothing, so it needs none.
+                if (isSuccess && operation == MacClipboardOperations.StartObserving)
+                {
+                    Debug.LogWarning(
+                        $"[{LogTag}] A start that completed after destruction left native observation " +
+                        "running; reissuing the teardown stop.");
+                    StopObservingForTeardown();
+                }
+                return;
+            }
+
+            if (operation == MacClipboardOperations.StartObserving)
+            {
+                // Promote on success, abandon on failure. Either way the pending slot is cleared,
+                // and on failure the active registration is left untouched because the native
+                // layer has left the old observation running.
+                if (isSuccess)
+                {
+                    s_onChanged = s_pendingOnChanged;
+                }
+                s_pendingOnChanged = null;
+            }
+            else if (isSuccess)
+            {
+                // A failed stop did not stop anything natively, so the registration stays.
+                s_onChanged = null;
+            }
+
+            FireOperationResult(
+                isSuccess
+                    ? MacClipboardOperationResult.Success(operation)
+                    : MacClipboardOperationResult.Failure(operation, errorCode, errorMessage),
+                MacClipboardOperations.ObservationControlKey);
+        }
+
+        private static void HandleChangeEvent(string? eventJson)
+        {
+            // Guarded first: a payload from a destroyed lifetime is not even parsed.
+            if (DiscardIfTerminated(MacClipboardOperations.StartObserving)) return;
+
+            if (!MacClipboardJsonParser.TryParseChangeEvent(
+                    eventJson, out MacClipboardChangeEvent? changeEvent) || changeEvent == null)
+            {
+                // Dropped rather than surfaced: a change event carries no per-call contract to
+                // fail, and there is no operation waiting on it.
+                Debug.LogError(
+                    $"[{LogTag}] A change event could not be parsed and was dropped.");
+                return;
+            }
+
+            FireClipboardChanged(changeEvent);
+        }
+
         // The payload itself is never logged: it may hold clipboard content.
         private static void LogParseFailure(string operation) =>
             Debug.LogError($"[{LogTag}] {operation}: {ResponseParseFailedMessage}");
@@ -1281,13 +2617,78 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
             HandleClearCallback(isSuccess, json, errorCode, errorMessage);
 
+        internal static void CompleteSnapshotForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleSnapshotCallback(isSuccess, json, errorCode, errorMessage);
+
+        internal static void CompleteCreatePasteboardForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleCreatePasteboardCallback(isSuccess, json, errorCode, errorMessage);
+
+        // removePasteboard is the only value-less operation outside change observation, so this
+        // seam needs no operation argument.
+        internal static void CompleteOperationForTests(
+            bool isSuccess, long errorCode = 0, string? errorMessage = null) =>
+            HandleRemovePasteboardCallback(isSuccess, errorCode, errorMessage);
+
+        internal static void CompleteDetectPatternsForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleDetectPatternsCallback(isSuccess, json, errorCode, errorMessage);
+
+        internal static void CompleteDetectValuesForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleDetectValuesCallback(isSuccess, json, errorCode, errorMessage);
+
+        internal static void CompleteDetectMetadataForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleDetectMetadataCallback(isSuccess, json, errorCode, errorMessage);
+
+        internal static void CompleteAccessBehaviorForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleAccessBehaviorCallback(isSuccess, json, errorCode, errorMessage);
+
+        internal static void CompleteForegroundChangeForTests(
+            bool isSuccess, string? json = null, long errorCode = 0, string? errorMessage = null) =>
+            HandleForegroundChangeCallback(isSuccess, json, errorCode, errorMessage);
+
+        /// <summary>
+        /// Completes startObserving or stopObserving. Not interchangeable with
+        /// <see cref="CompleteOperationForTests"/>: only this path runs the active / pending
+        /// transitions, so only this one can drive the restart cases.
+        /// </summary>
+        internal static void CompleteObservationControlForTests(
+            string operation, bool isSuccess, long errorCode = 0, string? errorMessage = null) =>
+            HandleObservationControlCallback(operation, isSuccess, errorCode, errorMessage);
+
+        internal static void DeliverChangeEventForTests(string? eventJson) => HandleChangeEvent(eventJson);
+
+        internal static bool HasChangeRegistrationForTests => s_onChanged != null;
+
+        internal static bool HasPendingChangeRegistrationForTests => s_pendingOnChanged != null;
+
+        /// <summary>
+        /// How many times teardown has issued <c>clipboardStopObserving</c>.
+        /// <para>
+        /// <b>This is the total, not the reissues alone.</b> <c>OnDestroy</c> issues one itself, so
+        /// the value is already 1 right after destruction. A test that only asserts 1 would
+        /// therefore pass even with the reissue rule missing; assert 2 after injecting a late
+        /// successful start, and 1 after a late failed one.
+        /// </para>
+        /// </summary>
+        internal static int TeardownStopIssueCountForTests { get; set; }
+
         internal static bool IsInFlightForTests(string key) => s_inFlight.Contains(key);
 
         internal static int InFlightCountForTests => s_inFlight.Count;
 
         internal static bool HasAnyPendingCallbackForTests =>
             s_onCopy != null || s_onAppend != null || s_onRead != null ||
-            s_onReadData != null || s_onClear != null;
+            s_onReadData != null || s_onClear != null || s_onSnapshot != null ||
+            s_onCreatePasteboard != null || s_onRemovePasteboard != null ||
+            s_onDetectPatterns != null || s_onDetectValues != null ||
+            s_onDetectMetadata != null || s_onAccessBehavior != null ||
+            s_onCheckForegroundChange != null || s_onStartObserving != null ||
+            s_onStopObserving != null || s_onChanged != null || s_pendingOnChanged != null;
 #endif
     }
 }

@@ -36,6 +36,21 @@ namespace JonghyunKim.NativeToolkit.Tests
             "{\"changeCount\":3,\"items\":[{\"representations\":{\"public.utf8-plain-text\":\"aGk=\"}}]}";
         private const string ReadDataJson = "{\"data\":\"aGk=\"}";
         private const string ChangeCountJson = "{\"changeCount\":9}";
+        private const string SnapshotJson =
+            "{\"changeCount\":2,\"itemTypes\":[[\"a\",\"b\"],[\"c\"]],\"matchingItemIndexes\":[1]}";
+        private const string ScopeResultJson = "{\"scope\":{\"kind\":\"unique\",\"name\":\"gen-1\"}}";
+        private const string PatternsJson = "[\"links\",\"phoneNumbers\"]";
+        private const string MetadataJson =
+            "{\"metadataTypes\":[\"contentType\"],\"contentTypeIdentifier\":\"public.html\"}";
+        private const string BoolJson = "{\"value\":true}";
+        private const string ChangeEventJson = "{\"scope\":{\"kind\":\"general\"},\"changeCount\":5}";
+        private const string AccessBehaviorJson = "{\"value\":\"alwaysDeny\"}";
+        private const string DetectedValuesJson =
+            "{\"patterns\":[\"links\"],\"probableWebURL\":\"https://example.com\"," +
+            "\"probableWebSearch\":null,\"number\":null,\"links\":[]," +
+            "\"phoneNumbers\":[],\"emailAddresses\":[],\"postalAddresses\":[]," +
+            "\"calendarEvents\":[],\"shipmentTrackingNumbers\":[],\"flightNumbers\":[]," +
+            "\"moneyAmounts\":[]}";
 
         [TearDown]
         public void TearDown()
@@ -71,6 +86,44 @@ namespace JonghyunKim.NativeToolkit.Tests
         private static MacPasteboardOwnership GeneralOwnership() =>
             new(MacPasteboardScope.General, 12);
 
+        private static readonly MacClipboardDetectionPattern[] OnePattern =
+            { MacClipboardDetectionPattern.Links };
+
+        /// <summary>
+        /// Starts every operation the Manager exposes, recording each error code through the
+        /// per-call callback. Used by the rejection tests so a newly added operation that forgets
+        /// to report a result shows up as a count mismatch.
+        /// </summary>
+        private static void InvokeEveryOperation(MacClipboardManager manager, List<int> codes)
+        {
+            InvokeEverySingleShotOperation(manager, codes);
+            manager.StartObserving(null, MacClipboardLimits.DefaultObservationInterval, null,
+                r => codes.Add(r.Error!.Value.Code));
+            manager.StopObserving(r => codes.Add(r.Error!.Value.Code));
+        }
+
+        private static void InvokeEverySingleShotOperation(MacClipboardManager manager, List<int> codes)
+        {
+            manager.Copy(OneByte(), null, null, r => codes.Add(r.Error!.Value.Code));
+            manager.Append(OneByte(), GeneralOwnership(), r => codes.Add(r.Error!.Value.Code));
+            manager.Read(null, r => codes.Add(r.Error!.Value.Code));
+            manager.ReadData("public.data", null, r => codes.Add(r.Error!.Value.Code));
+            manager.Clear(null, r => codes.Add(r.Error!.Value.Code));
+            manager.Snapshot(null, null, r => codes.Add(r.Error!.Value.Code));
+            manager.CreatePasteboard(
+                MacPasteboardCreationRequest.Unique, r => codes.Add(r.Error!.Value.Code));
+            manager.RemovePasteboard(
+                MacPasteboardScope.Named("board"), r => codes.Add(r.Error!.Value.Code));
+            manager.DetectPatterns(OnePattern, null, r => codes.Add(r.Error!.Value.Code));
+            manager.DetectValues(OnePattern, null, r => codes.Add(r.Error!.Value.Code));
+            manager.DetectMetadata(null, r => codes.Add(r.Error!.Value.Code));
+            manager.GetAccessBehavior(null, r => codes.Add(r.Error!.Value.Code));
+            manager.CheckForegroundChange(null, r => codes.Add(r.Error!.Value.Code));
+        }
+
+        private const int OperationCount = 15;
+        private const int SingleShotOperationCount = 13;
+
         // ── guard chain stage 4: no bridge in the Editor ────────────────────────
 
         [UnityTest]
@@ -79,15 +132,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             MacClipboardManager manager = MacClipboardManager.Instance;
 
             var codes = new List<int>();
-            manager.Copy(OneByte(), null, null, r => codes.Add(r.Error!.Value.Code));
-            manager.Append(OneByte(), GeneralOwnership(), r => codes.Add(r.Error!.Value.Code));
-            manager.Read(null, r => codes.Add(r.Error!.Value.Code));
-            manager.ReadData("public.data", null, r => codes.Add(r.Error!.Value.Code));
-            manager.Clear(null, r => codes.Add(r.Error!.Value.Code));
+            InvokeEveryOperation(manager, codes);
 
             yield return null;
 
-            Assert.AreEqual(5, codes.Count, "all five operations report a result");
+            Assert.AreEqual(OperationCount, codes.Count, "every operation reports a result");
             foreach (int code in codes)
             {
                 Assert.AreEqual(MacClipboardErrorCodes.BridgeUnavailable, code);
@@ -601,10 +650,720 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(9, result!.Value.ChangeCount);
         }
 
+        // ── stage 3a: the remaining single-shot operations ──────────────────────
+
+        [UnityTest]
+        public IEnumerator EveryOperation_UsesItsOwnSingleFlightKey()
+        {
+            // A shared key would make two unrelated operations reject each other as busy.
+            MacClipboardManager manager = BridgedManager();
+
+            var codes = new List<int>();
+            InvokeEverySingleShotOperation(manager, codes);
+
+            yield return null;
+
+            Assert.AreEqual(0, codes.Count, "none of them completed");
+            Assert.AreEqual(SingleShotOperationCount, MacClipboardManager.InFlightCountForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator NullRequest_FailsWithInvalidRequest()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            MacPasteboardScopeResult? result = null;
+            manager.CreatePasteboard(null!, r => result = r);
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.InvalidRequest, result!.Value.Error!.Value.Code);
+            StringAssert.Contains("request must not be null", result.Value.Error.Value.Message);
+        }
+
+        [UnityTest]
+        public IEnumerator NullScope_OnRemovePasteboard_FailsWithInvalidRequest()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardOperationResult? result = null;
+            manager.RemovePasteboard(null!, r => result = r);
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.InvalidRequest, result!.Value.Error!.Value.Code);
+            StringAssert.Contains("scope must not be null", result.Value.Error.Value.Message);
+            Assert.AreEqual(MacClipboardOperations.RemovePasteboard, result.Value.Operation);
+        }
+
+        [UnityTest]
+        public IEnumerator NullPatterns_FailWithInvalidRequest()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            var codes = new List<int>();
+            manager.DetectPatterns(null!, null, r => codes.Add(r.Error!.Value.Code));
+            manager.DetectValues(null!, null, r => codes.Add(r.Error!.Value.Code));
+
+            yield return null;
+
+            Assert.AreEqual(new[] { MacClipboardErrorCodes.InvalidRequest, MacClipboardErrorCodes.InvalidRequest },
+                codes.ToArray());
+        }
+
+        [UnityTest]
+        public IEnumerator EmptyPatterns_AreLeftToTheNativeLayer()
+        {
+            // Deliberately not rejected here: the native layer answers with
+            // EmptyDetectionPatterns, and checking the same condition twice would give one
+            // condition two different error codes.
+            MacClipboardManager manager = BridgedManager();
+
+            bool completed = false;
+            manager.DetectPatterns(Array.Empty<MacClipboardDetectionPattern>(), null, _ => completed = true);
+
+            yield return null;
+
+            Assert.IsFalse(completed, "the call was handed to the native layer, not rejected locally");
+            Assert.IsTrue(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.DetectPatterns));
+        }
+
+        [UnityTest]
+        public IEnumerator RemovePasteboard_Completion_FiresTheSharedOperationEvent()
+        {
+            // The only value-less operation in this stage, so it exercises the shared
+            // MacClipboardOperationResult path and the operation-keyed slot lookup.
+            MacClipboardManager manager = BridgedManager();
+
+            var fromEvent = new List<MacClipboardOperationResult>();
+            void OnCommon(MacClipboardOperationResult r) => fromEvent.Add(r);
+            manager.ClipboardOperationCompleted += OnCommon;
+
+            MacClipboardOperationResult? perCall = null;
+            manager.RemovePasteboard(MacPasteboardScope.Named("board"), r => perCall = r);
+            MacClipboardManager.CompleteOperationForTests(true);
+
+            yield return null;
+
+            manager.ClipboardOperationCompleted -= OnCommon;
+            Assert.AreEqual(1, fromEvent.Count);
+            Assert.AreEqual(MacClipboardOperations.RemovePasteboard, fromEvent[0].Operation);
+            Assert.IsTrue(perCall!.Value.IsSuccess);
+            Assert.IsFalse(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.RemovePasteboard));
+            Assert.IsFalse(MacClipboardManager.HasAnyPendingCallbackForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator RemovePasteboard_NativeFailure_CarriesTheNativeCode()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardOperationResult? result = null;
+            manager.RemovePasteboard(MacPasteboardScope.Named("font"), r => result = r);
+            MacClipboardManager.CompleteOperationForTests(
+                false, MacClipboardErrorCodes.CannotReleaseStandardPasteboard, "standard pasteboard");
+
+            yield return null;
+
+            Assert.AreEqual(
+                MacClipboardErrorCodes.CannotReleaseStandardPasteboard, result!.Value.Error!.Value.Code);
+        }
+
+        [UnityTest]
+        public IEnumerator Snapshot_DeliversTheParsedSnapshot()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardSnapshotResult? result = null;
+            manager.Snapshot(new[] { "public.html" }, null, r => result = r);
+            MacClipboardManager.CompleteSnapshotForTests(true, SnapshotJson);
+
+            yield return null;
+
+            Assert.AreEqual(2L, result!.Value.Snapshot!.ChangeCount);
+            Assert.AreEqual(2, result.Value.Snapshot.ItemTypes.Count);
+            Assert.AreEqual(new[] { 1 }, result.Value.Snapshot.MatchingItemIndexes);
+        }
+
+        [UnityTest]
+        public IEnumerator Snapshot_UnparsablePayload_FailsWithResponseParseFailed()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardSnapshotResult? result = null;
+            manager.Snapshot(null, null, r => result = r);
+            MacClipboardManager.CompleteSnapshotForTests(true, "{\"changeCount\":2}");
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.ResponseParseFailed, result!.Value.Error!.Value.Code);
+            Assert.IsFalse(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.Snapshot));
+        }
+
+        [UnityTest]
+        public IEnumerator CreatePasteboard_DeliversTheGeneratedScope()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacPasteboardScopeResult? result = null;
+            manager.CreatePasteboard(MacPasteboardCreationRequest.Unique, r => result = r);
+            MacClipboardManager.CompleteCreatePasteboardForTests(true, ScopeResultJson);
+
+            yield return null;
+
+            Assert.AreEqual(MacPasteboardScopeKind.Unique, result!.Value.Scope!.Kind);
+            Assert.AreEqual("gen-1", result.Value.Scope.Name);
+        }
+
+        [UnityTest]
+        public IEnumerator DetectPatterns_DeliversTheMatches()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedPatternsResult? result = null;
+            manager.DetectPatterns(OnePattern, null, r => result = r);
+            MacClipboardManager.CompleteDetectPatternsForTests(true, PatternsJson);
+
+            yield return null;
+
+            Assert.AreEqual(2, result!.Value.Patterns.Count);
+            Assert.Contains(MacClipboardDetectionPattern.Links, (System.Collections.ICollection)result.Value.Patterns);
+        }
+
+        [UnityTest]
+        public IEnumerator DetectPatterns_NoMatches_IsASuccessWithAnEmptyList()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedPatternsResult? result = null;
+            manager.DetectPatterns(OnePattern, null, r => result = r);
+            MacClipboardManager.CompleteDetectPatternsForTests(true, "[]");
+
+            yield return null;
+
+            Assert.IsTrue(result!.Value.IsSuccess, "nothing matching is not an error");
+            Assert.AreEqual(0, result.Value.Patterns.Count);
+        }
+
+        [UnityTest]
+        public IEnumerator DetectPatterns_UnavailableBefore154_ReportsTheNativeCode()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedPatternsResult? result = null;
+            manager.DetectPatterns(OnePattern, null, r => result = r);
+            MacClipboardManager.CompleteDetectPatternsForTests(
+                false, null, MacClipboardErrorCodes.DetectionUnavailable, "requires macOS 15.4");
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.DetectionUnavailable, result!.Value.Error!.Value.Code);
+            Assert.AreEqual(0, result.Value.Patterns.Count, "the collection stays non-null on failure");
+        }
+
+        [UnityTest]
+        public IEnumerator DetectValues_DeliversTheParsedValues()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedValuesResult? result = null;
+            manager.DetectValues(OnePattern, null, r => result = r);
+            MacClipboardManager.CompleteDetectValuesForTests(true, DetectedValuesJson);
+
+            yield return null;
+
+            Assert.IsTrue(result!.Value.IsSuccess);
+            Assert.AreEqual("https://example.com", result.Value.Values!.ProbableWebUrl);
+        }
+
+        [UnityTest]
+        public IEnumerator DetectMetadata_DeliversTheParsedMetadata()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedMetadataResult? result = null;
+            manager.DetectMetadata(null, r => result = r);
+            MacClipboardManager.CompleteDetectMetadataForTests(true, MetadataJson);
+
+            yield return null;
+
+            Assert.AreEqual("public.html", result!.Value.Metadata!.ContentTypeIdentifier);
+        }
+
+        [UnityTest]
+        public IEnumerator DetectMetadata_PlainTextFailure_IsReportedAsDetectionFailed()
+        {
+            // The native layer cannot tell "nothing to report" from "could not report" here, so
+            // this surfaces as an ordinary failure rather than an empty success.
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardDetectedMetadataResult? result = null;
+            manager.DetectMetadata(null, r => result = r);
+            MacClipboardManager.CompleteDetectMetadataForTests(
+                false, null, MacClipboardErrorCodes.DetectionFailed, "detection failed");
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.DetectionFailed, result!.Value.Error!.Value.Code);
+        }
+
+        [UnityTest]
+        public IEnumerator GetAccessBehavior_DeliversTheBehavior()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardAccessBehaviorResult? result = null;
+            manager.GetAccessBehavior(null, r => result = r);
+            MacClipboardManager.CompleteAccessBehaviorForTests(true, AccessBehaviorJson);
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardAccessBehavior.AlwaysDeny, result!.Value.Behavior);
+        }
+
+        [UnityTest]
+        public IEnumerator GetAccessBehavior_Before154_IsASuccessReportingUnavailable()
+        {
+            // Older systems answer "unavailable" rather than failing, so this must not be an error.
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardAccessBehaviorResult? result = null;
+            manager.GetAccessBehavior(null, r => result = r);
+            MacClipboardManager.CompleteAccessBehaviorForTests(true, "{\"value\":\"unavailable\"}");
+
+            yield return null;
+
+            Assert.IsTrue(result!.Value.IsSuccess);
+            Assert.AreEqual(MacClipboardAccessBehavior.Unavailable, result.Value.Behavior);
+        }
+
+        [UnityTest]
+        public IEnumerator CheckForegroundChange_DeliversTheFlag()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardForegroundChangeResult? result = null;
+            manager.CheckForegroundChange(null, r => result = r);
+            MacClipboardManager.CompleteForegroundChangeForTests(true, BoolJson);
+
+            yield return null;
+
+            Assert.IsTrue(result!.Value.IsSuccess);
+            Assert.IsTrue(result.Value.Changed);
+        }
+
+        [UnityTest]
+        public IEnumerator EachOperationCompletion_ReleasesOnlyItsOwnSlot()
+        {
+            // Started together, completed one at a time: a completion that took the wrong slot
+            // would invoke the wrong callback and leave its own pending.
+            MacClipboardManager manager = BridgedManager();
+
+            var fired = new List<string>();
+            manager.Snapshot(null, null, _ => fired.Add("snapshot"));
+            manager.CreatePasteboard(MacPasteboardCreationRequest.Unique, _ => fired.Add("create"));
+            manager.DetectMetadata(null, _ => fired.Add("metadata"));
+
+            MacClipboardManager.CompleteCreatePasteboardForTests(true, ScopeResultJson);
+
+            yield return null;
+
+            Assert.AreEqual(new[] { "create" }, fired.ToArray());
+            Assert.IsTrue(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.Snapshot));
+            Assert.IsTrue(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.DetectMetadata));
+            Assert.IsFalse(MacClipboardManager.IsInFlightForTests(MacClipboardOperations.CreatePasteboard));
+        }
+
+        // ── stage 3b: change observation ────────────────────────────────────────
+
+        private static void StartObserved(
+            MacClipboardManager manager, Action<MacClipboardChangeEvent> onChanged)
+        {
+            manager.StartObserving(null, 0.5, onChanged);
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+        }
+
+        [UnityTest]
+        public IEnumerator ObservationCalls_ShareOneSingleFlightKey()
+        {
+            // Both mutate the same native subscription, so serialising them stops a stop
+            // completion from landing after a newer start and clearing its registration.
+            MacClipboardManager manager = BridgedManager();
+
+            MacClipboardOperationResult? rejected = null;
+            manager.StartObserving();
+            manager.StopObserving(r => rejected = r);
+
+            yield return null;
+
+            Assert.AreEqual(MacClipboardErrorCodes.Busy, rejected!.Value.Error!.Value.Code);
+            StringAssert.Contains(
+                "Another observation control call is already in progress",
+                rejected.Value.Error.Value.Message,
+                "the generic wording would be a lie when a stop is what is pending");
+            Assert.AreEqual(1, MacClipboardManager.InFlightCountForTests);
+            Assert.IsTrue(
+                MacClipboardManager.IsInFlightForTests(MacClipboardOperations.ObservationControlKey));
+        }
+
+        [UnityTest]
+        public IEnumerator SuccessfulStart_PromotesItsRegistrationAndReceivesEvents()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            var fromEvent = new List<long>();
+            var fromRegistration = new List<long>();
+            void OnCommon(MacClipboardChangeEvent e) => fromEvent.Add(e.ChangeCount);
+            manager.ClipboardChanged += OnCommon;
+
+            StartObserved(manager, e => fromRegistration.Add(e.ChangeCount));
+
+            yield return null;
+
+            Assert.IsTrue(MacClipboardManager.HasChangeRegistrationForTests);
+            Assert.IsFalse(MacClipboardManager.HasPendingChangeRegistrationForTests);
+
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+
+            yield return null;
+
+            manager.ClipboardChanged -= OnCommon;
+            Assert.AreEqual(new[] { 5L }, fromEvent.ToArray());
+            Assert.AreEqual(new[] { 5L }, fromRegistration.ToArray());
+        }
+
+        [UnityTest]
+        public IEnumerator PendingRestart_DoesNotDivertEventsFromTheActiveRegistration()
+        {
+            // The window between issuing a restart and its completion. The native layer is still
+            // running the old observation there, so the old registration is the correct target.
+            // Checking only the post-completion cases would let an implementation that swaps the
+            // active slot in stage 7 pass, provided it rewinds correctly on completion.
+            MacClipboardManager manager = BridgedManager();
+
+            var a = new List<long>();
+            var b = new List<long>();
+            StartObserved(manager, e => a.Add(e.ChangeCount));
+            yield return null;
+
+            manager.StartObserving(null, 0.5, e => b.Add(e.ChangeCount));
+            Assert.IsTrue(MacClipboardManager.HasPendingChangeRegistrationForTests);
+
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+            yield return null;
+
+            Assert.AreEqual(1, a.Count, "the pending restart must not take delivery yet");
+            Assert.AreEqual(0, b.Count);
+
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+            yield return null;
+
+            Assert.AreEqual(1, a.Count, "after promotion the old registration stops receiving");
+            Assert.AreEqual(1, b.Count);
+            Assert.IsFalse(MacClipboardManager.HasPendingChangeRegistrationForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator FailedRestart_KeepsTheRegistrationItAlreadyHad()
+        {
+            // The native layer validates the interval and resolves the scope before touching the
+            // running observation, so a failed restart leaves the old one running. C# has to match.
+            MacClipboardManager manager = BridgedManager();
+
+            var a = new List<long>();
+            var b = new List<long>();
+            StartObserved(manager, e => a.Add(e.ChangeCount));
+            yield return null;
+
+            manager.StartObserving(null, 999, e => b.Add(e.ChangeCount));
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, false,
+                MacClipboardErrorCodes.InvalidConfiguration, "interval out of range");
+
+            yield return null;
+
+            Assert.IsTrue(MacClipboardManager.HasChangeRegistrationForTests);
+            Assert.IsFalse(MacClipboardManager.HasPendingChangeRegistrationForTests);
+
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+            yield return null;
+
+            Assert.AreEqual(1, a.Count, "the observation that was already running still delivers");
+            Assert.AreEqual(0, b.Count, "the rejected restart never became the target");
+        }
+
+        [UnityTest]
+        public IEnumerator RestartRejectedBeforeReachingNative_KeepsBothSlotsUntouched()
+        {
+            // A stage 6 rejection owns neither slot: they belong to the control call in flight.
+            MacClipboardManager manager = BridgedManager();
+
+            var a = new List<long>();
+            var b = new List<long>();
+            var c = new List<long>();
+            StartObserved(manager, e => a.Add(e.ChangeCount));
+            yield return null;
+
+            manager.StartObserving(null, 0.5, e => b.Add(e.ChangeCount));   // pending
+            manager.StartObserving(null, 0.5, e => c.Add(e.ChangeCount));   // rejected as busy
+
+            yield return null;
+
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+
+            yield return null;
+
+            Assert.AreEqual(1, b.Count, "the pending registration is the one that gets promoted");
+            Assert.AreEqual(0, c.Count, "the rejected call never reached a slot");
+        }
+
+        [UnityTest]
+        public IEnumerator SuccessfulStop_ReleasesTheRegistration()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            var received = new List<long>();
+            StartObserved(manager, e => received.Add(e.ChangeCount));
+            yield return null;
+
+            manager.StopObserving();
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StopObserving, true);
+
+            yield return null;
+
+            Assert.IsFalse(MacClipboardManager.HasChangeRegistrationForTests);
+
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+            yield return null;
+
+            Assert.AreEqual(0, received.Count);
+        }
+
+        [UnityTest]
+        public IEnumerator FailedStop_KeepsTheRegistrationBecauseNativeIsStillObserving()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            var received = new List<long>();
+            StartObserved(manager, e => received.Add(e.ChangeCount));
+            yield return null;
+
+            manager.StopObserving();
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StopObserving, false, MacClipboardErrorCodes.Unknown, "failed");
+
+            yield return null;
+
+            Assert.IsTrue(
+                MacClipboardManager.HasChangeRegistrationForTests,
+                "dropping it here would silently discard events the native layer keeps sending");
+
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+            yield return null;
+
+            Assert.AreEqual(1, received.Count);
+        }
+
+        [UnityTest]
+        public IEnumerator ObservationCompletion_ReportsWhichCallItBelongsTo()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            var operations = new List<string>();
+            void OnCommon(MacClipboardOperationResult r) => operations.Add(r.Operation);
+            manager.ClipboardOperationCompleted += OnCommon;
+
+            manager.StartObserving();
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+            yield return null;
+
+            manager.StopObserving();
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StopObserving, true);
+            yield return null;
+
+            manager.ClipboardOperationCompleted -= OnCommon;
+            Assert.AreEqual(
+                new[] { MacClipboardOperations.StartObserving, MacClipboardOperations.StopObserving },
+                operations.ToArray());
+            Assert.IsFalse(MacClipboardManager.HasAnyPendingCallbackForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator UnparsableChangeEvent_IsDroppedWithoutAResult()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            var received = new List<long>();
+            StartObserved(manager, e => received.Add(e.ChangeCount));
+            yield return null;
+
+            MacClipboardManager.DeliverChangeEventForTests("{\"changeCount\":5}");
+            yield return null;
+
+            Assert.AreEqual(0, received.Count, "a change event carries no contract to fail");
+        }
+
+        [UnityTest]
+        public IEnumerator ObservationWithoutARegistration_StillRaisesTheCommonEvent()
+        {
+            MacClipboardManager manager = BridgedManager();
+
+            int commonCount = 0;
+            void OnCommon(MacClipboardChangeEvent _) => commonCount++;
+            manager.ClipboardChanged += OnCommon;
+
+            manager.StartObserving();   // no onChanged supplied
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+
+            yield return null;
+
+            manager.ClipboardChanged -= OnCommon;
+            Assert.AreEqual(1, commonCount);
+        }
+
+        // ── teardown racing an in-flight start ──────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator Teardown_IssuesOneStopOfItsOwn()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+            MacClipboardManager.TeardownStopIssueCountForTests = 0;
+
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+
+            yield return null;
+
+            Assert.AreEqual(
+                1, MacClipboardManager.TeardownStopIssueCountForTests,
+                "the baseline every reissue assertion is measured against");
+        }
+
+        [UnityTest]
+        public IEnumerator LateSuccessfulStart_AfterTeardown_ReissuesTheStop()
+        {
+            // The native start and stop tasks carry no ordering guarantee, so teardown's stop can
+            // run before a start that was already submitted. The tombstone silences the managed
+            // side but leaves the native poller running, which only a second stop ends.
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+            MacClipboardManager.TeardownStopIssueCountForTests = 0;
+
+            manager.StartObserving(null, 0.5, _ => { });
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+            Assert.AreEqual(1, MacClipboardManager.TeardownStopIssueCountForTests);
+
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, true);
+
+            yield return null;
+
+            Assert.AreEqual(
+                2, MacClipboardManager.TeardownStopIssueCountForTests,
+                "the count is the total, so a missing reissue would leave it at 1");
+        }
+
+        [UnityTest]
+        public IEnumerator LateFailedStart_AfterTeardown_DoesNotReissueTheStop()
+        {
+            // A start that failed never began observing, so there is nothing left to stop.
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+            MacClipboardManager.TeardownStopIssueCountForTests = 0;
+
+            manager.StartObserving(null, 0.5, _ => { });
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StartObserving, false,
+                MacClipboardErrorCodes.InvalidConfiguration, "interval out of range");
+
+            yield return null;
+
+            Assert.AreEqual(1, MacClipboardManager.TeardownStopIssueCountForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator LateStopCompletion_AfterTeardown_DoesNotReissueTheStop()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+            MacClipboardManager.TeardownStopIssueCountForTests = 0;
+
+            manager.StopObserving();
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+
+            MacClipboardManager.CompleteObservationControlForTests(
+                MacClipboardOperations.StopObserving, true);
+
+            yield return null;
+
+            Assert.AreEqual(
+                1, MacClipboardManager.TeardownStopIssueCountForTests,
+                "only a start can leave a native poller behind");
+        }
+
+        [UnityTest]
+        public IEnumerator Teardown_ClearsBothChangeRegistrations()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            StartObserved(manager, _ => { });
+            yield return null;
+            manager.StartObserving(null, 0.5, _ => { });   // leaves a pending registration
+
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+
+            yield return null;
+
+            Assert.IsFalse(MacClipboardManager.HasChangeRegistrationForTests);
+            Assert.IsFalse(MacClipboardManager.HasPendingChangeRegistrationForTests);
+            Assert.IsFalse(MacClipboardManager.HasAnyPendingCallbackForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator LateChangeEvent_AfterTeardown_IsDiscarded()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            MacClipboardManager manager = BridgedManager();
+
+            var received = new List<long>();
+            var fromEvent = new List<long>();
+            void OnCommon(MacClipboardChangeEvent e) => fromEvent.Add(e.ChangeCount);
+            manager.ClipboardChanged += OnCommon;
+            StartObserved(manager, e => received.Add(e.ChangeCount));
+            yield return null;
+
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+            MacClipboardManager.DeliverChangeEventForTests(ChangeEventJson);
+
+            yield return null;
+
+            manager.ClipboardChanged -= OnCommon;
+            Assert.AreEqual(0, received.Count);
+            Assert.AreEqual(0, fromEvent.Count);
+        }
+
         // ── tombstone ───────────────────────────────────────────────────────────
 
         [UnityTest]
-        public IEnumerator AfterDestroy_AllFiveOperationsAreRejected()
+        public IEnumerator AfterDestroy_EveryOperationIsRejected()
         {
             LogAssert.ignoreFailingMessages = true;
             MacClipboardManager manager = BridgedManager();
@@ -612,15 +1371,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             UnityEngine.Object.DestroyImmediate(manager.gameObject);
 
             var codes = new List<int>();
-            manager.Copy(OneByte(), null, null, r => codes.Add(r.Error!.Value.Code));
-            manager.Append(OneByte(), GeneralOwnership(), r => codes.Add(r.Error!.Value.Code));
-            manager.Read(null, r => codes.Add(r.Error!.Value.Code));
-            manager.ReadData("public.data", null, r => codes.Add(r.Error!.Value.Code));
-            manager.Clear(null, r => codes.Add(r.Error!.Value.Code));
+            InvokeEveryOperation(manager, codes);
 
             yield return null;
 
-            Assert.AreEqual(5, codes.Count);
+            Assert.AreEqual(OperationCount, codes.Count);
             foreach (int code in codes)
             {
                 Assert.AreEqual(MacClipboardErrorCodes.ManagerDestroyed, code);
