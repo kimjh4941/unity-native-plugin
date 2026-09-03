@@ -321,7 +321,7 @@ CI 成果物にも残さないこと。
 
 ---
 
-## 7. 適用状況（2026-07-26 時点）
+## 7. 適用状況（2026-09-03 時点）
 
 **この節は現状のロードマップであり、上記の層モデル・ツール選定（1〜6 節）とは性質が異なる。**
 実装が進んだら更新すること。
@@ -329,7 +329,7 @@ CI 成果物にも残さないこと。
 | 層 | 状況 |
 |---|---|
 | 1. EditMode | **部分的**（下表参照） |
-| 2a. PlayMode（Editor 内） | **部分的**。iOS / mac Share のみ |
+| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS）と Share（iOS / macOS）|
 | 2b. PlayMode（Player 上） | 未着手 |
 | 3. OS 境界 | 未着手 |
 
@@ -348,11 +348,11 @@ CI 成果物にも残さないこと。
 注意: 「テストファイルが 1 つ存在する」ことと「対象契約を網羅した」ことは別である。
 下表の「実装済み」は前者のみを意味し、網羅性は保証していない（網羅性の完了条件は本節「未定義事項」）。
 
-### 層 1 の機能・プラットフォーム別状況（2026-07-26、`Tests/` 配下の実ファイルで確認）
+### 層 1 の機能・プラットフォーム別状況（2026-09-03、`Tests/` 配下の実ファイルで確認）
 
 | 機能 | Android | iOS | macOS | Windows |
 |---|---|---|---|---|
-| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 対象外 | 対象外 | 対象外 |
+| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 対象外 |
 | **Share** | 実装済み（builder / wiring） | 実装済み（builder / dispatch） | 実装済み（builder / dispatch / result / wiring） | 対象外 |
 | **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
 | **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
@@ -363,6 +363,8 @@ CI 成果物にも残さないこと。
   `internal static` のいずれも存在しない）。定数の値を単体テストで複製しても OS 仕様との整合は保証されないため、
   定数は実装レビューまたは静的確認の対象とする。Dialog の振る舞い検証は層 2a 以降で行う
 - **iOS Notification のみが真の欠落。** ここだけは層 1 で埋められる
+- **macOS Clipboard に wiring が無いのは欠落ではない。** サンプルシーンをまだ設計していないため、
+  `*SampleSceneWiringTests` の対象が存在しない。`design-sample-scene` の完了時に追加する
 
 ### 推奨する導入順序
 
