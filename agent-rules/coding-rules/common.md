@@ -263,7 +263,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 `UI/` だけは `UI/<Platform>/<Feature>/` の構造を採る。ファイル名の接頭辞は同じ規則に従う。
 
-**既知の逸脱（新規実装で真似しない）: Runtime 11 件 + Tests 2 件**
+**既知の逸脱（新規実装で真似しない）: Runtime 11 件**
 
 | 逸脱している型 | 実際の所属 |
 |---|---|
@@ -271,8 +271,13 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 | `Notification/NotificationResult` / `NotificationActionResult` / `NotificationReceivedResult` | Android |
 | `Share/ShareOperationResult` / `ShareCallbackResult` / `ShareChooserActionResult` / `ShareChooserActionCallbackCoordinator` | Android |
 | `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
-| `Tests/Runtime/ShareChooserActionCallbackCoordinatorTests` | Android（`ShareChooserActionCallbackCoordinator` のテスト） |
-| `Tests/Runtime/ShareResultTests` | Android（`ShareOperationResult` ほかのテスト。`IosShareResult` への言及も混在している） |
+
+**`Tests/` の逸脱 2 件は 2026-09-03 に解消済み。** テストファイルは公開 API ではないため、Runtime の改名方針を待たずに直せた。
+
+| 旧 | 新 |
+|---|---|
+| `Tests/Runtime/ShareChooserActionCallbackCoordinatorTests` | `AndroidShareChooserActionCallbackCoordinatorTests` |
+| `Tests/Runtime/ShareResultTests` | `AndroidShareResultTests` ＋ `IosShareResultTests`（`IosShareResult` の 6 件を分離） |
 
 原因は「その機能を最初に実装したプラットフォームが接頭辞を付けなかった」ことで、2 番目のプラットフォームを追加する際に付け直す手順が無かったためである。
 

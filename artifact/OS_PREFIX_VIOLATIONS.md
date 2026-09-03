@@ -1,10 +1,12 @@
-# OS 接頭辞ルールの逸脱（Runtime 11 件 + Tests 2 件）
+# OS 接頭辞ルールの逸脱（Runtime 11 件。Tests 2 件は解消済み）
 
 - 記録日: 2026-09-03
+- 更新: 2026-09-03 案 0（Tests 2 件）を実施。**残るのは Runtime 11 件のみ。**
 - 分類: 横断課題（Clipboard 固有ではない。Clipboard / Notification / Share / Common の 4 領域にまたがる）
 - 発見経緯: macOS Clipboard の設計レビュー中に、`IosClipboardJsonReader` を改名すべきかを検討して判明
 - 検査手段: 下記「検査コマンド」
 - 対応方針: **macOS Clipboard の実装には含めない。別途対応。**
+- 進捗: 案 0 **完了**（下記）／案 1〜3 は未着手
 
 ---
 
@@ -16,7 +18,7 @@
 - ファイル名・型名に `Android` / `Ios` / `Mac` / `Windows` の接頭辞を付ける
 - **例外は `Runtime/Common/` のみ**。意図的に共通とした横断インフラの置き場所
 
-**接頭辞なしは「`Common/` の横断インフラである」ことを意味する**のが目的である。しかし現状、機能ディレクトリと `Tests/` に接頭辞なしのファイルが 13 件あり、いずれも単一プラットフォーム専用である。
+**接頭辞なしは「`Common/` の横断インフラである」ことを意味する**のが目的である。しかし発見時、機能ディレクトリと `Tests/` に接頭辞なしのファイルが 13 件あり、いずれも単一プラットフォーム専用だった。**うち Tests の 2 件は解消済みで、残るのは Runtime の 11 件である。**
 
 `Common/` 配下で正しく共通なのは `UnityMainThreadDispatcher` の 1 つだけで、同じ `Common/` にある `IconConfiguration` は macOS 専用である。
 
@@ -48,16 +50,16 @@
 利用箇所は `Dialog/MacDialogManager.cs` と `UI/macOS/Dialog/MacDialogManagerExampleController.cs` のみ。
 **名前と置き場所の両方が実態と食い違っている。** `Common/` にあるため共有ユーティリティに見えるが、macOS Dialog 専用である。
 
-## Tests 配下（2 件）
+## Tests 配下（2 件）— **解消済み（2026-09-03。案 0）**
 
-`Tests/` のファイル名・クラス名にも接頭辞を付ける規則の対象。28 ファイル中 26 件は準拠しており、逸脱は次の 2 件。
+`Tests/` のファイル名・クラス名にも接頭辞を付ける規則の対象。発見時は 28 ファイル中 26 件が準拠しており、逸脱は次の 2 件だった。
 
-| ファイル | テスト対象 | 実際の所属 |
-|---|---|---|
-| `Tests/Runtime/ShareChooserActionCallbackCoordinatorTests.cs` | `ShareChooserActionCallbackCoordinator` | Android |
-| `Tests/Runtime/ShareResultTests.cs` | `ShareOperationResult` ほか。**`IosShareResult` への言及も混在** | Android（一部 iOS） |
+| ファイル | テスト対象 | 実際の所属 | 対応 |
+|---|---|---|---|
+| `Tests/Runtime/ShareChooserActionCallbackCoordinatorTests.cs` | `ShareChooserActionCallbackCoordinator` | Android | `AndroidShareChooserActionCallbackCoordinatorTests.cs` へ改名 |
+| `Tests/Runtime/ShareResultTests.cs` | `ShareOperationResult` ほか。**`IosShareResult` への言及も混在** | Android（一部 iOS） | `AndroidShareResultTests.cs` ＋ `IosShareResultTests.cs` へ分割 |
 
-`ShareResultTests.cs` は「1 つのテストファイルが複数プラットフォームの型を扱わない」という規則にも抵触している。改名する場合は Android 分と iOS 分の分割も併せて検討する。
+`ShareResultTests.cs` は「1 つのテストファイルが複数プラットフォームの型を扱わない」という規則にも抵触していた。改名と同時に Android 8 件 / iOS 6 件へ分割し、両方の規則に適合させた。
 
 なお `Tests/` はコンパイルガードを持たないファイルが多い（テストアセンブリが `includePlatforms: ["Editor"]` のため）。**ガードの有無は所属の判断材料にならない**点は Runtime と同じ。
 
@@ -108,7 +110,7 @@ macOS Clipboard 設計書の v1〜v6 で、`IosClipboardJsonReader` を `Clipboa
 
 Runtime の 11 件はすべて `public` 型であり、**改名は破壊的変更**になる。パッケージの公開型は 81 個で、その 13% にあたる。
 
-Tests の 2 件は**パッケージ利用者から見えない**ため、改名は破壊的変更にならない。**Runtime とは独立して先に直せる。**
+Tests の 2 件は**パッケージ利用者から見えない**ため、改名は破壊的変更にならない。**Runtime とは独立して先に直せる**（実施済み。案 0 参照）。
 
 利用者は次の 3 者。
 
@@ -116,16 +118,26 @@ Tests の 2 件は**パッケージ利用者から見えない**ため、改名�
 2. パッケージ内部の ExampleController（`Runtime/UI/`）
 3. **パッケージ利用者のアプリコード**（把握できない）
 
-## 案 0: Tests の 2 件を先に直す（Runtime とは独立）
+## 案 0: Tests の 2 件を先に直す（Runtime とは独立）— **完了（2026-09-03）**
 
 Tests は公開 API ではないので、いつでも安全に改名できる。
 
-| 現在 | 改名後 |
-|---|---|
-| `ShareChooserActionCallbackCoordinatorTests.cs` | `AndroidShareChooserActionCallbackCoordinatorTests.cs` |
-| `ShareResultTests.cs` | `AndroidShareResultTests.cs`（`IosShareResult` を扱う分は `IosShareResultTests.cs` へ分離） |
+| 現在 | 改名後 | 状態 |
+|---|---|---|
+| `ShareChooserActionCallbackCoordinatorTests.cs` | `AndroidShareChooserActionCallbackCoordinatorTests.cs` | 完了 |
+| `ShareResultTests.cs` | `AndroidShareResultTests.cs`（`IosShareResult` を扱う分は `IosShareResultTests.cs` へ分離） | 完了 |
 
-`git mv` で `.cs` と `.cs.meta` を対で移動し、クラス名も揃える。Runtime の改名方針が決まるのを待つ必要はない。
+`git mv` で `.cs` と `.cs.meta` を対で移動し、クラス名も揃えた。Runtime の改名方針が決まるのを待つ必要はなかった。
+
+**実施内容**
+
+- 2 ファイル 4 件（`.cs` と `.cs.meta`）を `git mv`。GUID を保持している
+- `ShareResultTests` の 14 件を **Android 8 件 / iOS 6 件**に分割した。「1 つのテストファイルが複数プラットフォームの型を扱わない」という規則にも同時に適合した
+- 新規 `IosShareResultTests.cs` には `#if UNITY_IOS || UNITY_EDITOR` を付けた。**テスト対象の `IosShareResult.cs` が同じガードを持つため**（`common.md`「テストのコンパイルガードは対象型に合わせる」）
+  - なお既存の `IosShareJsonBuilderTests.cs` はガードを持たない。テストアセンブリが `includePlatforms: ["Editor"]` でありコンパイルは通るが、規則には沿っていない。**本課題の範囲外**として残した
+- 2 ファイルとも Android 型のみを扱うためガードは付けていない（対象の `ShareOperationResult` ほかが無ガードのため）
+- EditMode **517 件 pass / 失敗 0**。件数は改名前と同じ（14 件を 8 + 6 に分けただけ）
+- 検査コマンド（後述）の Tests 用が**何も出力しない**ことを確認した
 
 ## 案 1: Runtime の一括改名（推奨）
 
@@ -170,14 +182,14 @@ Tests は公開 API ではないので、いつでも安全に改名できる。
 - `Runtime/Common/` だけが例外で、**横断インフラに限る**こと
 - **プラットフォームガードの有無で判断してはならない**こと
 - 1 つのテストファイルが複数プラットフォームの型を扱わないこと
-- 上記 13 件を「既知の逸脱（新規実装で真似しない）」として列挙
+- 上記のうち **Runtime 11 件**を「既知の逸脱（新規実装で真似しない）」として列挙（Tests 2 件は解消済みとして別表に移した）
 
 `agent-rules/workflows/design-feature/workflow.md` ステップ 6 に、他プラットフォームの既存実装を共有化する案を採らないことを追加した。
 
 **3 つのレビューワークフロー**（`review-document` / `review-implementation-feature` / `review-implementation-sample-scene`）に「プラットフォーム独立性」の検査項目 P1〜P5 を追加し、**違反を A 区分（止めて直す）**と定めた。とくに次の 2 点を明示している。
 
 - 既存型の所属は**ガードではなく実際の利用箇所**で判定する
-- **本ファイルの逸脱 13 件を前例として引用しない**
+- **本ファイルの逸脱 11 件を前例として引用しない**
 
 ---
 

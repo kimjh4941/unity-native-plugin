@@ -7,7 +7,10 @@ using JonghyunKim.NativeToolkit.Runtime.Share;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
-    public sealed class ShareChooserActionCallbackCoordinatorTests
+    /// <summary>
+    /// EditMode tests for the Android chooser-action callback coordinator.
+    /// </summary>
+    public sealed class AndroidShareChooserActionCallbackCoordinatorTests
     {
         private static ShareChooserActionCallbackCoordinator CreateSync()
             => new ShareChooserActionCallbackCoordinator(a => a());
