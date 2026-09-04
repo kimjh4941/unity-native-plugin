@@ -48,8 +48,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
     /// </para>
     /// <para>
     /// Intentional deviation from the "log every parameter" rule in csharp.md: clipboard content
-    /// may hold passwords or tokens, so only shapes, counts and flags are logged, never values, and
-    /// never a pasteboard name. This matches the native <c>ClipboardLog</c> redaction policy.
+    /// may hold passwords or tokens, so what is logged is limited to shapes, counts and flags,
+    /// never a payload and never a pasteboard name. This matches the native <c>ClipboardLog</c>
+    /// redaction policy.
+    /// </para>
+    /// <para>
+    /// Two caller-supplied settings are logged by value as an exception: the uniform type
+    /// identifier passed to <see cref="ReadData"/> and the interval passed to
+    /// <see cref="StartObserving"/>. Neither is clipboard content, and each is the only way to
+    /// tell why the native layer rejected a call.
     /// </para>
     /// <para>
     /// Intentional deviation from the "log on the first line of every method" rule in csharp.md:
@@ -1250,7 +1257,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            Debug.Log($"[{LogTag}][{nameof(ReadData)}] hasUtType: {utType != null}, " +
+            // The identifier is logged by value: it is a public type name, never clipboard
+            // content, and it is the only way to tell which argument a native 1302 refers to.
+            Debug.Log($"[{LogTag}][{nameof(ReadData)}] utType: {utType}, " +
                       $"hasScope: {scope != null}, hasCallback: {onResult != null}");
 
             string scopeJson;
@@ -1989,8 +1998,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            Debug.Log($"[{LogTag}][{nameof(StartObserving)}] hasScope: {scope != null}, " +
-                      $"hasOnChanged: {onChanged != null}, hasCallback: {onStarted != null}");
+            // The interval is logged by value: it is the caller's own configuration and the only
+            // way to tell why the native layer answered InvalidConfiguration.
+            Debug.Log($"[{LogTag}][{nameof(StartObserving)}] intervalSeconds: {intervalSeconds}, " +
+                      $"hasScope: {scope != null}, hasOnChanged: {onChanged != null}, " +
+                      $"hasCallback: {onStarted != null}");
 
             string scopeJson;
             try
