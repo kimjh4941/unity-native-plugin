@@ -480,6 +480,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_isTerminated = false;
             s_dispatcher = null;
             s_mainThreadId = 0;
+            s_callbackThreadSamples = 0;
+            s_callbackThreadMismatches = 0;
+            s_callbackThreadReported = 0;
+            s_callbackMismatchReported = 0;
 #if UNITY_EDITOR
             BridgeAvailableOverrideForTests = false;
             MaxRequestBytesOverrideForTests = null;
@@ -814,7 +818,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 Debug.LogError($"[{LogTag}][{nameof(Dispatch)}] No dispatcher; result dropped.");
                 return;
             }
-            dispatcher.Enqueue(() => InvokeInOrder(result, common, perCall));
+            dispatcher.Enqueue(() =>
+            {
+                // Runs on the main thread, which is where the callback-thread diagnostic may
+                // safely touch Unity APIs. The entry itself must not (see RecordCallbackThread).
+                FlushCallbackThreadDiagnostics();
+                InvokeInOrder(result, common, perCall);
+            });
         }
 
         /// <summary>
@@ -2158,6 +2168,86 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         // ── Native callbacks ────────────────────────────────────────────────────
 
+        // ── Callback thread diagnostics (V-4) ───────────────────────────────────
+        // Whether native callbacks arrive on the Unity main thread has never been measured on
+        // hardware. It cannot be observed from a subscriber, because every result is delivered
+        // through UnityMainThreadDispatcher and is therefore on the main thread by construction,
+        // and it cannot be observed in the Editor, where the entries below do not compile.
+
+        private static int s_callbackThreadSamples;
+        private static int s_callbackThreadMismatches;
+        private static int s_callbackThreadReported;
+        private static int s_callbackMismatchReported;
+
+        /// <summary>
+        /// Records which thread a native callback arrived on.
+        /// <para>
+        /// Deliberately touches no Unity API, not even <c>Debug.Log</c>: a mismatch is exactly the
+        /// case where calling one would be the violation being measured. Only interlocked integer
+        /// arithmetic happens here; the report is emitted later from a dispatched closure.
+        /// </para>
+        /// </summary>
+        private static void RecordCallbackThread()
+        {
+            Interlocked.Increment(ref s_callbackThreadSamples);
+            if (Thread.CurrentThread.ManagedThreadId != s_mainThreadId)
+            {
+                Interlocked.Increment(ref s_callbackThreadMismatches);
+            }
+        }
+
+        /// <summary>
+        /// Emits the diagnostic at most twice per session: once when the first native callback has
+        /// arrived, and once more if any later one arrives off the main thread. Called from the
+        /// dispatcher's closure, so it runs on the Unity main thread.
+        /// </summary>
+        private static void FlushCallbackThreadDiagnostics()
+        {
+            int samples = Volatile.Read(ref s_callbackThreadSamples);
+            if (samples == 0)
+            {
+                return; // no native callback has arrived yet; nothing measured
+            }
+
+            int mismatches = Volatile.Read(ref s_callbackThreadMismatches);
+            bool onMainThread = mismatches == 0;
+
+            if (Interlocked.CompareExchange(ref s_callbackThreadReported, 1, 0) == 0)
+            {
+                // A first report that already shows a mismatch also consumes the mismatch slot,
+                // so the same fact is never logged twice.
+                if (!onMainThread)
+                {
+                    Volatile.Write(ref s_callbackMismatchReported, 1);
+                    Debug.LogWarning(
+                        $"[{LogTag}] {FormatCallbackThreadDiagnostic(false, samples, mismatches)}");
+                }
+                else
+                {
+                    Debug.Log($"[{LogTag}] {FormatCallbackThreadDiagnostic(true, samples, 0)}");
+                }
+                return;
+            }
+
+            if (mismatches > 0 && Interlocked.CompareExchange(ref s_callbackMismatchReported, 1, 0) == 0)
+            {
+                Debug.LogWarning(
+                    $"[{LogTag}] {FormatCallbackThreadDiagnostic(false, samples, mismatches)}");
+            }
+        }
+
+        /// <summary>
+        /// Formats the callback-thread diagnostic.
+        /// </summary>
+        /// <param name="onMainThread">Whether every callback so far arrived on the main thread.</param>
+        /// <param name="samples">How many native callbacks have arrived.</param>
+        /// <param name="mismatches">How many of them arrived on another thread.</param>
+        /// <returns>A line holding flags and counts only, never clipboard content.</returns>
+        internal static string FormatCallbackThreadDiagnostic(bool onMainThread, int samples, int mismatches) =>
+            onMainThread
+                ? $"callbackOnMainThread: true (samples={samples})"
+                : $"callbackOnMainThread: false (samples={samples}, mismatches={mismatches})";
+
         /// <summary>
         /// Drops a callback belonging to a destroyed Manager lifetime.
         /// <para>
@@ -2179,75 +2269,124 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnCopyResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleOwnershipCallback(MacClipboardOperations.Copy, isSuccess, json, errorCode, errorMessage);
+        private static void OnCopyResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleOwnershipCallback(MacClipboardOperations.Copy, isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnAppendResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleOwnershipCallback(MacClipboardOperations.Append, isSuccess, json, errorCode, errorMessage);
+        private static void OnAppendResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleOwnershipCallback(MacClipboardOperations.Append, isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnReadResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleReadCallback(isSuccess, json, errorCode, errorMessage);
+        private static void OnReadResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleReadCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnReadDataResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleReadDataCallback(isSuccess, json, errorCode, errorMessage);
+        private static void OnReadDataResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleReadDataCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnClearResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleClearCallback(isSuccess, json, errorCode, errorMessage);
+        private static void OnClearResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleClearCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnSnapshotResult(bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleSnapshotCallback(isSuccess, json, errorCode, errorMessage);
+        private static void OnSnapshotResult(bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleSnapshotCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnCreatePasteboardResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleCreatePasteboardCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleCreatePasteboardCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardCallback))]
-        private static void OnRemovePasteboardResult(bool isSuccess, long errorCode, string? errorMessage) =>
-            HandleRemovePasteboardCallback(isSuccess, errorCode, errorMessage);
+        private static void OnRemovePasteboardResult(bool isSuccess, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleRemovePasteboardCallback(isSuccess, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnDetectPatternsResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleDetectPatternsCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleDetectPatternsCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnDetectValuesResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleDetectValuesCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleDetectValuesCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnDetectMetadataResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleDetectMetadataCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleDetectMetadataCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnAccessBehaviorResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleAccessBehaviorCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleAccessBehaviorCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
         private static void OnCheckForegroundChangeResult(
-            bool isSuccess, string? json, long errorCode, string? errorMessage) =>
-            HandleForegroundChangeCallback(isSuccess, json, errorCode, errorMessage);
+            bool isSuccess, string? json, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleForegroundChangeCallback(isSuccess, json, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardCallback))]
-        private static void OnStartObservingResult(bool isSuccess, long errorCode, string? errorMessage) =>
-            HandleObservationControlCallback(
-                MacClipboardOperations.StartObserving, isSuccess, errorCode, errorMessage);
+        private static void OnStartObservingResult(bool isSuccess, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleObservationControlCallback(
+                    MacClipboardOperations.StartObserving, isSuccess, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardCallback))]
-        private static void OnStopObservingResult(bool isSuccess, long errorCode, string? errorMessage) =>
-            HandleObservationControlCallback(
-                MacClipboardOperations.StopObserving, isSuccess, errorCode, errorMessage);
+        private static void OnStopObservingResult(bool isSuccess, long errorCode, string? errorMessage)
+        {
+            RecordCallbackThread();
+                HandleObservationControlCallback(
+                    MacClipboardOperations.StopObserving, isSuccess, errorCode, errorMessage);
+        }
 
         [MonoPInvokeCallback(typeof(ClipboardChangeCallback))]
-        private static void OnClipboardChanged(string? eventJson) => HandleChangeEvent(eventJson);
+        private static void OnClipboardChanged(string? eventJson)
+        {
+            RecordCallbackThread();
+            HandleChangeEvent(eventJson);
+        }
 #endif
 
         // The callback bodies live outside the narrow guard so the Editor completion seams can

@@ -159,6 +159,41 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(MacClipboardManager.TryBeginOperation(inFlight, MacClipboardOperations.Append));
         }
 
+        // ── callback thread diagnostic (V-4) ────────────────────────────────────
+
+        [Test]
+        public void FormatCallbackThreadDiagnostic_OnMainThread_ReportsTrueAndTheSampleCount()
+        {
+            Assert.AreEqual(
+                "callbackOnMainThread: true (samples=3)",
+                MacClipboardManager.FormatCallbackThreadDiagnostic(true, 3, 0));
+        }
+
+        [Test]
+        public void FormatCallbackThreadDiagnostic_OffMainThread_ReportsTheMismatchCount()
+        {
+            // The mismatch count is what distinguishes "measured and fine" from "measured and
+            // broken"; a bare false would not say how often it happened.
+            Assert.AreEqual(
+                "callbackOnMainThread: false (samples=7, mismatches=2)",
+                MacClipboardManager.FormatCallbackThreadDiagnostic(false, 7, 2));
+        }
+
+        [Test]
+        public void FormatCallbackThreadDiagnostic_CarriesOnlyFlagsAndCounts()
+        {
+            // This line goes to Player.log, which manual check 27 inspects for leaked clipboard
+            // content. Nothing but the three inputs may reach it.
+            string line = MacClipboardManager.FormatCallbackThreadDiagnostic(false, 1, 1);
+
+            foreach (char c in line)
+            {
+                Assert.IsTrue(
+                    char.IsLetterOrDigit(c) || ": ()=,.".IndexOf(c) >= 0,
+                    $"unexpected character '{c}' in the diagnostic line");
+            }
+        }
+
         // ── RunDestroyCleanup ───────────────────────────────────────────────────
 
         [Test]
