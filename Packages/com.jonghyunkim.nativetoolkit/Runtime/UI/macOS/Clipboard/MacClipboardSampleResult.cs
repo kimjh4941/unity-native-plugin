@@ -26,10 +26,22 @@ internal readonly struct MacClipboardSampleResultContext
 
     internal string Marker { get; }
 
-    internal MacClipboardSampleResultContext(int sequence, string marker)
+    /// <summary>
+    /// The pasteboard this call was issued against.
+    /// </summary>
+    /// <remarks>
+    /// Captured here so a completion never has to read the screen's current scope. That field is
+    /// mutable and the scope buttons stay enabled while a read is in flight, so the two can
+    /// disagree by the time the result arrives; judging freshness against the wrong pasteboard is
+    /// silent, not loud.
+    /// </remarks>
+    internal MacPasteboardScope Scope { get; }
+
+    internal MacClipboardSampleResultContext(int sequence, string marker, MacPasteboardScope scope)
     {
         Sequence = sequence;
         Marker = marker;
+        Scope = scope;
     }
 }
 
@@ -180,6 +192,53 @@ internal static class MacClipboardSampleResult
     }
 
     /// <summary>
+    /// Whether a read still shows this app's own write.
+    /// </summary>
+    /// <param name="writtenScope">Pasteboard the last successful copy targeted.</param>
+    /// <param name="writtenChangeCount">Change count that copy returned.</param>
+    /// <param name="readScope">
+    /// Pasteboard the read was <b>issued against</b>, not whichever one the screen shows now.
+    /// </param>
+    /// <param name="readChangeCount">Change count the read returned.</param>
+    /// <returns><c>true</c> when both the pasteboard and its change count match.</returns>
+    /// <remarks>
+    /// Both halves are required. A change count is only unique within one pasteboard, so comparing
+    /// across two can match by coincidence and judge another app's content as ours.
+    /// </remarks>
+    internal static bool IsFresh(
+        MacPasteboardScope? writtenScope,
+        long? writtenChangeCount,
+        MacPasteboardScope readScope,
+        long readChangeCount)
+    {
+        if (writtenScope == null || writtenChangeCount == null) return false;
+        if (writtenScope.Kind != readScope.Kind) return false;
+        if (!string.Equals(writtenScope.Name, readScope.Name, StringComparison.Ordinal)) return false;
+        return readChangeCount == writtenChangeCount.Value;
+    }
+
+    /// <summary>
+    /// Formats the per-registration change counts.
+    /// </summary>
+    /// <param name="counts">Registration marker to number of events it received.</param>
+    /// <returns>Every registration and its count, oldest first.</returns>
+    /// <remarks>
+    /// Manual check 16 asks that a replaced registration stops receiving. Showing only the
+    /// registration that fired cannot tell "correctly replaced, so zero" from "the counter never
+    /// worked", so every registration is listed including the ones sitting at zero.
+    /// </remarks>
+    internal static string FormatRegistrationCounts(IReadOnlyList<KeyValuePair<string, int>> counts)
+    {
+        if (counts.Count == 0) return "-";
+        var parts = new List<string>(counts.Count);
+        foreach (KeyValuePair<string, int> entry in counts)
+        {
+            parts.Add($"{entry.Key}={entry.Value}");
+        }
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>
     /// Judges manual check 4: did the pasteboard derive representations beyond what was written.
     /// </summary>
     /// <param name="fresh">
@@ -256,13 +315,15 @@ internal static class MacClipboardSampleResult
         bool isObserving,
         bool controlPending,
         int eventCount,
-        IReadOnlyCollection<int> reachedCodes)
+        IReadOnlyCollection<int> reachedCodes,
+        IReadOnlyList<KeyValuePair<string, int>> registrationCounts)
     {
         string scopeText = observedScope == null
             ? FormatScopeLabel(activeScope)
             : $"{FormatScopeLabel(activeScope)} (observing {FormatScopeLabel(observedScope)})";
         return $"Scope: {scopeText} | Observing: {FormatObservingState(isObserving, controlPending)} " +
-               $"| Events: {eventCount} | Codes: {FormatReachedCodes(reachedCodes)}";
+               $"| Events: {eventCount} | Registrations: {FormatRegistrationCounts(registrationCounts)} " +
+               $"| Codes: {FormatReachedCodes(reachedCodes)}";
     }
 }
 #endif

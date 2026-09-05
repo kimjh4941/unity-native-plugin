@@ -106,7 +106,9 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     // Set in OnDisable so the sequential interval probe does not keep issuing native calls into a
     // screen that is already gone.
     private bool _isTornDown;
-    private readonly Dictionary<string, int> _registrationCounts = new();
+    // Ordered, not a dictionary: manual check 16 reads the replaced registration sitting at zero
+    // next to the new one, so issue order is part of what is being judged.
+    private readonly List<KeyValuePair<string, int>> _registrationCounts = new();
     private int _observedEventCount;
 
     // Freshness anchors for manual checks 4 and 25. Without the change count, another app copying
@@ -317,12 +319,24 @@ public class MacClipboardManagerExampleController : MonoBehaviour
 
     // ── Result plumbing ──────────────────────────────────────────────────────
 
-    /// <summary>Opens a result line and returns the identity the completion must quote back.</summary>
-    private (MacClipboardSampleResultContext Context, long StartedAt) Begin(string marker)
+    /// <summary>Opens a result line against the active scope.</summary>
+    private (MacClipboardSampleResultContext Context, long StartedAt) Begin(string marker) =>
+        Begin(marker, _activeScope);
+
+    /// <summary>
+    /// Opens a result line and returns the identity the completion must quote back.
+    /// </summary>
+    /// <param name="marker">Short label for the result line.</param>
+    /// <param name="target">
+    /// Pasteboard this call targets. Captured now so the completion never reads
+    /// <c>_activeScope</c>, which the scope buttons can change while the call is in flight.
+    /// </param>
+    private (MacClipboardSampleResultContext Context, long StartedAt) Begin(
+        string marker, MacPasteboardScope target)
     {
-        var context = new MacClipboardSampleResultContext(++_resultSequence, marker);
+        var context = new MacClipboardSampleResultContext(++_resultSequence, marker, target);
         AppendResult(MacClipboardSampleResult.FormatRunning(context));
-        Debug.Log($"[{LogTag}] issue #{context.Sequence} {marker} scope: {ScopeKindOf(_activeScope)}");
+        Debug.Log($"[{LogTag}] issue #{context.Sequence} {marker} scope: {ScopeKindOf(target)}");
         return (context, Stopwatch.GetTimestamp());
     }
 
@@ -391,7 +405,25 @@ public class MacClipboardManagerExampleController : MonoBehaviour
             _observation.IsObserving,
             _observation.ControlPending,
             _observedEventCount,
-            _reachedCodes);
+            _reachedCodes,
+            _registrationCounts);
+    }
+
+    /// <summary>Counts one event against a registration and returns its new total.</summary>
+    private int IncrementRegistration(string registration)
+    {
+        for (int i = 0; i < _registrationCounts.Count; i++)
+        {
+            if (_registrationCounts[i].Key != registration) continue;
+            int next = _registrationCounts[i].Value + 1;
+            _registrationCounts[i] = new KeyValuePair<string, int>(registration, next);
+            return next;
+        }
+
+        // Reached only if a registration fires without having been recorded, which would mean the
+        // start path skipped its own bookkeeping.
+        Debug.LogError($"[{LogTag}][{nameof(IncrementRegistration)}] Unknown registration: {registration}");
+        return 0;
     }
 
     /// <summary>
@@ -422,17 +454,6 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     }
 
     private static string ScopeKindOf(MacPasteboardScope scope) => scope.Kind.ToString();
-
-    /// <summary>Whether two scopes name the same pasteboard.</summary>
-    /// <remarks>
-    /// Compared by value, not by reference: the scope a Copy result carries is rebuilt from the
-    /// native response and is never the same instance the call was given.
-    /// </remarks>
-    private static bool SameScope(MacPasteboardScope? left, MacPasteboardScope? right)
-    {
-        if (left == null || right == null) return false;
-        return left.Kind == right.Kind && string.Equals(left.Name, right.Name, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// FNV-1a over the written bytes. Only the comparison result is ever shown; the hash itself is
@@ -590,7 +611,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnRemoveActivePasteboardClicked)}]");
         (MacClipboardSampleResultContext context, long startedAt) = Begin("scope.removeActive");
-        MacPasteboardScope removed = _activeScope;
+        MacPasteboardScope removed = context.Scope;
 
         MacClipboardManager.Instance.RemovePasteboard(removed, result =>
         {
@@ -608,16 +629,19 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     private void OnProbeRemovedScopeClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnProbeRemovedScopeClicked)}]");
-        (MacClipboardSampleResultContext context, long startedAt) = Begin("scope.probeRemoved");
         if (_lastRemovedScope == null)
         {
-            Local(context, "noRemovedScope");
+            (MacClipboardSampleResultContext rejected, long _) = Begin("scope.probeRemoved");
+            Local(rejected, "noRemovedScope");
             return;
         }
 
+        (MacClipboardSampleResultContext context, long startedAt) =
+            Begin("scope.probeRemoved", _lastRemovedScope);
+
         // Expected to fail with 1507, whose native message names the pasteboard. The failure line
         // shows the code and a token instead, which is what makes that safe to display.
-        MacClipboardManager.Instance.Read(_lastRemovedScope, result =>
+        MacClipboardManager.Instance.Read(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
             Succeed(context, startedAt, $"items={result.Contents!.Items.Count}");
@@ -715,7 +739,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
         (MacClipboardSampleResultContext context, long startedAt) = Begin(marker);
         int itemCount = content.Items.Count;
 
-        MacClipboardManager.Instance.Copy(content, _activeScope, options, result =>
+        MacClipboardManager.Instance.Copy(content, context.Scope, options, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -770,19 +794,17 @@ public class MacClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnReadClicked)}]");
         (MacClipboardSampleResultContext context, long startedAt) = Begin("read");
 
-        MacClipboardManager.Instance.Read(_activeScope, result =>
+        MacClipboardManager.Instance.Read(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
             MacClipboardReadContents contents = result.Contents!;
 
-            // Fresh means the pasteboard still holds this app's write. Without the change count,
-            // another app copying between the Copy and this Read would be judged as our content.
-            // Both the pasteboard and its change count must match: the count alone is only unique
-            // within one pasteboard.
-            bool fresh = _lastWrittenChangeCount != null
-                         && SameScope(_lastWrittenScope, _activeScope)
-                         && contents.ChangeCount == _lastWrittenChangeCount;
+            // Judged against context.Scope, the pasteboard this read was issued against. Reading
+            // _activeScope here would compare with whichever scope the screen shows now, which the
+            // scope buttons can have changed while the read was in flight.
+            bool fresh = MacClipboardSampleResult.IsFresh(
+                _lastWrittenScope, _lastWrittenChangeCount, context.Scope, contents.ChangeCount);
             int readTypes = contents.Items.Count > 0 ? contents.Items[0].Representations.Count : 0;
 
             bool sameTypeFound = false;
@@ -816,7 +838,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     private void ReadData(string marker, string utType)
     {
         (MacClipboardSampleResultContext context, long startedAt) = Begin(marker);
-        MacClipboardManager.Instance.ReadData(utType, _activeScope, result =>
+        MacClipboardManager.Instance.ReadData(utType, context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -837,7 +859,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     private void Snapshot(string marker, IReadOnlyList<string>? matchingTypes)
     {
         (MacClipboardSampleResultContext context, long startedAt) = Begin(marker);
-        MacClipboardManager.Instance.Snapshot(matchingTypes, _activeScope, result =>
+        MacClipboardManager.Instance.Snapshot(matchingTypes, context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -863,7 +885,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     private void DetectPatterns(string marker, IReadOnlyCollection<MacClipboardDetectionPattern> patterns)
     {
         (MacClipboardSampleResultContext context, long startedAt) = Begin(marker);
-        MacClipboardManager.Instance.DetectPatterns(patterns, _activeScope, result =>
+        MacClipboardManager.Instance.DetectPatterns(patterns, context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -879,7 +901,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnDetectValuesClicked)}]");
         (MacClipboardSampleResultContext context, long startedAt) = Begin("detect.values");
 
-        MacClipboardManager.Instance.DetectValues(AllDetectionPatterns, _activeScope, result =>
+        MacClipboardManager.Instance.DetectValues(AllDetectionPatterns, context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -902,7 +924,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
 
         // Expected to fail with 1515 on plain text: the native layer cannot tell "nothing to
         // report" from "could not report", so that failure is the documented outcome.
-        MacClipboardManager.Instance.DetectMetadata(_activeScope, result =>
+        MacClipboardManager.Instance.DetectMetadata(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -918,7 +940,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnGetAccessBehaviorClicked)}]");
         (MacClipboardSampleResultContext context, long startedAt) = Begin("accessBehavior");
 
-        MacClipboardManager.Instance.GetAccessBehavior(_activeScope, result =>
+        MacClipboardManager.Instance.GetAccessBehavior(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -939,23 +961,24 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     {
         (MacClipboardSampleResultContext context, long startedAt) = Begin(marker);
         int owner = _observation.BeginStart();
-        MacPasteboardScope target = _activeScope;
+        MacPasteboardScope target = context.Scope;
 
         // A registration marker per start, so a replaced callback that keeps firing is visible
         // rather than being folded into one total.
         string registration = $"{marker}#{context.Sequence}";
-        _registrationCounts[registration] = 0;
+        _registrationCounts.Add(new KeyValuePair<string, int>(registration, 0));
 
         RefreshStatus();
         RefreshInteractivity();
 
         MacClipboardManager.Instance.StartObserving(
-            target,
+            context.Scope,
             intervalSeconds,
             _ =>
             {
-                _registrationCounts[registration] = _registrationCounts[registration] + 1;
-                AppendResult($"* onChanged {registration} count={_registrationCounts[registration]}");
+                int count = IncrementRegistration(registration);
+                AppendResult($"* onChanged {registration} count={count}");
+                RefreshStatus();
             },
             result =>
             {
@@ -1035,7 +1058,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
 
         // Shares a per-scope tracker with observation, so while the same scope is observed this
         // reports no change almost always. That is the documented interaction, not a bug.
-        MacClipboardManager.Instance.CheckForegroundChange(_activeScope, result =>
+        MacClipboardManager.Instance.CheckForegroundChange(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
             Succeed(context, startedAt,
@@ -1069,7 +1092,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
             return;
         }
 
-        MacClipboardManager.Instance.StartObserving(_activeScope, interval, null, result =>
+        MacClipboardManager.Instance.StartObserving(context.Scope, interval, null, result =>
         {
             bool owned = _observation.CompleteStart(owner, result.IsSuccess);
 
@@ -1094,7 +1117,7 @@ public class MacClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnClearActiveScopeClicked)}]");
         (MacClipboardSampleResultContext context, long startedAt) = Begin("clear");
 
-        MacClipboardManager.Instance.Clear(_activeScope, result =>
+        MacClipboardManager.Instance.Clear(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
 
@@ -1110,11 +1133,12 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     private void OnErrRemoveGeneralClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnErrRemoveGeneralClicked)}]");
-        (MacClipboardSampleResultContext context, long startedAt) = Begin("err.removeGeneral");
+        (MacClipboardSampleResultContext context, long startedAt) =
+            Begin("err.removeGeneral", MacPasteboardScope.General);
 
         // Rejected natively with 1508. The C# layer does not pre-check it, so this really does
         // reach the native contract.
-        MacClipboardManager.Instance.RemovePasteboard(MacPasteboardScope.General, result =>
+        MacClipboardManager.Instance.RemovePasteboard(context.Scope, result =>
         {
             if (!result.IsSuccess) { Fail(context, result.Error); return; }
             Succeed(context, startedAt, "unexpectedlyRemoved=true");

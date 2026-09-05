@@ -215,7 +215,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             // 1507's native message embeds the pasteboard name, and the probe button exists to
             // reach exactly that code.
-            var context = new MacClipboardSampleResultContext(4, "scope.probeRemoved");
+            var context = new MacClipboardSampleResultContext(4, "scope.probeRemoved", MacPasteboardScope.General);
             MacClipboardErrorInfo error = MacClipboardErrorInfo.Create(
                 MacClipboardErrorCodes.PasteboardUnavailable,
                 "Pasteboard is unavailable: com.example.secret-board.");
@@ -231,7 +231,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void FailureLine_ForAStandardPasteboard_DoesNotNameIt()
         {
-            var context = new MacClipboardSampleResultContext(1, "err.removeGeneral");
+            var context = new MacClipboardSampleResultContext(1, "err.removeGeneral", MacPasteboardScope.General);
             MacClipboardErrorInfo error = MacClipboardErrorInfo.Create(
                 MacClipboardErrorCodes.CannotReleaseStandardPasteboard,
                 "Standard pasteboard cannot be released: Apple CFPasteboard general.");
@@ -378,6 +378,78 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(state.TakeDeferredStop(), "and not retried");
         }
 
+        // ── freshness (manual checks 4 and 25) ──────────────────────────────────
+
+        [Test]
+        public void IsFresh_SameScopeAndChangeCount_IsTrue()
+        {
+            Assert.IsTrue(MacClipboardSampleResult.IsFresh(
+                MacPasteboardScope.General, 5, MacPasteboardScope.General, 5));
+        }
+
+        [Test]
+        public void IsFresh_DifferentPasteboardWithTheSameChangeCount_IsFalse()
+        {
+            // The regression this exists for: a change count is only unique within one pasteboard,
+            // so two of them can carry the same number and judge another app's content as ours.
+            Assert.IsFalse(MacClipboardSampleResult.IsFresh(
+                MacPasteboardScope.General, 5, MacPasteboardScope.Named("board"), 5));
+        }
+
+        [Test]
+        public void IsFresh_SameKindDifferentName_IsFalse()
+        {
+            Assert.IsFalse(MacClipboardSampleResult.IsFresh(
+                MacPasteboardScope.Named("a"), 5, MacPasteboardScope.Named("b"), 5));
+        }
+
+        [Test]
+        public void IsFresh_SameScopeDifferentChangeCount_IsFalse()
+        {
+            Assert.IsFalse(MacClipboardSampleResult.IsFresh(
+                MacPasteboardScope.General, 5, MacPasteboardScope.General, 6));
+        }
+
+        [Test]
+        public void IsFresh_WithoutAPriorWrite_IsFalse()
+        {
+            Assert.IsFalse(MacClipboardSampleResult.IsFresh(null, null, MacPasteboardScope.General, 5));
+            Assert.IsFalse(MacClipboardSampleResult.IsFresh(MacPasteboardScope.General, null, MacPasteboardScope.General, 5));
+        }
+
+        // ── registration counts (manual check 16) ───────────────────────────────
+
+        [Test]
+        public void RegistrationCounts_ShowAReplacedRegistrationSittingAtZero()
+        {
+            // Showing only the registration that fired cannot tell "correctly replaced, so zero"
+            // from "the counter never worked".
+            string line = MacClipboardSampleResult.FormatRegistrationCounts(new[]
+            {
+                new KeyValuePair<string, int>("observe.start#1", 0),
+                new KeyValuePair<string, int>("observe.restart#2", 1),
+            });
+
+            Assert.AreEqual("observe.start#1=0 observe.restart#2=1", line);
+        }
+
+        [Test]
+        public void RegistrationCounts_WhenNoneRegistered_ShowsADash()
+        {
+            Assert.AreEqual(
+                "-", MacClipboardSampleResult.FormatRegistrationCounts(Array.Empty<KeyValuePair<string, int>>()));
+        }
+
+        [Test]
+        public void Status_IncludesTheRegistrationCounts()
+        {
+            string status = MacClipboardSampleResult.FormatStatus(
+                MacPasteboardScope.General, null, true, false, 1, Array.Empty<int>(),
+                new[] { new KeyValuePair<string, int>("observe.start#1", 0) });
+
+            StringAssert.Contains("Registrations: observe.start#1=0", status);
+        }
+
         // ── status line ─────────────────────────────────────────────────────────
 
         [Test]
@@ -389,7 +461,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                 isObserving: true,
                 controlPending: false,
                 eventCount: 2,
-                reachedCodes: Array.Empty<int>());
+                reachedCodes: Array.Empty<int>(),
+                registrationCounts: Array.Empty<KeyValuePair<string, int>>());
 
             StringAssert.Contains("general (observing named(len=5))", status);
             StringAssert.Contains("Observing: on", status);

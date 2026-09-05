@@ -2,6 +2,7 @@
 
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -27,6 +28,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const string ClipboardResourcesUxmlPath = "UI/macOS/Clipboard/MacClipboardManagerExample";
         private const string ClipboardResourcesUssPath = "UI/macOS/Clipboard/MacClipboardManagerExampleStyle";
         private const string TopMenuResourcesUxmlPath = "UI/Top/TopMenuExample";
+
+        private const string ControllerSourcePath =
+            "Packages/com.jonghyunkim.nativetoolkit/Runtime/UI/macOS/Clipboard/MacClipboardManagerExampleController.cs";
 
         /// <summary>
         /// The button names the controller actually binds, read from the controller itself.
@@ -136,6 +140,74 @@ namespace JonghyunKim.NativeToolkit.Tests
             string[] names = ReadBoundButtonNames();
             Assert.AreEqual(43, names.Length, "the sample plan enumerates 43 buttons");
             CollectionAssert.AllItemsAreUnique(names);
+        }
+
+        [Test]
+        public void EveryButtonIsBoundToItsOwnHandler()
+        {
+            // Names alone do not pin the wiring: pointing DetectValuesButton at
+            // OnDetectMetadataClicked leaves every name check green while the button runs the
+            // wrong operation, which on a verification harness reads as a passing check.
+            var host = new GameObject("MacClipboardHandlerProbe") { hideFlags = HideFlags.HideAndDontSave };
+            host.SetActive(false);
+            try
+            {
+                var controller = host.AddComponent<MacClipboardManagerExampleController>();
+                foreach ((string name, System.Action handler) in controller.Bindings)
+                {
+                    string expected = "On" + name.Substring(0, name.Length - "Button".Length) + "Clicked";
+                    Assert.AreEqual(
+                        expected, handler.Method.Name,
+                        $"{name} is bound to the wrong handler");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void TheActiveScopeFieldIsNeverReadForADecision()
+        {
+            // The defect this guards against has now appeared three times: a copy anchor without a
+            // change count, an anchor without a scope, and a read that compared against whichever
+            // scope the screen showed at completion instead of the one it was issued against.
+            //
+            // The shared cause is that _activeScope is mutable and the scope buttons stay enabled
+            // while a call is in flight, so a completion that reads it sees a different pasteboard
+            // than the call targeted. Every call now captures its target in the result context, so
+            // the field has no legitimate reader outside these forms. Extracting the decision into
+            // a pure function did not close this: the tests pin what IsFresh does with its
+            // arguments, not which scope the caller hands it.
+            string source = File.ReadAllText(Path.GetFullPath(ControllerSourcePath));
+            var offenders = new List<string>();
+
+            foreach (string raw in source.Split('\n'))
+            {
+                string line = raw.Trim();
+                if (!line.Contains("_activeScope")) continue;
+                if (line.StartsWith("//") || line.StartsWith("///")) continue;
+
+                // Assignments are fine anywhere, including inside a completion: they set the
+                // screen's state rather than deciding something from it.
+                if (line.Contains("_activeScope =")) continue;
+
+                // The remaining legitimate readers: the default target when a call is opened, and
+                // the status line, which is meant to show the current scope.
+                if (line.Contains("Begin(marker, _activeScope)")) continue;
+                if (line.Contains("FormatScopeLabel(_activeScope)")) continue;
+                if (line.Contains("_activeScope,") && line.Contains("FormatStatus")) continue;
+                if (line == "_activeScope,") continue;
+
+                offenders.Add(line);
+            }
+
+            CollectionAssert.IsEmpty(
+                offenders,
+                "_activeScope must not be read for a decision. Capture the target with " +
+                "Begin(marker, target) and read context.Scope instead; if a new reader is genuinely " +
+                "safe, add it to the allowlist in this test and say why.");
         }
 
         [Test]
