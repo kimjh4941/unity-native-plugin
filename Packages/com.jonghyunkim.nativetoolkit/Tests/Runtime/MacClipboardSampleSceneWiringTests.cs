@@ -211,6 +211,57 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void TheTwoLocalOnlyWritesCarryDifferentText()
+        {
+            // Manual check 26 is judged by pasting on a second Apple device. With one shared body,
+            // "the localOnly:true write was blocked" and "it propagated and overwrote the earlier
+            // copy with the same text" look identical, so the check cannot observe its own outcome.
+            // That is how the first device pass reached a wrong verdict, and no runtime assertion
+            // can catch it: both writes succeed either way.
+            string source = File.ReadAllText(Path.GetFullPath(ControllerSourcePath));
+
+            string trueBody = FixtureLiteral(source, "LocalOnlyTrueBody");
+            string falseBody = FixtureLiteral(source, "LocalOnlyFalseBody");
+
+            Assert.AreNotEqual(
+                falseBody, trueBody,
+                "CopyLocalOnlyTrue and CopyLocalOnlyFalse must write different text, or manual " +
+                "check 26 cannot tell a blocked propagation from a repeated one.");
+
+            foreach (string handler in new[] { "OnCopyLocalOnlyTrueClicked", "OnCopyLocalOnlyFalseClicked" })
+            {
+                string expected = handler.Contains("True") ? "LocalOnlyTrueBody" : "LocalOnlyFalseBody";
+                // The declaration, not the Bindings entry: the handler name appears there first.
+                string declaration = "private void " + handler + "()";
+                int at = source.IndexOf(declaration, System.StringComparison.Ordinal);
+                Assert.Greater(at, -1, declaration + " must exist");
+
+                // The handler body ends at the statement's semicolon; that span must name its own
+                // fixture and nothing else, so a later edit cannot quietly point both at one body.
+                string body = source.Substring(at, source.IndexOf(';', at) - at);
+                StringAssert.Contains(expected, body, handler + " must write " + expected);
+                Assert.IsFalse(
+                    body.Contains("PlainTextBody"),
+                    handler + " must not fall back to the shared PlainTextBody fixture");
+            }
+        }
+
+        /// <summary>
+        /// Reads the string literal assigned to a private const fixture in the controller source.
+        /// </summary>
+        private static string FixtureLiteral(string source, string name)
+        {
+            string marker = "const string " + name + " = \"";
+            int at = source.IndexOf(marker, System.StringComparison.Ordinal);
+            Assert.Greater(at, -1, name + " must be declared in the controller");
+
+            int start = at + marker.Length;
+            int end = source.IndexOf('"', start);
+            Assert.Greater(end, start, name + " must have a non-empty literal");
+            return source.Substring(start, end - start);
+        }
+
+        [Test]
         public void TopMenu_StillExposesTheClipboardEntryPoint()
         {
             VisualElement root = Instantiate(TopMenuResourcesUxmlPath);

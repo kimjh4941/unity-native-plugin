@@ -45,6 +45,12 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     // ── Fixtures ─────────────────────────────────────────────────────────────
 
     private const string PlainTextBody = "Hello macOS clipboard";
+
+    // Manual check 26 is judged by pasting on a second Apple device: the operator has to tell
+    // whether what arrived is the localOnly:false write or a stale copy of it. One shared body
+    // makes both outcomes look identical, so the two writes carry their own text.
+    private const string LocalOnlyFalseBody = "Hello macOS clipboard (localOnly false, shared)";
+    private const string LocalOnlyTrueBody = "Hello macOS clipboard (localOnly true, local)";
     private const string UnicodeBody = "こんにちは \U0001F680 \U0001F9D1‍\U0001F4BB テスト";
     private const string HtmlMarkup = "<b>Hello</b>";
     private const string HtmlPlainFallback = "Hello";
@@ -711,13 +717,13 @@ public class MacClipboardManagerExampleController : MonoBehaviour
     }
 
     private void OnCopyLocalOnlyTrueClicked() =>
-        Copy("copy.localOnlyTrue", MacClipboardContent.PlainText(PlainTextBody),
-            MacClipboardTypes.PlainText, Encoding.UTF8.GetBytes(PlainTextBody),
+        Copy("copy.localOnlyTrue", MacClipboardContent.PlainText(LocalOnlyTrueBody),
+            MacClipboardTypes.PlainText, Encoding.UTF8.GetBytes(LocalOnlyTrueBody),
             MacClipboardCopyOptions.PrivacyPreservingDefault);
 
     private void OnCopyLocalOnlyFalseClicked() =>
-        Copy("copy.localOnlyFalse", MacClipboardContent.PlainText(PlainTextBody),
-            MacClipboardTypes.PlainText, Encoding.UTF8.GetBytes(PlainTextBody),
+        Copy("copy.localOnlyFalse", MacClipboardContent.PlainText(LocalOnlyFalseBody),
+            MacClipboardTypes.PlainText, Encoding.UTF8.GetBytes(LocalOnlyFalseBody),
             MacClipboardCopyOptions.Create(false));
 
     private void OnErrCopyOversizeClicked()
