@@ -15,7 +15,7 @@
 
 **P/Invoke 境界の初回実行である。** Editor では P/Invoke がコンパイルされないため、EditMode 517 / PlayMode 116 のテストはすべてその手前で止まっていた。本項目でブリッジ層が初めて実機で動いた。
 
-**31 / 32 項目を実施した。** 実装の欠陥を 1 件発見し、設計書の記述の誤り・不足を 4 件、サンプルの欠陥を 1 件見つけた。
+**32 項目すべてを実施した**（#29 は 2026-09-06 に追加実施）。 実装の欠陥を 1 件発見し、設計書の記述の誤り・不足を 4 件、サンプルの欠陥を 1 件見つけた。
 
 ---
 
@@ -68,9 +68,9 @@
 | 26 | Universal Clipboard | ○ | **両方向とも確認**（§5 にサンプルの欠陥） |
 | 27 | ログ確認 | ○ | **漏洩 0 件** |
 | 28 | コールバックのスレッド | ○ | `callbackOnMainThread: true (samples=1)` |
-| 29 | App Sandbox 有効ビルド | **未実施** | 別ビルドが必要 |
+| 29 | App Sandbox 有効ビルド | ○ | **全操作が動作。追加 entitlement 不要**（§4.3） |
 
-**31 実施 / 1 未実施。**
+**32 項目すべて実施。**
 
 ---
 
@@ -139,6 +139,40 @@ macOS のバンドル構造は iOS と異なり、runpath は `@executable_path/
 
 **macOS の Share / Notification / Dialog も同じ経路を通るため、これらすべてに影響していた既存の不具合である。**
 
+
+### 4.3 App Sandbox 有効下でも全操作が動作する（V-5 クローズ）
+
+実施日 2026-09-06。`Build/Mac/Mac.xcodeproj` に `ENABLE_APP_SANDBOX = YES` を加えて再ビルドし、署名に `com.apple.security.app-sandbox` が入っていることと `~/Library/Containers/com.jonghyunkim.nativetoolkit.mac/` が生成されることを確認したうえで実行した。
+
+| 操作 | scope | 結果 |
+|---|---|---|
+| `Copy`（plain text） | General | **ok** |
+| `Read` | General | **ok** |
+| `CreatePasteboard(Named)` | General | **ok** |
+| `CreatePasteboard(Unique)` | **Named** | **ok** |
+| `RemovePasteboard` | **Unique** | **ok** |
+
+**失敗 0 件、サンドボックス由来の拒否 0 件。** pasteboard server はプロセス外にあるが App Sandbox はこれを遮断しない。**追加の entitlement は不要で、`com.apple.security.app-sandbox` だけで 15 操作すべてが使える。** Mac App Store 向けビルドでも機能は制限されない。
+
+`CreatePasteboard(Unique)` が `scope: Named` から成功しているため、**named を作った後に unique も作れる**ことまで確認できている。
+
+#### 付随: `-logFile` はコンテナ外を指定できない
+
+サンドボックス下で `-logFile /tmp/...` を渡すと、Unity は次を出して**起動せずに終了する**。
+
+```
+Unable to open log file, exiting. File: /tmp/mac-clipboard-run.log
+```
+
+コンテナ内（`~/Library/Containers/<bundle id>/Data/`）なら書ける。clipboard とは無関係だが、**サンドボックス配布時にコンテナ外へのファイル出力を前提とした実装がすべて破綻することの実例**であり、マニュアルに残す価値がある。
+
+#### `ENABLE_APP_SANDBOX` はパッケージ側に入れない
+
+**この設定は次の Unity ビルドで消える。** Unity が Xcode プロジェクトを生成し直すためである。
+
+**それでも `PostBuildProcessor.cs` には追加しない。** 同ファイルはパッケージ内にあり define ゲートも無いため、**このパッケージを入れた全利用者の macOS ビルドが無条件にサンドボックス化される。** サンドボックスの要否は配布経路が決めるもので（Mac App Store は必須、Steam は通常無効）、ライブラリが決めてよい事柄ではない。framework の embed（§4.2）が「入れないと動かない」のに対し、こちらは「勝手に入れると利用者のアプリを壊す」性質の設定である。
+
+**#29 は 1 リリースにつき 1 回の手動確認として扱う。**
 
 ## 5. 設計書・サンプルの訂正
 
@@ -245,7 +279,6 @@ ClipboardChanged: changeCount: 31, total: 2
 
 | 項目 | 理由 |
 |---|---|
-| **#29 App Sandbox 有効ビルド**（`V-5`） | 別ビルドが必要。パッケージが sandbox 前提で配布されるかが未定のため優先度を下げた |
 | **1513**（15.4 未満） | 該当する機体が無い |
 | **1514**（拒否） | 導線が存在しない（§6） |
 
@@ -261,7 +294,6 @@ ClipboardChanged: changeCount: 31, total: 2
 
 **未対応:**
 
-4. **`#29` App Sandbox 有効ビルド**（V-5）。別ビルドが必要
 5. **`TooLarge` と `Malformed` の分離**（§4.1 / 計画書 v14 の V-14）。**リリース後に別計画で扱う。** あわせて上限値を 32 MiB のまま維持するか iOS の 64 MiB に揃えるかを判断する
 6. `write-manual` → `release`
 

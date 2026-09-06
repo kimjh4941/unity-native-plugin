@@ -24,7 +24,7 @@
 | 1.6 | **監視の配信単位を追加。** 復帰時に**変更ごとに個別配信**され、畳み込まれない |
 | 1.6 | **受信側のサイズ上限を制約一覧に追加**（実測で境界を確認） |
 | 7.5 | 実施結果を反映し、#4 / #9 / #21 の期待値を実測に合わせた |
-| 8 章 | V-2 / V-4 / V-6 / V-7 / V-8 / V-10 / V-12 / V-13 をクローズ。V-3 / V-9 を更新。**V-14 を新設** |
+| 8 章 | V-2 / V-4 / V-5 / V-6 / V-7 / V-8 / V-10 / V-12 / V-13 をクローズ。V-3 / V-9 を更新。**V-14 を新設** |
 
 **V-14（受信上限のコード分離）は本版では対応しない。** iOS が先行して専用コードを持っているため macOS が乖離しているが、利用者に実害が出る種類ではない（読めないことは変わらず、原因の判別が難しいだけ）。**リリース後に別計画で扱う。**
 
@@ -1865,7 +1865,7 @@ flag と count のみで、clipboard 本文にも pasteboard 名にも触れな�
 
 ### 7.5 手動確認（実機 macOS 15+ / macOS Standalone Player）
 
-**2026-09-05 に macOS 26.3 で 31 / 32 項目を実施した。** 結果は `artifact/results/clipboard/2026-09-05-macos-clipboard-implementation-feature-result-v5.md`。未実施は #29（App Sandbox 有効ビルドが必要）のみ。
+**2026-09-05〜09-06 に macOS 26.3 で 32 項目すべてを実施した。** 結果は `artifact/results/clipboard/2026-09-05-macos-clipboard-implementation-feature-result-v5.md`。
 
 **26.3 では 15.4 未満の分岐に到達できない。** #11 / #12 / #13 の 1513 と、#14 の `Unavailable` は 15.0〜15.3 の機体が要る。
 
@@ -1902,7 +1902,7 @@ flag と count のみで、clipboard 本文にも pasteboard 名にも触れな�
 | 26 | Universal Clipboard（`localOnly: false`）で別 Apple デバイスへ | **未検証項目**。結果を記録 |
 | 27 | ログ確認 | clipboard 本文・pasteboard 名が Console / Player.log に出ていない |
 | 28 | コールバックのスレッド | **Player.log に `callbackOnMainThread: true` が出て、`mismatches` の行が出ない**こと（5.6.14）。何か 1 つでも操作すれば 1 行目が出る。不一致があれば 2 行目が出る |
-| 29 | App Sandbox 有効ビルド | named / unique pasteboard の作成・解放が可能か記録（8 章 V-5） |
+| 29 | App Sandbox 有効ビルド | **named / unique の作成・解放とも成功する。追加 entitlement は不要**（8 章 V-5）。`-logFile` はコンテナ内を指すこと（コンテナ外を渡すと Player が起動しない） |
 
 ---
 
@@ -1916,7 +1916,7 @@ flag と count のみで、clipboard 本文にも pasteboard 名にも触れな�
 | V-2 | 文字列マーシャリング | **クローズ済み（2026-09-05、実機 macOS 26.3）。** 日本語・絵文字・サロゲートペアが `roundTrip=match` で往復した（7.5 #25）。`LPUTF8Str` の付与は不要。あわせて Player.log に非 ASCII が 1 文字も出ないことも確認した |
 | V-3 | サイズ上限 | **受信側は実測済み（2026-09-05）。** 32 MiB は通り 36 MiB は 9006 で落ちる（判定は `>`）。所要は 24 MiB で 289 ms、32 MiB で 342 ms。失敗も 1 秒未満で返りフリーズしない。**残るのは上限値そのものの妥当性**で、iOS が 64 MiB を採っているため V-14 で扱う。ピークメモリは未測定 |
 | V-4 | コールバックのスレッド | **クローズ済み（2026-09-05、実機 macOS 26.3）。** Player.log に `callbackOnMainThread: true (samples=1)` が出力され、`mismatches` の行は出なかった（7.5 #28）。v13 で用意した計測手段（5.6.14）が機能した |
-| V-5 | App Sandbox | サンドボックス有効時に named / unique pasteboard を作成・解放できるか。必要な entitlement は `com.apple.security.app-sandbox` 有効下での pasteboard アクセス可否として確認する |
+| V-5 | App Sandbox | **クローズ済み（2026-09-06、実機 macOS 26.3）。** `com.apple.security.app-sandbox` 有効下で `Copy` / `Read` / named 作成 / unique 作成 / 解放の 5 操作がすべて成功した。**追加の entitlement は不要**で、pasteboard server がプロセス外にあることは制約にならない。Mac App Store 向けビルドでも 15 操作すべてが使える。**なお `ENABLE_APP_SANDBOX` はパッケージ側（`PostBuildProcessor.cs`）に入れない。** 同ファイルは利用者に配布され define ゲートも無いため、入れると全利用者のビルドが無条件にサンドボックス化される。サンドボックスの要否は配布経路が決める |
 | V-6 | `NSInteger` / `BOOL` のマーシャリング実挙動 | **arm64 でクローズ（2026-09-05）。** 成功 8 種・失敗 8 コード（1302 / 1503 / 1508 / 1511 / 1512 / 1515 / 1523 / 9006 / 9007）がすべて正しく判別された。`BOOL` の誤判定（失敗を成功と読む）は一度も起きていない。**x86_64 は未実測** |
 | V-7 | `localOnly` の効果 | **クローズ済み（2026-09-05、実機 macOS 26.3）。** `false` で別 Apple デバイスへ伝播し、`true` で伝播しないことを両方向とも確認した（7.5 #26）。ネイティブ側の「実機未確認」は解消できる |
 | V-8 | 監視のアクティブ／非アクティブ挙動 | **クローズ済み（2026-09-05、実機 macOS 26.3）。** 非アクティブ中は配信されず、前面復帰時にまとめて届く。**畳み込まれず変更ごとに個別配信される**ことも確認した（1.6 / 7.5 #15） |
