@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.9.0
+- 1.10.0
 
 ## 対応 OS バージョン
 
@@ -134,13 +134,23 @@
   - サービスを除外した共有
   - 名前付きサービス経由の共有（Mail 等）
 
+- クリップボード機能
+  - プレーンテキスト / HTML / URL / カスタムデータのコピー
+  - 複数アイテム・複数表現のコピー
+  - 所有権を用いた追記
+  - クリップボードの読み出し、型を指定した読み出し、ペイロードを読まないスナップショット
+  - パターン・値・メタデータの検出（macOS 15.4 以降）
+  - 名前付き / ユニークなペーストボード
+  - クリップボード変更の監視と、前面復帰時の変更確認
+  - Universal Clipboard に流さないローカル限定コピー
+
 ## インストール
 
 - Unity6 を起動します。
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降

@@ -1,0 +1,113 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="MacClipboardManagerExampleStyle.uss" />
+    <ui:VisualElement class="mac-clipboard-root">
+        <ui:VisualElement class="mac-clipboard-header">
+            <ui:Button name="HomeButton" class="mac-secondary-button" text="Back To Home" />
+            <ui:Label text="MacClipboardManager Example" class="mac-clipboard-title" />
+            <ui:VisualElement class="mac-clipboard-result-border">
+                <ui:ScrollView name="ResultScrollView" class="mac-clipboard-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="macOS clipboard sample ready. Build a macOS Standalone player to reach the native bridge." class="mac-clipboard-result-text" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+            <ui:Label name="StatusTextBlock" text="Scope: general | Observing: off | Events: 0 | Codes: - (0/10)" class="mac-clipboard-status-text" />
+        </ui:VisualElement>
+        <ui:ScrollView class="mac-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="mac-clipboard-content">
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="About" class="mac-clipboard-section-title" />
+                    <ui:Label text="For macOS 15 or later. In the Editor every operation fails with 9002 because the P/Invoke is compiled out; that is what this screen is meant to show." class="mac-clipboard-section-note" />
+                    <ui:Label name="SubtitleValidationLabel" text="Native error messages are never shown: they embed pasteboard names. Failures are reported as a code and a locally owned reason token." class="mac-clipboard-section-note" />
+                    <ui:Button name="ResetReachedCodesButton" class="mac-secondary-button" text="Reset Reached Codes" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Scope" class="mac-clipboard-section-title" />
+                    <ui:Label text="Every scoped operation below runs against the active scope. These buttons are disabled while observation is running." class="mac-clipboard-section-note" />
+                    <ui:Button name="UseGeneralButton" class="mac-clipboard-button" text="Use General" />
+                    <ui:Button name="UseFixedNamedScopeButton" class="mac-clipboard-button" text="Use Fixed Named Scope" />
+                    <ui:Button name="CreateNamedPasteboardButton" class="mac-clipboard-button" text="Create Named Pasteboard" />
+                    <ui:Button name="CreateUniquePasteboardButton" class="mac-clipboard-button" text="Create Unique Pasteboard" />
+                    <ui:Button name="RemoveActivePasteboardButton" class="mac-clipboard-button" text="Remove Active Pasteboard" />
+                    <ui:Button name="ProbeRemovedScopeButton" class="mac-clipboard-button" text="Probe Removed Scope" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Copy" class="mac-clipboard-section-title" />
+                    <ui:Label text="Copy replaces the pasteboard contents. Nothing written here is ever displayed or logged; results are counts and flags only." class="mac-clipboard-section-note" />
+                    <ui:Button name="CopyPlainTextButton" class="mac-clipboard-button" text="Copy Plain Text" />
+                    <ui:Button name="CopyHtmlButton" class="mac-clipboard-button" text="Copy Html" />
+                    <ui:Button name="CopyUrlButton" class="mac-clipboard-button" text="Copy Url" />
+                    <ui:Button name="CopyCustomDataButton" class="mac-clipboard-button" text="Copy Custom Data" />
+                    <ui:Button name="CopyMultipleItemsButton" class="mac-clipboard-button" text="Copy Multiple Items" />
+                    <ui:Button name="CopyMultiRepresentationButton" class="mac-clipboard-button" text="Copy Multi Representation" />
+                    <ui:Button name="CopyDetectionFixtureButton" class="mac-clipboard-button" text="Copy Detection Fixture" />
+                    <ui:Button name="CopyUnicodeButton" class="mac-clipboard-button" text="Copy Unicode" />
+                    <ui:Button name="CopyLargeSingleItemButton" class="mac-clipboard-button" text="Copy Large Single Item" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Options" class="mac-clipboard-section-title" />
+                    <ui:Label text="localOnly is the privacy option. Its effect on Universal Clipboard is unverified on hardware." class="mac-clipboard-section-note" />
+                    <ui:Button name="CopyLocalOnlyTrueButton" class="mac-clipboard-button" text="Copy Local Only True" />
+                    <ui:Button name="CopyLocalOnlyFalseButton" class="mac-clipboard-button" text="Copy Local Only False" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Append" class="mac-clipboard-section-title" />
+                    <ui:Label text="Append needs ownership from a preceding Copy. A successful append leaves the change count untouched." class="mac-clipboard-section-note" />
+                    <ui:Button name="AppendWithLastOwnershipButton" class="mac-clipboard-button" text="Append With Last Ownership" />
+                    <ui:Button name="AppendWithStaleOwnershipButton" class="mac-clipboard-button" text="Append With Stale Ownership" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Read" class="mac-clipboard-section-title" />
+                    <ui:Label text="Read and ReadData return content, so results are reduced to counts, lengths and match flags." class="mac-clipboard-section-note" />
+                    <ui:Button name="ReadButton" class="mac-clipboard-button" text="Read" />
+                    <ui:Button name="ReadDataPlainTextButton" class="mac-clipboard-button" text="Read Data Plain Text" />
+                    <ui:Button name="ReadDataMissingTypeButton" class="mac-clipboard-button" text="Read Data Missing Type" />
+                    <ui:Button name="ReadDataInvalidTypeButton" class="mac-clipboard-button" text="Read Data Invalid Type" />
+                    <ui:Button name="SnapshotButton" class="mac-clipboard-button" text="Snapshot" />
+                    <ui:Button name="SnapshotMatchingButton" class="mac-clipboard-button" text="Snapshot Matching" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Detect" class="mac-clipboard-section-title" />
+                    <ui:Label text="Detection needs macOS 15.4 or later. Detected values are never shown, only per-category counts." class="mac-clipboard-section-note" />
+                    <ui:Button name="DetectPatternsButton" class="mac-clipboard-button" text="Detect Patterns" />
+                    <ui:Button name="DetectValuesButton" class="mac-clipboard-button" text="Detect Values" />
+                    <ui:Button name="DetectMetadataButton" class="mac-clipboard-button" text="Detect Metadata" />
+                    <ui:Button name="GetAccessBehaviorButton" class="mac-clipboard-button" text="Get Access Behavior" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Observe" class="mac-clipboard-section-title" />
+                    <ui:Label text="StartObserving and StopObserving share one single-flight key, so a second control call while one is pending is rejected with 9001." class="mac-clipboard-section-note" />
+                    <ui:Button name="StartObservingButton" class="mac-clipboard-button" text="Start Observing" />
+                    <ui:Button name="RestartObservingButton" class="mac-clipboard-button" text="Restart Observing" />
+                    <ui:Button name="StopObservingButton" class="mac-clipboard-button" text="Stop Observing" />
+                    <ui:Button name="CheckForegroundChangeButton" class="mac-clipboard-button" text="Check Foreground Change" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Clear" class="mac-clipboard-section-title" />
+                    <ui:Label text="Clear empties the active pasteboard and reports its new change count." class="mac-clipboard-section-note" />
+                    <ui:Button name="ClearActiveScopeButton" class="mac-clipboard-button" text="Clear Active Scope" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="mac-clipboard-section">
+                    <ui:Label text="Errors" class="mac-clipboard-section-title" />
+                    <ui:Label text="Every button here drives one native error contract. ErrBlankScopeName is the exception: it drives a C# ArgumentException, which manual check 17d asks for." class="mac-clipboard-section-note" />
+                    <ui:Button name="ErrRemoveGeneralButton" class="mac-secondary-button" text="Error: Remove General" />
+                    <ui:Button name="ErrSnapshotEmptyFilterButton" class="mac-secondary-button" text="Error: Snapshot Empty Filter" />
+                    <ui:Button name="ErrDetectEmptyPatternsButton" class="mac-secondary-button" text="Error: Detect Empty Patterns" />
+                    <ui:Button name="ErrReadDataEmptyUtTypeButton" class="mac-secondary-button" text="Error: Read Data Empty Ut Type" />
+                    <ui:Button name="ErrObservingIntervalMatrixButton" class="mac-secondary-button" text="Error: Observing Interval Matrix" />
+                    <ui:Button name="ErrCopyOversizeButton" class="mac-secondary-button" text="Error: Copy Oversize" />
+                    <ui:Button name="ErrBlankScopeNameButton" class="mac-secondary-button" text="Error: Blank Scope Name" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>
