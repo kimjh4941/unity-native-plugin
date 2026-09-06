@@ -218,7 +218,21 @@ public static class PostBuildProcessor
 
             // Add XCFramework to Frameworks
             string relativePath = $"unity-native-plugin/Frameworks/{unityXcframeworkName}";
-            proj.AddFileToBuild(targetGuid, proj.AddFile(relativePath, relativePath, PBXSourceTree.Source));
+            string fileGuid = proj.AddFile(relativePath, relativePath, PBXSourceTree.Source);
+
+            // Link and embed. Linking alone leaves the binary asking for
+            // @rpath/UnityMacPlugin.framework with nothing at that path inside the bundle: Xcode
+            // resolves it from its own build products directory, so Run works and the .app fails
+            // to launch anywhere else with a dyld "Library not loaded" abort.
+            proj.AddFileToBuild(targetGuid, fileGuid);
+            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, targetGuid, fileGuid);
+
+            // Search paths / Run paths, matching the iOS branch above.
+            proj.AddBuildProperty(targetGuid, "FRAMEWORK_SEARCH_PATHS", "$(inherited)");
+            proj.AddBuildProperty(targetGuid, "FRAMEWORK_SEARCH_PATHS", "$(PROJECT_DIR)/unity-native-plugin/Frameworks");
+            proj.AddBuildProperty(targetGuid, "LD_RUNPATH_SEARCH_PATHS", "$(inherited)");
+            proj.AddBuildProperty(targetGuid, "LD_RUNPATH_SEARCH_PATHS", "@executable_path/../Frameworks");
+            proj.AddBuildProperty(targetGuid, "LD_RUNPATH_SEARCH_PATHS", "@loader_path/../Frameworks");
 
             proj.WriteToFile(pbxprojPath);
 

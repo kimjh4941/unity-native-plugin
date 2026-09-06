@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.9.0
+- 1.10.0
 
 ## Supported OS Versions
 
@@ -134,13 +134,23 @@ Other languages:
   - Share excluding services
   - Share via a named service (e.g. Mail)
 
+- Clipboard features
+  - Copy plain text / HTML / URL / custom data
+  - Copy multiple items and multiple representations
+  - Append to the clipboard with ownership
+  - Read the clipboard, read one type, and take a snapshot without reading payloads
+  - Detect patterns, values and metadata (macOS 15.4 or later)
+  - Named and unique pasteboards
+  - Observe clipboard changes and check for a change on foreground return
+  - Local-only copies that stay off Universal Clipboard
+
 ## Installation
 
 - Open Unity 6.
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
 - Click "install".
 - Requirements:
   - Unity 6+

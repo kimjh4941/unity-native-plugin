@@ -148,6 +148,20 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    /// <summary>
+    /// Replaces the current screen with the macOS clipboard sample.
+    /// </summary>
+    /// <param name="uiDocument">UIDocument that hosts the sample screens.</param>
+    public static void ShowMacClipboard(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+        ApplyScreen<MacClipboardManagerExampleController>(
+            uiDocument,
+            "UI/macOS/Clipboard/MacClipboardManagerExample",
+            "UI/macOS/Clipboard/MacClipboardManagerExampleStyle");
+#endif
+    }
+
     private static void ApplyScreen<TController>(UIDocument uiDocument, string visualTreeResourcePath, string styleResourcePath)
         where TController : MonoBehaviour
     {
@@ -203,6 +217,7 @@ public static class NativeToolkitSampleNavigator
         RemoveIfExists<MacDialogManagerExampleController>(gameObject);
         RemoveIfExists<MacNotificationManagerExampleController>(gameObject);
         RemoveIfExists<MacShareManagerExampleController>(gameObject);
+        RemoveIfExists<MacClipboardManagerExampleController>(gameObject);
 #endif
     }
 
