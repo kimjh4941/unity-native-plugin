@@ -59,6 +59,31 @@ Language:
   - [Concurrency and Busy Rejection](#concurrency-and-busy-rejection)
   - [Receive Events](#receive-events-1)
   - [Error Handling](#error-handling-1)
+- [macOS](#macos)
+  - [Setup](#setup-2)
+  - [Pasteboard Scopes](#pasteboard-scopes-1)
+  - [Copy Plain Text](#copy-plain-text-2)
+  - [Copy HTML Text](#copy-html-text-2)
+  - [Copy URL](#copy-url-1)
+  - [Copy Custom Data](#copy-custom-data-1)
+  - [Copy Multiple Items](#copy-multiple-items)
+  - [Copy Multi Representation](#copy-multi-representation-1)
+  - [Copy Options: Local Only](#copy-options-local-only)
+  - [Append](#append-1)
+  - [Read](#read-1)
+  - [Read Data](#read-data-1)
+  - [Snapshot](#snapshot-1)
+  - [Detect Patterns](#detect-patterns-1)
+  - [Detect Values](#detect-values-1)
+  - [Detect Metadata](#detect-metadata)
+  - [Access Behavior](#access-behavior)
+  - [Observe Changes](#observe-changes-1)
+  - [Check Foreground Change](#check-foreground-change-1)
+  - [Clear](#clear-1)
+  - [Size Limits](#size-limits)
+  - [App Sandbox](#app-sandbox)
+  - [Receive Events](#receive-events-2)
+  - [Error Handling](#error-handling-2)
 
 ---
 
@@ -1389,3 +1414,767 @@ Some inputs never reach a result at all: they throw from the factory that builds
 | `IosPasteboardScope.Named` / `Unique`, `IosPasteboardCreationRequest.Named` | `ArgumentException` when the name is blank |
 | `IosClipboardContent.Color` | `ArgumentException` when a component is `NaN` or infinity |
 | Every other `IosClipboardContent` factory, `IosClipboardLoadRequest.File` | `ArgumentNullException` for a `null` argument |
+
+## macOS
+
+### Setup
+
+#### Import the namespace
+
+`MacClipboardManager` compiles whenever the macOS standalone build target is selected, including in the Editor. Calling it in the Editor does not crash: every operation returns an immediate `BridgeUnavailable` (9002) failure without touching the native bridge, so the same code can stay in a scene that also runs in the Editor.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+#endif
+```
+
+The native layer targets macOS 15 or later. Three operations need macOS 15.4; see [Detect Patterns](#detect-patterns-1).
+
+#### Every operation is asynchronous
+
+There is no synchronous API on macOS. Each call takes an optional per-call callback and also raises an event that fires for every call of that kind.
+
+| Method | Callback result | Event |
+| --- | --- | --- |
+| `Copy`, `Append` | `MacClipboardOwnershipResult` | `OwnershipChanged` |
+| `Read` | `MacClipboardReadResult` | `ReadCompleted` |
+| `ReadData` | `MacClipboardReadDataResult` | `ReadDataCompleted` |
+| `Snapshot` | `MacClipboardSnapshotResult` | `SnapshotCompleted` |
+| `Clear` | `MacClipboardChangeCountResult` | `ClearCompleted` |
+| `CreatePasteboard` | `MacPasteboardScopeResult` | `PasteboardCreated` |
+| `RemovePasteboard`, `StartObserving`, `StopObserving` | `MacClipboardOperationResult` | `ClipboardOperationCompleted` |
+| `DetectPatterns` | `MacClipboardDetectedPatternsResult` | `PatternsDetected` |
+| `DetectValues` | `MacClipboardDetectedValuesResult` | `ValuesDetected` |
+| `DetectMetadata` | `MacClipboardDetectedMetadataResult` | `MetadataDetected` |
+| `GetAccessBehavior` | `MacClipboardAccessBehaviorResult` | `AccessBehaviorChecked` |
+| `CheckForegroundChange` | `MacClipboardForegroundChangeResult` | `ForegroundChangeChecked` |
+| (observation) | `MacClipboardChangeEvent` | `ClipboardChanged` |
+
+The events carry no way to tell which call they belong to. Use the per-call callback whenever a result must be matched to a specific request, and the events only for logging or shared UI. Every result exposes `IsSuccess` and, on failure, `Error` (a `MacClipboardErrorInfo` with an `int Code` and a `string Message`).
+
+#### Main thread only
+
+Every public API must be called from the Unity main thread. A call from any other thread is rejected with `MainThreadRequired` (9003) and never reaches the native layer. Callbacks and events are always delivered on the main thread, so Unity APIs can be used inside them directly.
+
+#### One call per operation at a time
+
+Calls are serialized per operation: a second `Read` issued while the first is still running is rejected with `Busy` (9001), while a `Read` and a `Snapshot` do run concurrently. `StartObserving` and `StopObserving` share a single key, so one cannot start while the other is pending.
+
+#### Manager lifetime
+
+`MacClipboardManager.Instance` creates the manager on first access, and the native layer is initialized on the first call. Destroying and recreating the manager during a run is not supported: once it has been destroyed, `MacClipboardManager.IsTerminated` is `true` and every API returns `ManagerDestroyed` (9004).
+
+---
+
+### Pasteboard Scopes
+
+Every operation runs against a scope. Passing `null` (the default for the `scope` parameter) means the general pasteboard.
+
+| Scope | Factory | Notes |
+| --- | --- | --- |
+| General | `MacPasteboardScope.General` | The system pasteboard shared with other apps. |
+| Named | `MacPasteboardScope.Named(name)` | An app-defined pasteboard. Create it once with `CreatePasteboard`. |
+| Unique | `MacPasteboardScope.Unique(name)` | A pasteboard whose name the system generates; obtain the name from `CreatePasteboard`. |
+
+`Named` and `Unique` throw `ArgumentException` when the name is blank or whitespace only. The native layer would accept such a name and operate on an unintended pasteboard, so this check exists only in C#: validate user input before constructing a scope.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private MacPasteboardScope _scope = MacPasteboardScope.General;
+
+// Create a named pasteboard and keep it as the active scope.
+MacClipboardManager.Instance.CreatePasteboard(
+    MacPasteboardCreationRequest.Named("com.jonghyunkim.nativetoolkit.example.sample"),
+    result =>
+    {
+        if (!result.IsSuccess || result.Scope == null)
+        {
+            Debug.LogError($"CreatePasteboard failed: {result.Error?.Code}");
+            return;
+        }
+
+        _scope = result.Scope;
+    });
+
+// A system-named pasteboard: the name is only known from the result.
+MacClipboardManager.Instance.CreatePasteboard(
+    MacPasteboardCreationRequest.Unique,
+    result => _scope = result.IsSuccess && result.Scope != null ? result.Scope : _scope);
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="400" />
+</p>
+
+A named or unique pasteboard is removed with `RemovePasteboard`.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.RemovePasteboard(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        _scope = MacPasteboardScope.General;
+    }
+});
+#endif
+```
+
+> **Note:** `RemovePasteboard` discards the contents rather than the name. Reading a removed scope succeeds and returns no items, so treat an empty read as "gone" rather than waiting for an error.
+
+The standard pasteboards cannot be removed. `general`, `font`, `ruler`, `find` and `drag` all fail with `CannotReleaseStandardPasteboard` (1508), and the check is by name: passing one of those five names as a `Unique` scope fails the same way.
+
+Named and unique pasteboards outlive the process on the pasteboard server. Remove a unique pasteboard explicitly when it is no longer needed, and do not place confidential data on a named one.
+
+---
+
+### Copy Plain Text
+
+`Copy` replaces the whole pasteboard content and returns a `MacPasteboardOwnership` that [Append](#append-1) needs.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private MacPasteboardOwnership? _ownership;
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard"),
+    _scope,
+    options: null,
+    onResult: result =>
+    {
+        if (!result.IsSuccess)
+        {
+            Debug.LogError($"Copy failed: {result.Error?.Code}");
+            return;
+        }
+
+        _ownership = result.Ownership;
+    });
+#endif
+```
+
+---
+
+### Copy HTML Text
+
+One item can carry several representations. `Html` writes `public.html` and, when a fallback is given, `public.utf8-plain-text` in the same item, so an app that cannot take HTML still gets readable text.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Html("<b>Hello</b>", "Hello")),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Copy URL
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Url("https://unity.com")),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Copy Custom Data
+
+Raw bytes under an app-defined uniform type identifier. Other apps will not recognise the type, which is the point: use it to move data between your own scenes or processes.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+byte[] payload = System.Text.Encoding.UTF8.GetBytes("{\"level\":12}");
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Data(
+        "com.jonghyunkim.nativetoolkit.example.custom", payload)),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Copy Multiple Items
+
+`Multiple` writes several items in order. What a receiving app does with them is its own decision: a rich text view reads all of them, while a single-line field usually takes the first.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Multiple(new[]
+    {
+        MacClipboardContentItem.PlainText("Hello macOS clipboard"),
+        MacClipboardContentItem.Url("https://unity.com"),
+    }),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Copy Multi Representation
+
+Several representations of the same thing in one item. The receiving app picks the type it prefers.
+
+`MacClipboardContentItem` has no public constructor. `FromRepresentations` is the general factory: it takes a type-to-bytes map and puts every entry in one item, which is how you combine types the named factories do not cover.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+var representations = new Dictionary<string, byte[]>
+{
+    [MacClipboardTypes.PlainText] = System.Text.Encoding.UTF8.GetBytes("Hello"),
+    [MacClipboardTypes.Html] = System.Text.Encoding.UTF8.GetBytes("<b>Hello</b>"),
+};
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.FromRepresentations(representations)),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Copy Options: Local Only
+
+`MacClipboardCopyOptions` controls whether the write is offered to the user's other Apple devices through Universal Clipboard.
+
+| Option | Meaning |
+| --- | --- |
+| `MacClipboardCopyOptions.PrivacyPreservingDefault` | `localOnly: true`. The write stays on this Mac. |
+| `MacClipboardCopyOptions.Create(false)` | The write is offered to nearby Apple devices signed in to the same Apple Account. |
+| `null` | The system default. |
+
+Both behaviours are confirmed on hardware: with `localOnly: false` the text appears on a second device, and with `localOnly: true` that device keeps whatever it had.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+// Keep an access token on this Mac only.
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard (localOnly true, local)"),
+    _scope,
+    MacClipboardCopyOptions.PrivacyPreservingDefault,
+    result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+
+// Let an invite code reach the user's iPhone.
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard (localOnly false, shared)"),
+    _scope,
+    MacClipboardCopyOptions.Create(false),
+    result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### Append
+
+`Append` adds items without clearing what is already there, and it needs the `MacPasteboardOwnership` returned by the preceding `Copy`.
+
+Two properties of `Append` differ from the other write path and matter in practice:
+
+- **Ownership is enforced.** If another app copies in between, the append fails with `OwnershipLost` (1511) instead of being silently ignored.
+- **A successful append leaves the change count untouched**, so the same ownership stays valid for the next append.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+if (_ownership != null)
+{
+    MacClipboardManager.Instance.Append(
+        MacClipboardContent.PlainText("Hello macOS clipboard"),
+        _ownership,
+        result =>
+        {
+            if (!result.IsSuccess)
+            {
+                // 1511: another app took the pasteboard. Copy again to regain ownership.
+                Debug.LogError($"Append failed: {result.Error?.Code}");
+                return;
+            }
+
+            _ownership = result.Ownership;
+        });
+}
+#endif
+```
+
+---
+
+### Read
+
+`Read` returns every item with all of its representations, plus the change count at the time of the read.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Read(_scope, result =>
+{
+    if (!result.IsSuccess || result.Contents == null)
+    {
+        Debug.LogError($"Read failed: {result.Error?.Code}");
+        return;
+    }
+
+    MacClipboardReadContents contents = result.Contents;
+    Debug.Log($"items: {contents.Items.Count}, changeCount: {contents.ChangeCount}");
+
+    foreach (MacClipboardItem item in contents.Items)
+    {
+        if (item.Representations.TryGetValue(MacClipboardTypes.PlainText, out byte[] bytes))
+        {
+            string text = System.Text.Encoding.UTF8.GetString(bytes);
+            // Use the text.
+        }
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="400" />
+</p>
+
+> **Note:** What comes back is not a mirror of what was written. An app that copies rich text declares extra flavors of its own, so a single item can carry `public.rtf`, `public.utf8-plain-text` and `public.utf16-external-plain-text` at once. Ask for the type you need and ignore the rest; never branch on the number of representations or on an exact match with what you wrote.
+
+---
+
+### Read Data
+
+`ReadData` returns the bytes for one type. A type that is absent, and a type identifier that is not valid at all, are both a **success with `Data == null`** rather than a failure, so check `Data`, not `IsSuccess`.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.ReadData(MacClipboardTypes.PlainText, _scope, result =>
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"ReadData failed: {result.Error?.Code}");
+        return;
+    }
+
+    if (result.Data == null)
+    {
+        // The pasteboard holds no plain text. This is not an error.
+        return;
+    }
+
+    string text = System.Text.Encoding.UTF8.GetString(result.Data);
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="400" />
+</p>
+
+An empty `utType` is different: it is rejected by the native layer with `ContractViolation` (1302).
+
+---
+
+### Snapshot
+
+`Snapshot` reports which types are present without reading any payload. Use it to decide whether a paste is worth doing before pulling the bytes.
+
+`matchingTypes` does not filter the reported types; it only fills `MatchingItemIndexes` with the items that carry at least one of them.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Snapshot(
+    new[] { MacClipboardTypes.PlainText, MacClipboardTypes.Html },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess || result.Snapshot == null)
+        {
+            Debug.LogError($"Snapshot failed: {result.Error?.Code}");
+            return;
+        }
+
+        MacClipboardSnapshot snapshot = result.Snapshot;
+        Debug.Log($"items: {snapshot.ItemTypes.Count}, " +
+                  $"matching: {snapshot.MatchingItemIndexes.Count}, " +
+                  $"changeCount: {snapshot.ChangeCount}");
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="400" />
+</p>
+
+Passing an empty array is not "no filter": it fails with `EmptyTypeFilter` (1512). Pass `null` for no filter.
+
+> **Note:** Skipping the payload is an optimisation, not a privacy guarantee. Neither `Snapshot` nor the detection APIs promise that the user is never notified about clipboard access.
+
+---
+
+### Detect Patterns
+
+`DetectPatterns` reports which kinds of content the pasteboard holds, without returning the values.
+
+**These three APIs need macOS 15.4.** `DetectPatterns`, `DetectValues` and `DetectMetadata` all fail with `DetectionUnavailable` (1513) below that version.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectPatterns(
+    new[]
+    {
+        MacClipboardDetectionPattern.ProbableWebUrl,
+        MacClipboardDetectionPattern.Links,
+        MacClipboardDetectionPattern.EmailAddresses,
+        MacClipboardDetectionPattern.PhoneNumbers,
+    },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess)
+        {
+            // 1513 on macOS earlier than 15.4.
+            Debug.LogError($"DetectPatterns failed: {result.Error?.Code}");
+            return;
+        }
+
+        foreach (MacClipboardDetectionPattern pattern in result.Patterns)
+        {
+            Debug.Log($"matched: {pattern}");
+        }
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="400" />
+</p>
+
+The result is the subset of the requested patterns that matched. An empty collection is rejected with `EmptyDetectionPatterns` (1503).
+
+`ProbableWebUrl`, `ProbableWebSearch` and `Number` classify the content as a whole, while the rest find items inside a longer text. A paragraph that contains a URL matches `Links` but does not match `Number`, even when it also contains digits.
+
+---
+
+### Detect Values
+
+`DetectValues` returns the detected values themselves.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectValues(
+    new[] { MacClipboardDetectionPattern.Links, MacClipboardDetectionPattern.EmailAddresses },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess || result.Values == null)
+        {
+            Debug.LogError($"DetectValues failed: {result.Error?.Code}");
+            return;
+        }
+
+        MacClipboardDetectedValues values = result.Values;
+        Debug.Log($"links: {values.Links.Count}, emails: {values.EmailAddresses.Count}");
+
+        foreach (MacClipboardDetectedLink link in values.Links)
+        {
+            Debug.Log($"url: {link.Url}");
+        }
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="400" />
+</p>
+
+Reading values can require the user's permission. When it is refused, the call fails with `DetectionDenied` (1514). No prompt appeared on the tested machines, whose access behaviour was `AlwaysAllow`, so handle 1514 defensively rather than assuming it cannot happen.
+
+---
+
+### Detect Metadata
+
+`DetectMetadata` reports the content type without reading the payload.
+
+**Plain text fails with `DetectionFailed` (1515).** The native layer cannot distinguish "there is nothing to report" from "the report could not be produced", so a plain text pasteboard, which is the common case, always takes the failure path. Treat 1515 as "no metadata available" rather than as an error worth surfacing.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectMetadata(_scope, result =>
+{
+    if (!result.IsSuccess || result.Metadata == null)
+    {
+        // 1515 for plain text, 1513 below macOS 15.4.
+        return;
+    }
+
+    Debug.Log($"contentType: {result.Metadata.ContentTypeIdentifier}");
+});
+#endif
+```
+
+---
+
+### Access Behavior
+
+`GetAccessBehavior` reports how the system treats this app's reads of another app's clipboard.
+
+| Value | Meaning |
+| --- | --- |
+| `Default` | The system default. |
+| `Ask` | The user is prompted. |
+| `AlwaysAllow` | Reads proceed without a prompt. |
+| `AlwaysDeny` | Reads are refused. |
+| `Unavailable` | macOS is earlier than 15.4. This is a success, not a failure. |
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.GetAccessBehavior(_scope, result =>
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"GetAccessBehavior failed: {result.Error?.Code}");
+        return;
+    }
+
+    if (result.Behavior == MacClipboardAccessBehavior.AlwaysDeny)
+    {
+        // Hide the paste button rather than letting it fail.
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="400" />
+</p>
+
+---
+
+### Observe Changes
+
+`StartObserving` polls the pasteboard and raises `onChanged` (and the `ClipboardChanged` event) whenever the change count moves.
+
+`intervalSeconds` must satisfy `0 < interval <= 60`; anything else, including `NaN`, fails with `InvalidConfiguration` (1523). The default is 0.5 seconds.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.StartObserving(
+    _scope,
+    intervalSeconds: 0.5,
+    onChanged: change =>
+    {
+        Debug.Log($"clipboard changed: {change.ChangeCount}");
+    },
+    onStarted: result =>
+    {
+        if (!result.IsSuccess)
+        {
+            Debug.LogError($"StartObserving failed: {result.Error?.Code}");
+        }
+    });
+#endif
+```
+
+Calling `StartObserving` again replaces the registration rather than adding a second one; the previous `onChanged` stops being called. `StopObserving` is idempotent.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.StopObserving(result =>
+{
+    // Safe to call even when nothing is being observed.
+});
+#endif
+```
+
+Two behaviours are specific to macOS and both are confirmed on hardware:
+
+- **Polling stops while the app is not frontmost and catches up when it returns.** A change made in another app is reported when the user comes back, not at the moment it happens.
+- **The catch-up is not collapsed.** Three changes made while the app was in the background arrive as three events in change count order, so a clipboard history feature does not lose entries.
+
+> **Note:** A failed restart leaves the previous observation running. `StartObserving` validates the interval and resolves the scope before touching the existing observation, so a call that fails with 1523 has not stopped anything.
+
+---
+
+### Check Foreground Change
+
+`CheckForegroundChange` answers "has the pasteboard changed since I last asked" without running a poll. The first call after a change returns `true`, and the next returns `false`.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.CheckForegroundChange(_scope, result =>
+{
+    if (result.IsSuccess && result.Changed)
+    {
+        // Refresh the paste button.
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="400" />
+</p>
+
+> **Do not combine this with observation.** The two share the same baseline change count. While `StartObserving` is running its polling updates that baseline first, so `CheckForegroundChange` returns `false` almost every time. Pick one: observation for a screen that stays open, `CheckForegroundChange` for a check on demand.
+
+---
+
+### Clear
+
+`Clear` empties the scope and returns the new change count.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Clear(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log($"cleared, changeCount: {result.ChangeCount}");
+    }
+});
+#endif
+```
+
+---
+
+### Size Limits
+
+Both directions are capped at 32 MiB.
+
+| Limit | Constant | Failure |
+| --- | --- | --- |
+| Write | `MacClipboardLimits.MaxRequestBytes` | `RequestTooLarge` (9007), raised in C# before the native call |
+| Read, per representation | `MacClipboardLimits.MaxResponseBytesPerRepresentation` | `ResponseParseFailed` (9006) |
+
+The write limit is the sum of every representation of every item. The read limit applies to each representation on its own, so many small representations can total more than 32 MiB and still be read.
+
+**The read limit applies to content another app put there, which your app does not control.** A pasteboard holding a very large image or text makes `Read` fail with 9006, which is the same code a genuinely malformed response produces. Treat 9006 on `Read` as "this pasteboard is not usable" rather than as a bug, and fall back to `Snapshot`, which does not read payloads.
+
+#### Large single items are written lazily
+
+A **single** item larger than 10 MiB takes a different path in the native layer: the pasteboard is given the types, and the bytes are supplied only when a reader asks for them.
+
+- **A successful `Copy` therefore does not mean the paste will work.** If the process exits before anything reads the data, the bytes are gone.
+- **Once anything has pasted it, the bytes are materialised and survive the process.**
+- The trigger is "one item **and** more than 10 MiB". Several items take the normal path regardless of total size.
+
+If a large payload must survive the app closing, split it across two items.
+
+---
+
+### App Sandbox
+
+The clipboard needs no entitlement beyond `com.apple.security.app-sandbox` itself. With App Sandbox enabled, copying, reading, and creating and removing named and unique pasteboards all work, so a Mac App Store build loses no operation.
+
+One unrelated trap is worth knowing: **a sandboxed player cannot write outside its container.** Passing `-logFile /tmp/player.log` makes the player exit at startup with `Unable to open log file, exiting.` Use a path under `~/Library/Containers/<bundle id>/Data/` instead. The same applies to save files and any other output your game writes by absolute path.
+
+---
+
+### Receive Events
+
+Every operation raises an event in addition to its callback. Events are useful for logging and shared UI; they cannot be matched to a specific call.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private void OnEnable()
+{
+    MacClipboardManager.Instance.OwnershipChanged += OnOwnershipChanged;
+    MacClipboardManager.Instance.ReadCompleted += OnReadCompleted;
+    MacClipboardManager.Instance.ClipboardChanged += OnClipboardChanged;
+}
+
+private void OnDisable()
+{
+    MacClipboardManager.Instance.OwnershipChanged -= OnOwnershipChanged;
+    MacClipboardManager.Instance.ReadCompleted -= OnReadCompleted;
+    MacClipboardManager.Instance.ClipboardChanged -= OnClipboardChanged;
+}
+
+private void OnOwnershipChanged(MacClipboardOwnershipResult result)
+{
+    Debug.Log($"{result.Operation}: {result.IsSuccess}");
+}
+
+private void OnReadCompleted(MacClipboardReadResult result) { }
+
+private void OnClipboardChanged(MacClipboardChangeEvent change)
+{
+    Debug.Log($"changeCount: {change.ChangeCount}");
+}
+#endif
+```
+
+Unsubscribe in `OnDisable`. The manager outlives individual scenes, so a subscription left behind keeps a destroyed object alive.
+
+---
+
+### Error Handling
+
+Every failure comes back as a result, not an exception. The only exception is `MacPasteboardScope.Named("")` and its siblings, which throw `ArgumentException` for a blank name.
+
+| Code | Constant | When |
+| --- | --- | --- |
+| 1301 | `ParseFailed` | The native layer could not parse the request. |
+| 1302 | `ContractViolation` | A required native argument was empty, such as an empty `utType`. |
+| 1501 | `EmptyContent` | The content had no items. |
+| 1502 | `EmptyRepresentations` | An item had no representations. |
+| 1503 | `EmptyDetectionPatterns` | An empty pattern collection was passed. |
+| 1504 | `InvalidTypeIdentifier` | The uniform type identifier was rejected. |
+| 1505 | `InvalidPasteboardName` | The pasteboard name was rejected. |
+| 1506 | `ContentTooLarge` | The native layer refused the payload size. |
+| 1507 | `PasteboardUnavailable` | The pasteboard could not be read. |
+| 1508 | `CannotReleaseStandardPasteboard` | `general`, `font`, `ruler`, `find` or `drag` was passed to `RemovePasteboard`. |
+| 1509 | `WriteRejected` | The write was refused. |
+| 1510 | `AppendRejected` | The append was refused. |
+| 1511 | `OwnershipLost` | Another app took the pasteboard before the append. |
+| 1512 | `EmptyTypeFilter` | An empty array was passed to `Snapshot`. |
+| 1513 | `DetectionUnavailable` | macOS is earlier than 15.4. |
+| 1514 | `DetectionDenied` | The user refused the read. |
+| 1515 | `DetectionFailed` | Detection produced nothing, including plain text metadata. |
+| 1523 | `InvalidConfiguration` | The observation interval was outside `0 < interval <= 60`. |
+| 1599 | `Unknown` | Unclassified native failure. |
+| 9001 | `Busy` | The same operation is already running. |
+| 9002 | `BridgeUnavailable` | Called in the Editor or on another platform. |
+| 9003 | `MainThreadRequired` | Called off the Unity main thread. |
+| 9004 | `ManagerDestroyed` | The manager was destroyed. |
+| 9005 | `InvalidRequest` | A required argument was null. |
+| 9006 | `ResponseParseFailed` | The response could not be parsed, including a representation over 32 MiB. |
+| 9007 | `RequestTooLarge` | The payload exceeded 32 MiB. |
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Read(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        return;
+    }
+
+    switch (result.Error?.Code)
+    {
+        case MacClipboardErrorCodes.ResponseParseFailed:
+            // Includes a pasteboard too large to read. Fall back to Snapshot.
+            break;
+        case MacClipboardErrorCodes.Busy:
+            // A Read is already running; ignore this one.
+            break;
+        default:
+            Debug.LogError($"Read failed: {result.Error?.Code}");
+            break;
+    }
+});
+#endif
+```
+
+> **Note:** `Error.Message` is built by the native layer and can contain a pasteboard name. Log the `Code` and your own wording rather than the raw message when the text could reach a user-visible surface.

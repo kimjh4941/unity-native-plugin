@@ -59,6 +59,31 @@
   - [동시 실행과 Busy 거부](#동시-실행과-busy-거부)
   - [이벤트 수신](#이벤트-수신-1)
   - [에러 처리](#에러-처리-1)
+- [macOS](#macos)
+  - [설정](#설정-2)
+  - [페이스트보드 스코프](#페이스트보드-스코프-1)
+  - [일반 텍스트 복사](#일반-텍스트-복사-2)
+  - [HTML 텍스트 복사](#html-텍스트-복사-2)
+  - [URL 복사](#url-복사-1)
+  - [사용자 정의 데이터 복사](#사용자-정의-데이터-복사)
+  - [여러 항목 복사](#여러-항목-복사)
+  - [여러 표현 복사](#여러-표현-복사)
+  - [복사 옵션: 로컬 전용](#복사-옵션-로컬-전용)
+  - [추가](#추가-1)
+  - [읽기](#읽기-1)
+  - [타입을 지정한 읽기](#타입을-지정한-읽기)
+  - [스냅샷](#스냅샷-1)
+  - [패턴 감지](#패턴-감지-1)
+  - [값 감지](#값-감지-1)
+  - [메타데이터 감지](#메타데이터-감지)
+  - [접근 동작 확인](#접근-동작-확인)
+  - [변경 감시](#변경-감시)
+  - [전면 복귀 시 변경 확인](#전면-복귀-시-변경-확인)
+  - [지우기](#지우기-1)
+  - [크기 제한](#크기-제한)
+  - [App Sandbox](#app-sandbox)
+  - [이벤트 수신](#이벤트-수신-2)
+  - [오류 처리](#오류-처리)
 
 ---
 
@@ -1389,3 +1414,767 @@ Unity 측에서 네이티브 호출 전에 또는 대신 반환되는 코드:
 | `IosPasteboardScope.Named` / `Unique`, `IosPasteboardCreationRequest.Named` | 이름이 공백이면 `ArgumentException` |
 | `IosClipboardContent.Color` | 성분이 `NaN` 또는 무한대이면 `ArgumentException` |
 | 그 밖의 `IosClipboardContent` 팩토리, `IosClipboardLoadRequest.File` | 인자가 `null`이면 `ArgumentNullException` |
+
+## macOS
+
+### 설정
+
+#### 네임스페이스 가져오기
+
+`MacClipboardManager`는 macOS 스탠드얼론 빌드 타깃이 선택되어 있으면 에디터를 포함해 항상 컴파일됩니다. 에디터에서 호출해도 크래시가 나지 않습니다. 모든 작업이 네이티브 브리지에 닿지 않고 즉시 `BridgeUnavailable`(9002) 실패를 돌려주므로, 에디터에서도 실행되는 씬에 같은 코드를 그대로 둘 수 있습니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+#endif
+```
+
+네이티브 계층의 대상은 macOS 15 이상입니다. 세 가지 작업만 macOS 15.4가 필요합니다. [패턴 감지](#패턴-감지)를 참고하십시오.
+
+#### 모든 작업은 비동기
+
+macOS에는 동기 API가 없습니다. 각 호출은 선택적인 콜백을 받고, 같은 종류의 호출마다 발생하는 이벤트도 함께 전달합니다.
+
+| 메서드 | 콜백 결과 | 이벤트 |
+| --- | --- | --- |
+| `Copy`, `Append` | `MacClipboardOwnershipResult` | `OwnershipChanged` |
+| `Read` | `MacClipboardReadResult` | `ReadCompleted` |
+| `ReadData` | `MacClipboardReadDataResult` | `ReadDataCompleted` |
+| `Snapshot` | `MacClipboardSnapshotResult` | `SnapshotCompleted` |
+| `Clear` | `MacClipboardChangeCountResult` | `ClearCompleted` |
+| `CreatePasteboard` | `MacPasteboardScopeResult` | `PasteboardCreated` |
+| `RemovePasteboard`, `StartObserving`, `StopObserving` | `MacClipboardOperationResult` | `ClipboardOperationCompleted` |
+| `DetectPatterns` | `MacClipboardDetectedPatternsResult` | `PatternsDetected` |
+| `DetectValues` | `MacClipboardDetectedValuesResult` | `ValuesDetected` |
+| `DetectMetadata` | `MacClipboardDetectedMetadataResult` | `MetadataDetected` |
+| `GetAccessBehavior` | `MacClipboardAccessBehaviorResult` | `AccessBehaviorChecked` |
+| `CheckForegroundChange` | `MacClipboardForegroundChangeResult` | `ForegroundChangeChecked` |
+| (감시) | `MacClipboardChangeEvent` | `ClipboardChanged` |
+
+이벤트만으로는 어느 호출에 대응하는지 알 수 없습니다. 결과를 특정 요청과 연결해야 할 때는 반드시 콜백을 사용하고, 이벤트는 로그나 공용 UI 갱신에만 사용하십시오. 모든 결과는 `IsSuccess`를 제공하며 실패 시 `Error`(`int Code`와 `string Message`를 가진 `MacClipboardErrorInfo`)를 돌려줍니다.
+
+#### 메인 스레드 전용
+
+모든 공개 API는 Unity 메인 스레드에서 호출해야 합니다. 다른 스레드에서 호출하면 `MainThreadRequired`(9003)로 거부되며 네이티브 계층에 도달하지 않습니다. 콜백과 이벤트는 항상 메인 스레드로 전달되므로 그 안에서 Unity API를 바로 사용할 수 있습니다.
+
+#### 작업당 동시 1건
+
+호출은 작업 단위로 직렬화됩니다. 실행 중인 `Read`가 있을 때 두 번째 `Read`를 보내면 `Busy`(9001)로 거부되지만, `Read`와 `Snapshot`은 동시에 실행됩니다. `StartObserving`과 `StopObserving`은 하나의 키를 공유하므로 한쪽이 응답을 기다리는 동안 다른 쪽을 시작할 수 없습니다.
+
+#### 매니저의 수명
+
+`MacClipboardManager.Instance`는 최초 접근 시 매니저를 생성하고, 네이티브 계층은 첫 호출에서 초기화됩니다. 실행 중에 파기하고 다시 만드는 것은 지원하지 않습니다. 한 번 파기되면 `MacClipboardManager.IsTerminated`가 `true`가 되고 이후 모든 API가 `ManagerDestroyed`(9004)를 돌려줍니다.
+
+---
+
+### 페이스트보드 스코프
+
+모든 작업은 스코프를 대상으로 실행됩니다. `scope` 매개변수를 생략(`null`)하면 일반 페이스트보드가 대상이 됩니다.
+
+| 스코프 | 팩토리 | 설명 |
+| --- | --- | --- |
+| General | `MacPasteboardScope.General` | 다른 앱과 공유되는 시스템 페이스트보드. |
+| Named | `MacPasteboardScope.Named(name)` | 앱이 이름을 정하는 페이스트보드. `CreatePasteboard`로 한 번 생성합니다. |
+| Unique | `MacPasteboardScope.Unique(name)` | 이름을 시스템이 생성하는 페이스트보드. 이름은 `CreatePasteboard`의 결과로 받습니다. |
+
+`Named`와 `Unique`는 이름이 비어 있거나 공백뿐일 때 `ArgumentException`을 던집니다. 네이티브 계층은 그런 이름도 그대로 받아들여 의도하지 않은 페이스트보드를 조작하므로, 이 검사는 C# 쪽에만 있습니다. 스코프를 만들기 전에 입력을 검증하십시오.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private MacPasteboardScope _scope = MacPasteboardScope.General;
+
+// 이름 있는 페이스트보드를 만들고 활성 스코프로 보관합니다.
+MacClipboardManager.Instance.CreatePasteboard(
+    MacPasteboardCreationRequest.Named("com.jonghyunkim.nativetoolkit.example.sample"),
+    result =>
+    {
+        if (!result.IsSuccess || result.Scope == null)
+        {
+            Debug.LogError($"CreatePasteboard failed: {result.Error?.Code}");
+            return;
+        }
+
+        _scope = result.Scope;
+    });
+
+// 시스템이 이름을 정하는 페이스트보드. 이름은 결과로만 알 수 있습니다.
+MacClipboardManager.Instance.CreatePasteboard(
+    MacPasteboardCreationRequest.Unique,
+    result => _scope = result.IsSuccess && result.Scope != null ? result.Scope : _scope);
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="400" />
+</p>
+
+이름 있는 페이스트보드와 고유 페이스트보드는 `RemovePasteboard`로 해제합니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.RemovePasteboard(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        _scope = MacPasteboardScope.General;
+    }
+});
+#endif
+```
+
+> **참고:** `RemovePasteboard`가 버리는 것은 이름이 아니라 내용입니다. 해제된 스코프를 읽으면 성공하고 항목이 0개로 돌아옵니다. 오류를 기다리지 말고 빈 읽기를 "이미 없음"으로 해석하십시오.
+
+표준 페이스트보드는 해제할 수 없습니다. `general`, `font`, `ruler`, `find`, `drag` 모두 `CannotReleaseStandardPasteboard`(1508)로 실패합니다. 판정은 이름으로 이루어지므로 이 다섯 이름을 `Unique` 스코프로 넘겨도 똑같이 실패합니다.
+
+이름 있는 페이스트보드와 고유 페이스트보드는 프로세스가 끝난 뒤에도 페이스트보드 서버에 남습니다. 더 필요 없는 고유 페이스트보드는 명시적으로 해제하고, 민감한 데이터를 이름 있는 페이스트보드에 두지 마십시오.
+
+---
+
+### 일반 텍스트 복사
+
+`Copy`는 페이스트보드 내용을 통째로 교체하고, [추가](#추가)가 필요로 하는 `MacPasteboardOwnership`을 돌려줍니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private MacPasteboardOwnership? _ownership;
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard"),
+    _scope,
+    options: null,
+    onResult: result =>
+    {
+        if (!result.IsSuccess)
+        {
+            Debug.LogError($"Copy failed: {result.Error?.Code}");
+            return;
+        }
+
+        _ownership = result.Ownership;
+    });
+#endif
+```
+
+---
+
+### HTML 텍스트 복사
+
+하나의 항목은 여러 표현을 가질 수 있습니다. `Html`은 `public.html`을 기록하고, 폴백을 넘기면 같은 항목에 `public.utf8-plain-text`도 함께 기록합니다. HTML을 다루지 못하는 앱에서도 읽을 수 있는 텍스트가 남습니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Html("<b>Hello</b>", "Hello")),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### URL 복사
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Url("https://unity.com")),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### 사용자 정의 데이터 복사
+
+앱이 정의한 uniform type identifier로 원시 바이트를 기록합니다. 다른 앱은 이 타입을 알아보지 못합니다. 그것이 목적이며, 자신의 씬이나 프로세스 사이에서 데이터를 옮길 때 사용합니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+byte[] payload = System.Text.Encoding.UTF8.GetBytes("{\"level\":12}");
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.Data(
+        "com.jonghyunkim.nativetoolkit.example.custom", payload)),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### 여러 항목 복사
+
+`Multiple`은 여러 항목을 순서대로 기록합니다. 받는 앱이 그것을 어떻게 쓸지는 받는 쪽이 정합니다. 서식 있는 텍스트 뷰는 전부 읽고, 한 줄짜리 입력란은 보통 첫 번째만 사용합니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Multiple(new[]
+    {
+        MacClipboardContentItem.PlainText("Hello macOS clipboard"),
+        MacClipboardContentItem.Url("https://unity.com"),
+    }),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### 여러 표현 복사
+
+같은 내용의 여러 표현을 하나의 항목에 담습니다. 받는 앱이 원하는 타입을 고릅니다.
+
+`MacClipboardContentItem`에는 public 생성자가 없습니다. `FromRepresentations`가 범용 팩토리로, 타입에서 바이트로 가는 딕셔너리를 받아 그 전부를 하나의 항목에 넣습니다. 이름 있는 팩토리로는 만들 수 없는 타입 조합은 이것으로 만듭니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+var representations = new Dictionary<string, byte[]>
+{
+    [MacClipboardTypes.PlainText] = System.Text.Encoding.UTF8.GetBytes("Hello"),
+    [MacClipboardTypes.Html] = System.Text.Encoding.UTF8.GetBytes("<b>Hello</b>"),
+};
+
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.Single(MacClipboardContentItem.FromRepresentations(representations)),
+    _scope,
+    options: null,
+    onResult: result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### 복사 옵션: 로컬 전용
+
+`MacClipboardCopyOptions`는 이 쓰기를 Universal Clipboard를 통해 사용자의 다른 Apple 기기에 전달할지 제어합니다.
+
+| 옵션 | 의미 |
+| --- | --- |
+| `MacClipboardCopyOptions.PrivacyPreservingDefault` | `localOnly: true`. 이 Mac 안에만 머무릅니다. |
+| `MacClipboardCopyOptions.Create(false)` | 같은 Apple 계정으로 로그인한 가까운 기기에 전달됩니다. |
+| `null` | 시스템 기본값을 따릅니다. |
+
+두 동작 모두 실제 기기에서 확인했습니다. `localOnly: false`에서는 다른 기기에 텍스트가 나타나고, `localOnly: true`에서는 그 기기의 내용이 그대로 유지됩니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+// 액세스 토큰을 이 Mac 안에만 둡니다.
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard (localOnly true, local)"),
+    _scope,
+    MacClipboardCopyOptions.PrivacyPreservingDefault,
+    result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+
+// 초대 코드를 사용자의 iPhone까지 전달합니다.
+MacClipboardManager.Instance.Copy(
+    MacClipboardContent.PlainText("Hello macOS clipboard (localOnly false, shared)"),
+    _scope,
+    MacClipboardCopyOptions.Create(false),
+    result => _ownership = result.IsSuccess ? result.Ownership : _ownership);
+#endif
+```
+
+---
+
+### 추가
+
+`Append`는 기존 내용을 지우지 않고 항목을 덧붙이며, 직전 `Copy`가 돌려준 `MacPasteboardOwnership`이 필요합니다.
+
+`Append`에는 다른 쓰기 경로와 다른, 실무에서 중요한 성질이 두 가지 있습니다.
+
+- **소유권을 검사합니다.** 도중에 다른 앱이 복사하면 조용히 무시되지 않고 `OwnershipLost`(1511)로 실패합니다.
+- **성공한 추가는 changeCount를 바꾸지 않습니다.** 따라서 같은 ownership을 다음 추가에 그대로 쓸 수 있습니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+if (_ownership != null)
+{
+    MacClipboardManager.Instance.Append(
+        MacClipboardContent.PlainText("Hello macOS clipboard"),
+        _ownership,
+        result =>
+        {
+            if (!result.IsSuccess)
+            {
+                // 1511: 다른 앱이 페이스트보드를 가져갔습니다. 다시 Copy 해 소유권을 되찾습니다.
+                Debug.LogError($"Append failed: {result.Error?.Code}");
+                return;
+            }
+
+            _ownership = result.Ownership;
+        });
+}
+#endif
+```
+
+---
+
+### 읽기
+
+`Read`는 모든 항목을 그 전체 표현과 함께 돌려주고, 읽은 시점의 changeCount도 함께 돌려줍니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Read(_scope, result =>
+{
+    if (!result.IsSuccess || result.Contents == null)
+    {
+        Debug.LogError($"Read failed: {result.Error?.Code}");
+        return;
+    }
+
+    MacClipboardReadContents contents = result.Contents;
+    Debug.Log($"items: {contents.Items.Count}, changeCount: {contents.ChangeCount}");
+
+    foreach (MacClipboardItem item in contents.Items)
+    {
+        if (item.Representations.TryGetValue(MacClipboardTypes.PlainText, out byte[] bytes))
+        {
+            string text = System.Text.Encoding.UTF8.GetString(bytes);
+            // 텍스트를 사용합니다.
+        }
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="400" />
+</p>
+
+> **참고:** 돌아오는 내용은 기록한 내용의 거울이 아닙니다. 서식 있는 텍스트를 복사하는 앱은 스스로 추가 표현을 선언하므로, 하나의 항목이 `public.rtf`와 `public.utf8-plain-text`와 `public.utf16-external-plain-text`를 동시에 가질 수 있습니다. 필요한 타입만 요청하고 나머지는 무시하십시오. **표현의 개수나 기록한 내용과의 완전 일치로 분기를 작성하지 마십시오.**
+
+---
+
+### 타입을 지정한 읽기
+
+`ReadData`는 하나의 타입에 대한 바이트를 돌려줍니다. **해당 타입이 없는 경우도, 타입 식별자가 아예 올바르지 않은 경우도 실패가 아니라 `Data == null`인 성공**입니다. `IsSuccess`가 아니라 `Data`를 확인하십시오.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.ReadData(MacClipboardTypes.PlainText, _scope, result =>
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"ReadData failed: {result.Error?.Code}");
+        return;
+    }
+
+    if (result.Data == null)
+    {
+        // 페이스트보드에 일반 텍스트가 없습니다. 오류가 아닙니다.
+        return;
+    }
+
+    string text = System.Text.Encoding.UTF8.GetString(result.Data);
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="400" />
+</p>
+
+빈 문자열 `utType`은 다릅니다. 네이티브 계층이 `ContractViolation`(1302)으로 거부합니다.
+
+---
+
+### 스냅샷
+
+`Snapshot`은 페이로드를 읽지 않고 어떤 타입이 있는지만 보고합니다. 바이트를 꺼내기 전에 붙여넣을 가치가 있는지 판단할 때 사용합니다.
+
+`matchingTypes`는 보고되는 타입을 걸러내지 않습니다. 지정한 타입을 하나 이상 가진 항목의 인덱스가 `MatchingItemIndexes`에 담길 뿐입니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Snapshot(
+    new[] { MacClipboardTypes.PlainText, MacClipboardTypes.Html },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess || result.Snapshot == null)
+        {
+            Debug.LogError($"Snapshot failed: {result.Error?.Code}");
+            return;
+        }
+
+        MacClipboardSnapshot snapshot = result.Snapshot;
+        Debug.Log($"items: {snapshot.ItemTypes.Count}, " +
+                  $"matching: {snapshot.MatchingItemIndexes.Count}, " +
+                  $"changeCount: {snapshot.ChangeCount}");
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="400" />
+</p>
+
+빈 배열은 "필터 없음"이 아닙니다. `EmptyTypeFilter`(1512)로 실패합니다. 필터를 걸지 않으려면 `null`을 넘기십시오.
+
+> **참고:** 페이로드를 읽지 않는 것은 최적화이지 프라이버시 보장이 아닙니다. `Snapshot`도 감지 API도 사용자에게 클립보드 접근이 알려지지 않는다고 보장하지 않습니다.
+
+---
+
+### 패턴 감지
+
+`DetectPatterns`는 값 자체를 돌려주지 않고 페이스트보드가 어떤 종류의 내용을 담고 있는지 보고합니다.
+
+**이 세 API는 macOS 15.4가 필요합니다.** `DetectPatterns`, `DetectValues`, `DetectMetadata` 모두 그 미만 버전에서 `DetectionUnavailable`(1513)로 실패합니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectPatterns(
+    new[]
+    {
+        MacClipboardDetectionPattern.ProbableWebUrl,
+        MacClipboardDetectionPattern.Links,
+        MacClipboardDetectionPattern.EmailAddresses,
+        MacClipboardDetectionPattern.PhoneNumbers,
+    },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess)
+        {
+            // macOS 15.4 미만에서는 1513.
+            Debug.LogError($"DetectPatterns failed: {result.Error?.Code}");
+            return;
+        }
+
+        foreach (MacClipboardDetectionPattern pattern in result.Patterns)
+        {
+            Debug.Log($"matched: {pattern}");
+        }
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="400" />
+</p>
+
+돌아오는 것은 요청한 패턴 중 일치한 것들입니다. 빈 컬렉션은 `EmptyDetectionPatterns`(1503)로 거부됩니다.
+
+`ProbableWebUrl`, `ProbableWebSearch`, `Number`는 내용 전체를 분류하는 패턴이고, 나머지는 긴 글 안에서 개별 요소를 찾습니다. URL이 들어 있는 문단은 `Links`에 일치하지만, 숫자가 들어 있어도 `Number`에는 일치하지 않습니다.
+
+---
+
+### 값 감지
+
+`DetectValues`는 감지한 값 자체를 돌려줍니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectValues(
+    new[] { MacClipboardDetectionPattern.Links, MacClipboardDetectionPattern.EmailAddresses },
+    _scope,
+    result =>
+    {
+        if (!result.IsSuccess || result.Values == null)
+        {
+            Debug.LogError($"DetectValues failed: {result.Error?.Code}");
+            return;
+        }
+
+        MacClipboardDetectedValues values = result.Values;
+        Debug.Log($"links: {values.Links.Count}, emails: {values.EmailAddresses.Count}");
+
+        foreach (MacClipboardDetectedLink link in values.Links)
+        {
+            Debug.Log($"url: {link.Url}");
+        }
+    });
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="400" />
+</p>
+
+값을 읽을 때 사용자 허가가 필요할 수 있습니다. 거부되면 `DetectionDenied`(1514)로 실패합니다. 확인한 기기에서는 접근 설정이 `AlwaysAllow`여서 대화상자가 나타나지 않았지만, 일어나지 않는다고 가정하지 말고 1514를 받아도 문제없도록 작성하십시오.
+
+---
+
+### 메타데이터 감지
+
+`DetectMetadata`는 페이로드를 읽지 않고 내용의 종류를 보고합니다.
+
+**일반 텍스트에서는 `DetectionFailed`(1515)로 실패합니다.** 네이티브 계층은 "보고할 것이 없음"과 "보고를 만들지 못함"을 구분할 수 없어, 가장 흔한 일반 텍스트 페이스트보드에서는 항상 실패 경로를 지납니다. 1515는 드러낼 오류가 아니라 "메타데이터 없음"으로 다루십시오.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.DetectMetadata(_scope, result =>
+{
+    if (!result.IsSuccess || result.Metadata == null)
+    {
+        // 일반 텍스트에서는 1515, macOS 15.4 미만에서는 1513.
+        return;
+    }
+
+    Debug.Log($"contentType: {result.Metadata.ContentTypeIdentifier}");
+});
+#endif
+```
+
+---
+
+### 접근 동작 확인
+
+`GetAccessBehavior`는 다른 앱의 클립보드를 읽는 동작을 시스템이 어떻게 처리하는지 돌려줍니다.
+
+| 값 | 의미 |
+| --- | --- |
+| `Default` | 시스템 기본값. |
+| `Ask` | 사용자에게 확인합니다. |
+| `AlwaysAllow` | 확인 없이 읽습니다. |
+| `AlwaysDeny` | 읽기가 거부됩니다. |
+| `Unavailable` | macOS가 15.4 미만. **실패가 아니라 성공으로 돌아옵니다.** |
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.GetAccessBehavior(_scope, result =>
+{
+    if (!result.IsSuccess)
+    {
+        Debug.LogError($"GetAccessBehavior failed: {result.Error?.Code}");
+        return;
+    }
+
+    if (result.Behavior == MacClipboardAccessBehavior.AlwaysDeny)
+    {
+        // 실패하게 두지 말고 붙여넣기 버튼을 숨깁니다.
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="400" />
+</p>
+
+---
+
+### 변경 감시
+
+`StartObserving`은 페이스트보드를 폴링하다가 changeCount가 움직일 때마다 `onChanged`(그리고 `ClipboardChanged` 이벤트)를 발생시킵니다.
+
+`intervalSeconds`는 `0 < interval <= 60`을 만족해야 합니다. `NaN`을 포함해 범위를 벗어난 값은 `InvalidConfiguration`(1523)으로 실패합니다. 기본값은 0.5초입니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.StartObserving(
+    _scope,
+    intervalSeconds: 0.5,
+    onChanged: change =>
+    {
+        Debug.Log($"clipboard changed: {change.ChangeCount}");
+    },
+    onStarted: result =>
+    {
+        if (!result.IsSuccess)
+        {
+            Debug.LogError($"StartObserving failed: {result.Error?.Code}");
+        }
+    });
+#endif
+```
+
+`StartObserving`을 다시 호출하면 구독이 추가되는 것이 아니라 교체됩니다. 이전 `onChanged`는 더 이상 호출되지 않습니다. `StopObserving`은 멱등입니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.StopObserving(result =>
+{
+    // 감시하고 있지 않은 상태에서 호출해도 안전합니다.
+});
+#endif
+```
+
+macOS 고유의 동작이 두 가지 있으며, 둘 다 실제 기기에서 확인했습니다.
+
+- **앱이 맨 앞에 있지 않은 동안에는 폴링이 멈추고, 돌아올 때 밀린 만큼 따라잡습니다.** 다른 앱에서 일어난 변경은 그 순간이 아니라 사용자가 돌아왔을 때 보고됩니다.
+- **따라잡기는 하나로 합쳐지지 않습니다.** 백그라운드에 있는 동안 세 번 변경되었다면 changeCount 오름차순으로 세 개의 이벤트가 도착합니다. 클립보드 기록 같은 기능에서도 항목을 놓치지 않습니다.
+
+> **참고:** 재시작에 실패해도 이전 감시는 계속 동작합니다. `StartObserving`은 기존 감시를 건드리기 전에 간격을 검증하고 스코프를 해석하므로, 1523으로 실패한 호출은 아무것도 멈추지 않았습니다.
+
+---
+
+### 전면 복귀 시 변경 확인
+
+`CheckForegroundChange`는 폴링을 돌리지 않고 "지난번에 물어본 뒤로 바뀌었는지"에 답합니다. 변경 후 첫 호출은 `true`를 돌려주고 다음 호출은 `false`를 돌려줍니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.CheckForegroundChange(_scope, result =>
+{
+    if (result.IsSuccess && result.Changed)
+    {
+        // 붙여넣기 버튼을 갱신합니다.
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="400" />
+</p>
+
+> **감시와 함께 쓰지 마십시오.** 둘은 같은 기준 changeCount를 공유합니다. `StartObserving`이 도는 동안에는 폴링이 기준을 먼저 갱신하므로 `CheckForegroundChange`는 거의 언제나 `false`를 돌려줍니다. 계속 열려 있는 화면이면 감시를, 필요할 때만 확인하려면 `CheckForegroundChange`를 선택하십시오.
+
+---
+
+### 지우기
+
+`Clear`는 스코프를 비우고 새 changeCount를 돌려줍니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Clear(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log($"cleared, changeCount: {result.ChangeCount}");
+    }
+});
+#endif
+```
+
+---
+
+### 크기 제한
+
+보내는 쪽과 받는 쪽 모두 32 MiB가 상한입니다.
+
+| 제한 | 상수 | 실패 |
+| --- | --- | --- |
+| 쓰기 | `MacClipboardLimits.MaxRequestBytes` | `RequestTooLarge`(9007). 네이티브 호출 전에 C#에서 발생합니다. |
+| 읽기(표현 단위) | `MacClipboardLimits.MaxResponseBytesPerRepresentation` | `ResponseParseFailed`(9006) |
+
+쓰기 상한은 모든 항목의 모든 표현을 합한 값입니다. 읽기 상한은 표현 하나하나에 적용되므로, 작은 표현이 많아 합계가 32 MiB를 넘어도 읽을 수 있습니다.
+
+**읽기 상한은 다른 앱이 올려둔 내용에 적용되며, 이는 내 앱이 제어할 수 없습니다.** 아주 큰 이미지나 텍스트가 올라와 있으면 `Read`가 9006으로 실패하는데, 이는 실제로 손상된 응답과 같은 코드입니다. `Read`의 9006은 결함이 아니라 "이 페이스트보드는 다룰 수 없음"으로 해석하고, 페이로드를 읽지 않는 `Snapshot`으로 대체하십시오.
+
+#### 큰 단일 항목은 지연 기록됩니다
+
+**단일** 항목이 10 MiB를 넘으면 네이티브 계층은 다른 경로를 지납니다. 페이스트보드에는 타입만 올라가고, 바이트는 읽는 쪽이 요구한 시점에 공급됩니다.
+
+- **따라서 `Copy`의 성공은 붙여넣을 수 있음을 뜻하지 않습니다.** 무언가가 읽기 전에 프로세스가 끝나면 바이트는 사라집니다.
+- **한 번이라도 붙여넣어졌다면 바이트가 실체화되어 프로세스 종료 후에도 남습니다.**
+- 발동 조건은 "항목이 하나**이고** 10 MiB 초과"입니다. 항목이 여러 개면 합계 크기와 상관없이 일반 경로를 지납니다.
+
+큰 페이로드를 앱 종료 후에도 남겨야 한다면 두 개의 항목으로 나누십시오.
+
+---
+
+### App Sandbox
+
+클립보드는 `com.apple.security.app-sandbox` 외의 entitlement를 필요로 하지 않습니다. App Sandbox를 켠 상태에서도 복사, 읽기, 이름 있는 페이스트보드와 고유 페이스트보드의 생성 및 해제가 모두 동작합니다. Mac App Store용 빌드에서도 못 쓰게 되는 작업은 없습니다.
+
+클립보드와는 무관하지만 알아둘 만한 함정이 하나 있습니다. **샌드박스에서 실행되는 플레이어는 컨테이너 밖에 쓸 수 없습니다.** `-logFile /tmp/player.log`를 넘기면 플레이어가 시작 시 `Unable to open log file, exiting.`를 남기고 종료합니다. `~/Library/Containers/<bundle id>/Data/` 아래 경로를 사용하십시오. 세이브 파일처럼 절대 경로로 내보내는 모든 출력에 같은 이야기가 적용됩니다.
+
+---
+
+### 이벤트 수신
+
+모든 작업은 콜백과 별개로 이벤트도 발생시킵니다. 이벤트는 로그나 공용 UI에 적합하지만 특정 호출과 연결할 수는 없습니다.
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+private void OnEnable()
+{
+    MacClipboardManager.Instance.OwnershipChanged += OnOwnershipChanged;
+    MacClipboardManager.Instance.ReadCompleted += OnReadCompleted;
+    MacClipboardManager.Instance.ClipboardChanged += OnClipboardChanged;
+}
+
+private void OnDisable()
+{
+    MacClipboardManager.Instance.OwnershipChanged -= OnOwnershipChanged;
+    MacClipboardManager.Instance.ReadCompleted -= OnReadCompleted;
+    MacClipboardManager.Instance.ClipboardChanged -= OnClipboardChanged;
+}
+
+private void OnOwnershipChanged(MacClipboardOwnershipResult result)
+{
+    Debug.Log($"{result.Operation}: {result.IsSuccess}");
+}
+
+private void OnReadCompleted(MacClipboardReadResult result) { }
+
+private void OnClipboardChanged(MacClipboardChangeEvent change)
+{
+    Debug.Log($"changeCount: {change.ChangeCount}");
+}
+#endif
+```
+
+구독은 `OnDisable`에서 해제하십시오. 매니저는 개별 씬보다 오래 살아남으므로, 해제를 잊으면 파기된 오브젝트가 계속 살아 있게 됩니다.
+
+---
+
+### 오류 처리
+
+실패는 모두 예외가 아니라 결과로 돌아옵니다. 유일한 예외가 `MacPasteboardScope.Named("")` 같은 경우로, 빈 이름에 대해 `ArgumentException`을 던집니다.
+
+| 코드 | 상수 | 발생 조건 |
+| --- | --- | --- |
+| 1301 | `ParseFailed` | 네이티브 계층이 요청을 해석하지 못했습니다. |
+| 1302 | `ContractViolation` | 빈 `utType`처럼 필수 네이티브 인자가 비었습니다. |
+| 1501 | `EmptyContent` | 내용에 항목이 없었습니다. |
+| 1502 | `EmptyRepresentations` | 항목에 표현이 없었습니다. |
+| 1503 | `EmptyDetectionPatterns` | 빈 패턴 컬렉션을 넘겼습니다. |
+| 1504 | `InvalidTypeIdentifier` | uniform type identifier가 거부되었습니다. |
+| 1505 | `InvalidPasteboardName` | 페이스트보드 이름이 거부되었습니다. |
+| 1506 | `ContentTooLarge` | 네이티브 계층이 페이로드 크기를 거부했습니다. |
+| 1507 | `PasteboardUnavailable` | 페이스트보드를 읽지 못했습니다. |
+| 1508 | `CannotReleaseStandardPasteboard` | `general`, `font`, `ruler`, `find`, `drag`를 `RemovePasteboard`에 넘겼습니다. |
+| 1509 | `WriteRejected` | 쓰기가 거부되었습니다. |
+| 1510 | `AppendRejected` | 추가가 거부되었습니다. |
+| 1511 | `OwnershipLost` | 추가 전에 다른 앱이 페이스트보드를 가져갔습니다. |
+| 1512 | `EmptyTypeFilter` | `Snapshot`에 빈 배열을 넘겼습니다. |
+| 1513 | `DetectionUnavailable` | macOS가 15.4 미만입니다. |
+| 1514 | `DetectionDenied` | 사용자가 읽기를 거부했습니다. |
+| 1515 | `DetectionFailed` | 감지가 아무것도 만들지 못했습니다. 일반 텍스트의 메타데이터를 포함합니다. |
+| 1523 | `InvalidConfiguration` | 감시 간격이 `0 < interval <= 60` 범위를 벗어났습니다. |
+| 1599 | `Unknown` | 분류되지 않은 네이티브 실패. |
+| 9001 | `Busy` | 같은 작업이 이미 실행 중입니다. |
+| 9002 | `BridgeUnavailable` | 에디터 또는 대상 외 플랫폼에서 호출했습니다. |
+| 9003 | `MainThreadRequired` | Unity 메인 스레드가 아닌 곳에서 호출했습니다. |
+| 9004 | `ManagerDestroyed` | 매니저가 파기되었습니다. |
+| 9005 | `InvalidRequest` | 필수 인자가 null이었습니다. |
+| 9006 | `ResponseParseFailed` | 응답을 해석하지 못했습니다. 32 MiB를 넘는 표현을 포함합니다. |
+| 9007 | `RequestTooLarge` | 페이로드가 32 MiB를 넘었습니다. |
+
+```csharp
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR
+MacClipboardManager.Instance.Read(_scope, result =>
+{
+    if (result.IsSuccess)
+    {
+        return;
+    }
+
+    switch (result.Error?.Code)
+    {
+        case MacClipboardErrorCodes.ResponseParseFailed:
+            // 읽을 수 없을 만큼 큰 페이스트보드를 포함합니다. Snapshot으로 대체합니다.
+            break;
+        case MacClipboardErrorCodes.Busy:
+            // 이미 Read가 실행 중입니다. 이 호출은 무시합니다.
+            break;
+        default:
+            Debug.LogError($"Read failed: {result.Error?.Code}");
+            break;
+    }
+});
+#endif
+```
+
+> **참고:** `Error.Message`는 네이티브 계층이 만든 문자열이며 페이스트보드 이름을 담을 수 있습니다. 사용자에게 보일 수 있는 곳에서는 원문 메시지 대신 `Code`와 직접 작성한 문구를 출력하십시오.

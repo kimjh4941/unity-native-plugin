@@ -11,7 +11,7 @@
 
 ## 버전
 
-- 1.9.0
+- 1.10.0
 
 ## 지원 OS 버전
 
@@ -134,13 +134,23 @@
   - 서비스 제외 공유
   - 지정 서비스 경유 공유 (Mail 등)
 
+- 클립보드 기능
+  - 일반 텍스트 / HTML / URL / 사용자 정의 데이터 복사
+  - 여러 항목과 여러 표현 복사
+  - 소유권을 사용한 추가
+  - 클립보드 읽기, 타입 지정 읽기, 페이로드를 읽지 않는 스냅샷
+  - 패턴 / 값 / 메타데이터 감지 (macOS 15.4 이상)
+  - 이름 있는 페이스트보드와 고유 페이스트보드
+  - 클립보드 변경 감시와 전면 복귀 시 변경 확인
+  - Universal Clipboard로 나가지 않는 로컬 전용 복사
+
 ## 설치
 
 - Unity 6을 실행합니다.
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.9.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
