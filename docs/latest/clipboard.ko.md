@@ -1505,7 +1505,7 @@ MacClipboardManager.Instance.CreatePasteboard(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="800" />
 </p>
 
 이름 있는 페이스트보드와 고유 페이스트보드는 `RemovePasteboard`로 해제합니다.
@@ -1745,7 +1745,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="800" />
 </p>
 
 > **참고:** 돌아오는 내용은 기록한 내용의 거울이 아닙니다. 서식 있는 텍스트를 복사하는 앱은 스스로 추가 표현을 선언하므로, 하나의 항목이 `public.rtf`와 `public.utf8-plain-text`와 `public.utf16-external-plain-text`를 동시에 가질 수 있습니다. 필요한 타입만 요청하고 나머지는 무시하십시오. **표현의 개수나 기록한 내용과의 완전 일치로 분기를 작성하지 마십시오.**
@@ -1778,7 +1778,7 @@ MacClipboardManager.Instance.ReadData(MacClipboardTypes.PlainText, _scope, resul
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="800" />
 </p>
 
 빈 문자열 `utType`은 다릅니다. 네이티브 계층이 `ContractViolation`(1302)으로 거부합니다.
@@ -1813,7 +1813,7 @@ MacClipboardManager.Instance.Snapshot(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="800" />
 </p>
 
 빈 배열은 "필터 없음"이 아닙니다. `EmptyTypeFilter`(1512)로 실패합니다. 필터를 걸지 않으려면 `null`을 넘기십시오.
@@ -1857,7 +1857,7 @@ MacClipboardManager.Instance.DetectPatterns(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="800" />
 </p>
 
 돌아오는 것은 요청한 패턴 중 일치한 것들입니다. 빈 컬렉션은 `EmptyDetectionPatterns`(1503)로 거부됩니다.
@@ -1895,7 +1895,7 @@ MacClipboardManager.Instance.DetectValues(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="800" />
 </p>
 
 값을 읽을 때 사용자 허가가 필요할 수 있습니다. 거부되면 `DetectionDenied`(1514)로 실패합니다. 확인한 기기에서는 접근 설정이 `AlwaysAllow`여서 대화상자가 나타나지 않았지만, 일어나지 않는다고 가정하지 말고 1514를 받아도 문제없도록 작성하십시오.
@@ -1956,7 +1956,7 @@ MacClipboardManager.Instance.GetAccessBehavior(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="800" />
 </p>
 
 ---
@@ -2023,7 +2023,7 @@ MacClipboardManager.Instance.CheckForegroundChange(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="800" />
 </p>
 
 > **감시와 함께 쓰지 마십시오.** 둘은 같은 기준 changeCount를 공유합니다. `StartObserving`이 도는 동안에는 폴링이 기준을 먼저 갱신하므로 `CheckForegroundChange`는 거의 언제나 `false`를 돌려줍니다. 계속 열려 있는 화면이면 감시를, 필요할 때만 확인하려면 `CheckForegroundChange`를 선택하십시오.

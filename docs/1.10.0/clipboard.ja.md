@@ -1505,7 +1505,7 @@ MacClipboardManager.Instance.CreatePasteboard(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="800" />
 </p>
 
 名前付き・ユニークなペーストボードは `RemovePasteboard` で解放します。
@@ -1745,7 +1745,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="800" />
 </p>
 
 > **注意:** 返ってくる内容は書き込んだ内容の鏡ではありません。リッチテキストをコピーするアプリは独自に追加の表現を宣言するため、1 つのアイテムが `public.rtf` と `public.utf8-plain-text` と `public.utf16-external-plain-text` を同時に持つことがあります。必要な型だけを要求し、それ以外は無視してください。**表現の数や、書き込んだ内容との完全一致で分岐を書かないでください。**
@@ -1778,7 +1778,7 @@ MacClipboardManager.Instance.ReadData(MacClipboardTypes.PlainText, _scope, resul
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="800" />
 </p>
 
 空文字の `utType` は別扱いで、ネイティブ層が `ContractViolation`（1302）で拒否します。
@@ -1813,7 +1813,7 @@ MacClipboardManager.Instance.Snapshot(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="800" />
 </p>
 
 空の配列は「フィルタなし」ではありません。`EmptyTypeFilter`（1512）で失敗します。フィルタを掛けない場合は `null` を渡してください。
@@ -1857,7 +1857,7 @@ MacClipboardManager.Instance.DetectPatterns(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="800" />
 </p>
 
 返るのは要求したパターンのうち一致したものだけです。空のコレクションは `EmptyDetectionPatterns`（1503）で拒否されます。
@@ -1895,7 +1895,7 @@ MacClipboardManager.Instance.DetectValues(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="800" />
 </p>
 
 値の読み出しにはユーザーの許可が必要になる場合があります。拒否されたときは `DetectionDenied`（1514）で失敗します。確認した機体ではアクセス設定が `AlwaysAllow` でダイアログは出ませんでしたが、起こらないものとは考えず、1514 を受けても問題ないように書いてください。
@@ -1956,7 +1956,7 @@ MacClipboardManager.Instance.GetAccessBehavior(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="800" />
 </p>
 
 ---
@@ -2023,7 +2023,7 @@ MacClipboardManager.Instance.CheckForegroundChange(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="800" />
 </p>
 
 > **監視と併用しないでください。** 両者は同じ基準 changeCount を共有します。`StartObserving` が動いている間はポーリングが先に基準を更新するため、`CheckForegroundChange` はほぼ常に `false` を返します。開きっぱなしの画面なら監視、必要なときだけ確認するなら `CheckForegroundChange` と、どちらか一方を選んでください。

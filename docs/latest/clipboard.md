@@ -1505,7 +1505,7 @@ MacClipboardManager.Instance.CreatePasteboard(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CreateNamedPasteboard.png" alt="Example_MacClipboardManager_CreateNamedPasteboard" width="800" />
 </p>
 
 A named or unique pasteboard is removed with `RemovePasteboard`.
@@ -1745,7 +1745,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Read.png" alt="Example_MacClipboardManager_Read" width="800" />
 </p>
 
 > **Note:** What comes back is not a mirror of what was written. An app that copies rich text declares extra flavors of its own, so a single item can carry `public.rtf`, `public.utf8-plain-text` and `public.utf16-external-plain-text` at once. Ask for the type you need and ignore the rest; never branch on the number of representations or on an exact match with what you wrote.
@@ -1778,7 +1778,7 @@ MacClipboardManager.Instance.ReadData(MacClipboardTypes.PlainText, _scope, resul
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_ReadData.png" alt="Example_MacClipboardManager_ReadData" width="800" />
 </p>
 
 An empty `utType` is different: it is rejected by the native layer with `ContractViolation` (1302).
@@ -1813,7 +1813,7 @@ MacClipboardManager.Instance.Snapshot(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_Snapshot.png" alt="Example_MacClipboardManager_Snapshot" width="800" />
 </p>
 
 Passing an empty array is not "no filter": it fails with `EmptyTypeFilter` (1512). Pass `null` for no filter.
@@ -1857,7 +1857,7 @@ MacClipboardManager.Instance.DetectPatterns(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectPatterns.png" alt="Example_MacClipboardManager_DetectPatterns" width="800" />
 </p>
 
 The result is the subset of the requested patterns that matched. An empty collection is rejected with `EmptyDetectionPatterns` (1503).
@@ -1895,7 +1895,7 @@ MacClipboardManager.Instance.DetectValues(
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_DetectValues.png" alt="Example_MacClipboardManager_DetectValues" width="800" />
 </p>
 
 Reading values can require the user's permission. When it is refused, the call fails with `DetectionDenied` (1514). No prompt appeared on the tested machines, whose access behaviour was `AlwaysAllow`, so handle 1514 defensively rather than assuming it cannot happen.
@@ -1956,7 +1956,7 @@ MacClipboardManager.Instance.GetAccessBehavior(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_GetAccessBehavior.png" alt="Example_MacClipboardManager_GetAccessBehavior" width="800" />
 </p>
 
 ---
@@ -2023,7 +2023,7 @@ MacClipboardManager.Instance.CheckForegroundChange(_scope, result =>
 ```
 
 <p align="center">
-    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="400" />
+    <img src="images/mac/clipboard/Example_MacClipboardManager_CheckForegroundChange.png" alt="Example_MacClipboardManager_CheckForegroundChange" width="800" />
 </p>
 
 > **Do not combine this with observation.** The two share the same baseline change count. While `StartObserving` is running its polling updates that baseline first, so `CheckForegroundChange` returns `false` almost every time. Pick one: observation for a screen that stays open, `CheckForegroundChange` for a check on demand.
