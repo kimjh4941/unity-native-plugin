@@ -122,8 +122,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
     /// <see cref="UnityMainThreadDispatcher"/>, which can still be within the same frame.
     /// </para>
     /// <para>
-    /// This file currently carries the lifecycle only. The clipboard operations themselves are
-    /// added in the following steps of the design's build order.
+    /// Logging deviation: this file logs the shape of what passes through it - lengths, counts,
+    /// format names, error codes - and never the clipboard content itself, nor the error message
+    /// built from a native payload. What a user copied is not this layer's to record.
     /// </para>
     /// </summary>
     public class WindowsClipboardManager : MonoBehaviour
@@ -577,8 +578,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             ApplyReservationOutcome(code, next);
 
         /// <summary>Installs a live provider generation without a reservation call.</summary>
-        internal static void SetRenderProvidersForTests(Dictionary<string, Func<byte[]>> providers) =>
+        internal static void SetRenderProvidersForTests(Dictionary<string, Func<byte[]>> providers)
+        {
+            // The cache goes with it. Every path that installs a generation for real clears the
+            // cache too, so leaving it would let a test build a state the manager cannot reach:
+            // last generation's bytes answering this generation's second phase.
             s_renderProviders = providers;
+            s_renderCache.Clear();
+        }
+
+        /// <summary>Format names whose rendered bytes are currently cached.</summary>
+        internal static IReadOnlyCollection<string> RenderCacheNamesForTests => s_renderCache.Keys;
 
         /// <summary>Drives the native completion callback without the native side.</summary>
         internal static void InjectCompletionForTests(uint requestId, int error, string? json) =>
@@ -715,14 +725,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             {
                 initClipboardManager(enableChangeEvents ? s_changedDelegate : null, out pError);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(Initialize)}] {ex.GetType().Name}: {ex.Message}");
-                // The native side holds nothing when the bridge could not be reached, so the COM
-                // reference this layer took is safe to give back right away.
+
+                // Every exception, not only the two that name a missing bridge. The native side
+                // holds nothing when the call did not complete, so the COM reference this layer
+                // took is safe to give back right away - and it is the only chance to: the state
+                // is still Uninitialized, which TryShutdown answers as an idempotent success
+                // without ever reaching the release.
                 ReleaseOwnedComReference();
                 return Deliver(
-                    WindowsClipboardResult.Failure(OperationInitialize, WindowsClipboardErrorCode.BridgeUnavailable),
+                    WindowsClipboardResult.Failure(
+                        OperationInitialize,
+                        ex is DllNotFoundException || ex is EntryPointNotFoundException
+                            ? WindowsClipboardErrorCode.BridgeUnavailable
+                            : WindowsClipboardErrorCode.Unknown),
                     onResult);
             }
 
@@ -1383,7 +1401,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private const int SizeChangedRetryBudget = 2;
 
-        private WindowsClipboardTextResult ReadText(string operation, NativeSizedRead call)
+        private static WindowsClipboardTextResult ReadText(string operation, NativeSizedRead call)
         {
             if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
             {
@@ -1395,11 +1413,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             if (outcome.IsEmpty) return WindowsClipboardTextResult.Empty(operation);
 
             string text = outcome.Text ?? string.Empty;
-            // GetPreferredFormat answers with an empty string when nothing matches its candidates,
-            // and it never reports the native Empty code.
-            return text.Length == 0
-                ? WindowsClipboardTextResult.Empty(operation)
-                : WindowsClipboardTextResult.Success(operation, text);
+
+            // Only here. GetPreferredFormat answers with an empty string when nothing matches its
+            // candidates and never reports the native Empty code, so the empty string is its way
+            // of saying nothing was found. For the paste operations an empty string is a value:
+            // text that was copied and can be pasted back, which is not the same as an empty
+            // clipboard, and folding the two together loses a distinction the caller can act on.
+            if (operation == OperationGetPreferredFormat && text.Length == 0)
+            {
+                return WindowsClipboardTextResult.Empty(operation);
+            }
+
+            return WindowsClipboardTextResult.Success(operation, text);
         }
 
         private WindowsClipboardStringListResult ReadStringList(string operation, NativeSizedRead call)
@@ -1466,9 +1491,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// Runs the native two-call read protocol: ask for the size, allocate, then fill.
         /// The error code is classified before the buffer is ever read, on both calls.
         /// </summary>
-        private ReadOutcome ReadRaw(string operation, NativeSizedRead call, bool isByteApi)
+        private static ReadOutcome ReadRaw(string operation, NativeSizedRead call, bool isByteApi)
         {
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            // Deliberately outside the native guard. Nothing here names an import: the two calls go
+            // through the delegate the caller supplies, and Marshal is available everywhere. Behind
+            // the guard the retry, the budget and the size arithmetic could not be reached by any
+            // test, and the editor's answer came from the guard rather than from this protocol.
             try
             {
                 for (int attempt = 0; attempt <= SizeChangedRetryBudget; attempt++)
@@ -1534,10 +1562,53 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} could not allocate its buffer.");
                 return ReadOutcome.Failed(WindowsClipboardErrorCode.OutOfMemory);
             }
-#else
-            return ReadOutcome.Failed(WindowsClipboardErrorCode.PlatformUnavailable);
-#endif
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Runs the text read, guard included, against a stand-in for the native side, so the rule
+        /// that decides what an empty string means can be covered.
+        /// </summary>
+        internal static WindowsClipboardTextResult ReadTextForTests(
+            string operation, Func<IntPtr, uint, (uint written, WindowsClipboardErrorCode code)> fake)
+        {
+            return ReadText(operation, (IntPtr buffer, uint bufferSize, out int pError) =>
+            {
+                (uint written, WindowsClipboardErrorCode code) = fake(buffer, bufferSize);
+                pError = (int)code;
+                return written;
+            });
+        }
+
+        /// <summary>
+        /// Runs the two-call read protocol against a stand-in for the native side.
+        /// <para>
+        /// The outcome is flattened into a tuple so the protocol can be covered without making the
+        /// internal read types part of the package's surface.
+        /// </para>
+        /// </summary>
+        /// <param name="isByteApi">Whether sizes count bytes rather than wchar_t.</param>
+        /// <param name="fake">Answers one call: what to write, how much, and with which code.</param>
+        /// <returns>The outcome, plus how many times the stand-in was called.</returns>
+        internal static (bool isSuccess, bool isEmpty, string? text, byte[]? data,
+            WindowsClipboardErrorCode code, int calls) ReadRawForTests(
+            bool isByteApi, Func<IntPtr, uint, (uint written, WindowsClipboardErrorCode code)> fake)
+        {
+            int calls = 0;
+            ReadOutcome outcome = ReadRaw(
+                "test",
+                (IntPtr buffer, uint bufferSize, out int pError) =>
+                {
+                    calls++;
+                    (uint written, WindowsClipboardErrorCode code) = fake(buffer, bufferSize);
+                    pError = (int)code;
+                    return written;
+                },
+                isByteApi);
+            return (outcome.IsSuccess, outcome.IsEmpty, outcome.Text, outcome.Data,
+                outcome.Code, calls);
+        }
+#endif
 
         /// <summary>
         /// Runs a native call that reports through pError alone.
@@ -3193,7 +3264,28 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             // Runs synchronously inside WM_RENDERFORMAT on the owner UI thread. The dispatcher
             // cannot be used here: its queue only drains from Update, which cannot run until this
             // returns.
-            return RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
+            try
+            {
+                return RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
+            }
+            catch (Exception ex)
+            {
+                // The layer below contains provider failures already, but this runs while Unity is
+                // tearing down and the reporting it does there can throw in turn. Nothing may
+                // cross the C ABI boundary, and requiredSize has to carry a value either way: an
+                // unwritten out parameter leaves the native side reading whatever the stack held
+                // and comparing it against the size promised in the first phase.
+                requiredSize = 0;
+                try
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(OnRenderFormatNative)}] {ex.GetType().Name}");
+                }
+                catch
+                {
+                    // Reporting is best effort here; failing to log must not escape either.
+                }
+                return (uint)WindowsClipboardErrorCode.Unknown;
+            }
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

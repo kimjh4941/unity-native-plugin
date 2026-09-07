@@ -607,6 +607,10 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.CopyPlainText("a").ErrorCode);
+
+            // The read protocol runs for real here and reports the refusal it got, so the error it
+            // logs is part of the expected behaviour rather than a surprise.
+            LogAssert.Expect(LogType.Error, new Regex("sizing failed: PlatformUnavailable"));
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.PastePlainText().ErrorCode);
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
@@ -918,6 +922,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             manager.FormatPresenceChecked += _ => seen.Add("presence");
             manager.FlagChecked += _ => seen.Add("flag");
             yield return null;
+
+            // Each read reports the refusal the stand-in native side gives it.
+            for (int i = 0; i < 3; i++)
+            {
+                LogAssert.Expect(LogType.Error, new Regex("sizing failed: PlatformUnavailable"));
+            }
 
             manager.PastePlainText();
             manager.PasteFiles();
