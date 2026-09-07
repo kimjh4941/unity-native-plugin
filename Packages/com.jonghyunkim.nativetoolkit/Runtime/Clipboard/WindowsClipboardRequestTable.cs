@@ -154,7 +154,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             if (!_entries.TryGetValue(ticket, out Entry? entry)) return false;
             _entries.Remove(ticket);
-            if (entry.NativeRequestId != 0) _byNativeId.Remove(entry.NativeRequestId);
+
+            // Only if the mapping still points here. An entry keeps its native id after it is
+            // marked undelivered, so the id can already have been handed to a later request; a
+            // blind removal would drop that request's mapping and its completion would arrive as
+            // an unknown id and be discarded.
+            if (entry.NativeRequestId != 0 &&
+                _byNativeId.TryGetValue(entry.NativeRequestId, out uint owner) &&
+                owner == ticket)
+            {
+                _byNativeId.Remove(entry.NativeRequestId);
+            }
             return true;
         }
 

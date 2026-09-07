@@ -4,6 +4,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
@@ -344,6 +346,188 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(0, WindowsClipboardManager.RecoverDeferredCallCountForTests,
                 "nothing is partial here, so there is nothing to recover from");
+        }
+
+
+        // ── Cancellation and completion (design 7.6.1, 7.6.5 and 8.2) ────────────
+
+        [UnityTest]
+        public IEnumerator AnAlreadyCancelledTokenCompletesWithoutReachingTheNativeSide()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var cts = new CancellationTokenSource();
+            cts.Cancel();
+            // If the request reached the bridge it would take this id with it.
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 61;
+            yield return null;
+
+            Awaitable<WindowsClipboardHistoryResult> awaitable = manager.GetHistoryAsync(cts.Token);
+            yield return null;
+
+            Assert.AreEqual(61u, WindowsClipboardManager.AcceptRequestsWithIdForTests,
+                "a token that is already cancelled must not start a native request");
+            Assert.IsTrue(awaitable.GetAwaiter().IsCompleted);
+            Assert.AreEqual(WindowsClipboardErrorCode.Canceled,
+                awaitable.GetAwaiter().GetResult().ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator CancellingFromAWorkerThreadDoesNotReportMainThreadRequired()
+        {
+            // The registered callback runs on whichever thread cancelled, and the native cancel is
+            // main thread only, so it has to hop before it touches anything.
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<WindowsClipboardResult>();
+            manager.ClipboardOperationCompleted += seen.Add;
+            var cts = new CancellationTokenSource();
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 62;
+            yield return null;
+
+            manager.GetHistoryAsync(cts.Token);
+            Task.Run(() => cts.Cancel());
+
+            for (int i = 0; i < 30 && seen.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, seen.Count, "the cancel reached the manager");
+            Assert.AreEqual(WindowsClipboardManager.OperationCancelRequest, seen[0].Operation);
+            Assert.AreNotEqual(WindowsClipboardErrorCode.MainThreadRequired, seen[0].ErrorCode,
+                "the callback ran on the cancelling thread instead of hopping to the main one");
+        }
+
+        [UnityTest]
+        public IEnumerator ADeliveredRequestGivesBackItsCancellationRegistration()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var cts = new CancellationTokenSource();
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 63;
+            yield return null;
+
+            manager.GetHistoryAsync(cts.Token);
+            uint ticket = WindowsClipboardManager.OnlyPendingTicketForTests();
+            Assert.IsTrue(WindowsClipboardManager.HasCancellationRegistrationForTests(ticket));
+
+            WindowsClipboardManager.InjectCompletionForTests(63, 0, "[]");
+            yield return null;
+
+            Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests);
+
+            // The disposal is handed to the pool, so wait for it rather than assume the frame.
+            for (int i = 0;
+                 i < 60 && WindowsClipboardManager.CancellationRegistrationsReleasedForTests == 0;
+                 i++)
+            {
+                yield return null;
+            }
+
+            Assert.AreEqual(1, WindowsClipboardManager.CancellationRegistrationsReleasedForTests,
+                "a registration left behind keeps its token source alive for the whole session");
+        }
+
+        [UnityTest]
+        public IEnumerator TwoReadOnlyRequestsAreAcceptedAtOnceAndEachKeepsItsOwnResult()
+        {
+            // The design allows the read-only operations to run concurrently, so two accepted
+            // requests have to keep their own native ids and their own callbacks.
+            WindowsClipboardManager manager = RunningManager();
+            var history = new List<WindowsClipboardHistoryResult>();
+            var availability = new List<WindowsClipboardAvailabilityResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 71;
+            manager.GetHistory(history.Add);
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 72;
+            manager.GetHistoryAvailability(availability.Add);
+
+            Assert.AreEqual(2, WindowsClipboardManager.PendingRequestCountForTests);
+
+            WindowsClipboardManager.InjectCompletionForTests(
+                72, 0, "{\"historyEnabled\":true,\"roamingEnabled\":false}");
+            WindowsClipboardManager.InjectCompletionForTests(71, 0, "[]");
+            yield return null;
+
+            Assert.AreEqual(1, history.Count);
+            Assert.AreEqual(1, availability.Count);
+            Assert.IsTrue(availability[0].IsSuccess);
+            Assert.IsTrue(availability[0].HistoryEnabled);
+            Assert.IsTrue(history[0].IsSuccess);
+        }
+
+        [UnityTest]
+        public IEnumerator AFailedCompletionKeepsItsNativeCodeRatherThanBecomingAParseFailure()
+        {
+            // The native side reports these after it has accepted the request, and the payload is
+            // null when it does. Parsing that null and reporting ResultParseFailed would hide
+            // every one of them behind the same code.
+            WindowsClipboardErrorCode[] codes =
+            {
+                WindowsClipboardErrorCode.AccessDenied,
+                WindowsClipboardErrorCode.HistoryDisabled,
+                WindowsClipboardErrorCode.ItemDeleted,
+                WindowsClipboardErrorCode.Canceled,
+                WindowsClipboardErrorCode.NotForeground
+            };
+
+            WindowsClipboardManager manager = RunningManager();
+            yield return null;
+
+            uint id = 80;
+            foreach (WindowsClipboardErrorCode code in codes)
+            {
+                id++;
+                var results = new List<WindowsClipboardHistoryResult>();
+                WindowsClipboardManager.AcceptRequestsWithIdForTests = id;
+                manager.GetHistory(results.Add);
+
+                WindowsClipboardManager.InjectCompletionForTests(id, (int)code, null);
+                yield return null;
+
+                Assert.AreEqual(1, results.Count, code + " was never delivered");
+                Assert.AreEqual(code, results[0].ErrorCode);
+                Assert.IsFalse(results[0].IsSuccess);
+                Assert.IsNotNull(results[0].ErrorMessage);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator WithoutADispatcherARejectionWaitsForTheTeardownRatherThanRunningInline()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+            WindowsClipboardManager.ClearDispatcherForTests();
+
+            manager.GetHistory(results.Add);
+
+            Assert.AreEqual(0, results.Count,
+                "delivering here would run the callback before the call that started it returned");
+
+            WindowsClipboardManager.DrainForTests();
+
+            Assert.AreEqual(1, results.Count, "the teardown still owes this caller its delivery");
+        }
+
+        [UnityTest]
+        public IEnumerator AnExceptionWhereTheNativeCallWouldBeStillDeliversAndFreesTheOperation()
+        {
+            // Nothing is in the registry yet at that point, so an exception that escaped would
+            // strand both the caller and the in-flight marker for the rest of the session.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            WindowsClipboardManager.RequestExceptionForTests = new System.BadImageFormatException("boom");
+            LogAssert.Expect(LogType.Error, new Regex("BadImageFormatException"));
+
+            uint id = manager.RestoreHistoryItem("item-1", results.Add);
+            yield return null;
+
+            Assert.AreEqual(0u, id);
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.Unknown, results[0].ErrorCode);
+            Assert.IsFalse(
+                WindowsClipboardManager.IsInFlightForTests(
+                    WindowsClipboardManager.OperationRestoreHistoryItem),
+                "the operation would otherwise report Busy for the rest of the session");
         }
 
         // ── Rejection paths ──────────────────────────────────────────────────────

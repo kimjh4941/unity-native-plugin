@@ -167,6 +167,40 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(0, _table.Count);
             Assert.IsFalse(_table.TryClaim(ticket));
         }
+
+        [Test]
+        public void TryClaim_LeavesANativeIdThatAlreadyBelongsToAnotherRequest()
+        {
+            // An entry keeps its native id after it is marked undelivered, so the native side can
+            // hand the same id to a later request before the first one's queued delivery runs.
+            // Removing the mapping blindly would drop the second request's completion.
+            var table = new WindowsClipboardRequestTable();
+            uint first = table.IssueTicket();
+            uint second = table.IssueTicket();
+            table.RegisterAwaitingNative(first, 500);
+            table.MarkUndelivered(first);
+            table.RegisterAwaitingNative(second, 500);
+
+            Assert.IsTrue(table.TryClaim(first));
+
+            Assert.IsTrue(table.TryResolveNativeId(500, out uint owner),
+                "the later request still needs its mapping");
+            Assert.AreEqual(second, owner);
+        }
+
+        [Test]
+        public void TryClaim_StillReleasesANativeIdThatIsStillItsOwn()
+        {
+            var table = new WindowsClipboardRequestTable();
+            uint ticket = table.IssueTicket();
+            table.RegisterAwaitingNative(ticket, 501);
+
+            Assert.IsTrue(table.TryClaim(ticket));
+
+            Assert.IsFalse(table.TryResolveNativeId(501, out _),
+                "nothing owns this id any more");
+        }
+
     }
 }
 #endif

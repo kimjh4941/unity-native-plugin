@@ -522,6 +522,33 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         internal static uint? AcceptRequestsWithIdForTests;
 
+        /// <summary>
+        /// Makes the next request throw from where the native call would be, so the paths that
+        /// only run when the bridge misbehaves can be reached.
+        /// </summary>
+        internal static Exception? RequestExceptionForTests;
+
+        /// <summary>Drops the dispatcher, for the delivery paths that have to survive without one.</summary>
+        internal static void ClearDispatcherForTests() => s_dispatcher = null;
+
+        /// <summary>The ticket of the single tracked request, for tests that start exactly one.</summary>
+        internal static uint OnlyPendingTicketForTests()
+        {
+            foreach (uint ticket in s_pending.Keys) return ticket;
+            return 0;
+        }
+
+        /// <summary>
+        /// How many cancellation registrations were actually disposed. Counted after the disposal
+        /// rather than at the decision to make one, so a release that never happens is visible.
+        /// </summary>
+        internal static int CancellationRegistrationsReleasedForTests;
+
+        /// <summary>Whether a cancellation registration is still held for a request.</summary>
+        internal static bool HasCancellationRegistrationForTests(uint ticket) =>
+            s_pending.TryGetValue(ticket, out PendingRequest? pending) &&
+            pending.Registration != default;
+
         /// <summary>Raises the history events through the same path the native callbacks use.</summary>
         internal static void InjectHistoryChangedForTests() => RaiseHistoryChanged();
 
@@ -1841,6 +1868,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(GetHistoryAsync)}]");
             var source = new AwaitableCompletionSource<WindowsClipboardHistoryResult>();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                RejectRequest(
+                    OperationGetHistory, WindowsClipboardRequestKind.History,
+                    WindowsClipboardErrorCode.Canceled, null,
+                    result => source.TrySetResult(result), null, null);
+                return source.Awaitable;
+            }
+
             uint requestId = GetHistory(result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
@@ -1856,6 +1892,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(GetHistoryAvailabilityAsync)}]");
             var source = new AwaitableCompletionSource<WindowsClipboardAvailabilityResult>();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                RejectRequest(
+                    OperationGetHistoryAvailability, WindowsClipboardRequestKind.Availability,
+                    WindowsClipboardErrorCode.Canceled, null,
+                    null, result => source.TrySetResult(result), null);
+                return source.Awaitable;
+            }
+
             uint requestId = GetHistoryAvailability(result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
@@ -1872,6 +1917,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(RestoreHistoryItemAsync)}]");
             var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                RejectRequest(
+                    OperationRestoreHistoryItem, WindowsClipboardRequestKind.Status,
+                    WindowsClipboardErrorCode.Canceled, null,
+                    null, null, result => source.TrySetResult(result));
+                return source.Awaitable;
+            }
+
             uint requestId = RestoreHistoryItem(itemId, result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
@@ -1888,6 +1942,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(DeleteHistoryItemAsync)}]");
             var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                RejectRequest(
+                    OperationDeleteHistoryItem, WindowsClipboardRequestKind.Status,
+                    WindowsClipboardErrorCode.Canceled, null,
+                    null, null, result => source.TrySetResult(result));
+                return source.Awaitable;
+            }
+
             uint requestId = DeleteHistoryItem(itemId, result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
@@ -1903,6 +1966,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(ClearUnpinnedHistoryAsync)}]");
             var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                RejectRequest(
+                    OperationClearUnpinnedHistory, WindowsClipboardRequestKind.Status,
+                    WindowsClipboardErrorCode.Canceled, null,
+                    null, null, result => source.TrySetResult(result));
+                return source.Awaitable;
+            }
+
             uint requestId = ClearUnpinnedHistory(result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
@@ -2083,6 +2155,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #if UNITY_EDITOR
             if (AcceptRequestsWithIdForTests is uint injected)
             {
+                // Consumed rather than left standing, so a test can accept two requests under two
+                // different ids and cover the concurrency the design allows for the read-only
+                // operations.
+                AcceptRequestsWithIdForTests = null;
                 requestId = injected;
                 pError = 0;
                 pending.NativeRequestId = requestId;
@@ -2092,12 +2168,29 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #endif
             try
             {
+#if UNITY_EDITOR
+                if (RequestExceptionForTests != null)
+                {
+                    Exception forcedFailure = RequestExceptionForTests;
+                    RequestExceptionForTests = null;
+                    throw forcedFailure;
+                }
+#endif
                 (requestId, pError) = call(s_requestDelegate);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex)
             {
+                // Every exception, not only the two that name a missing bridge. The ticket is not
+                // in the registry yet, so anything that escapes here would strand the in-flight
+                // marker as well as the caller: the teardown drain has nothing to find, and the
+                // operation would report Busy for the rest of the session.
                 Debug.LogError($"[{LogTag}][{nameof(StartRequest)}] {ex.GetType().Name}: {ex.Message}");
-                ResolveAndQueue(ticket, WindowsClipboardErrorCode.BridgeUnavailable, null);
+                ResolveAndQueue(
+                    ticket,
+                    ex is DllNotFoundException || ex is EntryPointNotFoundException
+                        ? WindowsClipboardErrorCode.BridgeUnavailable
+                        : WindowsClipboardErrorCode.Unknown,
+                    null);
                 return 0;
             }
 
@@ -2160,12 +2253,42 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
             if (dispatcher == null)
             {
-                // Without a dispatcher the queued action would never run, so deliver in place
-                // rather than losing the result.
-                DeliverIfClaimed(ticket);
+                // Delivering in place here would run the callback before the call that started it
+                // had returned, which the contract rules out, and a callback that starts another
+                // request would re-enter this layer mid-update. The ticket stays claimable, so the
+                // teardown drain still owes it its one delivery.
+                Debug.LogWarning(
+                    $"[{LogTag}][{nameof(QueueDelivery)}] no dispatcher yet; " +
+                    $"request {ticket} waits for the teardown drain.");
                 return;
             }
             dispatcher.Enqueue(() => DeliverIfClaimed(ticket));
+        }
+
+        /// <summary>
+        /// Gives a cancellation registration back without waiting for a callback that may already
+        /// be running.
+        /// <para>
+        /// Dispose blocks until a registered callback running on another thread returns. Delivery
+        /// runs from the dispatcher, which holds its queue lock while it invokes what it dequeued,
+        /// and the callback needs that same lock to hand its work to the main thread. Disposing
+        /// here would leave the two waiting on each other and hang the main thread, so the wait is
+        /// handed to the pool instead.
+        /// </para>
+        /// </summary>
+        private static void ReleaseCancellationRegistration(PendingRequest pending)
+        {
+            CancellationTokenRegistration registration = pending.Registration;
+            if (registration == default) return;
+
+            pending.Registration = default;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                registration.Dispose();
+#if UNITY_EDITOR
+                Interlocked.Increment(ref CancellationRegistrationsReleasedForTests);
+#endif
+            });
         }
 
         private static void DeliverIfClaimed(uint ticket)
@@ -2187,7 +2310,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_pending.Remove(ticket);
 
             if (pending.InFlightKey != null) s_inFlight.Remove(pending.InFlightKey);
-            pending.Registration.Dispose();
+            ReleaseCancellationRegistration(pending);
 
             WindowsClipboardErrorCode code = overrideCode ?? pending.Code;
 
@@ -3203,6 +3326,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             PlatformAvailableForTests = null;
             NativeShutdownForTests = null;
             RecoverDeferredCallCountForTests = 0;
+            RequestExceptionForTests = null;
+            CancellationRegistrationsReleasedForTests = 0;
 #endif
             s_retryFrameBudget = ShutdownRetryFrameBudget;
             s_retrySecondBudget = ShutdownRetrySecondBudget;
