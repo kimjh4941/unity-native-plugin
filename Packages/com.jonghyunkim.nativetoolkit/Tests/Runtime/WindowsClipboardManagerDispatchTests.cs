@@ -3,6 +3,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
@@ -220,6 +221,197 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             Assert.AreEqual(WindowsClipboardSecondReadDecision.Failure,
                 WindowsClipboardManager.ClassifySecondRead(code));
+        }
+
+        // ── Deferred rendering (design 2.8 and 7.7) ──────────────────────────────
+
+        private static Dictionary<string, Func<byte[]>> Provider(string format, byte[] payload) =>
+            new() { [format] = () => payload };
+
+        [Test]
+        public void Reservation_OnSuccess_ReplacesTheLiveProviders()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("OLD", new byte[] { 1 }));
+
+            WindowsClipboardManager.ApplyReservationOutcomeForTests(
+                WindowsClipboardErrorCode.None, Provider("NEW", new byte[] { 2 }));
+
+            CollectionAssert.AreEquivalent(
+                new[] { "NEW" }, WindowsClipboardManager.RenderProviderNamesForTests);
+        }
+
+        [TestCase(WindowsClipboardErrorCode.Busy)]
+        [TestCase(WindowsClipboardErrorCode.InvalidParameter)]
+        [TestCase(WindowsClipboardErrorCode.Unknown)]
+        [TestCase(WindowsClipboardErrorCode.OutOfMemory)]
+        public void Reservation_OnFailure_KeepsThePreviousProvidersUntouched(
+            WindowsClipboardErrorCode code)
+        {
+            // The native side may still hold the previous renderers on these paths, and Unknown
+            // covers two failure sites that cannot be told apart, so the old generation has to
+            // survive or a reserved format would be dropped without a word.
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("OLD", new byte[] { 1 }));
+
+            WindowsClipboardManager.ApplyReservationOutcomeForTests(
+                code, Provider("NEW", new byte[] { 2 }));
+
+            CollectionAssert.AreEquivalent(
+                new[] { "OLD" }, WindowsClipboardManager.RenderProviderNamesForTests);
+        }
+
+        [Test]
+        public void Reservation_OnPartialState_KeepsBothGenerations()
+        {
+            // The native side kept the new table here, but the formats it no longer names may still
+            // be asked for.
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("OLD", new byte[] { 1 }));
+
+            WindowsClipboardManager.ApplyReservationOutcomeForTests(
+                WindowsClipboardErrorCode.PartialState, Provider("NEW", new byte[] { 2 }));
+
+            CollectionAssert.AreEquivalent(
+                new[] { "OLD", "NEW" }, WindowsClipboardManager.RenderProviderNamesForTests);
+        }
+
+        [Test]
+        public void Render_FirstPhase_ReportsTheSizeAndAsksToBeCalledAgain()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1, 2, 3 }));
+
+            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
+
+            Assert.AreEqual((uint)WindowsClipboardErrorCode.BufferTooSmall, code);
+            Assert.AreEqual(3u, required);
+        }
+
+        [Test]
+        public void Render_SecondPhase_WritesTheBytesAndRepeatsTheSameSize()
+        {
+            // The native layer discards a format whose second answer differs from the first, so the
+            // payload is produced once and reused rather than regenerated.
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 7, 8 }));
+            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
+
+            IntPtr buffer = Marshal.AllocHGlobal((int)first);
+            try
+            {
+                uint code = WindowsClipboardManager.RenderForTests("F", buffer, first, out uint second);
+
+                Assert.AreEqual((uint)WindowsClipboardErrorCode.None, code);
+                Assert.AreEqual(first, second, "the two phases must agree on the size");
+                var written = new byte[second];
+                Marshal.Copy(buffer, written, 0, (int)second);
+                Assert.AreEqual(new byte[] { 7, 8 }, written);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+        [Test]
+        public void Render_SecondPhase_UsesTheCachedBytesEvenWhenTheProviderWouldChange()
+        {
+            int calls = 0;
+            var providers = new Dictionary<string, Func<byte[]>>
+            {
+                ["F"] = () => { calls++; return calls == 1 ? new byte[] { 1, 2, 3 } : new byte[] { 9 }; }
+            };
+            WindowsClipboardManager.SetRenderProvidersForTests(providers);
+
+            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
+            IntPtr buffer = Marshal.AllocHGlobal((int)first);
+            try
+            {
+                WindowsClipboardManager.RenderForTests("F", buffer, first, out uint second);
+
+                Assert.AreEqual(1, calls, "the provider runs once per render, not once per phase");
+                Assert.AreEqual(first, second);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+        [Test]
+        public void Render_AZeroLengthPayloadIsReportedRatherThanPlaced()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[0]));
+
+            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("produced no bytes"));
+            Assert.AreEqual((uint)WindowsClipboardErrorCode.InvalidData, code);
+            Assert.AreEqual(0u, required);
+        }
+
+        [Test]
+        public void Render_AnUnknownFormatFails()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(new Dictionary<string, Func<byte[]>>());
+
+            uint code = WindowsClipboardManager.RenderForTests("MISSING", IntPtr.Zero, 0, out uint required);
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("no provider for MISSING"));
+            Assert.AreEqual((uint)WindowsClipboardErrorCode.InvalidParameter, code);
+            Assert.AreEqual(0u, required);
+        }
+
+        [Test]
+        public void Render_SecondPhaseWithoutACachedPayloadFailsInsteadOfRegenerating()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1 }));
+
+            IntPtr buffer = Marshal.AllocHGlobal(1);
+            try
+            {
+                uint code = WindowsClipboardManager.RenderForTests("F", buffer, 1, out uint required);
+
+                LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("no cached payload"));
+                Assert.AreEqual((uint)WindowsClipboardErrorCode.Unknown, code);
+                Assert.AreEqual(0u, required);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+        [Test]
+        public void Render_ATooSmallBufferReportsTheRealSize()
+        {
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1, 2, 3, 4 }));
+            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
+
+            IntPtr buffer = Marshal.AllocHGlobal(1);
+            try
+            {
+                uint code = WindowsClipboardManager.RenderForTests("F", buffer, 1, out uint required);
+
+                Assert.AreEqual((uint)WindowsClipboardErrorCode.BufferTooSmall, code);
+                Assert.AreEqual(first, required, "the size reported must stay the one promised");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+        [Test]
+        public void Render_AThrowingProviderIsContainedAndReportsNoSize()
+        {
+            var providers = new Dictionary<string, Func<byte[]>>
+            {
+                ["F"] = () => throw new InvalidOperationException("boom")
+            };
+            WindowsClipboardManager.SetRenderProvidersForTests(providers);
+
+            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("InvalidOperationException"));
+            Assert.AreEqual((uint)WindowsClipboardErrorCode.Unknown, code);
+            Assert.AreEqual(0u, required, "an exception must not leave a stale size behind");
         }
 
         // ── Operation guard (design 7.5) ─────────────────────────────────────────

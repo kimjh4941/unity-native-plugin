@@ -375,6 +375,54 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(results[0].IsEmpty, "a broken payload must not read as an empty history");
         }
 
+        // ── History events ───────────────────────────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator HistoryEventsReachTheirSubscribersThroughTheDispatcher()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<string>();
+            manager.HistoryChanged += () => seen.Add("history");
+            manager.HistoryEnabledChanged += enabled => seen.Add($"historyEnabled:{enabled}");
+            manager.RoamingEnabledChanged += enabled => seen.Add($"roamingEnabled:{enabled}");
+            yield return null;
+
+            WindowsClipboardManager.InjectHistoryChangedForTests();
+            WindowsClipboardManager.InjectHistoryEnabledChangedForTests(true);
+            WindowsClipboardManager.InjectRoamingEnabledChangedForTests(false);
+
+            Assert.AreEqual(0, seen.Count, "native callbacks are delivered outside their own stack");
+
+            yield return null;
+            Assert.AreEqual(new[] { "history", "historyEnabled:True", "roamingEnabled:False" }, seen.ToArray());
+        }
+
+        [UnityTest]
+        public IEnumerator SetHistoryEventsEnabled_IsRejectedBeforeInitializeAndLeavesTheFlagOff()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+
+            WindowsClipboardResult result = manager.SetHistoryEventsEnabled(true);
+
+            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost, result.ErrorCode);
+            Assert.IsFalse(WindowsClipboardManager.HistoryEventsEnabledForTests,
+                "a rejected call must not record the registration as active");
+        }
+
+        [UnityTest]
+        public IEnumerator SetHistoryEventsEnabled_DoesNotRecordTheFlagWhenTheNativeCallFails()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            yield return null;
+
+            // The editor compiles the native boundary out, so this stands in for any failure.
+            WindowsClipboardResult result = manager.SetHistoryEventsEnabled(true);
+
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, result.ErrorCode);
+            Assert.IsFalse(WindowsClipboardManager.HistoryEventsEnabledForTests);
+        }
+
         // ── Delivery ─────────────────────────────────────────────────────────────
 
         [UnityTest]

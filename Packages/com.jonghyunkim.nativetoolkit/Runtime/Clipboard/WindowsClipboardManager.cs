@@ -212,6 +212,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Operation name for CancelRequest.</summary>
         public const string OperationCancelRequest = "cancelClipboardRequest";
 
+        /// <summary>Operation name for SetHistoryEventsEnabled.</summary>
+        public const string OperationSetHistoryEvents = "setClipboardHistoryCallbacks";
+
+        /// <summary>Operation name for ReserveDeferredFormats.</summary>
+        public const string OperationReserveDeferredFormats = "reserveDeferredFormats";
+
+        /// <summary>Operation name for RecoverDeferredState.</summary>
+        public const string OperationRecoverDeferredState = "recoverDeferredState";
+
         // ── Singleton ────────────────────────────────────────────────────────────
 
         private static WindowsClipboardManager? _instance;
@@ -288,6 +297,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Raised when GetHistoryAvailability completes.</summary>
         public event Action<WindowsClipboardAvailabilityResult>? HistoryAvailabilityChecked;
 
+        /// <summary>
+        /// Raised when a new item is added to the Windows clipboard history.
+        /// <para>
+        /// Additions only. Deletions and a cleared history are not guaranteed to raise it, so
+        /// re-query the history after your own delete or clear rather than waiting for this.
+        /// </para>
+        /// </summary>
+        public event Action? HistoryChanged;
+
+        /// <summary>
+        /// Raised when the clipboard history setting is toggled.
+        /// <para>
+        /// Not reliable, and must not drive behaviour: the underlying WinRT event was measured to
+        /// fire at most once per process, and never at all when the registration was made while
+        /// history was disabled. Call GetHistoryAvailability whenever the current setting matters.
+        /// </para>
+        /// </summary>
+        public event Action<bool>? HistoryEnabledChanged;
+
+        /// <summary>
+        /// Raised when the cloud clipboard setting is toggled. Carries the same unreliability as
+        /// <see cref="HistoryEnabledChanged"/>.
+        /// </summary>
+        public event Action<bool>? RoamingEnabledChanged;
+
         // ── Static state (main thread only) ──────────────────────────────────────
 
         // Captured on the main thread in Awake so dispatching never touches
@@ -327,6 +361,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private static WindowsClipboardManagerState s_state = WindowsClipboardManagerState.Uninitialized;
         private static WindowsClipboardComOwnership s_comOwnership = WindowsClipboardComOwnership.None;
+        // Reachable from a static delegate the native side holds, so these have to be static
+        // too. A caller's Func stays referenced until a later reservation succeeds or shutdown
+        // completes.
+        private static Dictionary<string, Func<byte[]>> s_renderProviders = new();
+        private static readonly Dictionary<string, byte[]> s_renderCache = new();
+
+        // Published only while a reservation call is in flight: the native side swaps its renderer
+        // table before it finishes placing the formats, so a render request arriving inside that
+        // window has to resolve against both generations.
+        private static Dictionary<string, Func<byte[]>>? s_renderStaging;
+
+        private static bool s_historyEventsEnabled;
         private static bool s_quitHandlerSubscribed;
         private static bool s_quitDrainStarted;
         private static bool s_quitDrainCompleted;
@@ -404,6 +450,37 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </para>
         /// </summary>
         internal static uint? AcceptRequestsWithIdForTests;
+
+        /// <summary>Raises the history events through the same path the native callbacks use.</summary>
+        internal static void InjectHistoryChangedForTests() => RaiseHistoryChanged();
+
+        /// <summary>Raises the history-setting event through the native callbacks' own path.</summary>
+        internal static void InjectHistoryEnabledChangedForTests(bool enabled) =>
+            RaiseHistoryEnabledChanged(enabled);
+
+        /// <summary>Raises the roaming-setting event through the native callbacks' own path.</summary>
+        internal static void InjectRoamingEnabledChangedForTests(bool enabled) =>
+            RaiseRoamingEnabledChanged(enabled);
+
+        /// <summary>Whether history watching is currently registered.</summary>
+        internal static bool HistoryEventsEnabledForTests => s_historyEventsEnabled;
+
+        /// <summary>Format names whose providers are currently live.</summary>
+        internal static IReadOnlyCollection<string> RenderProviderNamesForTests => s_renderProviders.Keys;
+
+        /// <summary>Runs the two-phase render callback without the native side.</summary>
+        internal static uint RenderForTests(
+            string formatName, IntPtr buffer, uint bufferSize, out uint requiredSize) =>
+            RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
+
+        /// <summary>Applies a reservation outcome without the native side.</summary>
+        internal static void ApplyReservationOutcomeForTests(
+            WindowsClipboardErrorCode code, Dictionary<string, Func<byte[]>> next) =>
+            ApplyReservationOutcome(code, next);
+
+        /// <summary>Installs a live provider generation without a reservation call.</summary>
+        internal static void SetRenderProvidersForTests(Dictionary<string, Func<byte[]>> providers) =>
+            s_renderProviders = providers;
 
         /// <summary>Drives the native completion callback without the native side.</summary>
         internal static void InjectCompletionForTests(uint requestId, int error, string? json) =>
@@ -1499,6 +1576,151 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 pError => CancelRequestNative(requestId, out pError)), onResult);
         }
 
+        /// <summary>
+        /// Starts or stops watching the Windows clipboard history.
+        /// </summary>
+        /// <param name="enabled">
+        /// True registers <see cref="HistoryChanged"/>, <see cref="HistoryEnabledChanged"/> and
+        /// <see cref="RoamingEnabledChanged"/>; false stops watching and clears the registration.
+        /// </param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>
+        /// The result. MonitorRegisterFailed can be sticky: when a stop fails to revoke the
+        /// underlying event tokens, the native layer refuses to register again until a later stop
+        /// succeeds. Retrying later is the only recovery.
+        /// </returns>
+        public WindowsClipboardResult SetHistoryEventsEnabled(
+            bool enabled, Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(SetHistoryEventsEnabled)}] enabled: {enabled}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationSetHistoryEvents, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationSetHistoryEvents, rejected), onResult);
+            }
+
+            WindowsClipboardResult result = InvokeWrite(OperationSetHistoryEvents, pError =>
+                SetHistoryCallbacksNative(
+                    enabled ? s_historyChangedDelegate : null,
+                    enabled ? s_historyEnabledDelegate : null,
+                    enabled ? s_roamingEnabledDelegate : null,
+                    out pError));
+
+            if (result.IsSuccess) s_historyEventsEnabled = enabled;
+            return Deliver(result, onResult);
+        }
+
+        /// <summary>
+        /// Reserves formats the clipboard renders on demand, so a large payload is only produced
+        /// when something actually pastes it.
+        /// <para>
+        /// <b>This empties the clipboard.</b> The native reservation clears the clipboard before
+        /// placing its promises, so whatever was there is gone.
+        /// </para>
+        /// <para>
+        /// Each provider runs on the Unity main thread, synchronously, inside the message the
+        /// system sends to ask for the format. It must not call Unity APIs, must not touch the
+        /// clipboard, must not block, and must not throw: the dispatcher cannot help there, because
+        /// its queue only drains from Update. Capture the values it needs by value rather than
+        /// reaching for a MonoBehaviour or a Texture, which may already be gone: providers also run
+        /// while the application is shutting down.
+        /// </para>
+        /// <para>
+        /// A provider may be asked for its bytes immediately: with Windows clipboard history
+        /// enabled, the history service materializes every reserved format as soon as it is
+        /// reserved.
+        /// </para>
+        /// <para>
+        /// The reservation only survives while this process owns the clipboard, and the formats are
+        /// materialized while the owner window is destroyed, which only happens from a shutdown.
+        /// A process that simply exits drops them.
+        /// </para>
+        /// </summary>
+        /// <param name="providers">Format name to byte producer. Must hold at least one entry.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult ReserveDeferredFormats(
+            IReadOnlyDictionary<string, Func<byte[]>> providers,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(ReserveDeferredFormats)}] count: {providers?.Count ?? -1}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationReserveDeferredFormats, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(
+                    WindowsClipboardResult.Failure(OperationReserveDeferredFormats, rejected), onResult);
+            }
+            if (providers == null || providers.Count == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationReserveDeferredFormats, WindowsClipboardErrorCode.InvalidArgument,
+                    "providers was null or empty"), onResult);
+            }
+
+            var next = new Dictionary<string, Func<byte[]>>();
+            foreach (KeyValuePair<string, Func<byte[]>> entry in providers)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key))
+                {
+                    return Deliver(WindowsClipboardResult.Failure(
+                        OperationReserveDeferredFormats, WindowsClipboardErrorCode.InvalidArgument,
+                        "a format name was null or blank"), onResult);
+                }
+                if (entry.Value == null)
+                {
+                    return Deliver(WindowsClipboardResult.Failure(
+                        OperationReserveDeferredFormats, WindowsClipboardErrorCode.InvalidArgument,
+                        $"the provider of format {entry.Key} was null"), onResult);
+                }
+                next[entry.Key] = entry.Value;
+            }
+
+            string json = WindowsClipboardJsonBuilder.BuildFormatNamesJson(new List<string>(next.Keys));
+
+            // Publish both generations for the duration of the call, so a render request that
+            // arrives while the native side is swapping its table still resolves.
+            s_renderStaging = Merge(s_renderProviders, next);
+            WindowsClipboardResult result;
+            try
+            {
+                result = InvokeWrite(OperationReserveDeferredFormats,
+                    pError => ReserveDeferredFormatsNative(json, s_renderDelegate, IntPtr.Zero, out pError));
+            }
+            finally
+            {
+                s_renderStaging = null;
+            }
+
+            ApplyReservationOutcome(result.ErrorCode, next);
+            return Deliver(result, onResult);
+        }
+
+        /// <summary>
+        /// Retries the recovery the native layer performs after a failed rollback left the deferred
+        /// state partial.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>
+        /// The result. Success does not mean a recovery happened: the native call also reports
+        /// success when there was nothing partial to recover, so the providers are kept either way.
+        /// </returns>
+        public WindowsClipboardResult RecoverDeferredState(Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(RecoverDeferredState)}] onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationRecoverDeferredState, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(
+                    WindowsClipboardResult.Failure(OperationRecoverDeferredState, rejected), onResult);
+            }
+
+            // Deliberately does not touch the providers or the cache: a success here can mean
+            // "recovered", "there was nothing partial", or "the reservation is already gone", and
+            // dropping the providers on the strength of that code would strand a live renderer.
+            return Deliver(InvokeWrite(OperationRecoverDeferredState,
+                pError => RecoverDeferredStateNative(out pError)), onResult);
+        }
+
         // ── Awaitable wrappers ───────────────────────────────────────────────────
 
         /// <summary>
@@ -1579,6 +1801,122 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             uint requestId = ClearUnpinnedHistory(result => source.TrySetResult(result));
             RegisterCancellation(requestId, cancellationToken);
             return source.Awaitable;
+        }
+
+        // ── Deferred rendering internals ─────────────────────────────────────────
+
+        /// <summary>
+        /// Decides which providers stay live after a reservation attempt.
+        /// <para>
+        /// The decision is made from the error code alone. The native layer reports two different
+        /// failure sites with the same Unknown code - one that leaves the previous renderers in
+        /// place and one that clears them - so a rule that tried to tell them apart could not be
+        /// implemented. Keeping the previous generation is safe for both: the native side never
+        /// holds the new one on those paths, and providers nothing asks for cost only memory,
+        /// while a missing provider silently drops a reserved format.
+        /// </para>
+        /// </summary>
+        /// <param name="code">The code the reservation reported.</param>
+        /// <param name="next">The generation this call tried to install.</param>
+        internal static void ApplyReservationOutcome(
+            WindowsClipboardErrorCode code, Dictionary<string, Func<byte[]>> next)
+        {
+            switch (code)
+            {
+                case WindowsClipboardErrorCode.None:
+                    s_renderProviders = next;
+                    s_renderCache.Clear();
+                    break;
+
+                case WindowsClipboardErrorCode.PartialState:
+                    // The native side kept the new table, so it wins; the previous formats it does
+                    // not name may still be asked for.
+                    s_renderProviders = Merge(s_renderProviders, next);
+                    s_renderCache.Clear();
+                    break;
+
+                default:
+                    // The previous generation stays exactly as it was, and so does its cache.
+                    break;
+            }
+        }
+
+        private static Dictionary<string, Func<byte[]>> Merge(
+            Dictionary<string, Func<byte[]>> baseline, Dictionary<string, Func<byte[]>> overrides)
+        {
+            var merged = new Dictionary<string, Func<byte[]>>(baseline);
+            foreach (KeyValuePair<string, Func<byte[]>> entry in overrides) merged[entry.Key] = entry.Value;
+            return merged;
+        }
+
+        private static bool TryResolveProvider(string formatName, out Func<byte[]>? provider)
+        {
+            Dictionary<string, Func<byte[]>>? staging = s_renderStaging;
+            if (staging != null && staging.TryGetValue(formatName, out provider)) return true;
+            return s_renderProviders.TryGetValue(formatName, out provider);
+        }
+
+        /// <summary>
+        /// Produces the bytes of one reserved format, in the two phases the native side asks for.
+        /// <para>
+        /// The size the first phase reports and the size the second phase writes have to match
+        /// exactly: the native layer drops a format whose second answer differs, without an error.
+        /// The bytes are therefore produced once and cached, never regenerated.
+        /// </para>
+        /// </summary>
+        internal static uint RenderDeferredFormat(
+            string formatName, IntPtr buffer, uint bufferSize, out uint requiredSize)
+        {
+            requiredSize = 0;
+            try
+            {
+                if (buffer == IntPtr.Zero)
+                {
+                    if (!TryResolveProvider(formatName, out Func<byte[]>? provider) || provider == null)
+                    {
+                        Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] no provider for {formatName}");
+                        return (uint)WindowsClipboardErrorCode.InvalidParameter;
+                    }
+
+                    byte[] produced = provider() ?? Array.Empty<byte>();
+                    if (produced.Length == 0)
+                    {
+                        // A zero-length payload cannot be placed, and answering zero would make the
+                        // native side drop the format without saying why.
+                        Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] {formatName} produced no bytes");
+                        return (uint)WindowsClipboardErrorCode.InvalidData;
+                    }
+
+                    s_renderCache[formatName] = produced;
+                    requiredSize = (uint)produced.Length;
+                    return (uint)WindowsClipboardErrorCode.BufferTooSmall;
+                }
+
+                if (!s_renderCache.TryGetValue(formatName, out byte[]? cached))
+                {
+                    // Regenerating here could yield a different length than the first phase
+                    // promised, which the native side discards silently. Failing loudly is better.
+                    Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] no cached payload for {formatName}");
+                    return (uint)WindowsClipboardErrorCode.Unknown;
+                }
+
+                requiredSize = (uint)cached.Length;
+                if (bufferSize < cached.Length)
+                {
+                    return (uint)WindowsClipboardErrorCode.BufferTooSmall;
+                }
+
+                Marshal.Copy(cached, 0, buffer, cached.Length);
+                return (uint)WindowsClipboardErrorCode.None;
+            }
+            catch (Exception ex)
+            {
+                // out parameters are not written back when an exception leaves the method, so the
+                // size is reset explicitly before reporting the failure.
+                requiredSize = 0;
+                Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] {formatName}: {ex.GetType().Name}");
+                return (uint)WindowsClipboardErrorCode.Unknown;
+            }
         }
 
         // ── Request plumbing ─────────────────────────────────────────────────────
@@ -1951,6 +2289,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             {
                 case WindowsClipboardShutdownProgress.Completed:
                     ReleaseOwnedComReference();
+                    // Only now: an unfinished shutdown means the native side can still send
+                    // WM_RENDERALLFORMATS, and dropping the providers first loses those formats.
+                    s_renderProviders = new Dictionary<string, Func<byte[]>>();
+                    s_renderCache.Clear();
                     s_state = WindowsClipboardManagerState.ShutDown;
                     break;
                 case WindowsClipboardShutdownProgress.NotYet:
@@ -2310,6 +2652,42 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #endif
         }
 
+        private static int ReserveDeferredFormatsNative(
+            string formatNamesJson, ClipboardRenderCallback provider, IntPtr context, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            reserveDeferredFormats(formatNamesJson, provider, context, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int RecoverDeferredStateNative(out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            recoverDeferredState(out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int SetHistoryCallbacksNative(
+            ClipboardHistoryChangedCallback? onHistoryChanged,
+            ClipboardFlagChangedCallback? onHistoryEnabledChanged,
+            ClipboardFlagChangedCallback? onRoamingEnabledChanged,
+            out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            setClipboardHistoryCallbacks(
+                onHistoryChanged, onHistoryEnabledChanged, onRoamingEnabledChanged, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
         private static int CancelRequestNative(uint requestId, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
@@ -2475,6 +2853,108 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         // accepted request has completed.
         private static readonly ClipboardRequestCallback s_requestDelegate = OnRequestCompletedNative;
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate uint ClipboardRenderCallback(
+            [MarshalAs(UnmanagedType.LPWStr)] string formatName, IntPtr context, IntPtr buffer,
+            uint bufferSize, out uint requiredSize);
+
+        // The native side keeps this pointer for as long as a reservation stands.
+        private static readonly ClipboardRenderCallback s_renderDelegate = OnRenderFormatNative;
+
+        [MonoPInvokeCallback(typeof(ClipboardRenderCallback))]
+        private static uint OnRenderFormatNative(
+            string formatName, IntPtr context, IntPtr buffer, uint bufferSize, out uint requiredSize)
+        {
+            // Runs synchronously inside WM_RENDERFORMAT on the owner UI thread. The dispatcher
+            // cannot be used here: its queue only drains from Update, which cannot run until this
+            // returns.
+            return RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
+        }
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ClipboardHistoryChangedCallback();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ClipboardFlagChangedCallback([MarshalAs(UnmanagedType.Bool)] bool enabled);
+
+        // The native side keeps these pointers until they are replaced or until shutdown reports
+        // completion, so they have to outlive every call that hands them over.
+        private static readonly ClipboardHistoryChangedCallback s_historyChangedDelegate =
+            OnHistoryChangedNative;
+        private static readonly ClipboardFlagChangedCallback s_historyEnabledDelegate =
+            OnHistoryEnabledChangedNative;
+        private static readonly ClipboardFlagChangedCallback s_roamingEnabledDelegate =
+            OnRoamingEnabledChangedNative;
+
+        [MonoPInvokeCallback(typeof(ClipboardHistoryChangedCallback))]
+        private static void OnHistoryChangedNative()
+        {
+            try
+            {
+                RaiseHistoryChanged();
+            }
+            catch (Exception ex)
+            {
+                // Nothing may cross the C ABI boundary.
+                Debug.LogError($"[{LogTag}][{nameof(OnHistoryChangedNative)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(ClipboardFlagChangedCallback))]
+        private static void OnHistoryEnabledChangedNative(bool enabled)
+        {
+            try
+            {
+                RaiseHistoryEnabledChanged(enabled);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnHistoryEnabledChangedNative)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(ClipboardFlagChangedCallback))]
+        private static void OnRoamingEnabledChangedNative(bool enabled)
+        {
+            try
+            {
+                RaiseRoamingEnabledChanged(enabled);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnRoamingEnabledChangedNative)}] {ex.Message}");
+            }
+        }
+
+        /// <summary>Hands a history addition to the subscribers through the dispatcher.</summary>
+        private static void RaiseHistoryChanged() => RaiseOnMainThread(
+            nameof(RaiseHistoryChanged), () => _instance?.HistoryChanged?.Invoke());
+
+        /// <summary>Hands a history-setting change to the subscribers through the dispatcher.</summary>
+        private static void RaiseHistoryEnabledChanged(bool enabled) => RaiseOnMainThread(
+            nameof(RaiseHistoryEnabledChanged), () => _instance?.HistoryEnabledChanged?.Invoke(enabled));
+
+        /// <summary>Hands a roaming-setting change to the subscribers through the dispatcher.</summary>
+        private static void RaiseRoamingEnabledChanged(bool enabled) => RaiseOnMainThread(
+            nameof(RaiseRoamingEnabledChanged), () => _instance?.RoamingEnabledChanged?.Invoke(enabled));
+
+        private static void RaiseOnMainThread(string origin, Action raise)
+        {
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (dispatcher == null) return;
+            dispatcher.Enqueue(() =>
+            {
+                try
+                {
+                    raise();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{origin}] subscriber threw: {ex.Message}");
+                }
+            });
+        }
+
         private static bool IsMainThread() =>
             s_mainThreadId == 0 || Thread.CurrentThread.ManagedThreadId == s_mainThreadId;
 
@@ -2503,6 +2983,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
             s_state = WindowsClipboardManagerState.Uninitialized;
             s_comOwnership = WindowsClipboardComOwnership.None;
+            s_renderProviders = new Dictionary<string, Func<byte[]>>();
+            s_renderCache.Clear();
+            s_renderStaging = null;
+            s_historyEventsEnabled = false;
             s_quitDrainStarted = false;
             s_quitDrainCompleted = false;
             s_isTerminated = false;
@@ -2683,6 +3167,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool cancelClipboardRequest(uint requestId, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void reserveDeferredFormats(
+            [MarshalAs(UnmanagedType.LPWStr)] string formatNamesJson, ClipboardRenderCallback provider,
+            IntPtr context, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern void recoverDeferredState(out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern void setClipboardHistoryCallbacks(
+            ClipboardHistoryChangedCallback? onHistoryChanged,
+            ClipboardFlagChangedCallback? onHistoryEnabledChanged,
+            ClipboardFlagChangedCallback? onRoamingEnabledChanged,
+            out int pError);
 #endif
     }
 }
