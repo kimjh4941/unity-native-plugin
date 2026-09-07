@@ -128,6 +128,156 @@ namespace JonghyunKim.NativeToolkit.Tests
                 WindowsClipboardManager.ClassifyShutdown(false, code));
         }
 
+        // ── Read classification (design 7.5) ─────────────────────────────────────
+
+        [TestCase(WindowsClipboardErrorCode.Empty)]
+        [TestCase(WindowsClipboardErrorCode.FormatUnavailable)]
+        public void ClassifyFirstRead_TheseCodesMeanAnEmptyClipboard(WindowsClipboardErrorCode code)
+        {
+            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
+                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: false));
+            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
+                WindowsClipboardManager.ClassifyFirstRead(code, 12, isByteApi: true));
+        }
+
+        [Test]
+        public void ClassifyFirstRead_NoneWithASizeNeedsABuffer()
+        {
+            Assert.AreEqual(WindowsClipboardReadDecision.NeedsBuffer,
+                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.None, 5, false));
+        }
+
+        [Test]
+        public void ClassifyFirstRead_NoneWithoutASizeIsEmpty()
+        {
+            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
+                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.None, 0, false));
+        }
+
+        [Test]
+        public void ClassifyFirstRead_BufferTooSmallWithASizeNeedsABuffer()
+        {
+            // This is the normal path: the sizing call always reports the size this way.
+            Assert.AreEqual(WindowsClipboardReadDecision.NeedsBuffer,
+                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 21, false));
+        }
+
+        [Test]
+        public void ClassifyFirstRead_ZeroBytesIsAnEmptySuccessOnlyForTheByteApis()
+        {
+            // The byte APIs report a zero-length payload as size 0 plus BufferTooSmall. A string
+            // API always needs room for the terminator, so the same pair means something is wrong.
+            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
+                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 0, isByteApi: true));
+            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
+                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 0, isByteApi: false));
+        }
+
+        [TestCase(WindowsClipboardErrorCode.NotInitialized)]
+        [TestCase(WindowsClipboardErrorCode.Busy)]
+        [TestCase(WindowsClipboardErrorCode.InvalidData)]
+        [TestCase(WindowsClipboardErrorCode.OutOfMemory)]
+        [TestCase(WindowsClipboardErrorCode.WrongThread)]
+        public void ClassifyFirstRead_AFailureWithZeroSizeIsNeverNormalizedToEmpty(
+            WindowsClipboardErrorCode code)
+        {
+            // The native read APIs return 0 for a lease failure too, so trusting the size instead
+            // of the code would turn a real failure into "the clipboard is empty".
+            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
+                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: false));
+            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
+                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: true));
+        }
+
+        [Test]
+        public void ClassifySecondRead_NoneMeansTheBufferMayBeRead()
+        {
+            Assert.AreEqual(WindowsClipboardSecondReadDecision.Read,
+                WindowsClipboardManager.ClassifySecondRead(WindowsClipboardErrorCode.None));
+        }
+
+        [TestCase(WindowsClipboardErrorCode.Empty)]
+        [TestCase(WindowsClipboardErrorCode.FormatUnavailable)]
+        public void ClassifySecondRead_TheClipboardChangingBetweenCallsIsAnEmptySuccess(
+            WindowsClipboardErrorCode code)
+        {
+            Assert.AreEqual(WindowsClipboardSecondReadDecision.EmptySuccess,
+                WindowsClipboardManager.ClassifySecondRead(code));
+        }
+
+        [Test]
+        public void ClassifySecondRead_BufferTooSmallMeansTheContentGrew()
+        {
+            Assert.AreEqual(WindowsClipboardSecondReadDecision.Retry,
+                WindowsClipboardManager.ClassifySecondRead(WindowsClipboardErrorCode.BufferTooSmall));
+        }
+
+        [TestCase(WindowsClipboardErrorCode.Busy)]
+        [TestCase(WindowsClipboardErrorCode.InvalidData)]
+        [TestCase(WindowsClipboardErrorCode.Unknown)]
+        public void ClassifySecondRead_OtherCodesFailBeforeTheBufferIsTouched(
+            WindowsClipboardErrorCode code)
+        {
+            Assert.AreEqual(WindowsClipboardSecondReadDecision.Failure,
+                WindowsClipboardManager.ClassifySecondRead(code));
+        }
+
+        // ── Operation guard (design 7.5) ─────────────────────────────────────────
+        // The public operations are instance methods, and creating the Manager needs a player
+        // loop, so EditMode covers the guard through its seam. The API-level rejections live in
+        // the PlayMode integration tests.
+
+        [Test]
+        public void OperationGuard_BeforeInitialize_ReportsNotInitializedByHost()
+        {
+            WindowsClipboardManager.ResetForTests();
+
+            // Stopping here keeps a caller that forgot to initialize from reaching the native side
+            // just to receive its NotInitialized.
+            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+                WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
+        [Test]
+        public void OperationGuard_WhileRunning_Passes()
+        {
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
+
+            Assert.AreEqual(WindowsClipboardErrorCode.None,
+                WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
+        // Two tests rather than a TestCase pair: the state enum is internal, and a public test
+        // method cannot take a parameter of a less accessible type.
+        [Test]
+        public void OperationGuard_WhileDraining_ReportsShuttingDown()
+        {
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
+
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
+                WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
+        [Test]
+        public void OperationGuard_AfterAFailedShutdown_ReportsShuttingDown()
+        {
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.ShutdownFailed);
+
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
+                WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
+        [Test]
+        public void OperationGuard_AfterDestruction_ReportsManagerDestroyedEvenWhileRunning()
+        {
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
+            WindowsClipboardManager.SetTerminatedForTests(true);
+
+            // The tombstone outranks the state: a recreated manager must stay inert.
+            Assert.AreEqual(WindowsClipboardErrorCode.ManagerDestroyed,
+                WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
         // ── Lifecycle state machine ──────────────────────────────────────────────
 
         [Test]

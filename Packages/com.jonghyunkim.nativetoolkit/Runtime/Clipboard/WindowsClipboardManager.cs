@@ -7,6 +7,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 {
     using System;
     using System.Collections;
+    using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using System.Threading;
     using AOT;
@@ -47,6 +48,39 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>Calling again cannot help.</summary>
         Terminal
+    }
+
+    /// <summary>
+    /// What the first call of a two-call read should lead to.
+    /// </summary>
+    internal enum WindowsClipboardReadDecision
+    {
+        /// <summary>The clipboard holds nothing for this format. A success, not a failure.</summary>
+        EmptySuccess,
+
+        /// <summary>Allocate the reported size and call again.</summary>
+        NeedsBuffer,
+
+        /// <summary>Report the error. Never normalize this to an empty clipboard.</summary>
+        Failure
+    }
+
+    /// <summary>
+    /// What the second call of a two-call read should lead to.
+    /// </summary>
+    internal enum WindowsClipboardSecondReadDecision
+    {
+        /// <summary>The buffer holds the payload and may be read.</summary>
+        Read,
+
+        /// <summary>The clipboard was emptied between the two calls.</summary>
+        EmptySuccess,
+
+        /// <summary>The content grew between the two calls; allocate again.</summary>
+        Retry,
+
+        /// <summary>Report the error without touching the buffer.</summary>
+        Failure
     }
 
     /// <summary>
@@ -99,6 +133,51 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>Operation name for CanShutdownNow.</summary>
         public const string OperationCanShutdown = "canDestroyClipboardManager";
+
+        /// <summary>Operation name for CopyPlainText.</summary>
+        public const string OperationCopyPlainText = "copyPlainText";
+
+        /// <summary>Operation name for CopyHtml.</summary>
+        public const string OperationCopyHtml = "copyHtml";
+
+        /// <summary>Operation name for CopyFiles.</summary>
+        public const string OperationCopyFiles = "copyFiles";
+
+        /// <summary>Operation name for CopyImage.</summary>
+        public const string OperationCopyImage = "copyImage";
+
+        /// <summary>Operation name for CopyCustomFormat.</summary>
+        public const string OperationCopyCustomFormat = "copyCustomFormat";
+
+        /// <summary>Operation name for CopyMultipleFormats.</summary>
+        public const string OperationCopyMultipleFormats = "copyMultipleFormats";
+
+        /// <summary>Operation name for PastePlainText.</summary>
+        public const string OperationPastePlainText = "pastePlainText";
+
+        /// <summary>Operation name for PasteHtml.</summary>
+        public const string OperationPasteHtml = "pasteHtml";
+
+        /// <summary>Operation name for PasteFiles.</summary>
+        public const string OperationPasteFiles = "pasteFiles";
+
+        /// <summary>Operation name for PasteImage.</summary>
+        public const string OperationPasteImage = "pasteImage";
+
+        /// <summary>Operation name for PasteCustomFormat.</summary>
+        public const string OperationPasteCustomFormat = "pasteCustomFormat";
+
+        /// <summary>Operation name for HasFormat.</summary>
+        public const string OperationHasFormat = "hasClipboardFormat";
+
+        /// <summary>Operation name for GetFormats.</summary>
+        public const string OperationGetFormats = "getClipboardFormats";
+
+        /// <summary>Operation name for GetPreferredFormat.</summary>
+        public const string OperationGetPreferredFormat = "getPreferredClipboardFormat";
+
+        /// <summary>Operation name for Clear.</summary>
+        public const string OperationClear = "clearClipboard";
 
         // ── Singleton ────────────────────────────────────────────────────────────
 
@@ -155,6 +234,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         public event Action? ClipboardChanged;
 
+        /// <summary>
+        /// Raised when a read that yields text completes: PastePlainText, PasteHtml and
+        /// GetPreferredFormat.
+        /// </summary>
+        public event Action<WindowsClipboardTextResult>? TextReadCompleted;
+
+        /// <summary>Raised when PasteFiles or GetFormats completes.</summary>
+        public event Action<WindowsClipboardStringListResult>? StringListReadCompleted;
+
+        /// <summary>Raised when PasteImage or PasteCustomFormat completes.</summary>
+        public event Action<WindowsClipboardBytesResult>? BytesReadCompleted;
+
+        /// <summary>Raised when HasFormat completes.</summary>
+        public event Action<WindowsClipboardFormatPresenceResult>? FormatPresenceChecked;
+
         // ── Static state (main thread only) ──────────────────────────────────────
 
         // Captured on the main thread in Awake so dispatching never touches
@@ -210,6 +304,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// covered at all.
         /// </summary>
         internal static void InjectClipboardChangedForTests() => RaiseClipboardChanged();
+
+        /// <summary>
+        /// Runs the shared operation guard and reports what it decided.
+        /// The public operations are instance methods on a MonoBehaviour, which EditMode cannot
+        /// construct, so the ordering is covered through this seam instead.
+        /// </summary>
+        internal static WindowsClipboardErrorCode CheckOperationGuardForTests()
+        {
+            return CanRunOperation("test", out WindowsClipboardErrorCode code)
+                ? WindowsClipboardErrorCode.None
+                : code;
+        }
+
+        /// <summary>Sets the tombstone so a test can cover the destroyed rejection.</summary>
+        internal static void SetTerminatedForTests(bool terminated) => s_isTerminated = terminated;
 
         /// <summary>Records that this layer owns a COM reference, for the release tests.</summary>
         internal static void SetComOwnershipForTests(WindowsClipboardComOwnership ownership) =>
@@ -476,6 +585,708 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #endif
         }
 
+        // ── Read classification ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Classifies the sizing call of a two-call read.
+        /// <para>
+        /// The error code decides, never the returned size. The native read APIs return zero for a
+        /// lease failure and for an internal read failure as well, so treating a zero size as "the
+        /// clipboard is empty" would turn NotInitialized, Busy or InvalidData into a silent empty
+        /// success that the caller cannot tell from a genuinely empty clipboard.
+        /// </para>
+        /// </summary>
+        /// <param name="code">The error code the sizing call reported.</param>
+        /// <param name="requiredSize">The size it returned, in wchar_t or bytes.</param>
+        /// <param name="isByteApi">True for PasteImage and PasteCustomFormat.</param>
+        /// <returns>Whether the read is empty, needs a buffer, or failed.</returns>
+        internal static WindowsClipboardReadDecision ClassifyFirstRead(
+            WindowsClipboardErrorCode code, uint requiredSize, bool isByteApi)
+        {
+            switch (code)
+            {
+                case WindowsClipboardErrorCode.Empty:
+                case WindowsClipboardErrorCode.FormatUnavailable:
+                    return WindowsClipboardReadDecision.EmptySuccess;
+
+                case WindowsClipboardErrorCode.None:
+                    return requiredSize == 0
+                        ? WindowsClipboardReadDecision.EmptySuccess
+                        : WindowsClipboardReadDecision.NeedsBuffer;
+
+                case WindowsClipboardErrorCode.BufferTooSmall:
+                    if (requiredSize > 0) return WindowsClipboardReadDecision.NeedsBuffer;
+                    // Zero bytes is a real payload for the byte APIs. A string API always needs at
+                    // least the terminator, so a zero there means something went wrong.
+                    return isByteApi
+                        ? WindowsClipboardReadDecision.EmptySuccess
+                        : WindowsClipboardReadDecision.Failure;
+
+                default:
+                    return WindowsClipboardReadDecision.Failure;
+            }
+        }
+
+        /// <summary>
+        /// Classifies the filling call of a two-call read, before the buffer is touched.
+        /// </summary>
+        /// <param name="code">The error code the filling call reported.</param>
+        /// <returns>Whether to read the buffer, report empty, retry, or fail.</returns>
+        internal static WindowsClipboardSecondReadDecision ClassifySecondRead(WindowsClipboardErrorCode code)
+        {
+            return code switch
+            {
+                WindowsClipboardErrorCode.None => WindowsClipboardSecondReadDecision.Read,
+                // The clipboard can change between the two calls; neither outcome is an error.
+                WindowsClipboardErrorCode.Empty => WindowsClipboardSecondReadDecision.EmptySuccess,
+                WindowsClipboardErrorCode.FormatUnavailable => WindowsClipboardSecondReadDecision.EmptySuccess,
+                WindowsClipboardErrorCode.BufferTooSmall => WindowsClipboardSecondReadDecision.Retry,
+                _ => WindowsClipboardSecondReadDecision.Failure
+            };
+        }
+
+        // ── Operation guard ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Runs the checks every clipboard operation shares, in the order the design fixes.
+        /// The shutdown paths deliberately do not come through here (see TryShutdownCore).
+        /// </summary>
+        /// <param name="operation">Native operation name, used by the rejection message.</param>
+        /// <param name="code">The rejection code when this returns false.</param>
+        /// <returns>True when the operation may proceed.</returns>
+        private static bool CanRunOperation(string operation, out WindowsClipboardErrorCode code)
+        {
+            if (!IsMainThread())
+            {
+                code = WindowsClipboardErrorCode.MainThreadRequired;
+                return false;
+            }
+            if (s_isTerminated)
+            {
+                code = WindowsClipboardErrorCode.ManagerDestroyed;
+                return false;
+            }
+            if (s_state == WindowsClipboardManagerState.Draining ||
+                s_state == WindowsClipboardManagerState.ShutdownFailed)
+            {
+                code = WindowsClipboardErrorCode.ShuttingDown;
+                return false;
+            }
+            if (s_state != WindowsClipboardManagerState.Running)
+            {
+                // Stopping here keeps a caller that forgot to initialize from reaching the native
+                // side just to receive its NotInitialized.
+                code = WindowsClipboardErrorCode.NotInitializedByHost;
+                return false;
+            }
+
+            code = WindowsClipboardErrorCode.None;
+            return true;
+        }
+
+        // ── Public API: writing ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Places plain text on the clipboard.
+        /// </summary>
+        /// <param name="text">The text to place. Must not be null.</param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult CopyPlainText(
+            string text,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            // Clipboard content may hold passwords or tokens, so the value never reaches the log.
+            Debug.Log($"[{LogTag}][{nameof(CopyPlainText)}] length: {text?.Length ?? -1}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyPlainText, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyPlainText, rejected), onResult);
+            }
+            if (text == null)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyPlainText, WindowsClipboardErrorCode.InvalidArgument, "text was null"), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationCopyPlainText,
+                pError => CopyPlainTextNative(text, (uint)options, out pError)), onResult);
+        }
+
+        /// <summary>
+        /// Places an HTML fragment on the clipboard, with a plain-text fallback for readers that
+        /// do not take HTML.
+        /// </summary>
+        /// <param name="htmlFragment">The HTML fragment. Must not be null.</param>
+        /// <param name="plainText">The fallback text, or null for none.</param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult CopyHtml(
+            string htmlFragment,
+            string? plainText = null,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CopyHtml)}] htmlLength: {htmlFragment?.Length ?? -1}, hasPlainText: {plainText != null}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyHtml, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyHtml, rejected), onResult);
+            }
+            if (htmlFragment == null)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyHtml, WindowsClipboardErrorCode.InvalidArgument, "htmlFragment was null"), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationCopyHtml,
+                pError => CopyHtmlNative(htmlFragment, plainText, (uint)options, out pError)), onResult);
+        }
+
+        /// <summary>
+        /// Places a list of file paths on the clipboard, the way Explorer copies files.
+        /// </summary>
+        /// <param name="paths">Absolute file paths. Must hold at least one entry.</param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult CopyFiles(
+            IReadOnlyList<string> paths,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CopyFiles)}] count: {paths?.Count ?? -1}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyFiles, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyFiles, rejected), onResult);
+            }
+            if (paths == null || paths.Count == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyFiles, WindowsClipboardErrorCode.InvalidArgument, "paths was null or empty"), onResult);
+            }
+            for (int i = 0; i < paths.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(paths[i]))
+                {
+                    return Deliver(WindowsClipboardResult.Failure(
+                        OperationCopyFiles, WindowsClipboardErrorCode.InvalidArgument,
+                        $"paths[{i}] was null or blank"), onResult);
+                }
+            }
+
+            string json = WindowsClipboardJsonBuilder.BuildPathsJson(paths);
+            return Deliver(InvokeWrite(OperationCopyFiles,
+                pError => CopyFilesNative(json, (uint)options, out pError)), onResult);
+        }
+
+        /// <summary>
+        /// Places a device-independent bitmap on the clipboard.
+        /// </summary>
+        /// <param name="dib">The DIB bytes. Encoding a texture into this format is the caller's job.</param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult CopyImage(
+            byte[] dib,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CopyImage)}] size: {dib?.Length ?? -1}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyImage, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyImage, rejected), onResult);
+            }
+            if (dib == null || dib.Length == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyImage, WindowsClipboardErrorCode.InvalidArgument, "dib was null or empty"), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationCopyImage,
+                pError => CopyImageNative(dib, (uint)dib.Length, (uint)options, out pError)), onResult);
+        }
+
+        /// <summary>
+        /// Places raw bytes on the clipboard under a registered format name.
+        /// </summary>
+        /// <param name="formatName">Format name, either a CF_* constant name or a registered name.</param>
+        /// <param name="data">The bytes to place. Must hold at least one byte.</param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult CopyCustomFormat(
+            string formatName,
+            byte[] data,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CopyCustomFormat)}] format: {formatName}, size: {data?.Length ?? -1}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyCustomFormat, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyCustomFormat, rejected), onResult);
+            }
+            if (string.IsNullOrWhiteSpace(formatName))
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyCustomFormat, WindowsClipboardErrorCode.InvalidArgument,
+                    "formatName was null or blank"), onResult);
+            }
+            if (data == null || data.Length == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyCustomFormat, WindowsClipboardErrorCode.InvalidArgument,
+                    "data was null or empty"), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationCopyCustomFormat,
+                pError => CopyCustomFormatNative(formatName, data, (uint)data.Length, (uint)options, out pError)),
+                onResult);
+        }
+
+        /// <summary>
+        /// Places several formats of the same content on the clipboard in one operation, so each
+        /// reader can take the richest form it understands.
+        /// </summary>
+        /// <param name="items">
+        /// The formats, richest first. The native layer rejects duplicate formats and a payload
+        /// kind that does not fit its format before anything is placed.
+        /// </param>
+        /// <param name="options">Whether to keep the content out of history or the cloud clipboard.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>
+        /// The result. PartialState means a placement failed and the rollback failed as well, so
+        /// the clipboard may hold part of the content; RecoverDeferredState does not cover this.
+        /// </returns>
+        public WindowsClipboardResult CopyMultipleFormats(
+            IReadOnlyList<WindowsClipboardFormatPayload> items,
+            WindowsClipboardWriteOptions options = WindowsClipboardWriteOptions.None,
+            Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CopyMultipleFormats)}] count: {items?.Count ?? -1}, options: {options}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCopyMultipleFormats, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCopyMultipleFormats, rejected), onResult);
+            }
+            if (items == null || items.Count == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCopyMultipleFormats, WindowsClipboardErrorCode.InvalidArgument,
+                    "items was null or empty"), onResult);
+            }
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (!items[i].TryValidate(out string? detail))
+                {
+                    return Deliver(WindowsClipboardResult.Failure(
+                        OperationCopyMultipleFormats, WindowsClipboardErrorCode.InvalidArgument,
+                        $"items[{i}]: {detail}"), onResult);
+                }
+            }
+
+            string json = WindowsClipboardJsonBuilder.BuildMultiFormatItemsJson(items);
+            return Deliver(InvokeWrite(OperationCopyMultipleFormats,
+                pError => CopyMultipleFormatsNative(json, (uint)options, out pError)), onResult);
+        }
+
+        /// <summary>
+        /// Empties the clipboard.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The result, also delivered to the event and the callback.</returns>
+        public WindowsClipboardResult Clear(Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(Clear)}] onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationClear, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationClear, rejected), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationClear, pError => ClearNative(out pError)), onResult);
+        }
+
+        // ── Public API: reading ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Reads plain text from the clipboard.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="TextReadCompleted"/> fires as well.</param>
+        /// <returns>
+        /// The result. An empty clipboard is a success with IsEmpty set; only a real failure
+        /// carries an error.
+        /// </returns>
+        public WindowsClipboardTextResult PastePlainText(Action<WindowsClipboardTextResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(PastePlainText)}] onResult: {onResult != null}");
+            return DeliverText(ReadText(OperationPastePlainText, PastePlainTextNative), onResult);
+        }
+
+        /// <summary>
+        /// Reads the HTML fragment from the clipboard, decoded from the CF_HTML payload.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="TextReadCompleted"/> fires as well.</param>
+        /// <returns>The result. An empty clipboard is a success with IsEmpty set.</returns>
+        public WindowsClipboardTextResult PasteHtml(Action<WindowsClipboardTextResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(PasteHtml)}] onResult: {onResult != null}");
+            return DeliverText(ReadText(OperationPasteHtml, PasteHtmlNative), onResult);
+        }
+
+        /// <summary>
+        /// Reads the copied file list from the clipboard.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="StringListReadCompleted"/> fires as well.</param>
+        /// <returns>The result. An empty clipboard is a success with no values.</returns>
+        public WindowsClipboardStringListResult PasteFiles(
+            Action<WindowsClipboardStringListResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(PasteFiles)}] onResult: {onResult != null}");
+            return DeliverStringList(ReadStringList(OperationPasteFiles, PasteFilesNative), onResult);
+        }
+
+        /// <summary>
+        /// Lists the formats the clipboard currently holds.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="StringListReadCompleted"/> fires as well.</param>
+        /// <returns>
+        /// The result. An empty clipboard reports no values rather than the native Empty code,
+        /// because the native API answers with an empty array.
+        /// </returns>
+        public WindowsClipboardStringListResult GetFormats(
+            Action<WindowsClipboardStringListResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetFormats)}] onResult: {onResult != null}");
+            return DeliverStringList(ReadStringList(OperationGetFormats, GetFormatsNative), onResult);
+        }
+
+        /// <summary>
+        /// Reads a device-independent bitmap from the clipboard.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="BytesReadCompleted"/> fires as well.</param>
+        /// <returns>The result. An empty clipboard is a success with no bytes.</returns>
+        public WindowsClipboardBytesResult PasteImage(Action<WindowsClipboardBytesResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(PasteImage)}] onResult: {onResult != null}");
+            return DeliverBytes(ReadBytes(OperationPasteImage, PasteImageNative), onResult);
+        }
+
+        /// <summary>
+        /// Reads raw bytes stored under a registered format name.
+        /// </summary>
+        /// <param name="formatName">Format name, either a CF_* constant name or a registered name.</param>
+        /// <param name="onResult">Per-call callback. <see cref="BytesReadCompleted"/> fires as well.</param>
+        /// <returns>The result. A format the clipboard does not hold is an empty success.</returns>
+        public WindowsClipboardBytesResult PasteCustomFormat(
+            string formatName, Action<WindowsClipboardBytesResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(PasteCustomFormat)}] format: {formatName}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationPasteCustomFormat, out WindowsClipboardErrorCode rejected))
+            {
+                return DeliverBytes(
+                    WindowsClipboardBytesResult.Failure(OperationPasteCustomFormat, rejected), onResult);
+            }
+            if (string.IsNullOrWhiteSpace(formatName))
+            {
+                return DeliverBytes(WindowsClipboardBytesResult.Failure(
+                    OperationPasteCustomFormat, WindowsClipboardErrorCode.InvalidArgument,
+                    "formatName was null or blank"), onResult);
+            }
+
+            return DeliverBytes(
+                ReadBytes(OperationPasteCustomFormat,
+                    (IntPtr buffer, uint size, out int pError) =>
+                        PasteCustomFormatNative(formatName, buffer, size, out pError),
+                    skipGuard: true),
+                onResult);
+        }
+
+        /// <summary>
+        /// Reads the most descriptive format the clipboard holds.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="TextReadCompleted"/> fires as well.</param>
+        /// <returns>
+        /// The result. The native candidate list is fixed to CF_UNICODETEXT, CF_HDROP, CF_DIB and
+        /// CF_BITMAP, so HTML is never reported here even when the clipboard holds it. An empty
+        /// clipboard yields an empty string rather than the native Empty code.
+        /// </returns>
+        public WindowsClipboardTextResult GetPreferredFormat(
+            Action<WindowsClipboardTextResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetPreferredFormat)}] onResult: {onResult != null}");
+            return DeliverText(ReadText(OperationGetPreferredFormat, GetPreferredFormatNative), onResult);
+        }
+
+        /// <summary>
+        /// Asks whether the clipboard holds a format.
+        /// </summary>
+        /// <param name="formatName">Format name, either a CF_* constant name or a registered name.</param>
+        /// <param name="onResult">Per-call callback. <see cref="FormatPresenceChecked"/> fires as well.</param>
+        /// <returns>
+        /// The result. IsSuccess says whether the query worked and HasFormat whether the format is
+        /// there; the native API answers FALSE for both cases, so they stay separate here.
+        /// </returns>
+        public WindowsClipboardFormatPresenceResult HasFormat(
+            string formatName, Action<WindowsClipboardFormatPresenceResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(HasFormat)}] format: {formatName}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationHasFormat, out WindowsClipboardErrorCode rejected))
+            {
+                return DeliverPresence(
+                    WindowsClipboardFormatPresenceResult.Failure(OperationHasFormat, rejected), onResult);
+            }
+            if (string.IsNullOrWhiteSpace(formatName))
+            {
+                return DeliverPresence(WindowsClipboardFormatPresenceResult.Failure(
+                    OperationHasFormat, WindowsClipboardErrorCode.InvalidArgument,
+                    "formatName was null or blank"), onResult);
+            }
+
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            try
+            {
+                bool has = hasClipboardFormat(formatName, out int pError);
+                WindowsClipboardFormatPresenceResult result = pError == 0
+                    ? WindowsClipboardFormatPresenceResult.Success(OperationHasFormat, has)
+                    : WindowsClipboardFormatPresenceResult.Failure(
+                        OperationHasFormat, (WindowsClipboardErrorCode)pError);
+                return DeliverPresence(result, onResult);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(HasFormat)}] {ex.GetType().Name}: {ex.Message}");
+                return DeliverPresence(WindowsClipboardFormatPresenceResult.Failure(
+                    OperationHasFormat, WindowsClipboardErrorCode.BridgeUnavailable), onResult);
+            }
+#else
+            return DeliverPresence(WindowsClipboardFormatPresenceResult.Failure(
+                OperationHasFormat, WindowsClipboardErrorCode.PlatformUnavailable), onResult);
+#endif
+        }
+
+        // ── Read helpers ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// One call of the native two-call read protocol.
+        /// </summary>
+        private delegate uint NativeSizedRead(IntPtr buffer, uint bufferSize, out int pError);
+
+        private const int SizeChangedRetryBudget = 2;
+
+        private WindowsClipboardTextResult ReadText(string operation, NativeSizedRead call)
+        {
+            if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
+            {
+                return WindowsClipboardTextResult.Failure(operation, rejected);
+            }
+
+            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: false);
+            if (!outcome.IsSuccess) return WindowsClipboardTextResult.Failure(operation, outcome.Code);
+            if (outcome.IsEmpty) return WindowsClipboardTextResult.Empty(operation);
+
+            string text = outcome.Text ?? string.Empty;
+            // GetPreferredFormat answers with an empty string when nothing matches its candidates,
+            // and it never reports the native Empty code.
+            return text.Length == 0
+                ? WindowsClipboardTextResult.Empty(operation)
+                : WindowsClipboardTextResult.Success(operation, text);
+        }
+
+        private WindowsClipboardStringListResult ReadStringList(string operation, NativeSizedRead call)
+        {
+            if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
+            {
+                return WindowsClipboardStringListResult.Failure(operation, rejected);
+            }
+
+            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: false);
+            if (!outcome.IsSuccess) return WindowsClipboardStringListResult.Failure(operation, outcome.Code);
+            if (outcome.IsEmpty) return WindowsClipboardStringListResult.Empty(operation);
+
+            if (!WindowsClipboardJsonParser.TryParseStringArray(outcome.Text, out IReadOnlyList<string> values))
+            {
+                return WindowsClipboardStringListResult.Failure(
+                    operation, WindowsClipboardErrorCode.ResultParseFailed);
+            }
+            return WindowsClipboardStringListResult.Success(operation, values);
+        }
+
+        private WindowsClipboardBytesResult ReadBytes(
+            string operation, NativeSizedRead call, bool skipGuard = false)
+        {
+            if (!skipGuard && !CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
+            {
+                return WindowsClipboardBytesResult.Failure(operation, rejected);
+            }
+
+            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: true);
+            if (!outcome.IsSuccess) return WindowsClipboardBytesResult.Failure(operation, outcome.Code);
+            if (outcome.IsEmpty) return WindowsClipboardBytesResult.Empty(operation);
+            return WindowsClipboardBytesResult.Success(operation, outcome.Data ?? Array.Empty<byte>());
+        }
+
+        private readonly struct ReadOutcome
+        {
+            internal bool IsSuccess { get; }
+            internal bool IsEmpty { get; }
+            internal string? Text { get; }
+            internal byte[]? Data { get; }
+            internal WindowsClipboardErrorCode Code { get; }
+
+            internal static ReadOutcome Empty() => new(true, true, null, null, WindowsClipboardErrorCode.None);
+            internal static ReadOutcome FromText(string text) =>
+                new(true, false, text, null, WindowsClipboardErrorCode.None);
+            internal static ReadOutcome FromData(byte[] data) =>
+                new(true, false, null, data, WindowsClipboardErrorCode.None);
+            internal static ReadOutcome Failed(WindowsClipboardErrorCode code) =>
+                new(false, false, null, null, code);
+
+            private ReadOutcome(bool isSuccess, bool isEmpty, string? text, byte[]? data,
+                WindowsClipboardErrorCode code)
+            {
+                IsSuccess = isSuccess;
+                IsEmpty = isEmpty;
+                Text = text;
+                Data = data;
+                Code = code;
+            }
+        }
+
+        /// <summary>
+        /// Runs the native two-call read protocol: ask for the size, allocate, then fill.
+        /// The error code is classified before the buffer is ever read, on both calls.
+        /// </summary>
+        private ReadOutcome ReadRaw(string operation, NativeSizedRead call, bool isByteApi)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            try
+            {
+                for (int attempt = 0; attempt <= SizeChangedRetryBudget; attempt++)
+                {
+                    uint required = call(IntPtr.Zero, 0, out int sizeError);
+                    var sizeCode = (WindowsClipboardErrorCode)sizeError;
+
+                    switch (ClassifyFirstRead(sizeCode, required, isByteApi))
+                    {
+                        case WindowsClipboardReadDecision.EmptySuccess:
+                            return ReadOutcome.Empty();
+                        case WindowsClipboardReadDecision.Failure:
+                            Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} sizing failed: {sizeCode}");
+                            return ReadOutcome.Failed(sizeCode);
+                    }
+
+                    // A string size counts wchar_t including the terminator, a byte size counts bytes.
+                    int byteCount = isByteApi ? (int)required : (int)required * 2;
+                    IntPtr buffer = Marshal.AllocHGlobal(byteCount);
+                    try
+                    {
+                        uint written = call(buffer, required, out int readError);
+                        var readCode = (WindowsClipboardErrorCode)readError;
+
+                        switch (ClassifySecondRead(readCode))
+                        {
+                            case WindowsClipboardSecondReadDecision.EmptySuccess:
+                                return ReadOutcome.Empty();
+                            case WindowsClipboardSecondReadDecision.Retry:
+                                // The clipboard grew between the two calls; size it again.
+                                continue;
+                            case WindowsClipboardSecondReadDecision.Failure:
+                                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} read failed: {readCode}");
+                                return ReadOutcome.Failed(readCode);
+                        }
+
+                        if (isByteApi)
+                        {
+                            var data = new byte[written];
+                            if (written > 0) Marshal.Copy(buffer, data, 0, (int)written);
+                            return ReadOutcome.FromData(data);
+                        }
+
+                        string? text = Marshal.PtrToStringUni(buffer);
+                        return text == null ? ReadOutcome.Empty() : ReadOutcome.FromText(text);
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(buffer);
+                    }
+                }
+
+                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} kept resizing; giving up.");
+                return ReadOutcome.Failed(WindowsClipboardErrorCode.BufferTooSmall);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {ex.GetType().Name}: {ex.Message}");
+                return ReadOutcome.Failed(WindowsClipboardErrorCode.BridgeUnavailable);
+            }
+            catch (OutOfMemoryException)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} could not allocate its buffer.");
+                return ReadOutcome.Failed(WindowsClipboardErrorCode.OutOfMemory);
+            }
+#else
+            return ReadOutcome.Failed(WindowsClipboardErrorCode.PlatformUnavailable);
+#endif
+        }
+
+        /// <summary>
+        /// Runs a native call that reports through pError alone.
+        /// </summary>
+        private WindowsClipboardResult InvokeWrite(string operation, Func<int, int> call)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            try
+            {
+                return WindowsClipboardResult.FromNative(operation, call(0));
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(InvokeWrite)}] {ex.GetType().Name}: {ex.Message}");
+                return WindowsClipboardResult.Failure(operation, WindowsClipboardErrorCode.BridgeUnavailable);
+            }
+#else
+            return WindowsClipboardResult.Failure(operation, WindowsClipboardErrorCode.PlatformUnavailable);
+#endif
+        }
+
+        private static WindowsClipboardTextResult DeliverText(
+            WindowsClipboardTextResult result, Action<WindowsClipboardTextResult>? onResult)
+        {
+            Dispatch(result, _instance?.TextReadCompleted, onResult);
+            return result;
+        }
+
+        private static WindowsClipboardStringListResult DeliverStringList(
+            WindowsClipboardStringListResult result, Action<WindowsClipboardStringListResult>? onResult)
+        {
+            Dispatch(result, _instance?.StringListReadCompleted, onResult);
+            return result;
+        }
+
+        private static WindowsClipboardBytesResult DeliverBytes(
+            WindowsClipboardBytesResult result, Action<WindowsClipboardBytesResult>? onResult)
+        {
+            Dispatch(result, _instance?.BytesReadCompleted, onResult);
+            return result;
+        }
+
+        private static WindowsClipboardFormatPresenceResult DeliverPresence(
+            WindowsClipboardFormatPresenceResult result,
+            Action<WindowsClipboardFormatPresenceResult>? onResult)
+        {
+            Dispatch(result, _instance?.FormatPresenceChecked, onResult);
+            return result;
+        }
+
         // ── Shutdown internals ───────────────────────────────────────────────────
 
         /// <summary>
@@ -519,8 +1330,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.BridgeUnavailable);
             }
 #else
-            completed = false;
-            return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.PlatformUnavailable);
+            // Nothing was ever initialized here, so there is nothing to release. Reporting a
+            // failure instead would make every editor teardown look like a terminal shutdown
+            // failure, which is what that classification is meant to flag.
+            completed = true;
+            return WindowsClipboardResult.Success(OperationShutdown);
 #endif
         }
 
@@ -830,6 +1644,152 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             });
         }
 
+        // ── Native call wrappers ─────────────────────────────────────────────────
+        // Named consistently so the public API reads the same in both compilations. Outside the
+        // Windows player they are never reached: the callers return PlatformUnavailable first.
+
+        private static int CopyPlainTextNative(string text, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyPlainText(text, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int CopyHtmlNative(string html, string? plainText, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyHtml(html, plainText, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int CopyFilesNative(string pathsJson, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyFiles(pathsJson, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int CopyImageNative(byte[] dib, uint size, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyImage(dib, size, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int CopyCustomFormatNative(
+            string formatName, byte[] data, uint size, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyCustomFormat(formatName, data, size, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int CopyMultipleFormatsNative(string itemsJson, uint options, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            copyMultipleFormats(itemsJson, options, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static int ClearNative(out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            clearClipboard(out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
+        private static uint PastePlainTextNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return pastePlainText(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint PasteHtmlNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return pasteHtml(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint PasteFilesNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return pasteFiles(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint PasteImageNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return pasteImage(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint PasteCustomFormatNative(
+            string formatName, IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return pasteCustomFormat(formatName, buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint GetFormatsNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return getClipboardFormats(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint GetPreferredFormatNative(IntPtr buffer, uint size, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return getPreferredClipboardFormat(buffer, size, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
         private static bool IsMainThread() =>
             s_mainThreadId == 0 || Thread.CurrentThread.ManagedThreadId == s_mainThreadId;
 
@@ -934,6 +1894,78 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool canDestroyClipboardManager(out int pError);
+
+        // Clipboard operations. The wrappers below exist so the public API can pass a delegate
+        // without the extern signatures leaking out of this guarded region.
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void copyPlainText(
+            [MarshalAs(UnmanagedType.LPWStr)] string text, uint options, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void copyHtml(
+            [MarshalAs(UnmanagedType.LPWStr)] string htmlFragment,
+            [MarshalAs(UnmanagedType.LPWStr)] string? plainText, uint options, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void copyFiles(
+            [MarshalAs(UnmanagedType.LPWStr)] string pathsJson, uint options, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern void copyImage(byte[] dib, uint dibSize, uint options, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void copyCustomFormat(
+            [MarshalAs(UnmanagedType.LPWStr)] string formatName, byte[] data, uint size, uint options,
+            out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern void copyMultipleFormats(
+            [MarshalAs(UnmanagedType.LPWStr)] string itemsJson, uint options, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern void clearClipboard(out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint pastePlainText(IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint pasteHtml(IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint pasteFiles(IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern uint pasteImage(IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint pasteCustomFormat(
+            [MarshalAs(UnmanagedType.LPWStr)] string formatName, IntPtr buffer, uint bufferSize,
+            out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool hasClipboardFormat(
+            [MarshalAs(UnmanagedType.LPWStr)] string formatName, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint getClipboardFormats(IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint getPreferredClipboardFormat(
+            IntPtr buffer, uint bufferSize, out int pError);
 #endif
     }
 }
