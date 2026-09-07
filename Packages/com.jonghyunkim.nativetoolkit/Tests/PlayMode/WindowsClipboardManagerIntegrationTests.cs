@@ -29,13 +29,16 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TearDown]
         public void TearDown()
         {
-            // A test that forced the Running state has no native manager behind it, so clear the
-            // state before destroying: OnDestroy would otherwise run a shutdown for something that
-            // was never initialized.
-            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Uninitialized);
+            // Undo only the thread seam: a shutdown from the wrong thread cannot complete, and
+            // OnDestroy would report a terminal failure that belongs to the seam rather than to
+            // anything under test.
+            WindowsClipboardManager.SetMainThreadIdForTests(
+                System.Threading.Thread.CurrentThread.ManagedThreadId);
 
-            // Destroy first, then reset: ResetForTests clears the captured main-thread id and the
-            // dispatcher, which only Awake re-establishes.
+            // The state is deliberately left as the test set it. OnDestroy runs a real shutdown
+            // attempt, and clearing the state first would mean no test ever exercised it. The
+            // editor's attempt reports completion without a native manager behind it, so this is
+            // safe as well as more faithful.
             DestroyManagerIfPresent();
             WindowsClipboardManager.ResetForTests();
         }
@@ -50,40 +53,318 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <summary>Creates the Manager and puts it into the state operations are accepted in.</summary>
+        /// <remarks>
+        /// The platform seam is part of that state: the editor is never a Windows player, so
+        /// without it the guard would stop every operation before the state was ever consulted.
+        /// The native boundary stays compiled out either way.
+        /// </remarks>
         private static WindowsClipboardManager RunningManager()
         {
             WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            WindowsClipboardManager.PlatformAvailableForTests = true;
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
             return manager;
+        }
+
+
+        // ── Lifecycle, driven rather than injected (design 7.3 and 7.4) ──────────
+
+        [UnityTest]
+        public IEnumerator Initialize_InTheEditor_FailsWithoutSubscribingTheQuitHandler()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+
+            WindowsClipboardResult result = manager.Initialize();
+
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, result.ErrorCode);
+            Assert.AreEqual(WindowsClipboardManagerState.Uninitialized,
+                WindowsClipboardManager.StateForTests, "a failed init must not claim to be running");
+            Assert.IsFalse(WindowsClipboardManager.QuitHandlerSubscribedForTests,
+                "nothing was initialized, so nothing has to be drained before a quit");
+        }
+
+        [UnityTest]
+        public IEnumerator Initialize_AfterDestruction_ReportsManagerDestroyedRatherThanShuttingDown()
+        {
+            // OnDestroy can leave the state at Draining. Reading the state before the tombstone
+            // would answer ShuttingDown forever, with nothing left to finish the shutdown.
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
+            WindowsClipboardManager.SetTerminatedForTests(true);
+
+            WindowsClipboardResult result = manager.Initialize();
+
+            Assert.AreEqual(WindowsClipboardErrorCode.ManagerDestroyed, result.ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator Initialize_WhileDraining_IsRejectedAsShuttingDown()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
+
+            WindowsClipboardResult result = manager.Initialize();
+
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, result.ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator Initialize_OffTheMainThread_IsRejectedBeforeTheState()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
+            // Standing in for a worker thread: the captured id no longer matches this one.
+            WindowsClipboardManager.SetMainThreadIdForTests(
+                System.Threading.Thread.CurrentThread.ManagedThreadId + 1);
+
+            WindowsClipboardResult result = manager.Initialize();
+
+            Assert.AreEqual(WindowsClipboardErrorCode.MainThreadRequired, result.ErrorCode,
+                "Running would otherwise answer with an idempotent success");
+        }
+
+        [UnityTest]
+        public IEnumerator OnDestroy_DeliversAQueuedRejectionEvenWhenNothingWasInitialized()
+        {
+            // Nothing pumps the dispatcher after the manager is gone, so the teardown drain is the
+            // only thing standing between a queued rejection and a caller that waits forever.
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            manager.GetHistory(results.Add);
+            Assert.AreEqual(0, results.Count, "the delivery is queued, not immediate");
+
+            Object.DestroyImmediate(manager.gameObject);
+
+            Assert.AreEqual(1, results.Count, "the teardown owed this caller its one delivery");
+            Assert.IsFalse(results[0].IsSuccess);
+
+            yield return null;
+            Assert.AreEqual(1, results.Count, "the queued delivery must not run a second time");
+        }
+
+        [UnityTest]
+        public IEnumerator EveryShutdownAttemptDrainsTheRegistry_NotJustTheFirst()
+        {
+            // The drain loop reaches the termination once per attempt. A request registered while
+            // the manager was already Draining still has to be handed back.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 91;
+            manager.GetHistory(results.Add);
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
+            Assert.AreEqual(1, WindowsClipboardManager.PendingRequestCountForTests);
+
+            WindowsClipboardManager.InjectShutdownResultForTests(false, WindowsClipboardErrorCode.Busy);
+
+            Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests,
+                "an attempt that made no progress still owes the registry its drain");
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.Canceled, results[0].ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator Quit_IsHeldBackOnceAndThenResumedExactlyOnce()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            int quits = 0;
+            WindowsClipboardManager.QuitActionForTests = () => quits++;
+            yield return null;
+
+            bool firstAnswer = WindowsClipboardManager.InvokeWantsToQuitForTests();
+
+            Assert.IsFalse(firstAnswer, "the quit waits for the drain");
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(1, quits, "the drain resumes the quit exactly once");
+            Assert.IsTrue(WindowsClipboardManager.QuitDrainCompletedForTests);
+            Assert.IsFalse(WindowsClipboardManager.DrainRunningForTests);
+            Assert.AreEqual(WindowsClipboardManagerState.ShutDown, WindowsClipboardManager.StateForTests);
+
+            Assert.IsTrue(WindowsClipboardManager.InvokeWantsToQuitForTests(),
+                "a second request must go straight through rather than wait again");
+            Assert.AreEqual(1, quits);
+        }
+
+        [UnityTest]
+        public IEnumerator Quit_WithoutAManagerGoesStraightThrough()
+        {
+            // Refusing a quit that nothing can ever resume would leave the application unable to
+            // exit, which is worse than shutting down without the drain.
+            WindowsClipboardManager.ResetForTests();
+            yield return null;
+
+            Assert.IsTrue(WindowsClipboardManager.InvokeWantsToQuitForTests());
+            Assert.IsTrue(WindowsClipboardManager.QuitDrainCompletedForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator ShutdownWithDrain_AfterItFinished_IsAnIdempotentSuccess()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            yield return null;
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results[0].IsSuccess);
+            Assert.AreEqual(WindowsClipboardManagerState.ShutDown, WindowsClipboardManager.StateForTests);
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(2, results.Count);
+            Assert.IsTrue(results[1].IsSuccess, "there is nothing left to release");
+            Assert.IsFalse(WindowsClipboardManager.DrainRunningForTests);
+        }
+
+
+        [UnityTest]
+        public IEnumerator Drain_RetriesAcrossFramesWhileTheNativeSideReportsProgress()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            int attempts = 0;
+            // Refuses twice, then finishes: the shape the native contract asks callers to expect.
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => ++attempts < 3
+                    ? (false, WindowsClipboardErrorCode.Busy)
+                    : (true, WindowsClipboardErrorCode.None);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+
+            for (int i = 0; i < 6 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(3, attempts, "the drain keeps trying until the native side finishes");
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results[0].IsSuccess);
+            Assert.AreEqual(WindowsClipboardManagerState.ShutDown, WindowsClipboardManager.StateForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator Drain_WhileDraining_OperationsAreRefusedAsShuttingDown()
+        {
+            // The state has to advance on the first attempt, not once the drain is over: for the
+            // whole retry window an operation would otherwise reach the native side.
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.SetShutdownBudgetForTests(6, 5f);
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            // Expected before the fact: LogAssert only matches messages logged after the call.
+            LogAssert.Expect(LogType.Error, new Regex("exceeded its budget"));
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(WindowsClipboardManagerState.Draining,
+                WindowsClipboardManager.StateForTests,
+                "the state has to advance on the first attempt, not once the drain is over");
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, manager.Clear().ErrorCode);
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, manager.PasteImage().ErrorCode);
+
+            // Let it run out so the coroutine is not left alive past this test.
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Drain_ThatNeverFinishes_EndsAsShutdownTimeoutAndKeepsRefusing()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.SetShutdownBudgetForTests(3, 5f);
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            // Expected before the fact: LogAssert only matches messages logged after the call.
+            LogAssert.Expect(LogType.Error, new Regex("exceeded its budget"));
+            manager.ShutdownWithDrain(results.Add);
+            for (int i = 0; i < 8 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.ShutdownTimeout, results[0].ErrorCode);
+            Assert.AreEqual(WindowsClipboardManagerState.ShutdownFailed,
+                WindowsClipboardManager.StateForTests,
+                "Draining would claim a shutdown is still making progress");
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, manager.Clear().ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator Drain_OnAPartialReservation_TriesTheRecoveryOnceBeforeGivingUp()
+        {
+            // The native uninit refuses to finish for as long as a reservation is half applied, so
+            // the recovery is part of the drain. Without it the reserved formats are dropped with
+            // no error at all, and the public RecoverDeferredState cannot help: it is refused
+            // while the manager is draining.
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.SetShutdownBudgetForTests(4, 5f);
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.PartialState);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            // Expected before the fact: LogAssert only matches messages logged after the call.
+            LogAssert.Expect(LogType.Error, new Regex("exceeded its budget"));
+            manager.ShutdownWithDrain(results.Add);
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, WindowsClipboardManager.RecoverDeferredCallCountForTests,
+                "the recovery is tried once, not once per frame and not never");
+        }
+
+        [UnityTest]
+        public IEnumerator Drain_OnAnOrdinaryRefusal_DoesNotReachForTheRecovery()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.SetShutdownBudgetForTests(3, 5f);
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            // Expected before the fact: LogAssert only matches messages logged after the call.
+            LogAssert.Expect(LogType.Error, new Regex("exceeded its budget"));
+            manager.ShutdownWithDrain(results.Add);
+            for (int i = 0; i < 8 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(0, WindowsClipboardManager.RecoverDeferredCallCountForTests,
+                "nothing is partial here, so there is nothing to recover from");
         }
 
         // ── Rejection paths ──────────────────────────────────────────────────────
 
         [UnityTest]
-        public IEnumerator BeforeInitialize_EveryOperationIsRejectedWithoutReachingTheNativeSide()
+        public IEnumerator EveryOperationIsRejectedWithoutReachingTheNativeSide()
         {
+            // The editor is not a Windows player, so the guard stops every operation with
+            // PlatformUnavailable. What this test pins is that none of them reach the bridge; the
+            // ordering behind the answer is checked on the classifier in EditMode.
             WindowsClipboardManager manager = WindowsClipboardManager.Instance;
             yield return null;
 
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.CopyPlainText("a").ErrorCode);
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.PastePlainText().ErrorCode);
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.GetFormats().ErrorCode);
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.HasFormat("CF_UNICODETEXT").ErrorCode);
-        }
-
-        [UnityTest]
-        public IEnumerator WhileDraining_OperationsAreRejectedAsShuttingDown()
-        {
-            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
-            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
-            yield return null;
-
-            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, manager.Clear().ErrorCode);
-            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown, manager.PasteImage().ErrorCode);
         }
 
         [UnityTest]
@@ -167,7 +448,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             yield return null;
             Assert.AreEqual(1, results.Count);
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost, results[0].ErrorCode);
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, results[0].ErrorCode);
 
             yield return null;
             Assert.AreEqual(1, results.Count, "a queued delivery must not run twice");
@@ -405,7 +686,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             WindowsClipboardResult result = manager.SetHistoryEventsEnabled(true);
 
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost, result.ErrorCode);
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, result.ErrorCode);
             Assert.IsFalse(WindowsClipboardManager.HistoryEventsEnabledForTests,
                 "a rejected call must not record the registration as active");
         }

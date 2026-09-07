@@ -419,43 +419,116 @@ namespace JonghyunKim.NativeToolkit.Tests
         // loop, so EditMode covers the guard through its seam. The API-level rejections live in
         // the PlayMode integration tests.
 
-        [Test]
-        public void OperationGuard_BeforeInitialize_ReportsNotInitializedByHost()
-        {
-            WindowsClipboardManager.ResetForTests();
+        // The order is the contract, so it is checked on the classifier directly rather than
+        // through the manager: the editor is never a Windows player, so every state-dependent
+        // answer would otherwise be hidden behind PlatformUnavailable.
+        // Separate methods rather than TestCases: the state enum is internal, and a public test
+        // method cannot take a parameter of a less accessible type.
 
+        [Test]
+        public void Guard_OnAWorkerThread_ReportsMainThreadRequiredBeforeAnythingElse()
+        {
+            // Every other condition is also wrong here; the thread still wins.
+            Assert.AreEqual(WindowsClipboardErrorCode.MainThreadRequired,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: false,
+                    terminated: true,
+                    platformAvailable: false,
+                    state: WindowsClipboardManagerState.Draining));
+        }
+
+        [Test]
+        public void Guard_AfterDestruction_ReportsManagerDestroyedEvenOnAnUnsupportedPlatform()
+        {
+            // The tombstone outranks both the platform and the state: a recreated manager must
+            // stay inert, and saying why it is inert matters more than saying where it runs.
+            Assert.AreEqual(WindowsClipboardErrorCode.ManagerDestroyed,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: true,
+                    platformAvailable: false,
+                    state: WindowsClipboardManagerState.Running));
+        }
+
+        [Test]
+        public void Guard_OutsideAWindowsPlayer_ReportsPlatformUnavailableRatherThanNotInitialized()
+        {
+            // Initialize cannot succeed off a Windows player, so NotInitializedByHost would send
+            // the caller after an Initialize that could never have worked.
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: false,
+                    state: WindowsClipboardManagerState.Uninitialized));
+        }
+
+        [Test]
+        public void Guard_WhileDraining_ReportsShuttingDown()
+        {
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: true,
+                    state: WindowsClipboardManagerState.Draining));
+        }
+
+        [Test]
+        public void Guard_AfterAFailedShutdown_ReportsShuttingDown()
+        {
+            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: true,
+                    state: WindowsClipboardManagerState.ShutdownFailed));
+        }
+
+        [Test]
+        public void Guard_BeforeInitialize_ReportsNotInitializedByHost()
+        {
             // Stopping here keeps a caller that forgot to initialize from reaching the native side
             // just to receive its NotInitialized.
             Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
-                WindowsClipboardManager.CheckOperationGuardForTests());
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: true,
+                    state: WindowsClipboardManagerState.Uninitialized));
         }
 
         [Test]
-        public void OperationGuard_WhileRunning_Passes()
+        public void Guard_AfterAFinishedShutdown_ReportsNotInitializedByHost()
         {
+            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: true,
+                    state: WindowsClipboardManagerState.ShutDown));
+        }
+
+        [Test]
+        public void Guard_WhileRunningOnAWindowsPlayer_Passes()
+        {
+            Assert.AreEqual(WindowsClipboardErrorCode.None,
+                WindowsClipboardManager.ClassifyOperationGuard(
+                    isMainThread: true,
+                    terminated: false,
+                    platformAvailable: true,
+                    state: WindowsClipboardManagerState.Running));
+        }
+
+        // The two below check that the live guard is wired to the classifier at all.
+
+        [Test]
+        public void OperationGuard_InTheEditor_ReportsPlatformUnavailable()
+        {
+            WindowsClipboardManager.ResetForTests();
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
-            Assert.AreEqual(WindowsClipboardErrorCode.None,
-                WindowsClipboardManager.CheckOperationGuardForTests());
-        }
-
-        // Two tests rather than a TestCase pair: the state enum is internal, and a public test
-        // method cannot take a parameter of a less accessible type.
-        [Test]
-        public void OperationGuard_WhileDraining_ReportsShuttingDown()
-        {
-            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
-
-            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
-                WindowsClipboardManager.CheckOperationGuardForTests());
-        }
-
-        [Test]
-        public void OperationGuard_AfterAFailedShutdown_ReportsShuttingDown()
-        {
-            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.ShutdownFailed);
-
-            Assert.AreEqual(WindowsClipboardErrorCode.ShuttingDown,
+            Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 WindowsClipboardManager.CheckOperationGuardForTests());
         }
 
@@ -465,9 +538,39 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
             WindowsClipboardManager.SetTerminatedForTests(true);
 
-            // The tombstone outranks the state: a recreated manager must stay inert.
             Assert.AreEqual(WindowsClipboardErrorCode.ManagerDestroyed,
                 WindowsClipboardManager.CheckOperationGuardForTests());
+        }
+
+
+        [Test]
+        public void Shutdown_AnAttemptFromAFinishedManagerDoesNotReportASecondCompletion()
+        {
+            // OnDestroy now runs an attempt whatever the state, and the native uninit is
+            // idempotent, so a finished manager must be left exactly as it was.
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
+            WindowsClipboardManager.SetComOwnershipForTests(WindowsClipboardComOwnership.Initialized);
+            WindowsClipboardManager.InjectShutdownResultForTests(true, WindowsClipboardErrorCode.None);
+            Assert.AreEqual(1, WindowsClipboardManager.ComReleaseCountForTests);
+
+            WindowsClipboardManager.InjectShutdownResultForTests(true, WindowsClipboardErrorCode.None);
+
+            Assert.AreEqual(WindowsClipboardManagerState.ShutDown, WindowsClipboardManager.StateForTests);
+            Assert.AreEqual(1, WindowsClipboardManager.ComReleaseCountForTests,
+                "a second attempt on a finished manager must not release again");
+        }
+
+        [Test]
+        public void Shutdown_AnAttemptOnAManagerThatNeverStartedIsNotATerminalFailure()
+        {
+            WindowsClipboardManager.ResetForTests();
+
+            // WrongThread is terminal for a live manager, but there is nothing here to fail.
+            WindowsClipboardManager.InjectShutdownResultForTests(
+                false, WindowsClipboardErrorCode.WrongThread);
+
+            Assert.AreEqual(WindowsClipboardManagerState.Uninitialized,
+                WindowsClipboardManager.StateForTests);
         }
 
         // ── Lifecycle state machine ──────────────────────────────────────────────

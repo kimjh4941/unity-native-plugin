@@ -374,6 +374,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private static bool s_historyEventsEnabled;
         private static bool s_quitHandlerSubscribed;
+
+        // A drain runs across frames, so a second request has to join the running one rather
+        // than start its own: two coroutines would each run the native attempt and each report
+        // a completion for the same shutdown.
+        private static bool s_drainRunning;
+        private static bool s_drainDeliveryRequested;
+        private static Action<WindowsClipboardResult>? s_drainWaiters;
         private static bool s_quitDrainStarted;
         private static bool s_quitDrainCompleted;
 
@@ -381,6 +388,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private const int ShutdownRetryFrameBudget = 60;
         private const float ShutdownRetrySecondBudget = 2f;
+
+        // Held in fields rather than read from the constants directly, so a test can shorten the
+        // budget instead of spending the real two seconds to reach the timeout.
+        private static int s_retryFrameBudget = ShutdownRetryFrameBudget;
+        private static float s_retrySecondBudget = ShutdownRetrySecondBudget;
 
         // ── Test seams ───────────────────────────────────────────────────────────
 
@@ -400,14 +412,73 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Whether the quit handler is subscribed, for the idempotent-Initialize test.</summary>
         internal static bool QuitHandlerSubscribedForTests => s_quitHandlerSubscribed;
 
-        /// <summary>Drives the state machine without the native bridge.</summary>
-        internal static void InjectShutdownResultForTests(bool completed, WindowsClipboardErrorCode code)
+        /// <summary>Which path a shutdown attempt came from, for the seams below.</summary>
+        internal enum ShutdownOriginForTests
+        {
+            PublicApi,
+            Drain,
+            Destroy,
+            Quit
+        }
+
+        /// <summary>
+        /// Drives the state machine without the native bridge, as if the attempt had come from the
+        /// given path. The origin matters: only a quit-started shutdown resumes the quit.
+        /// </summary>
+        internal static WindowsClipboardShutdownProgress InjectShutdownResultForTests(
+            bool completed,
+            WindowsClipboardErrorCode code,
+            ShutdownOriginForTests origin = ShutdownOriginForTests.PublicApi)
         {
             WindowsClipboardResult result = completed
                 ? WindowsClipboardResult.Success(OperationShutdown)
                 : WindowsClipboardResult.Failure(OperationShutdown, code);
-            FinishShutdownAttempt(ShutdownOrigin.PublicApi, result, completed);
+            return FinishShutdownAttempt((ShutdownOrigin)origin, result, completed);
         }
+
+        /// <summary>
+        /// Pretends the captured main thread is a different one, so the thread guard can be
+        /// exercised without actually leaving the main thread.
+        /// </summary>
+        internal static void SetMainThreadIdForTests(int threadId) => s_mainThreadId = threadId;
+
+        /// <summary>Whether a drain coroutine is currently running.</summary>
+        internal static bool DrainRunningForTests => s_drainRunning;
+
+        /// <summary>
+        /// Stands in for the native shutdown call, so the paths that only exist while the native
+        /// side refuses to finish - the retry loop, the budget timeout, the recovery from a
+        /// half-applied reservation - can be reached at all. The editor otherwise reports
+        /// completion on the first attempt and none of them ever run.
+        /// </summary>
+        internal static Func<(bool completed, WindowsClipboardErrorCode code)>? NativeShutdownForTests;
+
+        /// <summary>How often the native recovery call was made.</summary>
+        internal static int RecoverDeferredCallCountForTests;
+
+        /// <summary>Shortens the drain budget so a timeout test does not take two seconds.</summary>
+        internal static void SetShutdownBudgetForTests(int frames, float seconds)
+        {
+            s_retryFrameBudget = frames;
+            s_retrySecondBudget = seconds;
+        }
+
+        /// <summary>
+        /// Stands in for the platform check, which the editor can never satisfy.
+        /// <para>
+        /// Without it no operation could pass the guard here, and the whole accepted half of the
+        /// request lifecycle - in-flight markers, completions, teardown drains - would be
+        /// unreachable. Only the guard's own answer is affected; the native boundary stays
+        /// compiled out.
+        /// </para>
+        /// </summary>
+        internal static bool? PlatformAvailableForTests;
+
+        /// <summary>Runs the quit handler without an actual quit request.</summary>
+        internal static bool InvokeWantsToQuitForTests() => OnWantsToQuit();
+
+        /// <summary>Whether the quit drain has started and finished, for the resume tests.</summary>
+        internal static bool QuitDrainCompletedForTests => s_quitDrainCompleted;
 
         /// <summary>Puts the manager into a state a test needs without touching the native side.</summary>
         internal static void SetStateForTests(WindowsClipboardManagerState state) => s_state = state;
@@ -533,18 +604,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
             UnsubscribeQuitHandler();
 
-            if (s_state == WindowsClipboardManagerState.Running ||
-                s_state == WindowsClipboardManagerState.Draining ||
-                s_state == WindowsClipboardManagerState.ShutdownFailed)
+            // No state gate. A request rejected before Initialize still has a queued delivery, and
+            // the drain inside the attempt is the last chance to hand it over: nothing pumps the
+            // dispatcher after this. The attempt itself is safe in every state because the native
+            // uninit is idempotent and the termination leaves a finished manager alone.
+            WindowsClipboardResult result = RunShutdownAttempt(
+                ShutdownOrigin.Destroy, out bool completed, out _);
+            if (!completed)
             {
-                WindowsClipboardResult result = TryShutdownCore(out bool completed);
-                FinishShutdownAttempt(ShutdownOrigin.Destroy, result, completed);
-                if (!completed)
-                {
-                    Debug.LogWarning(
-                        $"[{LogTag}][{nameof(OnDestroy)}] shutdown did not complete; native resources are retained. " +
-                        $"result: {result.ErrorCode}");
-                }
+                Debug.LogWarning(
+                    $"[{LogTag}][{nameof(OnDestroy)}] shutdown did not complete; native resources are retained. " +
+                    $"result: {result.ErrorCode}");
             }
 
             _instance = null;
@@ -570,21 +640,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Debug.Log($"[{LogTag}][{nameof(Initialize)}] enableChangeEvents: {enableChangeEvents}, onResult: {onResult != null}");
 
-            // Step 0: an idempotent Initialize must not touch COM or the native side, because the
-            // apartment probe would then overwrite an ownership record this layer still has to
-            // release at shutdown.
-            if (s_state == WindowsClipboardManagerState.Running)
-            {
-                return Deliver(WindowsClipboardResult.Success(OperationInitialize), onResult);
-            }
-            if (s_state == WindowsClipboardManagerState.Draining ||
-                s_state == WindowsClipboardManagerState.ShutdownFailed)
-            {
-                return Deliver(
-                    WindowsClipboardResult.Failure(OperationInitialize, WindowsClipboardErrorCode.ShuttingDown),
-                    onResult);
-            }
-
+            // The order matches CanRunOperation on purpose. A destroyed manager reports
+            // ManagerDestroyed whatever state it was left in: OnDestroy can leave the state at
+            // Draining, and checking the state first would answer a destroyed manager with
+            // ShuttingDown and never recover from it.
             if (!IsMainThread())
             {
                 return Deliver(
@@ -595,6 +654,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             {
                 return Deliver(
                     WindowsClipboardResult.Failure(OperationInitialize, WindowsClipboardErrorCode.ManagerDestroyed),
+                    onResult);
+            }
+
+            // An idempotent Initialize must not touch COM or the native side, because the apartment
+            // probe would then overwrite an ownership record this layer still has to release at
+            // shutdown.
+            if (s_state == WindowsClipboardManagerState.Running)
+            {
+                return Deliver(WindowsClipboardResult.Success(OperationInitialize), onResult);
+            }
+            if (s_state == WindowsClipboardManagerState.Draining ||
+                s_state == WindowsClipboardManagerState.ShutdownFailed)
+            {
+                return Deliver(
+                    WindowsClipboardResult.Failure(OperationInitialize, WindowsClipboardErrorCode.ShuttingDown),
                     onResult);
             }
 
@@ -672,9 +746,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return WindowsClipboardResult.Success(OperationShutdown);
             }
 
-            WindowsClipboardResult result = TryShutdownCore(out completed);
-            FinishShutdownAttempt(ShutdownOrigin.PublicApi, result, completed);
-            return result;
+            return RunShutdownAttempt(ShutdownOrigin.PublicApi, out completed, out _);
         }
 
         /// <summary>
@@ -705,7 +777,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            StartCoroutine(DrainRoutine(ShutdownOrigin.Drain, onResult));
+            if (onResult != null) s_drainWaiters += onResult;
+            s_drainDeliveryRequested = true;
+
+            // A drain already in flight will deliver to everyone waiting on it, including a quit
+            // that arrives later.
+            if (s_drainRunning) return;
+
+            s_drainRunning = true;
+            StartCoroutine(DrainRoutine(ShutdownOrigin.Drain));
         }
 
         /// <summary>
@@ -825,32 +905,57 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <returns>True when the operation may proceed.</returns>
         private static bool CanRunOperation(string operation, out WindowsClipboardErrorCode code)
         {
-            if (!IsMainThread())
+            bool platformAvailable = Application.platform == RuntimePlatform.WindowsPlayer;
+#if UNITY_EDITOR
+            if (PlatformAvailableForTests is bool forced) platformAvailable = forced;
+#endif
+            code = ClassifyOperationGuard(IsMainThread(), s_isTerminated, platformAvailable, s_state);
+            if (code == WindowsClipboardErrorCode.None) return true;
+
+            Debug.Log($"[{LogTag}][{nameof(CanRunOperation)}] {operation} rejected: {code}");
+            return false;
+        }
+
+        /// <summary>
+        /// Decides what the shared operation guard answers, given everything it looks at.
+        /// <para>
+        /// Kept free of state so the order can be checked directly. The order itself is the point:
+        /// each condition describes a different thing the caller has to fix, and answering with a
+        /// later one first sends them after the wrong problem.
+        /// </para>
+        /// </summary>
+        /// <param name="isMainThread">Whether the caller is on the thread that owns the native window.</param>
+        /// <param name="terminated">Whether the manager has been destroyed.</param>
+        /// <param name="platformAvailable">Whether this is a Windows player build.</param>
+        /// <param name="state">The lifecycle state.</param>
+        /// <returns>None when the operation may proceed, otherwise the rejection code.</returns>
+        internal static WindowsClipboardErrorCode ClassifyOperationGuard(
+            bool isMainThread,
+            bool terminated,
+            bool platformAvailable,
+            WindowsClipboardManagerState state)
+        {
+            if (!isMainThread) return WindowsClipboardErrorCode.MainThreadRequired;
+            if (terminated) return WindowsClipboardErrorCode.ManagerDestroyed;
+
+            // Before the state, because outside a Windows player build no state is reachable: the
+            // editor cannot initialize, and answering NotInitializedByHost there would send the
+            // caller looking for a missing Initialize that could never have succeeded.
+            if (!platformAvailable) return WindowsClipboardErrorCode.PlatformUnavailable;
+
+            if (state == WindowsClipboardManagerState.Draining ||
+                state == WindowsClipboardManagerState.ShutdownFailed)
             {
-                code = WindowsClipboardErrorCode.MainThreadRequired;
-                return false;
+                return WindowsClipboardErrorCode.ShuttingDown;
             }
-            if (s_isTerminated)
-            {
-                code = WindowsClipboardErrorCode.ManagerDestroyed;
-                return false;
-            }
-            if (s_state == WindowsClipboardManagerState.Draining ||
-                s_state == WindowsClipboardManagerState.ShutdownFailed)
-            {
-                code = WindowsClipboardErrorCode.ShuttingDown;
-                return false;
-            }
-            if (s_state != WindowsClipboardManagerState.Running)
+            if (state != WindowsClipboardManagerState.Running)
             {
                 // Stopping here keeps a caller that forgot to initialize from reaching the native
                 // side just to receive its NotInitialized.
-                code = WindowsClipboardErrorCode.NotInitializedByHost;
-                return false;
+                return WindowsClipboardErrorCode.NotInitializedByHost;
             }
 
-            code = WindowsClipboardErrorCode.None;
-            return true;
+            return WindowsClipboardErrorCode.None;
         }
 
         // ── Public API: writing ──────────────────────────────────────────────────
@@ -2239,7 +2344,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// would stop the shutdown from ever reaching the native side.
         /// </para>
         /// </summary>
-        private WindowsClipboardResult TryShutdownCore(out bool completed)
+        private WindowsClipboardResult InvokeNativeShutdown(out bool completed)
         {
             if (!IsMainThread())
             {
@@ -2260,6 +2365,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.BridgeUnavailable);
             }
 #else
+#if UNITY_EDITOR
+            if (NativeShutdownForTests != null)
+            {
+                (bool forced, WindowsClipboardErrorCode forcedCode) = NativeShutdownForTests();
+                completed = forced;
+                return forced
+                    ? WindowsClipboardResult.Success(OperationShutdown)
+                    : WindowsClipboardResult.Failure(OperationShutdown, forcedCode);
+            }
+#endif
             // Nothing was ever initialized here, so there is nothing to release. Reporting a
             // failure instead would make every editor teardown look like a terminal shutdown
             // failure, which is what that classification is meant to flag.
@@ -2269,22 +2384,57 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         }
 
         /// <summary>
-        /// The single place every shutdown attempt ends, whatever started it.
-        /// Advances the state, drains the request registry once, releases what may be released, and
-        /// resumes a pending quit.
+        /// Runs one shutdown attempt together with everything that has to follow it.
+        /// <para>
+        /// The native call and the termination are deliberately not separable. An earlier revision
+        /// exposed them separately, and the drain loop then called the attempt on its own and
+        /// reached the termination only once at the end, so the manager kept reporting Running for
+        /// the whole drain and let new operations through.
+        /// </para>
         /// </summary>
-        private static void FinishShutdownAttempt(
+        /// <param name="origin">What started the shutdown, for the diagnostics.</param>
+        /// <param name="completed">True when the native manager finished releasing everything.</param>
+        /// <param name="progress">Whether to stop, retry, or give up.</param>
+        /// <returns>The attempt's result.</returns>
+        private WindowsClipboardResult RunShutdownAttempt(
+            ShutdownOrigin origin, out bool completed, out WindowsClipboardShutdownProgress progress)
+        {
+            WindowsClipboardResult result = InvokeNativeShutdown(out completed);
+            progress = FinishShutdownAttempt(origin, result, completed);
+            return result;
+        }
+
+        /// <summary>
+        /// The single place every shutdown attempt ends, whatever started it.
+        /// Advances the state, drains the request registry, and releases what may be released.
+        /// </summary>
+        /// <returns>How the attempt was classified.</returns>
+        private static WindowsClipboardShutdownProgress FinishShutdownAttempt(
             ShutdownOrigin origin, WindowsClipboardResult result, bool completed)
         {
-            // The first attempt closes the door before anything else. Draining the registry after
-            // that means a callback cannot start a new operation that would outlive the shutdown.
+            // The first attempt closes the door before anything else, so a callback cannot start a
+            // new operation that would outlive the shutdown.
             if (s_state == WindowsClipboardManagerState.Running)
             {
                 s_state = WindowsClipboardManagerState.Draining;
-                DrainRequestRegistry();
             }
 
+            // Unconditional. A request rejected while the manager was never initialized still holds
+            // a queued delivery, and its caller is owed that delivery whatever state we are in.
+            // ClaimAll empties the registry, so repeating this on every attempt costs nothing.
+            DrainRequestRegistry();
+
             WindowsClipboardShutdownProgress progress = ClassifyShutdown(completed, result.ErrorCode);
+
+            // A manager that never started, or that already finished, has nothing left to advance.
+            // Running the release again would report a second completion for the same shutdown, and
+            // classifying an idempotent native uninit would flag a terminal failure that is not one.
+            if (s_state == WindowsClipboardManagerState.Uninitialized ||
+                s_state == WindowsClipboardManagerState.ShutDown)
+            {
+                return progress;
+            }
+
             switch (progress)
             {
                 case WindowsClipboardShutdownProgress.Completed:
@@ -2306,10 +2456,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     break;
             }
 
-            if (origin == ShutdownOrigin.Quit)
-            {
-                ResumeQuit(progress, result);
-            }
+            return progress;
         }
 
         /// <summary>
@@ -2339,32 +2486,63 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             };
         }
 
-        private IEnumerator DrainRoutine(ShutdownOrigin origin, Action<WindowsClipboardResult>? onResult)
+        private IEnumerator DrainRoutine(ShutdownOrigin origin)
         {
-            int attempts = 0;
-            float deadline = Time.realtimeSinceStartup + ShutdownRetrySecondBudget;
-            WindowsClipboardResult result = WindowsClipboardResult.Success(OperationShutdown);
-            bool completed = false;
+            // Never finish inside StartCoroutine. A drain that completed before its caller got the
+            // handle back would resume the quit while OnWantsToQuit was still deciding what to
+            // answer, and the caller could not tell a coroutine that ran from one that never
+            // started. One frame is what this API costs anyway.
+            yield return null;
 
-            while (attempts < ShutdownRetryFrameBudget && Time.realtimeSinceStartup < deadline)
+            int attempts = 0;
+            float deadline = Time.realtimeSinceStartup + s_retrySecondBudget;
+            WindowsClipboardResult result = WindowsClipboardResult.Success(OperationShutdown);
+            WindowsClipboardShutdownProgress progress = WindowsClipboardShutdownProgress.NotYet;
+            bool recoveryTried = false;
+
+            while (attempts < s_retryFrameBudget && Time.realtimeSinceStartup < deadline)
             {
                 attempts++;
-                result = TryShutdownCore(out completed);
-                WindowsClipboardShutdownProgress progress = ClassifyShutdown(completed, result.ErrorCode);
+                result = RunShutdownAttempt(origin, out _, out progress);
                 if (progress != WindowsClipboardShutdownProgress.NotYet) break;
+
+                // A half-applied reservation makes the native uninit refuse to finish for as long
+                // as it stands, so recovering from it is part of the drain rather than something
+                // the caller has to know to do. Once only: a second call would spend the budget on
+                // an answer we already have.
+                if (!recoveryTried && result.ErrorCode == WindowsClipboardErrorCode.PartialState)
+                {
+                    recoveryTried = true;
+                    var recovery = (WindowsClipboardErrorCode)RecoverDeferredStateNative(out _);
+                    Debug.Log($"[{LogTag}][{nameof(DrainRoutine)}] partial state; recovery reported: {recovery}");
+                }
 
                 Debug.Log($"[{LogTag}][{nameof(DrainRoutine)}] attempt {attempts} not finished yet: {result.ErrorCode}");
                 yield return null;
             }
 
-            if (!completed && ClassifyShutdown(completed, result.ErrorCode) == WindowsClipboardShutdownProgress.NotYet)
+            if (progress == WindowsClipboardShutdownProgress.NotYet)
             {
                 Debug.LogError($"[{LogTag}][{nameof(DrainRoutine)}] shutdown exceeded its budget after {attempts} attempts.");
                 result = WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.ShutdownTimeout);
+                progress = WindowsClipboardShutdownProgress.Terminal;
+                // The last attempt left the state at Draining, which claims a shutdown is still
+                // making progress. It is not, and operations must keep being refused.
+                s_state = WindowsClipboardManagerState.ShutdownFailed;
             }
 
-            FinishShutdownAttempt(origin, result, completed);
-            if (origin == ShutdownOrigin.Drain) Deliver(result, onResult);
+            s_drainRunning = false;
+            if (s_drainDeliveryRequested)
+            {
+                s_drainDeliveryRequested = false;
+                Action<WindowsClipboardResult>? waiters = s_drainWaiters;
+                s_drainWaiters = null;
+                Deliver(result, waiters);
+            }
+
+            // Whoever asked to quit is resumed here, even when this drain was started by an
+            // ordinary ShutdownWithDrain that the quit later joined.
+            if (s_quitDrainStarted && !s_quitDrainCompleted) ResumeQuit(progress, result);
         }
 
         /// <summary>
@@ -2435,8 +2613,29 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return true;
             }
 
-            _instance.StartCoroutine(_instance.DrainRoutine(ShutdownOrigin.Quit, null));
-            return false;
+            // A drain already running will resume the quit when it ends, whatever started it.
+            if (s_drainRunning) return false;
+
+            try
+            {
+                s_drainRunning = true;
+                if (_instance.StartCoroutine(_instance.DrainRoutine(ShutdownOrigin.Quit)) != null)
+                {
+                    return false;
+                }
+                Debug.LogError($"[{LogTag}][{nameof(OnWantsToQuit)}] the drain coroutine did not start.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnWantsToQuit)}] could not start the drain: {ex.Message}");
+            }
+
+            // Nothing will resume the quit now, and refusing it forever is worse than shutting down
+            // without the drain. One synchronous attempt still releases what it can.
+            s_drainRunning = false;
+            _instance.RunShutdownAttempt(ShutdownOrigin.Quit, out _, out _);
+            s_quitDrainCompleted = true;
+            return true;
         }
 
         /// <summary>
@@ -2665,6 +2864,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private static int RecoverDeferredStateNative(out int pError)
         {
+#if UNITY_EDITOR
+            RecoverDeferredCallCountForTests++;
+#endif
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             recoverDeferredState(out pError);
 #else
@@ -2987,6 +3189,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_renderCache.Clear();
             s_renderStaging = null;
             s_historyEventsEnabled = false;
+            s_drainRunning = false;
+            s_drainDeliveryRequested = false;
+            s_drainWaiters = null;
             s_quitDrainStarted = false;
             s_quitDrainCompleted = false;
             s_isTerminated = false;
@@ -2995,7 +3200,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             QuitActionForTests = null;
             ComReleaseCountForTests = 0;
             AcceptRequestsWithIdForTests = null;
+            PlatformAvailableForTests = null;
+            NativeShutdownForTests = null;
+            RecoverDeferredCallCountForTests = 0;
 #endif
+            s_retryFrameBudget = ShutdownRetryFrameBudget;
+            s_retrySecondBudget = ShutdownRetrySecondBudget;
 
             if (keepInstance && _instance != null)
             {
