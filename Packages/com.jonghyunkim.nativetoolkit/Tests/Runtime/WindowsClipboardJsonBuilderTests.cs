@@ -118,6 +118,35 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual("[{\"format\":\"CF_UNICODETEXT\",\"text\":\"a\\\"b\\\\c\"}]", json);
         }
+
+        [Test]
+        public void ALoneSurrogateIsEscapedRatherThanWrittenAsText()
+        {
+            // On its own a surrogate is not valid UTF-16, and writing it raw hands the native
+            // parser a payload it rejects - with nothing to say which entry was at fault.
+            string json = WindowsClipboardJsonBuilder.BuildPathsJson(new[] { "a\ud83db" });
+
+            Assert.AreEqual("[\"a\\ud83db\"]", json);
+        }
+
+        [Test]
+        public void ASurrogatePairIsLeftAlone()
+        {
+            // A pair is valid UTF-16 and the boundary is UTF-16 on both sides, so escaping it here
+            // would only make the payload larger.
+            string json = WindowsClipboardJsonBuilder.BuildPathsJson(new[] { "a\ud83d\ude00b" });
+
+            Assert.AreEqual("[\"a\ud83d\ude00b\"]", json);
+        }
+
+        [Test]
+        public void ALoneLowSurrogateIsEscapedToo()
+        {
+            string json = WindowsClipboardJsonBuilder.BuildPathsJson(new[] { "\ude00" });
+
+            Assert.AreEqual("[\"\\ude00\"]", json);
+        }
+
     }
 }
 #endif

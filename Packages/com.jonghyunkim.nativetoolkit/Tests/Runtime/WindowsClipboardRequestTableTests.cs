@@ -201,6 +201,52 @@ namespace JonghyunKim.NativeToolkit.Tests
                 "nothing owns this id any more");
         }
 
+
+        [Test]
+        public void Reset_DoesNotRewindTheTicketCounter()
+        {
+            // A delivery queued before the reset still carries its ticket. Restarting the numbering
+            // would let that stale delivery claim a request registered after the reset and hand one
+            // caller another caller's result.
+            var table = new WindowsClipboardRequestTable();
+            uint before = table.IssueTicket();
+            table.RegisterUndelivered(before);
+
+            table.Reset();
+            uint after = table.IssueTicket();
+
+            Assert.Greater(after, before, "a ticket may never be handed out twice in a session");
+        }
+
+        [Test]
+        public void IssueTicket_NeverHandsOutZero()
+        {
+            // Zero is what the public API returns for "not accepted", so a ticket of zero would be
+            // indistinguishable from a request that never started.
+            var table = new WindowsClipboardRequestTable();
+
+            for (int i = 0; i < 200; i++)
+            {
+                Assert.AreNotEqual(0u, table.IssueTicket());
+            }
+        }
+
+        [Test]
+        public void RegisterAwaitingNative_Twice_LeavesNoMappingBehindForTheOldId()
+        {
+            // Nothing would ever remove the first mapping, and a late completion arriving under the
+            // old id would then be handed to a request that has moved on.
+            var table = new WindowsClipboardRequestTable();
+            uint ticket = table.IssueTicket();
+            table.RegisterAwaitingNative(ticket, 600);
+
+            table.RegisterAwaitingNative(ticket, 601);
+
+            Assert.IsFalse(table.TryResolveNativeId(600, out _), "the old id is stranded");
+            Assert.IsTrue(table.TryResolveNativeId(601, out uint owner));
+            Assert.AreEqual(ticket, owner);
+        }
+
     }
 }
 #endif

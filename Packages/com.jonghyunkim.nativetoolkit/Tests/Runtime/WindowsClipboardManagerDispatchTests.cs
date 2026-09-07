@@ -618,6 +618,53 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
         }
 
+        [Test]
+        public void Read_ASizeTooLargeToAllocateIsRefusedRatherThanTruncated()
+        {
+            // An unchecked cast turns this into a negative byte count, and the allocation that
+            // follows is smaller than what the second call is told it may write into.
+            var outcome = WindowsClipboardManager.ReadRawForTests(
+                isByteApi: false,
+                (buffer, bufferSize) => (0x7FFFFFFFu, WindowsClipboardErrorCode.None));
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("too large to allocate"));
+            Assert.IsFalse(outcome.isSuccess);
+            Assert.AreEqual(WindowsClipboardErrorCode.OutOfMemory, outcome.code);
+            Assert.AreEqual(1, outcome.calls, "nothing was allocated, so nothing was filled");
+        }
+
+        [Test]
+        public void Reservation_OnFailure_KeepsTheCachedBytesAsWellAsTheProviders()
+        {
+            // The two go together. Dropping the cache while keeping the providers leaves a render
+            // that already promised a size unable to answer with it, and the native side discards
+            // the format for disagreeing with itself.
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("OLD", new byte[] { 1, 2 }));
+            WindowsClipboardManager.RenderForTests("OLD", IntPtr.Zero, 0, out uint first);
+            CollectionAssert.Contains(WindowsClipboardManager.RenderCacheNamesForTests, "OLD");
+
+            WindowsClipboardManager.ApplyReservationOutcomeForTests(
+                WindowsClipboardErrorCode.Busy, Provider("NEW", new byte[] { 3 }));
+
+            CollectionAssert.AreEquivalent(
+                new[] { "OLD" }, WindowsClipboardManager.RenderProviderNamesForTests);
+            CollectionAssert.Contains(WindowsClipboardManager.RenderCacheNamesForTests, "OLD");
+
+            IntPtr buffer = Marshal.AllocHGlobal((int)first);
+            try
+            {
+                uint code = WindowsClipboardManager.RenderForTests("OLD", buffer, first, out uint second);
+
+                Assert.AreEqual((uint)WindowsClipboardErrorCode.None, code);
+                Assert.AreEqual(first, second, "the size promised before the failed reservation still holds");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+
         // ── Operation guard (design 7.5) ─────────────────────────────────────────
         // The public operations are instance methods, and creating the Manager needs a player
         // loop, so EditMode covers the guard through its seam. The API-level rejections live in

@@ -2,6 +2,7 @@
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 
@@ -290,6 +291,52 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(result.RoamingEnabled);
             Assert.AreEqual("App is not in the foreground", result.ErrorMessage);
         }
+
+        // ── The message invariant, on every result type (design 8.4) ─────────────
+        // Each type carries its own copy of the None-to-Unknown promotion, so checking one of them
+        // leaves the other seven free to hand back a failure with no message at all.
+
+        [Test]
+        public void EveryResultType_PromotesAFailureWithoutACodeToUnknown()
+        {
+            var messages = new List<string?>
+            {
+                WindowsClipboardResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardTextResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardStringListResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardBytesResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardHistoryResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardAvailabilityResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardFlagResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage,
+                WindowsClipboardFormatPresenceResult.Failure("op", WindowsClipboardErrorCode.None).ErrorMessage
+            };
+
+            string expected = WindowsClipboardErrorCode.Unknown.ToMessage("op", null)!;
+            for (int i = 0; i < messages.Count; i++)
+            {
+                Assert.IsNotNull(messages[i], $"result type {i} reported a failure with no message");
+                Assert.AreEqual(expected, messages[i], $"result type {i} did not promote None");
+            }
+        }
+
+        [Test]
+        public void EveryNativeErrorCode_HasAMessageNoOtherCodeShares()
+        {
+            // Two states sharing one message cannot be told apart in a log, which is the reason
+            // these messages are matched against the native side's own wording.
+            var seen = new Dictionary<string, WindowsClipboardErrorCode>();
+
+            // From one: None is success and carries no message.
+            for (int code = 1; code <= 19; code++)
+            {
+                var value = (WindowsClipboardErrorCode)code;
+                string message = value.ToMessage("op", null);
+                Assert.IsFalse(seen.ContainsKey(message),
+                    $"{value} and {(seen.ContainsKey(message) ? seen[message] : value)} share a message");
+                seen[message] = value;
+            }
+        }
+
     }
 }
 #endif

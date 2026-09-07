@@ -81,13 +81,34 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Whether the character at this position is a surrogate with no partner.
+        /// </summary>
+        /// <param name="value">The string being written.</param>
+        /// <param name="index">Position of the character to judge.</param>
+        /// <returns>True for a high surrogate with no low one after it, or the reverse.</returns>
+        private static bool IsLoneSurrogate(string value, int index)
+        {
+            char c = value[index];
+            if (char.IsHighSurrogate(c))
+            {
+                return index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1]);
+            }
+            if (char.IsLowSurrogate(c))
+            {
+                return index == 0 || !char.IsHighSurrogate(value[index - 1]);
+            }
+            return false;
+        }
+
         private static void AppendEscaped(StringBuilder sb, string? value)
         {
             sb.Append('"');
             if (value != null)
             {
-                foreach (char c in value)
+                for (int i = 0; i < value.Length; i++)
                 {
+                    char c = value[i];
                     switch (c)
                     {
                         case '"': sb.Append("\\\""); break;
@@ -98,9 +119,20 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                         case '\r': sb.Append("\\r"); break;
                         case '\t': sb.Append("\\t"); break;
                         default:
-                            // Non-ASCII is passed through: the boundary is UTF-16 on both sides.
-                            if (c < 0x20) sb.Append("\\u").Append(((int)c).ToString("x4"));
-                            else sb.Append(c);
+                            // A surrogate only means anything as half of a pair. On its own it is
+                            // not valid UTF-16, and writing it raw hands the native parser text it
+                            // will reject; escaped, the payload stays well formed and the value
+                            // survives for whoever has to work out where it came from.
+                            // Everything else non-ASCII passes through: the boundary is UTF-16 on
+                            // both sides.
+                            if (c < 0x20 || IsLoneSurrogate(value, i))
+                            {
+                                sb.Append("\\u").Append(((int)c).ToString("x4"));
+                            }
+                            else
+                            {
+                                sb.Append(c);
+                            }
                             break;
                     }
                 }

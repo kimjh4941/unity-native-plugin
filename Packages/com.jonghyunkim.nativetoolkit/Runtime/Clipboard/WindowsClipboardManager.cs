@@ -373,7 +373,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         // window has to resolve against both generations.
         private static Dictionary<string, Func<byte[]>>? s_renderStaging;
 
-        private static bool s_historyEventsEnabled;
         private static bool s_quitHandlerSubscribed;
 
         // A drain runs across frames, so a second request has to join the running one rather
@@ -521,7 +520,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// completions, teardown drains - could never be exercised.
         /// </para>
         /// </summary>
-        internal static uint? AcceptRequestsWithIdForTests;
+        internal static uint? NextNativeRequestIdForTests;
 
         /// <summary>
         /// Makes the next request throw from where the native call would be, so the paths that
@@ -560,9 +559,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Raises the roaming-setting event through the native callbacks' own path.</summary>
         internal static void InjectRoamingEnabledChangedForTests(bool enabled) =>
             RaiseRoamingEnabledChanged(enabled);
-
-        /// <summary>Whether history watching is currently registered.</summary>
-        internal static bool HistoryEventsEnabledForTests => s_historyEventsEnabled;
 
         /// <summary>Format names whose providers are currently live.</summary>
         internal static IReadOnlyCollection<string> RenderProviderNamesForTests => s_renderProviders.Keys;
@@ -1513,9 +1509,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                             return ReadOutcome.Failed(sizeCode);
                     }
 
-                    // A string size counts wchar_t including the terminator, a byte size counts bytes.
-                    int byteCount = isByteApi ? (int)required : (int)required * 2;
-                    IntPtr buffer = Marshal.AllocHGlobal(byteCount);
+                    // A string size counts wchar_t including the terminator, a byte size counts
+                    // bytes. The multiplication is checked: an unchecked cast turns a size past two
+                    // gigabytes into a negative byte count, and the allocation that follows is then
+                    // smaller than what the second call is told it may write into.
+                    long byteCount = isByteApi ? required : (long)required * 2;
+                    if (byteCount > int.MaxValue)
+                    {
+                        Debug.LogError(
+                            $"[{LogTag}][{nameof(ReadRaw)}] {operation} wants {byteCount} bytes; too large to allocate.");
+                        return ReadOutcome.Failed(WindowsClipboardErrorCode.OutOfMemory);
+                    }
+                    IntPtr buffer = Marshal.AllocHGlobal((int)byteCount);
                     try
                     {
                         uint written = call(buffer, required, out int readError);
@@ -1809,7 +1814,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     enabled ? s_roamingEnabledDelegate : null,
                     out pError));
 
-            if (result.IsSuccess) s_historyEventsEnabled = enabled;
             return Deliver(result, onResult);
         }
 
@@ -2221,48 +2225,53 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_pending[ticket] = pending;
             if (inFlightKey != null) s_inFlight.Add(inFlightKey);
 
-            uint requestId;
-            int pError;
+            // Initialized because the editor seam below can supply them instead of the call, and
+            // the compiler cannot see that one of the two always runs.
+            uint requestId = 0;
+            int pError = 0;
+            bool answered = false;
 #if UNITY_EDITOR
-            if (AcceptRequestsWithIdForTests is uint injected)
+            if (NextNativeRequestIdForTests is uint injected)
             {
-                // Consumed rather than left standing, so a test can accept two requests under two
+                // Consumed rather than left standing, so a test can start two requests under two
                 // different ids and cover the concurrency the design allows for the read-only
-                // operations.
-                AcceptRequestsWithIdForTests = null;
+                // operations. Everything after this point is the real path, rejection included.
+                NextNativeRequestIdForTests = null;
                 requestId = injected;
                 pError = 0;
-                pending.NativeRequestId = requestId;
-                s_registry.RegisterAwaitingNative(ticket, requestId);
-                return requestId;
+                answered = true;
             }
 #endif
-            try
+            // Skipped only when a test already supplied what the bridge would have answered.
+            if (!answered)
             {
-#if UNITY_EDITOR
-                if (RequestExceptionForTests != null)
+                try
                 {
-                    Exception forcedFailure = RequestExceptionForTests;
-                    RequestExceptionForTests = null;
-                    throw forcedFailure;
-                }
+#if UNITY_EDITOR
+                    if (RequestExceptionForTests != null)
+                    {
+                        Exception forcedFailure = RequestExceptionForTests;
+                        RequestExceptionForTests = null;
+                        throw forcedFailure;
+                    }
 #endif
-                (requestId, pError) = call(s_requestDelegate);
-            }
-            catch (Exception ex)
-            {
-                // Every exception, not only the two that name a missing bridge. The ticket is not
-                // in the registry yet, so anything that escapes here would strand the in-flight
-                // marker as well as the caller: the teardown drain has nothing to find, and the
-                // operation would report Busy for the rest of the session.
-                Debug.LogError($"[{LogTag}][{nameof(StartRequest)}] {ex.GetType().Name}: {ex.Message}");
-                ResolveAndQueue(
-                    ticket,
-                    ex is DllNotFoundException || ex is EntryPointNotFoundException
-                        ? WindowsClipboardErrorCode.BridgeUnavailable
-                        : WindowsClipboardErrorCode.Unknown,
-                    null);
-                return 0;
+                    (requestId, pError) = call(s_requestDelegate);
+                }
+                catch (Exception ex)
+                {
+                    // Every exception, not only the two that name a missing bridge. The ticket is
+                    // not in the registry yet, so anything that escapes here would strand the
+                    // in-flight marker as well as the caller: the teardown drain has nothing to
+                    // find, and the operation would report Busy for the rest of the session.
+                    Debug.LogError($"[{LogTag}][{nameof(StartRequest)}] {ex.GetType().Name}: {ex.Message}");
+                    ResolveAndQueue(
+                        ticket,
+                        ex is DllNotFoundException || ex is EntryPointNotFoundException
+                            ? WindowsClipboardErrorCode.BridgeUnavailable
+                            : WindowsClipboardErrorCode.Unknown,
+                        null);
+                    return 0;
+                }
             }
 
             if (requestId == 0)
@@ -3358,7 +3367,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         private static void RaiseOnMainThread(string origin, Action raise)
         {
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
-            if (dispatcher == null) return;
+            if (dispatcher == null)
+            {
+                // Said out loud, as a dropped result is: an event that silently never arrives is
+                // indistinguishable from one the native side never sent.
+                Debug.LogWarning($"[{LogTag}][{origin}] no dispatcher; event dropped.");
+                return;
+            }
             dispatcher.Enqueue(() =>
             {
                 try
@@ -3403,7 +3418,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_renderProviders = new Dictionary<string, Func<byte[]>>();
             s_renderCache.Clear();
             s_renderStaging = null;
-            s_historyEventsEnabled = false;
             s_drainRunning = false;
             s_drainDeliveryRequested = false;
             s_drainWaiters = null;
@@ -3414,7 +3428,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #if UNITY_EDITOR
             QuitActionForTests = null;
             ComReleaseCountForTests = 0;
-            AcceptRequestsWithIdForTests = null;
+            NextNativeRequestIdForTests = null;
             PlatformAvailableForTests = null;
             NativeShutdownForTests = null;
             RecoverDeferredCallCountForTests = 0;

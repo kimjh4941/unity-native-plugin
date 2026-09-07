@@ -159,7 +159,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 91;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 91;
             manager.GetHistory(results.Add);
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Draining);
             Assert.AreEqual(1, WindowsClipboardManager.PendingRequestCountForTests);
@@ -358,13 +358,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             var cts = new CancellationTokenSource();
             cts.Cancel();
             // If the request reached the bridge it would take this id with it.
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 61;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 61;
             yield return null;
 
             Awaitable<WindowsClipboardHistoryResult> awaitable = manager.GetHistoryAsync(cts.Token);
             yield return null;
 
-            Assert.AreEqual(61u, WindowsClipboardManager.AcceptRequestsWithIdForTests,
+            Assert.AreEqual(61u, WindowsClipboardManager.NextNativeRequestIdForTests,
                 "a token that is already cancelled must not start a native request");
             Assert.IsTrue(awaitable.GetAwaiter().IsCompleted);
             Assert.AreEqual(WindowsClipboardErrorCode.Canceled,
@@ -380,7 +380,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var seen = new List<WindowsClipboardResult>();
             manager.ClipboardOperationCompleted += seen.Add;
             var cts = new CancellationTokenSource();
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 62;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 62;
             yield return null;
 
             manager.GetHistoryAsync(cts.Token);
@@ -399,7 +399,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             WindowsClipboardManager manager = RunningManager();
             var cts = new CancellationTokenSource();
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 63;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 63;
             yield return null;
 
             manager.GetHistoryAsync(cts.Token);
@@ -433,9 +433,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             var availability = new List<WindowsClipboardAvailabilityResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 71;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 71;
             manager.GetHistory(history.Add);
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 72;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 72;
             manager.GetHistoryAvailability(availability.Add);
 
             Assert.AreEqual(2, WindowsClipboardManager.PendingRequestCountForTests);
@@ -475,7 +475,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 id++;
                 var results = new List<WindowsClipboardHistoryResult>();
-                WindowsClipboardManager.AcceptRequestsWithIdForTests = id;
+                WindowsClipboardManager.NextNativeRequestIdForTests = id;
                 manager.GetHistory(results.Add);
 
                 WindowsClipboardManager.InjectCompletionForTests(id, (int)code, null);
@@ -528,6 +528,71 @@ namespace JonghyunKim.NativeToolkit.Tests
                 WindowsClipboardManager.IsInFlightForTests(
                     WindowsClipboardManager.OperationRestoreHistoryItem),
                 "the operation would otherwise report Busy for the rest of the session");
+        }
+
+
+        [UnityTest]
+        public IEnumerator TheHistoryEventsReachASubscriberThatOnlyListensToThem()
+        {
+            // A caller can subscribe to the common event instead of passing a callback, and for
+            // these two kinds that was the only way left untested.
+            WindowsClipboardManager manager = RunningManager();
+            var history = new List<WindowsClipboardHistoryResult>();
+            var availability = new List<WindowsClipboardAvailabilityResult>();
+            manager.HistoryReadCompleted += history.Add;
+            manager.HistoryAvailabilityChecked += availability.Add;
+            yield return null;
+
+            WindowsClipboardManager.NextNativeRequestIdForTests = 101;
+            manager.GetHistory();
+            WindowsClipboardManager.NextNativeRequestIdForTests = 102;
+            manager.GetHistoryAvailability();
+
+            WindowsClipboardManager.InjectCompletionForTests(101, 0, "[]");
+            WindowsClipboardManager.InjectCompletionForTests(
+                102, 0, "{\"historyEnabled\":true,\"roamingEnabled\":true}");
+            yield return null;
+
+            Assert.AreEqual(1, history.Count, "HistoryReadCompleted never fired");
+            Assert.AreEqual(1, availability.Count, "HistoryAvailabilityChecked never fired");
+            Assert.IsTrue(availability[0].HistoryEnabled);
+        }
+
+        [UnityTest]
+        public IEnumerator TryShutdown_FiresNeitherTheEventNorACallback()
+        {
+            // The drain calls this once per frame. Delivering here would reach every subscriber on
+            // every attempt, which is why it is the one operation that reports only by returning.
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<WindowsClipboardResult>();
+            manager.ClipboardOperationCompleted += seen.Add;
+            yield return null;
+
+            WindowsClipboardResult result = manager.TryShutdown(out bool completed);
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(completed);
+            Assert.IsTrue(result.IsSuccess);
+            Assert.AreEqual(0, seen.Count, "TryShutdown reports by returning, and only by returning");
+        }
+
+        [UnityTest]
+        public IEnumerator ARequestTheBridgeRefusesWithoutACodeIsAFailureRatherThanASuccess()
+        {
+            // Defensive: the native contract says this cannot happen. If it does, the alternative
+            // is delivering a success - an empty history, or a restore that never restored.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.NextNativeRequestIdForTests = 0;
+            manager.GetHistory(results.Add);
+            yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.IsFalse(results[0].IsSuccess);
+            Assert.AreEqual(WindowsClipboardErrorCode.RequestRejected, results[0].ErrorCode);
         }
 
         // ── Rejection paths ──────────────────────────────────────────────────────
@@ -666,7 +731,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             // The editor cannot reach the native side, so stand in for the acceptance it would
             // have reported and then for the completion it would have raised.
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 77;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 77;
             manager.GetHistory(results.Add);
             WindowsClipboardManager.InjectCompletionForTests(
                 77, 0, "[{\"id\":\"a\",\"text\":\"hi\",\"timestamp\":\"1\"}]");
@@ -699,7 +764,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 11;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 11;
             manager.GetHistory(results.Add);
             WindowsClipboardManager.InjectCompletionForTests(11, 0, "[]");
 
@@ -721,7 +786,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 12;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 12;
             manager.GetHistory(results.Add);
 
             WindowsClipboardManager.DrainForTests();
@@ -737,7 +802,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 13;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 13;
             manager.GetHistory(results.Add);
 
             WindowsClipboardManager.DrainForTests();
@@ -753,13 +818,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 21;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 21;
             manager.RestoreHistoryItem("item-1", results.Add);
             Assert.IsTrue(WindowsClipboardManager.IsInFlightForTests(
                 WindowsClipboardManager.OperationRestoreHistoryItem));
 
             // The running call keeps its result; the second caller is told to try later.
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 22;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 22;
             manager.RestoreHistoryItem("item-2", results.Add);
             yield return null;
 
@@ -817,7 +882,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardAvailabilityResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 31;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 31;
             manager.GetHistoryAvailability(results.Add);
             WindowsClipboardManager.InjectCompletionForTests(
                 31, 0, "{\"historyEnabled\":true,\"roamingEnabled\":false}");
@@ -835,7 +900,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.AcceptRequestsWithIdForTests = 41;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 41;
             manager.GetHistory(results.Add);
             WindowsClipboardManager.InjectCompletionForTests(41, 0, "{\"not\":\"an array\"}");
             yield return null;
@@ -867,20 +932,23 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
-        public IEnumerator SetHistoryEventsEnabled_IsRejectedBeforeInitializeAndLeavesTheFlagOff()
+        public IEnumerator SetHistoryEventsEnabled_IsRejectedBeforeTheGuardLetsItThrough()
         {
             WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            var seen = new List<WindowsClipboardResult>();
+            manager.ClipboardOperationCompleted += seen.Add;
             yield return null;
 
             WindowsClipboardResult result = manager.SetHistoryEventsEnabled(true);
+            yield return null;
 
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, result.ErrorCode);
-            Assert.IsFalse(WindowsClipboardManager.HistoryEventsEnabledForTests,
-                "a rejected call must not record the registration as active");
+            Assert.AreEqual(1, seen.Count, "a rejection is delivered like any other result");
+            Assert.AreEqual(WindowsClipboardManager.OperationSetHistoryEvents, seen[0].Operation);
         }
 
         [UnityTest]
-        public IEnumerator SetHistoryEventsEnabled_DoesNotRecordTheFlagWhenTheNativeCallFails()
+        public IEnumerator SetHistoryEventsEnabled_ReportsTheFailureWhenTheNativeCallFails()
         {
             WindowsClipboardManager manager = RunningManager();
             yield return null;
@@ -889,7 +957,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardResult result = manager.SetHistoryEventsEnabled(true);
 
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable, result.ErrorCode);
-            Assert.IsFalse(WindowsClipboardManager.HistoryEventsEnabledForTests);
+            Assert.IsNotNull(result.ErrorMessage);
         }
 
         // ── Delivery ─────────────────────────────────────────────────────────────

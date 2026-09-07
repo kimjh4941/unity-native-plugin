@@ -245,6 +245,40 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(historyEnabled);
             Assert.IsFalse(roamingEnabled);
         }
+
+        [Test]
+        public void Availability_AKeyNameInsideAValueDoesNotCountAsAKey()
+        {
+            // Both names appear, quoted, as values rather than keys. JsonUtility fills the
+            // missing fields with false, so accepting this would report "history is off" for a
+            // payload that never said anything of the sort.
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{\"a\":\"historyEnabled\",\"b\":\"roamingEnabled\"}", out _, out _);
+
+            Assert.IsFalse(parsed);
+        }
+
+        [Test]
+        public void Availability_AcceptsTheKeysWhitespaceAndAll()
+        {
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{ \"historyEnabled\" : true , \"roamingEnabled\" : true }",
+                out bool history, out bool roaming);
+
+            Assert.IsTrue(parsed);
+            Assert.IsTrue(history);
+            Assert.IsTrue(roaming);
+        }
+
+        [Test]
+        public void Availability_AValueThatMentionsOneKeyStillNeedsTheRealOne()
+        {
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{\"historyEnabled\":true,\"note\":\"roamingEnabled\"}", out _, out _);
+
+            Assert.IsFalse(parsed);
+        }
+
     }
 }
 #endif

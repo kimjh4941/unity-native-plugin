@@ -111,7 +111,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// Moves an accepted request to Undelivered once its native completion has arrived.
         /// </summary>
         /// <param name="ticket">The ticket to transition.</param>
-        /// <returns>False when the entry was already delivered and claimed.</returns>
+        /// <returns>False when no entry is tracked for this ticket, delivered or never registered.</returns>
         internal bool MarkUndelivered(uint ticket)
         {
             if (!_entries.TryGetValue(ticket, out Entry? entry)) return false;

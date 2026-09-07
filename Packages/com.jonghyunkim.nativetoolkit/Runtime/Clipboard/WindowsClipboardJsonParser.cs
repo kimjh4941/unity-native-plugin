@@ -204,9 +204,35 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             if (trimmed.Length < 2 || trimmed[0] != '{' || trimmed[trimmed.Length - 1] != '}') return false;
             foreach (string key in keys)
             {
-                if (trimmed.IndexOf("\"" + key + "\"", StringComparison.Ordinal) < 0) return false;
+                if (!ContainsKey(trimmed, key)) return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Whether the payload uses this name as a key rather than merely containing the text.
+        /// </summary>
+        /// <param name="json">The trimmed payload.</param>
+        /// <param name="key">Key name the native schema requires.</param>
+        /// <returns>True when the name appears quoted and followed by a colon.</returns>
+        private static bool ContainsKey(string json, string key)
+        {
+            // A value that happens to read "historyEnabled" would otherwise satisfy the check, and
+            // JsonUtility would then fill the missing field with false - which is exactly the
+            // "history is off" answer this check exists to keep apart from a broken payload.
+            string quoted = "\"" + key + "\"";
+            int from = 0;
+            while (true)
+            {
+                int at = json.IndexOf(quoted, from, StringComparison.Ordinal);
+                if (at < 0) return false;
+
+                int after = at + quoted.Length;
+                while (after < json.Length && char.IsWhiteSpace(json[after])) after++;
+                if (after < json.Length && json[after] == ':') return true;
+
+                from = at + 1;
+            }
         }
     }
 }
