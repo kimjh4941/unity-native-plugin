@@ -380,7 +380,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         // a completion for the same shutdown.
         private static bool s_drainRunning;
         private static bool s_drainDeliveryRequested;
-        private static Action<WindowsClipboardResult>? s_drainWaiters;
+
+        // A list rather than a multicast delegate: each caller asked separately and is owed its
+        // own answer, so one that throws must not take the others' results with it.
+        private static List<Action<WindowsClipboardResult>>? s_drainWaiters;
         private static bool s_quitDrainStarted;
         private static bool s_quitDrainCompleted;
 
@@ -544,6 +547,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         internal static int CancellationRegistrationsReleasedForTests;
 
+        /// <summary>Keeps a released registration alive, to reproduce the id-reuse window.</summary>
+        internal static bool SuppressRegistrationDisposalForTests;
+
         /// <summary>Whether a cancellation registration is still held for a request.</summary>
         internal static bool HasCancellationRegistrationForTests(uint ticket) =>
             s_pending.TryGetValue(ticket, out PendingRequest? pending) &&
@@ -649,6 +655,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     $"[{LogTag}][{nameof(OnDestroy)}] shutdown did not complete; native resources are retained. " +
                     $"result: {result.ErrorCode}");
             }
+
+            // A drain coroutine dies with this object, so anyone waiting on it would never hear
+            // back. Synchronous for the same reason the registry drain is: nothing pumps after this.
+            if (s_drainRunning) SettleDrain(result, synchronous: true);
 
             _instance = null;
             // s_dispatcher is deliberately left set: post-destruction rejections still need it.
@@ -818,7 +828,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            if (onResult != null) s_drainWaiters += onResult;
+            if (onResult != null)
+            {
+                s_drainWaiters ??= new List<Action<WindowsClipboardResult>>();
+                s_drainWaiters.Add(onResult);
+            }
             s_drainDeliveryRequested = true;
 
             // A drain already in flight will deliver to everyone waiting on it, including a quit
@@ -826,7 +840,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             if (s_drainRunning) return;
 
             s_drainRunning = true;
-            StartCoroutine(DrainRoutine(ShutdownOrigin.Drain));
+            try
+            {
+                if (StartCoroutine(DrainRoutine(ShutdownOrigin.Drain)) != null) return;
+                Debug.LogError($"[{LogTag}][{nameof(ShutdownWithDrain)}] the drain coroutine did not start.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(ShutdownWithDrain)}] could not start the drain: {ex.Message}");
+            }
+
+            // Nothing is going to run the drain, and leaving the flag set would make every later
+            // caller - and any quit that arrives - wait on a coroutine that does not exist. One
+            // synchronous attempt still releases what it can.
+            WindowsClipboardResult single = RunShutdownAttempt(ShutdownOrigin.Drain, out _, out _);
+            SettleDrain(single, synchronous: false);
         }
 
         /// <summary>
@@ -2362,6 +2390,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             if (registration == default) return;
 
             pending.Registration = default;
+#if UNITY_EDITOR
+            // Held open on request, so a test can reach the window this matching exists for: a
+            // registration outliving the request it belonged to, because the disposal is not
+            // instant. Without it the pool wins the race and the window never opens.
+            if (SuppressRegistrationDisposalForTests) return;
+#endif
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 registration.Dispose();
@@ -2498,7 +2532,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            // Resolved before registering, so the callback can name the request it belongs to.
+            // Matching on the native id alone is not enough: the native side reuses ids, and this
+            // registration can outlive its own request, because the disposal that would have taken
+            // it away is handed to the pool and may not have run yet.
+            if (!s_registry.TryResolveNativeId(requestId, out uint ticket) ||
+                !s_pending.TryGetValue(ticket, out PendingRequest? pending))
+            {
+                // Already delivered; there is nothing left to cancel.
+                return;
+            }
+
+            pending.Registration = cancellationToken.Register(() =>
             {
                 // The callback runs on whichever thread cancelled, and the native API is main
                 // thread only here, so hop before touching it.
@@ -2506,23 +2551,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 if (dispatcher == null) return;
                 dispatcher.Enqueue(() =>
                 {
-                    // Cancel only while this exact request is still tracked: the id could belong to
-                    // a later request once this one has been delivered.
-                    if (!s_registry.TryResolveNativeId(requestId, out _)) return;
+                    // Cancel only while this id still belongs to the ticket registered here.
+                    if (!s_registry.TryResolveNativeId(requestId, out uint owner)) return;
+                    if (owner != ticket) return;
                     CancelRequest(requestId);
                 });
             });
-
-            if (s_registry.TryResolveNativeId(requestId, out uint ticket) &&
-                s_pending.TryGetValue(ticket, out PendingRequest? pending))
-            {
-                pending.Registration = registration;
-            }
-            else
-            {
-                // The request completed while the token was being registered.
-                registration.Dispose();
-            }
         }
 
         // ── Shutdown internals ───────────────────────────────────────────────────
@@ -2734,18 +2768,64 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 s_state = WindowsClipboardManagerState.ShutdownFailed;
             }
 
-            s_drainRunning = false;
-            if (s_drainDeliveryRequested)
-            {
-                s_drainDeliveryRequested = false;
-                Action<WindowsClipboardResult>? waiters = s_drainWaiters;
-                s_drainWaiters = null;
-                Deliver(result, waiters);
-            }
+            // A quit resumes right after this, and the application may be gone before the
+            // dispatcher runs again, so the result has to be handed over now rather than queued.
+            bool quitting = s_quitDrainStarted && !s_quitDrainCompleted;
+            SettleDrain(result, synchronous: quitting);
 
             // Whoever asked to quit is resumed here, even when this drain was started by an
             // ordinary ShutdownWithDrain that the quit later joined.
-            if (s_quitDrainStarted && !s_quitDrainCompleted) ResumeQuit(progress, result);
+            if (quitting) ResumeQuit(progress, result);
+        }
+
+        /// <summary>
+        /// Ends a drain: clears its state and hands the result to everyone waiting on it.
+        /// </summary>
+        /// <param name="result">The drain's final result.</param>
+        /// <param name="synchronous">
+        /// True when nothing is guaranteed to pump the dispatcher again - a resuming quit, or a
+        /// manager being destroyed. A queued delivery would then never arrive.
+        /// </param>
+        private static void SettleDrain(WindowsClipboardResult result, bool synchronous)
+        {
+            s_drainRunning = false;
+            if (!s_drainDeliveryRequested) return;
+
+            s_drainDeliveryRequested = false;
+            List<Action<WindowsClipboardResult>>? waiters = s_drainWaiters;
+            s_drainWaiters = null;
+            Action<WindowsClipboardResult>? common = _instance?.ClipboardOperationCompleted;
+
+            void Hand()
+            {
+                try
+                {
+                    common?.Invoke(result);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a common event subscriber threw: {ex.Message}");
+                }
+
+                if (waiters == null) return;
+                foreach (Action<WindowsClipboardResult> waiter in waiters)
+                {
+                    // Contained one by one: every caller of ShutdownWithDrain is owed the result
+                    // it asked for, whatever the caller before it did with its own.
+                    try
+                    {
+                        waiter(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a drain callback threw: {ex.Message}");
+                    }
+                }
+            }
+
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (synchronous || dispatcher == null) Hand();
+            else dispatcher.Enqueue(Hand);
         }
 
         /// <summary>
@@ -3440,6 +3520,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             RecoverDeferredCallCountForTests = 0;
             RequestExceptionForTests = null;
             CancellationRegistrationsReleasedForTests = 0;
+            SuppressRegistrationDisposalForTests = false;
 #endif
             s_retryFrameBudget = ShutdownRetryFrameBudget;
             s_retrySecondBudget = ShutdownRetrySecondBudget;

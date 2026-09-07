@@ -279,6 +279,43 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(parsed);
         }
 
+
+        [Test]
+        public void Availability_AKeyNestedInsideAnotherObjectIsNotATopLevelKey()
+        {
+            // JsonUtility reads only the top level, so it would not find historyEnabled here and
+            // would fill it with false - reporting "history is off" for a payload that never said
+            // so. The shape check has to know the difference.
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{\"meta\":{\"historyEnabled\":true},\"roamingEnabled\":false}", out _, out _);
+
+            Assert.IsFalse(parsed);
+        }
+
+        [Test]
+        public void Availability_AcceptsTopLevelKeysAlongsideANestedObject()
+        {
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{\"meta\":{\"note\":\"x\"},\"historyEnabled\":true,\"roamingEnabled\":false}",
+                out bool history, out bool roaming);
+
+            Assert.IsTrue(parsed);
+            Assert.IsTrue(history);
+            Assert.IsFalse(roaming);
+        }
+
+        [Test]
+        public void Availability_AnEscapedQuoteInsideAValueDoesNotDerailTheScan()
+        {
+            bool parsed = WindowsClipboardJsonParser.TryParseAvailability(
+                "{\"note\":\"a\\\"b\",\"historyEnabled\":true,\"roamingEnabled\":true}",
+                out bool history, out bool roaming);
+
+            Assert.IsTrue(parsed);
+            Assert.IsTrue(history);
+            Assert.IsTrue(roaming);
+        }
+
     }
 }
 #endif

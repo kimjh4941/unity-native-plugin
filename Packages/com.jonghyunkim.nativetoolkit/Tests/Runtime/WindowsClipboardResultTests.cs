@@ -330,10 +330,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             for (int code = 1; code <= 19; code++)
             {
                 var value = (WindowsClipboardErrorCode)code;
-                string message = value.ToMessage("op", null);
-                Assert.IsFalse(seen.ContainsKey(message),
-                    $"{value} and {(seen.ContainsKey(message) ? seen[message] : value)} share a message");
-                seen[message] = value;
+                string? message = value.ToMessage("op", null);
+                Assert.IsNotNull(message, $"{value} has no message at all");
+                Assert.IsFalse(seen.ContainsKey(message!),
+                    $"{value} and {(seen.ContainsKey(message!) ? seen[message!] : value)} share a message");
+                seen[message!] = value;
             }
         }
 

@@ -212,29 +212,51 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         }
 
         /// <summary>
-        /// Whether the payload uses this name as a key rather than merely containing the text.
+        /// Whether the payload carries this name as a key of the object itself.
         /// </summary>
         /// <param name="json">The trimmed payload.</param>
         /// <param name="key">Key name the native schema requires.</param>
-        /// <returns>True when the name appears quoted and followed by a colon.</returns>
+        /// <returns>True only for a key at the top level of the object.</returns>
         private static bool ContainsKey(string json, string key)
         {
-            // A value that happens to read "historyEnabled" would otherwise satisfy the check, and
-            // JsonUtility would then fill the missing field with false - which is exactly the
-            // "history is off" answer this check exists to keep apart from a broken payload.
-            string quoted = "\"" + key + "\"";
-            int from = 0;
-            while (true)
+            // Neither a value that happens to read "historyEnabled" nor a key of the same name
+            // nested inside another object counts. JsonUtility reads only the top level, and would
+            // fill the field it did not find with false - which is exactly the "history is off"
+            // answer this check exists to keep apart from a broken payload.
+            int depth = 0;
+            int i = 0;
+            while (i < json.Length)
             {
-                int at = json.IndexOf(quoted, from, StringComparison.Ordinal);
-                if (at < 0) return false;
+                char c = json[i];
+                if (c == '"')
+                {
+                    int start = i + 1;
+                    int end = start;
+                    while (end < json.Length && json[end] != '"')
+                    {
+                        end += json[end] == '\\' ? 2 : 1;
+                    }
+                    if (end >= json.Length) return false; // unterminated: not usable either way
 
-                int after = at + quoted.Length;
-                while (after < json.Length && char.IsWhiteSpace(json[after])) after++;
-                if (after < json.Length && json[after] == ':') return true;
+                    int after = end + 1;
+                    while (after < json.Length && char.IsWhiteSpace(json[after])) after++;
+                    bool isKey = after < json.Length && json[after] == ':';
 
-                from = at + 1;
+                    if (isKey && depth == 1 && end - start == key.Length &&
+                        string.CompareOrdinal(json, start, key, 0, key.Length) == 0)
+                    {
+                        return true;
+                    }
+
+                    i = end + 1;
+                    continue;
+                }
+
+                if (c == '{' || c == '[') depth++;
+                else if (c == '}' || c == ']') depth--;
+                i++;
             }
+            return false;
         }
     }
 }

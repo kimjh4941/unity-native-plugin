@@ -595,6 +595,132 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(WindowsClipboardErrorCode.RequestRejected, results[0].ErrorCode);
         }
 
+
+        // ── What the fixes for review v2 brought with them ───────────────────────
+
+        [UnityTest]
+        public IEnumerator ACancellationOnlyCancelsTheRequestItWasRegisteredFor()
+        {
+            // The registration outlives its own request: the disposal that would remove it is
+            // handed to the pool. Matching on the native id alone would then let a stale callback
+            // cancel whichever request inherited that id.
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<WindowsClipboardResult>();
+            manager.ClipboardOperationCompleted += seen.Add;
+            var cts = new CancellationTokenSource();
+            // Otherwise the pool disposes the registration before the cancel and the window this
+            // test is about never opens.
+            WindowsClipboardManager.SuppressRegistrationDisposalForTests = true;
+            yield return null;
+
+            WindowsClipboardManager.NextNativeRequestIdForTests = 63;
+            manager.GetHistoryAsync(cts.Token);
+
+            // A completes, then B is accepted under the id the native side reused.
+            WindowsClipboardManager.InjectCompletionForTests(63, 0, "[]");
+            yield return null;
+            var second = new List<WindowsClipboardHistoryResult>();
+            WindowsClipboardManager.NextNativeRequestIdForTests = 63;
+            manager.GetHistory(second.Add);
+            seen.Clear();
+
+            cts.Cancel();
+            for (int i = 0; i < 10; i++) yield return null;
+
+            Assert.AreEqual(0, seen.Count,
+                "the stale registration cancelled a request that was never its own");
+            Assert.AreEqual(1, WindowsClipboardManager.PendingRequestCountForTests,
+                "the second request is still running");
+        }
+
+        [UnityTest]
+        public IEnumerator ADrainThatCannotStartStillAnswersItsCaller()
+        {
+            // A coroutine cannot run on an inactive object. Leaving the running flag set would
+            // make every later caller, and any quit, wait on a drain that does not exist.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+            manager.gameObject.SetActive(false);
+
+            // Unity reports the refusal itself, then this layer reports that it gave up.
+            LogAssert.Expect(LogType.Error, new Regex("Coroutine couldn't be started"));
+            LogAssert.Expect(LogType.Error, new Regex("the drain coroutine did not start"));
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+
+            Assert.IsFalse(WindowsClipboardManager.DrainRunningForTests,
+                "a drain that never started must not stay marked as running");
+            Assert.AreEqual(1, results.Count, "the caller is still owed its result");
+
+            manager.gameObject.SetActive(true);
+        }
+
+        [UnityTest]
+        public IEnumerator ADrainInterruptedByDestructionStillAnswersItsCaller()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            Assert.IsTrue(WindowsClipboardManager.DrainRunningForTests);
+
+            // The coroutine dies with the object, so nothing would ever reach its tail.
+            Object.DestroyImmediate(manager.gameObject);
+
+            Assert.AreEqual(1, results.Count, "the teardown owes this caller its one answer");
+            Assert.IsFalse(WindowsClipboardManager.DrainRunningForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator AQuitHandsOverTheShutdownResultBeforeItLetsTheQuitThrough()
+        {
+            // Nothing is guaranteed to pump the dispatcher after the quit resumes, so a queued
+            // delivery would never arrive.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            int quitsWhenDelivered = -1;
+            int quits = 0;
+            WindowsClipboardManager.QuitActionForTests = () => quits++;
+            yield return null;
+
+            manager.ShutdownWithDrain(r =>
+            {
+                results.Add(r);
+                quitsWhenDelivered = quits;
+            });
+            Assert.IsFalse(WindowsClipboardManager.InvokeWantsToQuitForTests());
+
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count, "the drain callback never arrived");
+            Assert.AreEqual(0, quitsWhenDelivered,
+                "the result has to be handed over before the quit is let through");
+            Assert.AreEqual(1, quits);
+        }
+
+        [UnityTest]
+        public IEnumerator OneDrainCallbackThrowingDoesNotSwallowAnother()
+        {
+            // Each caller asked separately and is owed its own answer.
+            WindowsClipboardManager manager = RunningManager();
+            var second = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(_ => throw new System.InvalidOperationException("boom"));
+            manager.ShutdownWithDrain(second.Add);
+            LogAssert.Expect(LogType.Error, new Regex("drain callback threw"));
+
+            for (int i = 0; i < 10 && second.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, second.Count,
+                "the second caller lost its result to the first caller's exception");
+        }
+
         // ── Rejection paths ──────────────────────────────────────────────────────
 
         [UnityTest]
