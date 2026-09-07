@@ -219,6 +219,25 @@ def check_declared_counts(text, rep):
         rows = [r for r in table_rows(body) if re.match(r"^\|\s*\d+\s*\|", r)]
         checks.append(("4.1 runtime file count", int(m.group(1)), len(rows)))
 
+    # OS-agnostic form: "### <n>.<m> 新規作成（Runtime）" plus a prose line that
+    # states how many files that inventory holds. The macOS documents declare the
+    # count in the heading (handled above); the Windows one states it in the
+    # platform-independence self-check table, and splitting one bundle file into
+    # eight left that number stale with nothing to catch it.
+    for kind in ("Runtime", "テスト"):
+        m = re.search(rf"^### \d+\.\d+ 新規作成（{kind}）", text, re.M)
+        if not m:
+            continue
+        body = section(text, rf"^### \d+\.\d+ 新規作成（{kind}）")
+        if body is None:
+            continue
+        names = set(re.findall(OS_PREFIXED_CS, body))
+        if not names:
+            continue
+        declared = re.search(rf"{kind}\s*(\d+)\s*ファイル", text)
+        if declared:
+            checks.append((f"新規作成（{kind}）file count", int(declared.group(1)), len(names)))
+
     body = section(text, r"^#### 5\.6\.12 per-call スロット")
     m = re.search(r"計 (\d+) 本（操作 \d+", text)
     if body is not None and m:
@@ -319,6 +338,35 @@ def check_code_identifiers(text, rep):
               f"only in code: {sorted(interesting.items())[:8]}")
 
 
+def walk_cs(base):
+    """Yield every .cs file under base, tolerating unreadable directories.
+
+    Native plugin bundles (.xcframework / .framework) carry symlinks such as
+    `Versions/Current` that do not resolve on a Windows checkout, and rglob
+    aborts the whole walk with FileNotFoundError when it meets one. Those
+    bundles hold no C# anyway, so they are skipped outright and any other
+    unreadable directory is stepped over rather than allowed to kill the run.
+    """
+    SKIP_SUFFIXES = (".framework", ".xcframework", ".bundle", ".app")
+    stack = [base]
+    while stack:
+        current = stack.pop()
+        try:
+            entries = list(current.iterdir())
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError):
+            continue
+        for entry in entries:
+            try:
+                if entry.is_dir():
+                    if entry.name.endswith(SKIP_SUFFIXES):
+                        continue
+                    stack.append(entry)
+                elif entry.suffix == ".cs":
+                    yield entry
+            except OSError:
+                continue
+
+
 def check_source_citations(text, rep):
     """`Foo.cs:120-140` must point at a file that exists and is long enough."""
     cited, missing, overrun = 0, [], []
@@ -326,7 +374,7 @@ def check_source_citations(text, rep):
     for root in ("Packages", "Assets"):
         base = REPO / root
         if base.is_dir():
-            for p in base.rglob("*.cs"):
+            for p in walk_cs(base):
                 index.setdefault(p.name, p)
 
     for lineno, line in live_lines(text):
@@ -348,25 +396,49 @@ def check_source_citations(text, rep):
     rep.check(not overrun, "cited C# line numbers are in range", f"out of range={overrun[:6]}")
 
 
+# A design numbers its own chapters: the macOS documents list new files in 4.1 and
+# describe them in chapter 5, the Windows one uses 6.1 and chapter 7. Locking the
+# check to one pair silently skipped every document that numbers them differently,
+# which is the failure mode this whole script exists to prevent.
+NEW_FILES_HEADING = re.compile(r"^### (\d+)\.1 新規作成", re.M)
+DETAIL_HEADING = re.compile(r"^## (\d+)\. 実装詳細", re.M)
+OS_PREFIXED_CS = re.compile(r"`((?:Android|Ios|Mac|Windows)\w+)\.cs`")
+
+
 def check_file_list_matches_sections(text, rep):
-    """Every runtime file in 4.1 must be described somewhere in chapter 5."""
-    body = section(text, r"^### 4\.1 新規作成")
+    """Every runtime file in the "新規作成" list must be described in 実装詳細."""
+    m = NEW_FILES_HEADING.search(text)
+    if m is None:
+        rep.skip("new-file list is described in 実装詳細", "no 新規作成 section")
+        return
+    inventory_no = m.group(1)
+    body = section(text, rf"^### {inventory_no}\.1 新規作成")
     if body is None:
-        rep.skip("4.1 files are described in chapter 5", "no 4.1 section")
+        rep.skip("new-file list is described in 実装詳細", f"no {inventory_no}.1 section")
         return
-    files = re.findall(r"`(Mac\w+)\.cs`", body)
+
+    # Only OS-prefixed names are project files; agent-rules requires the prefix
+    # (common.md "命名: OS 接頭辞と、共通ファイルを作らない方針").
+    files = re.findall(OS_PREFIXED_CS, body)
     if not files:
-        rep.skip("4.1 types are described in chapter 5", "no file names in 4.1")
+        rep.skip("new-file types are described in 実装詳細", f"no file names in {inventory_no}.1")
         return
-    chapter5 = section(text, r"^## 5\. 実装詳細", r"^## 6\. ")
-    if chapter5 is None:
-        rep.skip("4.1 types are described in chapter 5", "no chapter 5")
+
+    d = DETAIL_HEADING.search(text)
+    if d is None:
+        rep.skip("new-file types are described in 実装詳細", "no 実装詳細 chapter")
         return
-    # Chapter 5 documents types, not file names: a result type declared in
-    # MacClipboardReadResult.cs is described as MacClipboardReadResult.
-    undocumented = sorted({f for f in files if f not in chapter5})
-    rep.check(not undocumented, "4.1 types are described in chapter 5",
-              f"not in chapter 5: {undocumented}")
+    detail_no = int(d.group(1))
+    detail = section(text, rf"^## {detail_no}\. 実装詳細", rf"^## {detail_no + 1}\. ")
+    if detail is None:
+        rep.skip("new-file types are described in 実装詳細", "no 実装詳細 chapter")
+        return
+
+    # 実装詳細 documents types, not file names: a result type declared in
+    # WindowsClipboardResult.cs is described as WindowsClipboardResult.
+    undocumented = sorted({f for f in files if f not in detail})
+    rep.check(not undocumented, "new-file types are described in 実装詳細",
+              f"not in 実装詳細: {undocumented}")
 
 
 def run(path):
