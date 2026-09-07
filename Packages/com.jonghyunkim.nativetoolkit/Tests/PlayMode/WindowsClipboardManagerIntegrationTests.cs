@@ -150,6 +150,231 @@ namespace JonghyunKim.NativeToolkit.Tests
                 manager.CanShutdownNow().ErrorCode);
         }
 
+        // ── Asynchronous history requests ────────────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator ARejectedRequestStillDeliversExactlyOnce()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            // Rejected before initialization, so the native callback will never fire and this
+            // layer owns the only delivery.
+            uint id = manager.GetHistory(results.Add);
+            Assert.AreEqual(0u, id);
+            Assert.AreEqual(0, results.Count, "delivery happens outside the caller's stack");
+
+            yield return null;
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.NotInitializedByHost, results[0].ErrorCode);
+
+            yield return null;
+            Assert.AreEqual(1, results.Count, "a queued delivery must not run twice");
+        }
+
+        [UnityTest]
+        public IEnumerator AnAwaitableCompletesEvenWhenTheRequestIsRejected()
+        {
+            WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+            yield return null;
+
+            Awaitable<WindowsClipboardHistoryResult> pending = manager.GetHistoryAsync();
+            yield return null;
+            yield return null;
+
+            // Awaitable exposes completion through its awaiter, and it may only be awaited once.
+            Assert.IsTrue(pending.GetAwaiter().IsCompleted,
+                "a rejected request must not leave an awaiter hanging");
+        }
+
+        [UnityTest]
+        public IEnumerator AnAcceptedRequestIsDeliveredOnceWhenItsCompletionArrives()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            // The editor cannot reach the native side, so stand in for the acceptance it would
+            // have reported and then for the completion it would have raised.
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 77;
+            manager.GetHistory(results.Add);
+            WindowsClipboardManager.InjectCompletionForTests(
+                77, 0, "[{\"id\":\"a\",\"text\":\"hi\",\"timestamp\":\"1\"}]");
+            yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results[0].IsSuccess);
+            Assert.AreEqual(1, results[0].Items.Count);
+            Assert.AreEqual("a", results[0].Items[0].Id);
+            Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator ACompletionForAnUnknownIdIsHarmless()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            yield return null;
+
+            LogAssert.Expect(LogType.Warning, new Regex("unknown request id"));
+            WindowsClipboardManager.InjectCompletionForTests(999, 0, "[]");
+            yield return null;
+
+            Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator ATeardownDeliversARequestWhoseResultWasQueuedButNotYetHandedOver()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 11;
+            manager.GetHistory(results.Add);
+            WindowsClipboardManager.InjectCompletionForTests(11, 0, "[]");
+
+            // The completion is known but its delivery is still queued. A teardown here would drop
+            // the result if the registry only tracked requests up to their completion.
+            WindowsClipboardManager.DrainForTests();
+
+            Assert.AreEqual(1, results.Count, "the teardown delivers synchronously");
+            Assert.IsTrue(results[0].IsSuccess, "the outcome that was already known is kept");
+
+            yield return null;
+            Assert.AreEqual(1, results.Count, "the queued delivery becomes a no-op");
+        }
+
+        [UnityTest]
+        public IEnumerator ATeardownCancelsARequestThatNeverCompleted()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 12;
+            manager.GetHistory(results.Add);
+
+            WindowsClipboardManager.DrainForTests();
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.Canceled, results[0].ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator DrainingTwiceDeliversOnlyOnce()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 13;
+            manager.GetHistory(results.Add);
+
+            WindowsClipboardManager.DrainForTests();
+            WindowsClipboardManager.DrainForTests();
+
+            Assert.AreEqual(1, results.Count);
+        }
+
+        [UnityTest]
+        public IEnumerator AMutatingHistoryOperationRejectsASecondCallWhileTheFirstIsInFlight()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 21;
+            manager.RestoreHistoryItem("item-1", results.Add);
+            Assert.IsTrue(WindowsClipboardManager.IsInFlightForTests(
+                WindowsClipboardManager.OperationRestoreHistoryItem));
+
+            // The running call keeps its result; the second caller is told to try later.
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 22;
+            manager.RestoreHistoryItem("item-2", results.Add);
+            yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.OperationBusy, results[0].ErrorCode);
+
+            WindowsClipboardManager.InjectCompletionForTests(21, 0, null);
+            yield return null;
+
+            Assert.AreEqual(2, results.Count, "the first call still receives its own result");
+            Assert.IsFalse(WindowsClipboardManager.IsInFlightForTests(
+                WindowsClipboardManager.OperationRestoreHistoryItem));
+        }
+
+        [UnityTest]
+        public IEnumerator AReadOnlyHistoryOperationAllowsConcurrentCalls()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardAvailabilityResult>();
+            yield return null;
+
+            manager.GetHistoryAvailability(results.Add);
+            manager.GetHistoryAvailability(results.Add);
+            yield return null;
+
+            // Both are rejected in the editor, but neither is rejected as OperationBusy: reads
+            // carry no side effect that two callers could disagree about.
+            Assert.AreEqual(2, results.Count);
+            CollectionAssert.DoesNotContain(
+                new[] { results[0].ErrorCode, results[1].ErrorCode },
+                WindowsClipboardErrorCode.OperationBusy);
+        }
+
+        [UnityTest]
+        public IEnumerator AnItemIdIsValidatedBeforeTheRequestStarts()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            uint id = manager.DeleteHistoryItem("  ", results.Add);
+            yield return null;
+
+            Assert.AreEqual(0u, id);
+            Assert.AreEqual(WindowsClipboardErrorCode.InvalidArgument, results[0].ErrorCode);
+            Assert.IsFalse(WindowsClipboardManager.IsInFlightForTests(
+                WindowsClipboardManager.OperationDeleteHistoryItem),
+                "a rejected call must not leave the marker behind");
+        }
+
+        [UnityTest]
+        public IEnumerator AnAvailabilityPayloadIsParsedIntoItsFlags()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardAvailabilityResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 31;
+            manager.GetHistoryAvailability(results.Add);
+            WindowsClipboardManager.InjectCompletionForTests(
+                31, 0, "{\"historyEnabled\":true,\"roamingEnabled\":false}");
+            yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results[0].HistoryEnabled);
+            Assert.IsFalse(results[0].RoamingEnabled);
+        }
+
+        [UnityTest]
+        public IEnumerator AMalformedPayloadFailsInsteadOfLookingEmpty()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardHistoryResult>();
+            yield return null;
+
+            WindowsClipboardManager.AcceptRequestsWithIdForTests = 41;
+            manager.GetHistory(results.Add);
+            WindowsClipboardManager.InjectCompletionForTests(41, 0, "{\"not\":\"an array\"}");
+            yield return null;
+
+            Assert.AreEqual(WindowsClipboardErrorCode.ResultParseFailed, results[0].ErrorCode);
+            Assert.IsFalse(results[0].IsEmpty, "a broken payload must not read as an empty history");
+        }
+
         // ── Delivery ─────────────────────────────────────────────────────────────
 
         [UnityTest]

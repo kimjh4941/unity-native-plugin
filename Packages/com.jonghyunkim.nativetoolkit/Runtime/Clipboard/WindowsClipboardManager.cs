@@ -51,6 +51,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
     }
 
     /// <summary>
+    /// Which result type an asynchronous request completes with.
+    /// </summary>
+    internal enum WindowsClipboardRequestKind
+    {
+        /// <summary>GetHistory, which yields a list of items.</summary>
+        History,
+
+        /// <summary>GetHistoryAvailability, which yields two flags.</summary>
+        Availability,
+
+        /// <summary>An operation that only reports success or failure.</summary>
+        Status
+    }
+
+    /// <summary>
     /// What the first call of a two-call read should lead to.
     /// </summary>
     internal enum WindowsClipboardReadDecision
@@ -179,6 +194,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Operation name for Clear.</summary>
         public const string OperationClear = "clearClipboard";
 
+        /// <summary>Operation name for GetHistory.</summary>
+        public const string OperationGetHistory = "getClipboardHistory";
+
+        /// <summary>Operation name for RestoreHistoryItem.</summary>
+        public const string OperationRestoreHistoryItem = "restoreHistoryItem";
+
+        /// <summary>Operation name for DeleteHistoryItem.</summary>
+        public const string OperationDeleteHistoryItem = "deleteHistoryItem";
+
+        /// <summary>Operation name for ClearUnpinnedHistory.</summary>
+        public const string OperationClearUnpinnedHistory = "clearUnpinnedHistory";
+
+        /// <summary>Operation name for GetHistoryAvailability.</summary>
+        public const string OperationGetHistoryAvailability = "getClipboardHistoryAvailability";
+
+        /// <summary>Operation name for CancelRequest.</summary>
+        public const string OperationCancelRequest = "cancelClipboardRequest";
+
         // ── Singleton ────────────────────────────────────────────────────────────
 
         private static WindowsClipboardManager? _instance;
@@ -249,6 +282,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Raised when HasFormat completes.</summary>
         public event Action<WindowsClipboardFormatPresenceResult>? FormatPresenceChecked;
 
+        /// <summary>Raised when GetHistory completes.</summary>
+        public event Action<WindowsClipboardHistoryResult>? HistoryReadCompleted;
+
+        /// <summary>Raised when GetHistoryAvailability completes.</summary>
+        public event Action<WindowsClipboardAvailabilityResult>? HistoryAvailabilityChecked;
+
         // ── Static state (main thread only) ──────────────────────────────────────
 
         // Captured on the main thread in Awake so dispatching never touches
@@ -256,6 +295,35 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         private static UnityMainThreadDispatcher? s_dispatcher;
         private static int s_mainThreadId;
         private static bool s_isTerminated;
+
+        /// <summary>
+        /// Everything needed to deliver one asynchronous request, keyed by the ticket the registry
+        /// issued. The registry owns the lifecycle and decides who delivers; this holds what to
+        /// deliver.
+        /// </summary>
+        private sealed class PendingRequest
+        {
+            internal string Operation = string.Empty;
+            internal WindowsClipboardRequestKind Kind;
+            internal uint NativeRequestId;
+            internal string? InFlightKey;
+            internal CancellationTokenRegistration Registration;
+
+            // Filled in when the outcome is known, before delivery is queued.
+            internal WindowsClipboardErrorCode Code = WindowsClipboardErrorCode.None;
+            internal string? Json;
+
+            internal Action<WindowsClipboardHistoryResult>? OnHistory;
+            internal Action<WindowsClipboardAvailabilityResult>? OnAvailability;
+            internal Action<WindowsClipboardResult>? OnStatus;
+        }
+
+        private static readonly WindowsClipboardRequestTable s_registry = new();
+        private static readonly Dictionary<uint, PendingRequest> s_pending = new();
+
+        // One in-flight marker per operation that changes the clipboard or the history, so a second
+        // call cannot make the first one's result ambiguous.
+        private static readonly HashSet<string> s_inFlight = new();
 
         private static WindowsClipboardManagerState s_state = WindowsClipboardManagerState.Uninitialized;
         private static WindowsClipboardComOwnership s_comOwnership = WindowsClipboardComOwnership.None;
@@ -319,6 +387,30 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>Sets the tombstone so a test can cover the destroyed rejection.</summary>
         internal static void SetTerminatedForTests(bool terminated) => s_isTerminated = terminated;
+
+        /// <summary>Number of requests the registry still tracks.</summary>
+        internal static int PendingRequestCountForTests => s_registry.Count;
+
+        /// <summary>Whether an operation currently holds its in-flight marker.</summary>
+        internal static bool IsInFlightForTests(string operation) => s_inFlight.Contains(operation);
+
+        /// <summary>
+        /// Stands in for the native request call: while set, the next request is accepted with this
+        /// id instead of reaching the bridge.
+        /// <para>
+        /// The editor compiles the native boundary out, so every request would otherwise be
+        /// rejected before acceptance and the accepted half of the lifecycle - in-flight markers,
+        /// completions, teardown drains - could never be exercised.
+        /// </para>
+        /// </summary>
+        internal static uint? AcceptRequestsWithIdForTests;
+
+        /// <summary>Drives the native completion callback without the native side.</summary>
+        internal static void InjectCompletionForTests(uint requestId, int error, string? json) =>
+            OnRequestCompletedNative(requestId, error, json);
+
+        /// <summary>Runs the teardown drain on its own, without a shutdown.</summary>
+        internal static void DrainForTests() => DrainRequestRegistry();
 
         /// <summary>Records that this layer owns a COM reference, for the release tests.</summary>
         internal static void SetComOwnershipForTests(WindowsClipboardComOwnership ownership) =>
@@ -1287,6 +1379,506 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             return result;
         }
 
+        // ── Public API: clipboard history (asynchronous) ─────────────────────────
+
+        /// <summary>
+        /// Requests the Windows clipboard history.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. <see cref="HistoryReadCompleted"/> fires as well.</param>
+        /// <returns>
+        /// The native request id, or zero when the request was rejected before it was accepted.
+        /// The result is delivered exactly once either way.
+        /// </returns>
+        public uint GetHistory(Action<WindowsClipboardHistoryResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetHistory)}] onResult: {onResult != null}");
+            return StartRequest(
+                OperationGetHistory, WindowsClipboardRequestKind.History, inFlightKey: null,
+                onHistory: onResult, onAvailability: null, onStatus: null,
+                call: cb => GetHistoryNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+        }
+
+        /// <summary>
+        /// Requests the history availability flags.
+        /// </summary>
+        /// <param name="onResult">
+        /// Per-call callback. <see cref="HistoryAvailabilityChecked"/> fires as well.
+        /// </param>
+        /// <returns>The native request id, or zero when the request was rejected.</returns>
+        public uint GetHistoryAvailability(Action<WindowsClipboardAvailabilityResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetHistoryAvailability)}] onResult: {onResult != null}");
+            return StartRequest(
+                OperationGetHistoryAvailability, WindowsClipboardRequestKind.Availability, inFlightKey: null,
+                onHistory: null, onAvailability: onResult, onStatus: null,
+                call: cb => GetHistoryAvailabilityNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+        }
+
+        /// <summary>
+        /// Restores a history item as the current clipboard content.
+        /// <para>
+        /// Success also raises <see cref="ClipboardChanged"/>: the Windows history service performs
+        /// the write, so it does not go through this manager's self-write suppression.
+        /// </para>
+        /// </summary>
+        /// <param name="itemId">Id taken from a <see cref="WindowsClipboardHistoryItem"/>.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The native request id, or zero when the request was rejected.</returns>
+        public uint RestoreHistoryItem(string itemId, Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(RestoreHistoryItem)}] onResult: {onResult != null}");
+            if (!ValidateItemId(OperationRestoreHistoryItem, itemId, onResult, out uint rejected)) return rejected;
+
+            return StartRequest(
+                OperationRestoreHistoryItem, WindowsClipboardRequestKind.Status,
+                inFlightKey: OperationRestoreHistoryItem,
+                onHistory: null, onAvailability: null, onStatus: onResult,
+                call: cb => RestoreHistoryItemNative(itemId, cb, out int e) is var id ? (id, e) : (0u, 0));
+        }
+
+        /// <summary>
+        /// Deletes one item from the clipboard history.
+        /// </summary>
+        /// <param name="itemId">Id taken from a <see cref="WindowsClipboardHistoryItem"/>.</param>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The native request id, or zero when the request was rejected.</returns>
+        public uint DeleteHistoryItem(string itemId, Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(DeleteHistoryItem)}] onResult: {onResult != null}");
+            if (!ValidateItemId(OperationDeleteHistoryItem, itemId, onResult, out uint rejected)) return rejected;
+
+            return StartRequest(
+                OperationDeleteHistoryItem, WindowsClipboardRequestKind.Status,
+                inFlightKey: OperationDeleteHistoryItem,
+                onHistory: null, onAvailability: null, onStatus: onResult,
+                call: cb => DeleteHistoryItemNative(itemId, cb, out int e) is var id ? (id, e) : (0u, 0));
+        }
+
+        /// <summary>
+        /// Clears the clipboard history. Pinned items stay, which is how Windows behaves.
+        /// </summary>
+        /// <param name="onResult">Per-call callback. The common event fires as well.</param>
+        /// <returns>The native request id, or zero when the request was rejected.</returns>
+        public uint ClearUnpinnedHistory(Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(ClearUnpinnedHistory)}] onResult: {onResult != null}");
+            return StartRequest(
+                OperationClearUnpinnedHistory, WindowsClipboardRequestKind.Status,
+                inFlightKey: OperationClearUnpinnedHistory,
+                onHistory: null, onAvailability: null, onStatus: onResult,
+                call: cb => ClearUnpinnedHistoryNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+        }
+
+        /// <summary>
+        /// Asks the native layer to cancel a request that has not completed yet.
+        /// <para>
+        /// A request that is already on its way still completes: cancellation is a request, not a
+        /// guarantee, and the result arrives exactly once either way.
+        /// </para>
+        /// </summary>
+        /// <param name="requestId">The id returned by the operation that started the request.</param>
+        /// <param name="onResult">Per-call callback for the cancel call itself.</param>
+        /// <returns>The result of asking, not of the cancellation.</returns>
+        public WindowsClipboardResult CancelRequest(
+            uint requestId, Action<WindowsClipboardResult>? onResult = null)
+        {
+            Debug.Log($"[{LogTag}][{nameof(CancelRequest)}] requestId: {requestId}, onResult: {onResult != null}");
+
+            if (!CanRunOperation(OperationCancelRequest, out WindowsClipboardErrorCode rejected))
+            {
+                return Deliver(WindowsClipboardResult.Failure(OperationCancelRequest, rejected), onResult);
+            }
+            if (requestId == 0)
+            {
+                return Deliver(WindowsClipboardResult.Failure(
+                    OperationCancelRequest, WindowsClipboardErrorCode.InvalidArgument,
+                    "requestId was zero"), onResult);
+            }
+
+            return Deliver(InvokeWrite(OperationCancelRequest,
+                pError => CancelRequestNative(requestId, out pError)), onResult);
+        }
+
+        // ── Awaitable wrappers ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Awaitable form of <see cref="GetHistory"/>.
+        /// </summary>
+        /// <param name="cancellationToken">
+        /// Cancels the underlying native request. A MonoBehaviour normally passes its
+        /// destroyCancellationToken.
+        /// </param>
+        /// <returns>The same result the callback form delivers. Awaited once only.</returns>
+        public Awaitable<WindowsClipboardHistoryResult> GetHistoryAsync(
+            CancellationToken cancellationToken = default)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetHistoryAsync)}]");
+            var source = new AwaitableCompletionSource<WindowsClipboardHistoryResult>();
+            uint requestId = GetHistory(result => source.TrySetResult(result));
+            RegisterCancellation(requestId, cancellationToken);
+            return source.Awaitable;
+        }
+
+        /// <summary>
+        /// Awaitable form of <see cref="GetHistoryAvailability"/>.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels the underlying native request.</param>
+        /// <returns>The same result the callback form delivers. Awaited once only.</returns>
+        public Awaitable<WindowsClipboardAvailabilityResult> GetHistoryAvailabilityAsync(
+            CancellationToken cancellationToken = default)
+        {
+            Debug.Log($"[{LogTag}][{nameof(GetHistoryAvailabilityAsync)}]");
+            var source = new AwaitableCompletionSource<WindowsClipboardAvailabilityResult>();
+            uint requestId = GetHistoryAvailability(result => source.TrySetResult(result));
+            RegisterCancellation(requestId, cancellationToken);
+            return source.Awaitable;
+        }
+
+        /// <summary>
+        /// Awaitable form of <see cref="RestoreHistoryItem"/>.
+        /// </summary>
+        /// <param name="itemId">Id taken from a <see cref="WindowsClipboardHistoryItem"/>.</param>
+        /// <param name="cancellationToken">Cancels the underlying native request.</param>
+        /// <returns>The same result the callback form delivers. Awaited once only.</returns>
+        public Awaitable<WindowsClipboardResult> RestoreHistoryItemAsync(
+            string itemId, CancellationToken cancellationToken = default)
+        {
+            Debug.Log($"[{LogTag}][{nameof(RestoreHistoryItemAsync)}]");
+            var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            uint requestId = RestoreHistoryItem(itemId, result => source.TrySetResult(result));
+            RegisterCancellation(requestId, cancellationToken);
+            return source.Awaitable;
+        }
+
+        /// <summary>
+        /// Awaitable form of <see cref="DeleteHistoryItem"/>.
+        /// </summary>
+        /// <param name="itemId">Id taken from a <see cref="WindowsClipboardHistoryItem"/>.</param>
+        /// <param name="cancellationToken">Cancels the underlying native request.</param>
+        /// <returns>The same result the callback form delivers. Awaited once only.</returns>
+        public Awaitable<WindowsClipboardResult> DeleteHistoryItemAsync(
+            string itemId, CancellationToken cancellationToken = default)
+        {
+            Debug.Log($"[{LogTag}][{nameof(DeleteHistoryItemAsync)}]");
+            var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            uint requestId = DeleteHistoryItem(itemId, result => source.TrySetResult(result));
+            RegisterCancellation(requestId, cancellationToken);
+            return source.Awaitable;
+        }
+
+        /// <summary>
+        /// Awaitable form of <see cref="ClearUnpinnedHistory"/>.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels the underlying native request.</param>
+        /// <returns>The same result the callback form delivers. Awaited once only.</returns>
+        public Awaitable<WindowsClipboardResult> ClearUnpinnedHistoryAsync(
+            CancellationToken cancellationToken = default)
+        {
+            Debug.Log($"[{LogTag}][{nameof(ClearUnpinnedHistoryAsync)}]");
+            var source = new AwaitableCompletionSource<WindowsClipboardResult>();
+            uint requestId = ClearUnpinnedHistory(result => source.TrySetResult(result));
+            RegisterCancellation(requestId, cancellationToken);
+            return source.Awaitable;
+        }
+
+        // ── Request plumbing ─────────────────────────────────────────────────────
+
+        private bool ValidateItemId(
+            string operation, string itemId, Action<WindowsClipboardResult>? onResult, out uint rejected)
+        {
+            rejected = 0;
+            if (!string.IsNullOrWhiteSpace(itemId)) return true;
+
+            RejectRequest(operation, WindowsClipboardRequestKind.Status,
+                WindowsClipboardErrorCode.InvalidArgument, "itemId was null or blank",
+                null, null, onResult);
+            return false;
+        }
+
+        /// <summary>
+        /// Starts one asynchronous request: runs the guards, issues a ticket, calls the native
+        /// entry point, and records the request so its single completion can find its way back.
+        /// </summary>
+        private uint StartRequest(
+            string operation,
+            WindowsClipboardRequestKind kind,
+            string? inFlightKey,
+            Action<WindowsClipboardHistoryResult>? onHistory,
+            Action<WindowsClipboardAvailabilityResult>? onAvailability,
+            Action<WindowsClipboardResult>? onStatus,
+            Func<ClipboardRequestCallback, (uint requestId, int pError)> call)
+        {
+            if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
+            {
+                RejectRequest(operation, kind, rejected, null, onHistory, onAvailability, onStatus);
+                return 0;
+            }
+            if (inFlightKey != null && s_inFlight.Contains(inFlightKey))
+            {
+                // The running call keeps its result; the new caller is told to try later rather
+                // than having the two completions race for the same meaning.
+                RejectRequest(operation, kind, WindowsClipboardErrorCode.OperationBusy, null,
+                    onHistory, onAvailability, onStatus);
+                return 0;
+            }
+
+            uint ticket = s_registry.IssueTicket();
+            var pending = new PendingRequest
+            {
+                Operation = operation,
+                Kind = kind,
+                InFlightKey = inFlightKey,
+                OnHistory = onHistory,
+                OnAvailability = onAvailability,
+                OnStatus = onStatus
+            };
+            s_pending[ticket] = pending;
+            if (inFlightKey != null) s_inFlight.Add(inFlightKey);
+
+            uint requestId;
+            int pError;
+#if UNITY_EDITOR
+            if (AcceptRequestsWithIdForTests is uint injected)
+            {
+                requestId = injected;
+                pError = 0;
+                pending.NativeRequestId = requestId;
+                s_registry.RegisterAwaitingNative(ticket, requestId);
+                return requestId;
+            }
+#endif
+            try
+            {
+                (requestId, pError) = call(s_requestDelegate);
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(StartRequest)}] {ex.GetType().Name}: {ex.Message}");
+                ResolveAndQueue(ticket, WindowsClipboardErrorCode.BridgeUnavailable, null);
+                return 0;
+            }
+
+            if (requestId == 0)
+            {
+                // Rejected before acceptance: the native callback will never fire, so this layer
+                // owns the single delivery.
+                var code = (WindowsClipboardErrorCode)pError;
+                if (code == WindowsClipboardErrorCode.None) code = WindowsClipboardErrorCode.RequestRejected;
+                ResolveAndQueue(ticket, code, null);
+                return 0;
+            }
+
+            pending.NativeRequestId = requestId;
+            s_registry.RegisterAwaitingNative(ticket, requestId);
+            return requestId;
+        }
+
+        /// <summary>
+        /// Records a rejection that never reached the native side and queues its delivery, so a
+        /// rejected request is still delivered exactly once and an awaiting caller completes.
+        /// </summary>
+        private void RejectRequest(
+            string operation,
+            WindowsClipboardRequestKind kind,
+            WindowsClipboardErrorCode code,
+            string? detail,
+            Action<WindowsClipboardHistoryResult>? onHistory,
+            Action<WindowsClipboardAvailabilityResult>? onAvailability,
+            Action<WindowsClipboardResult>? onStatus)
+        {
+            uint ticket = s_registry.IssueTicket();
+            s_pending[ticket] = new PendingRequest
+            {
+                Operation = operation,
+                Kind = kind,
+                Code = code,
+                Json = detail,
+                OnHistory = onHistory,
+                OnAvailability = onAvailability,
+                OnStatus = onStatus
+            };
+            s_registry.RegisterUndelivered(ticket);
+            QueueDelivery(ticket);
+        }
+
+        private static void ResolveAndQueue(uint ticket, WindowsClipboardErrorCode code, string? json)
+        {
+            if (s_pending.TryGetValue(ticket, out PendingRequest? pending))
+            {
+                pending.Code = code;
+                pending.Json = json;
+            }
+            s_registry.RegisterUndelivered(ticket);
+            QueueDelivery(ticket);
+        }
+
+        private static void QueueDelivery(uint ticket)
+        {
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (dispatcher == null)
+            {
+                // Without a dispatcher the queued action would never run, so deliver in place
+                // rather than losing the result.
+                DeliverIfClaimed(ticket);
+                return;
+            }
+            dispatcher.Enqueue(() => DeliverIfClaimed(ticket));
+        }
+
+        private static void DeliverIfClaimed(uint ticket)
+        {
+            // Whoever wins the claim delivers. A teardown that already drained this ticket makes
+            // the queued action a no-op instead of a second delivery.
+            if (!s_registry.TryClaim(ticket)) return;
+            DeliverClaimed(ticket, null);
+        }
+
+        /// <summary>
+        /// Delivers a request whose ticket the caller has already claimed.
+        /// </summary>
+        /// <param name="ticket">The claimed ticket.</param>
+        /// <param name="overrideCode">Set by a teardown that has to end a request that never completed.</param>
+        private static void DeliverClaimed(uint ticket, WindowsClipboardErrorCode? overrideCode)
+        {
+            if (!s_pending.TryGetValue(ticket, out PendingRequest? pending)) return;
+            s_pending.Remove(ticket);
+
+            if (pending.InFlightKey != null) s_inFlight.Remove(pending.InFlightKey);
+            pending.Registration.Dispose();
+
+            WindowsClipboardErrorCode code = overrideCode ?? pending.Code;
+
+            switch (pending.Kind)
+            {
+                case WindowsClipboardRequestKind.History:
+                {
+                    WindowsClipboardHistoryResult result;
+                    if (code != WindowsClipboardErrorCode.None)
+                    {
+                        result = WindowsClipboardHistoryResult.Failure(pending.Operation, code, pending.Json);
+                    }
+                    else if (WindowsClipboardJsonParser.TryParseHistoryItems(
+                                 pending.Json, out IReadOnlyList<WindowsClipboardHistoryItem> items))
+                    {
+                        result = WindowsClipboardHistoryResult.Success(pending.Operation, items);
+                    }
+                    else
+                    {
+                        result = WindowsClipboardHistoryResult.Failure(
+                            pending.Operation, WindowsClipboardErrorCode.ResultParseFailed);
+                    }
+                    InvokeInOrder(result, _instance?.HistoryReadCompleted, pending.OnHistory);
+                    break;
+                }
+
+                case WindowsClipboardRequestKind.Availability:
+                {
+                    WindowsClipboardAvailabilityResult result;
+                    if (code != WindowsClipboardErrorCode.None)
+                    {
+                        result = WindowsClipboardAvailabilityResult.Failure(pending.Operation, code, pending.Json);
+                    }
+                    else if (WindowsClipboardJsonParser.TryParseAvailability(
+                                 pending.Json, out bool historyEnabled, out bool roamingEnabled))
+                    {
+                        result = WindowsClipboardAvailabilityResult.Success(
+                            pending.Operation, historyEnabled, roamingEnabled);
+                    }
+                    else
+                    {
+                        result = WindowsClipboardAvailabilityResult.Failure(
+                            pending.Operation, WindowsClipboardErrorCode.ResultParseFailed);
+                    }
+                    InvokeInOrder(result, _instance?.HistoryAvailabilityChecked, pending.OnAvailability);
+                    break;
+                }
+
+                default:
+                {
+                    WindowsClipboardResult result = code == WindowsClipboardErrorCode.None
+                        ? WindowsClipboardResult.Success(pending.Operation)
+                        : WindowsClipboardResult.Failure(pending.Operation, code, pending.Json);
+                    InvokeInOrder(result, _instance?.ClipboardOperationCompleted, pending.OnStatus);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The native completion callback. Runs on the owner UI thread, exactly once per accepted
+        /// request.
+        /// </summary>
+        [MonoPInvokeCallback(typeof(ClipboardRequestCallback))]
+        private static void OnRequestCompletedNative(uint requestId, int error, string? json)
+        {
+            try
+            {
+                if (!s_registry.TryResolveNativeId(requestId, out uint ticket))
+                {
+                    // An id this layer no longer tracks: already delivered, or drained by a
+                    // teardown. Dropping it is the correct outcome, not an error.
+                    Debug.LogWarning($"[{LogTag}][{nameof(OnRequestCompletedNative)}] unknown request id {requestId}");
+                    return;
+                }
+
+                if (s_pending.TryGetValue(ticket, out PendingRequest? pending))
+                {
+                    pending.Code = (WindowsClipboardErrorCode)error;
+                    pending.Json = json;
+                }
+                // Move to Undelivered rather than removing: a teardown before the queued delivery
+                // runs still has to find this result.
+                s_registry.MarkUndelivered(ticket);
+                QueueDelivery(ticket);
+            }
+            catch (Exception ex)
+            {
+                // Nothing may cross the C ABI boundary.
+                Debug.LogError($"[{LogTag}][{nameof(OnRequestCompletedNative)}] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Marshals a cancellation onto the main thread and only cancels the request it was
+        /// registered for.
+        /// </summary>
+        private void RegisterCancellation(uint requestId, CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.CanBeCanceled) return;
+
+            if (requestId == 0)
+            {
+                // Already rejected; its delivery is queued and needs no cancellation.
+                return;
+            }
+
+            CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            {
+                // The callback runs on whichever thread cancelled, and the native API is main
+                // thread only here, so hop before touching it.
+                UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+                if (dispatcher == null) return;
+                dispatcher.Enqueue(() =>
+                {
+                    // Cancel only while this exact request is still tracked: the id could belong to
+                    // a later request once this one has been delivered.
+                    if (!s_registry.TryResolveNativeId(requestId, out _)) return;
+                    CancelRequest(requestId);
+                });
+            });
+
+            if (s_registry.TryResolveNativeId(requestId, out uint ticket) &&
+                s_pending.TryGetValue(ticket, out PendingRequest? pending))
+            {
+                pending.Registration = registration;
+            }
+            else
+            {
+                // The request completed while the token was being registered.
+                registration.Dispose();
+            }
+        }
+
         // ── Shutdown internals ───────────────────────────────────────────────────
 
         /// <summary>
@@ -1433,11 +2025,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             if (origin == ShutdownOrigin.Drain) Deliver(result, onResult);
         }
 
+        /// <summary>
+        /// Delivers every request the registry still holds, synchronously.
+        /// <para>
+        /// The dispatcher is deliberately bypassed: a teardown runs when no further Update is
+        /// guaranteed, so a queued delivery would never arrive and an awaiting caller would hang.
+        /// Both states are drained - a request still waiting for the native side, and one whose
+        /// result is known but whose delivery is still queued.
+        /// </para>
+        /// </summary>
         private static void DrainRequestRegistry()
         {
-            // The request registry arrives with the asynchronous history APIs, which are not part
-            // of this step. The drain hook is placed here so every shutdown origin already passes
-            // through the one point that will own it.
+            IReadOnlyList<KeyValuePair<uint, WindowsClipboardRequestState>> claimed = s_registry.ClaimAll();
+            if (claimed.Count == 0) return;
+
+            Debug.Log($"[{LogTag}][{nameof(DrainRequestRegistry)}] draining {claimed.Count} request(s)");
+            foreach (KeyValuePair<uint, WindowsClipboardRequestState> entry in claimed)
+            {
+                // A request that never completed ends as canceled; one that already has an outcome
+                // keeps it, because that outcome is what the caller was about to receive.
+                WindowsClipboardErrorCode? overrideCode =
+                    entry.Value == WindowsClipboardRequestState.AwaitingNative
+                        ? WindowsClipboardErrorCode.Canceled
+                        : (WindowsClipboardErrorCode?)null;
+                DeliverClaimed(entry.Key, overrideCode);
+            }
         }
 
         // ── Quit handling ────────────────────────────────────────────────────────
@@ -1645,6 +2257,69 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         }
 
         // ── Native call wrappers ─────────────────────────────────────────────────
+
+        private static uint GetHistoryNative(ClipboardRequestCallback cb, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return getClipboardHistory(cb, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint GetHistoryAvailabilityNative(ClipboardRequestCallback cb, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return getClipboardHistoryAvailability(cb, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint RestoreHistoryItemNative(
+            string itemId, ClipboardRequestCallback cb, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return restoreHistoryItem(itemId, cb, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint DeleteHistoryItemNative(
+            string itemId, ClipboardRequestCallback cb, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return deleteHistoryItem(itemId, cb, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static uint ClearUnpinnedHistoryNative(ClipboardRequestCallback cb, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            return clearUnpinnedHistory(cb, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return 0;
+#endif
+        }
+
+        private static int CancelRequestNative(uint requestId, out int pError)
+        {
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            cancelClipboardRequest(requestId, out pError);
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
+            return pError;
+        }
+
         // Named consistently so the public API reads the same in both compilations. Outside the
         // Windows player they are never reached: the callers return PlatformUnavailable first.
 
@@ -1790,6 +2465,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #endif
         }
 
+        // Declared outside the native guard so the shared request plumbing can name the type in
+        // both compilations; only its use crosses the ABI.
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ClipboardRequestCallback(
+            uint requestId, int error, [MarshalAs(UnmanagedType.LPWStr)] string? json);
+
+        // Held for the lifetime of the manager: the native side keeps the pointer until every
+        // accepted request has completed.
+        private static readonly ClipboardRequestCallback s_requestDelegate = OnRequestCompletedNative;
+
         private static bool IsMainThread() =>
             s_mainThreadId == 0 || Thread.CurrentThread.ManagedThreadId == s_mainThreadId;
 
@@ -1809,6 +2494,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             UnsubscribeQuitHandler();
 
+            // Anything still tracked would otherwise keep an awaiting caller waiting forever.
+            DrainRequestRegistry();
+            foreach (PendingRequest pending in s_pending.Values) pending.Registration.Dispose();
+            s_pending.Clear();
+            s_inFlight.Clear();
+            s_registry.Reset();
+
             s_state = WindowsClipboardManagerState.Uninitialized;
             s_comOwnership = WindowsClipboardComOwnership.None;
             s_quitDrainStarted = false;
@@ -1818,6 +2510,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 #if UNITY_EDITOR
             QuitActionForTests = null;
             ComReleaseCountForTests = 0;
+            AcceptRequestsWithIdForTests = null;
 #endif
 
             if (keepInstance && _instance != null)
@@ -1966,6 +2659,30 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             ExactSpelling = true)]
         private static extern uint getPreferredClipboardFormat(
             IntPtr buffer, uint bufferSize, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern uint getClipboardHistory(ClipboardRequestCallback cb, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint restoreHistoryItem(
+            [MarshalAs(UnmanagedType.LPWStr)] string itemId, ClipboardRequestCallback cb, out int pError);
+
+        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
+            ExactSpelling = true)]
+        private static extern uint deleteHistoryItem(
+            [MarshalAs(UnmanagedType.LPWStr)] string itemId, ClipboardRequestCallback cb, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern uint clearUnpinnedHistory(ClipboardRequestCallback cb, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        private static extern uint getClipboardHistoryAvailability(
+            ClipboardRequestCallback cb, out int pError);
+
+        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool cancelClipboardRequest(uint requestId, out int pError);
 #endif
     }
 }
