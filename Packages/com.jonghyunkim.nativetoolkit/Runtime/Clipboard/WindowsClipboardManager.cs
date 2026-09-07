@@ -2924,8 +2924,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         // ── Result delivery ──────────────────────────────────────────────────────
 
         /// <summary>
-        /// Invokes the common event and then the per-call callback, isolating each from the other's
-        /// exceptions so one bad subscriber cannot swallow the other's result.
+        /// Invokes the common event and then the per-call callback, containing the exceptions of
+        /// each so that one cannot swallow the other's result.
+        /// <para>
+        /// The isolation is between those two, not between the subscribers of the event: they share
+        /// one invocation, so the first to throw stops the ones behind it. That is the behaviour
+        /// every manager in this package has, and changing it belongs to all of them at once
+        /// rather than here.
+        /// </para>
         /// </summary>
         /// <typeparam name="TResult">The result type being delivered.</typeparam>
         /// <param name="result">The result to hand out.</param>

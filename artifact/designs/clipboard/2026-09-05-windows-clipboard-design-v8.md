@@ -632,9 +632,13 @@ using AOT;   // MonoPInvokeCallback に必要
 ### 6.1 新規作成（Runtime）
 
 すべて `Packages/com.jonghyunkim.nativetoolkit/Runtime/Clipboard/` 配下、名前空間は `JonghyunKim.NativeToolkit.Runtime.Clipboard`。
-**原則 1 ファイル 1 主型**とし、ファイル名とその主たる型名を一致させる（`common.md` の命名規約。macOS の `MacClipboard*Result.cs` と同じ粒度）。
-**明示的な例外は `WindowsClipboardPayloads.cs` のみ**で、既存の `IosClipboardPayloads` / `AndroidClipboardPayloads` に倣い
-`WindowsClipboardWriteOptions` と `WindowsClipboardFormatPayload` をまとめる。
+`common.md` が課すのは**ファイル名とその主たる型名の一致**であり、1 ファイル 1 型ではない（macOS の `MacClipboard*Result.cs` と同じ粒度）。
+主型に不可分な補助型は同じファイルに置く。実装時点で複数の型を持つのは次の 4 ファイル:
+`WindowsClipboardPayloads.cs`（`WindowsClipboardWriteOptions` / `WindowsClipboardFormatPayload` /
+`WindowsClipboardPayloadKind`。既存の `IosClipboardPayloads` / `AndroidClipboardPayloads` に倣う）、
+`WindowsClipboardErrorCode.cs`（enum と `ToMessage` 拡張）、
+`WindowsClipboardManager.cs`（Manager と、それと不可分な internal enum 6 種）、
+`WindowsClipboardRequestTable.cs`（テーブルと `WindowsClipboardRequestState`）。
 ファイル構成は既存に合わせ、1 行目 `#nullable enable`、3 行目 `#if UNITY_STANDALONE_WIN || UNITY_EDITOR`、`using` は `namespace` の内側に置く。
 ネイティブ境界（`DllImport` / `MonoPInvokeCallback`）はさらに `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` で囲む（7.11）。
 全ファイル名と public / internal 型名に `Windows` 接頭辞を付ける（`common.md` の OS 接頭辞方針）。
@@ -678,6 +682,7 @@ using AOT;   // MonoPInvokeCallback に必要
 |---|---|---|
 | `Packages/.../Plugins/Windows/unity-windows-native-toolkit*.dll` | **変更不要**。`PreBuildProcessor` がビルド時に dist から配置・リネームする（2.7）。作業ツリー上のファイル名はビルド構成で入れ替わるため、コミット対象として扱わない | — |
 | `Packages/.../Plugins/Windows/VERSION.txt` | `source:` 行が dist 1.4.0 / 1.1.0 のまま古い。同じフル URL 書式で `.../dist/1.11.0/windows/windows-native-toolkit-1.2.0.dll` へ更新（任意。自動更新されない情報ファイル） | 任意 |
+| `scripts/check_design_consistency.py` | 本設計の機械照合中に判明した 2 点を修正: macOS の `.framework` 配下を走査して `FileNotFoundError` で止まる問題と、新規ファイル一覧の照合が Android 専用だった問題 | 必須 |
 
 ### 6.4 非変更（明示）
 
@@ -965,7 +970,7 @@ private static void FinishShutdownAttempt(ShutdownOrigin origin, WindowsClipboar
 |---|---|
 | 1. 初回試行の入口 | 状態が `Running` なら **`Draining` へ遷移し、その場でレジストリを同期ドレインする**（7.6.3）。以後の新規操作は `ShuttingDown`(1011) で拒否。ドレインはユーザー callback を呼ぶ前に拒否へ切り替えてから行う |
 | 2. 結果の分類 | `completed == true` → 完了 / `completed == false` かつ未完了コード → 継続 / 終端失敗コード（`WrongThread` 等）またはタイムアウト → 終端失敗（分類は本節の表） |
-| 3. 所有権の解放 | **`completed == true` のときだけ** COM 参照（7.3）・delegate の GC ルート・`s_renderProviders` / `s_renderCache` を解放する |
+| 3. 所有権の解放 | **`completed == true` のときだけ** COM 参照（7.3）と `s_renderProviders` / `s_renderCache` を解放する。delegate の GC ルートは `static readonly` のまま解放しない: 終端失敗のときネイティブはポインタを保持し続けるため、解放できてしまう方が危険 |
 | 4. 状態の確定 | 完了 → `ShutDown` / 継続 → `Draining` / 終端失敗・タイムアウト → `ShutdownFailed`（ネイティブ資源は保持） |
 | 5. quit の再開 | `origin == Quit` なら**成功・タイムアウト・終端失敗のすべてで** `s_quitDrainCompleted = true` を立て、結果をログに残して `Application.Quit()` を再実行する |
 | 6. 結果配送 | **`origin == Drain` のときのみ**、最終結果を共通イベントと per-call callback へ配送する。`PublicApi`（= `TryShutdown`）は戻り値だけで結果を返し、event も callback も発火しない（5.3 の例外規定と一致）。`Destroy` / `Quit` も配送しない |
@@ -1340,8 +1345,8 @@ v2 の「getter 自体はガードできない」という記述は、**スレ�
 
 | 層 | ガード | 含めるもの |
 |---|---|---|
-| 外側（クラス） | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR` | クラス宣言、public API、結果型の生成、イベント、リクエストレジストリ、ログ、delegate 型宣言 |
-| 内側（ネイティブ境界） | `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` | `[DllImport]` 宣言（`ole32` を含む）、`[MonoPInvokeCallback]` の実体、`static readonly` delegate インスタンス、ネイティブ呼び出し |
+| 外側（クラス） | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR` | クラス宣言、public API、結果型の生成、イベント、リクエストレジストリ、ログ、delegate 型宣言、`[MonoPInvokeCallback]` の実体と `static readonly` delegate インスタンス |
+| 内側（ネイティブ境界） | `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` | `[DllImport]` 宣言（`ole32` を含む）、ネイティブ呼び出し |
 | Editor 経路 | `#if UNITY_EDITOR` | 上記の代わりに `PlatformUnavailable`(1000) を返すスタブ |
 
 ```csharp

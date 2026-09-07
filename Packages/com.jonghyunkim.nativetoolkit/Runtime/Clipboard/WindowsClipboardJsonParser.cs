@@ -80,7 +80,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 // an empty success would let a malformed payload masquerade as an empty clipboard,
                 // which the caller cannot tell apart from the real thing.
                 if (dto?.values == null) return false;
-                values = dto.values;
+                // Wrapped rather than handed over: the array is reachable again through a cast,
+                // and a result the caller can edit is not the result that was delivered.
+                values = Array.AsReadOnly(dto.values);
                 return true;
             }
             catch (Exception ex)

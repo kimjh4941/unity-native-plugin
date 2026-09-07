@@ -53,7 +53,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         {
             Id = id;
             Text = text;
-            ContentTypes = contentTypes ?? NoContentTypes;
+            // Copied rather than stored directly: whatever was handed in may still be an array
+            // its caller can reach through a cast, and this is meant to be the payload as it
+            // arrived rather than a view of something that can still change.
+            ContentTypes = contentTypes == null || contentTypes.Count == 0
+                ? NoContentTypes
+                : Array.AsReadOnly(System.Linq.Enumerable.ToArray(contentTypes));
             Timestamp = timestamp;
         }
     }
