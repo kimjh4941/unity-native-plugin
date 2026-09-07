@@ -321,7 +321,7 @@ CI 成果物にも残さないこと。
 
 ---
 
-## 7. 適用状況（2026-09-03 時点）
+## 7. 適用状況（2026-09-07 時点）
 
 **この節は現状のロードマップであり、上記の層モデル・ツール選定（1〜6 節）とは性質が異なる。**
 実装が進んだら更新すること。
@@ -329,7 +329,7 @@ CI 成果物にも残さないこと。
 | 層 | 状況 |
 |---|---|
 | 1. EditMode | **部分的**（下表参照） |
-| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS）と Share（iOS / macOS）|
+| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
 | 2b. PlayMode（Player 上） | 未着手 |
 | 3. OS 境界 | 未着手 |
 
@@ -348,11 +348,11 @@ CI 成果物にも残さないこと。
 注意: 「テストファイルが 1 つ存在する」ことと「対象契約を網羅した」ことは別である。
 下表の「実装済み」は前者のみを意味し、網羅性は保証していない（網羅性の完了条件は本節「未定義事項」）。
 
-### 層 1 の機能・プラットフォーム別状況（2026-09-03、`Tests/` 配下の実ファイルで確認）
+### 層 1 の機能・プラットフォーム別状況（2026-09-07、`Tests/` 配下の実ファイルで確認）
 
 | 機能 | Android | iOS | macOS | Windows |
 |---|---|---|---|---|
-| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 対象外 |
+| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（builder / parser / result / payload / request table / dispatch） |
 | **Share** | 実装済み（builder / wiring） | 実装済み（builder / dispatch） | 実装済み（builder / dispatch / result / wiring） | 対象外 |
 | **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
 | **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
@@ -365,6 +365,11 @@ CI 成果物にも残さないこと。
 - **iOS Notification のみが真の欠落。** ここだけは層 1 で埋められる
 - **macOS Clipboard に wiring が無いのは欠落ではない。** サンプルシーンをまだ設計していないため、
   `*SampleSceneWiringTests` の対象が存在しない。`design-sample-scene` の完了時に追加する
+- **Windows Clipboard も同じ理由で wiring が無い。** サンプルシーンは未設計
+- **Windows Clipboard は層 2a を持つ最初の Windows 機能。** `WindowsClipboardManagerIntegrationTests`
+  が拒否経路・配送・ライフサイクル・teardown を Editor 内で検証する。Editor は Windows player ではないため、
+  ネイティブ境界に届く経路は原理的に検証できない。**そこは層 2b と実機確認の担当**であり、
+  層 2a のテストが緑であることをネイティブ動作の保証と読んではならない
 
 ### 推奨する導入順序
 
@@ -372,7 +377,8 @@ CI 成果物にも残さないこと。
 
 0. **層 1 の欠落（iOS Notification）を埋める**（最も安く、既存パターンの流用で済む）
 1. **層 2a を埋める**（デバイス不要、前例あり、コストほぼゼロ）
-   - 特に「event を発火しない契約」は現状どの層でも未検証で、リグレッションを検出できない
+   - 「event を発火しない契約」は Windows Clipboard で初めて検証した（`TryShutdown` が
+     共通 event も callback も発火しないこと）。**他機能では依然として未検証**
    - Dialog は層 1 が N/A のため、**層 2a が最初の自動テストになる**
    - B 群 Manager（3 節）が対象の場合は build target 切り替えが要る点に注意
 2. **層 2b を Android に限定して試す**
