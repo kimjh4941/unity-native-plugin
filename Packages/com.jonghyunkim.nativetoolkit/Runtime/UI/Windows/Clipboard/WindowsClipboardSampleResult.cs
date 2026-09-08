@@ -95,15 +95,29 @@ internal static class WindowsClipboardSampleResult
     /// <summary>
     /// Formats one line of the result log.
     /// </summary>
-    /// <param name="sequence">Monotonic sequence number.</param>
+    /// <param name="line">Line number. Increases with every line written, without exception.</param>
     /// <param name="kind">One of the Kind constants.</param>
     /// <param name="subject">Operation name from the result, or an event name.</param>
     /// <param name="body">Everything after the subject. May be empty.</param>
+    /// <param name="call">
+    /// Line number of the call this line belongs to, or <c>0</c> for a line that belongs to none.
+    /// </param>
     /// <returns>The line.</returns>
-    internal static string FormatLine(int sequence, string kind, string subject, string body) =>
-        string.IsNullOrEmpty(body)
-            ? $"#{sequence} [{kind}] {subject}"
-            : $"#{sequence} [{kind}] {subject} {body}";
+    /// <remarks>
+    /// The line number and the call it belongs to are separate. Reusing one number for a call and
+    /// its completion made the log run 1, 2, 1: the common event that landed between them took a
+    /// number of its own, and the completion went back to the caller's. Delivery order is the only
+    /// reason these numbers exist, so the ordering rules the design promises - that a result
+    /// arrives outside the caller's stack, that the event precedes the callback - could not be read
+    /// off a log that counts backwards.
+    /// </remarks>
+    internal static string FormatLine(
+        int line, string kind, string subject, string body, int call = 0)
+    {
+        string origin = call == 0 || call == line ? string.Empty : $" call=#{call}";
+        string tail = string.IsNullOrEmpty(body) ? string.Empty : $" {body}";
+        return $"#{line} [{kind}] {subject}{origin}{tail}";
+    }
 
     /// <summary>
     /// Formats the outcome half of a line.
@@ -129,27 +143,29 @@ internal static class WindowsClipboardSampleResult
     }
 
     /// <summary>Formats the accept line of an asynchronous call.</summary>
-    /// <param name="sequence">Sequence number of the issuing call.</param>
+    /// <param name="line">Line number for this line.</param>
     /// <param name="operation">Native operation name.</param>
     /// <param name="requestId">The id the Manager returned. Zero means it was rejected.</param>
+    /// <param name="call">Line number of the call this belongs to.</param>
     /// <returns>The line.</returns>
     /// <remarks>
     /// Zero is called out rather than shown as a number: it is the only value that means "no
     /// request exists", and the completion still arrives, so the two look alike in the log.
     /// </remarks>
-    internal static string FormatAccept(int sequence, string operation, uint requestId) =>
+    internal static string FormatAccept(int line, string operation, uint requestId, int call) =>
         FormatLine(
-            sequence, KindAccept, operation,
+            line, KindAccept, operation,
             requestId == 0
                 ? "requestId=0 (rejected; the outcome arrives on the callback)"
-                : $"requestId={requestId.ToString(CultureInfo.InvariantCulture)}");
+                : $"requestId={requestId.ToString(CultureInfo.InvariantCulture)}",
+            call);
 
     /// <summary>Formats a rejection this screen made before calling the Manager.</summary>
     /// <param name="call">Identity of the call.</param>
     /// <param name="detail">Short reason. Must not quote clipboard content.</param>
     /// <returns>The line.</returns>
-    internal static string FormatLocal(in WindowsClipboardSampleCall call, string detail) =>
-        FormatLine(call.Sequence, KindLocal, call.Marker, detail);
+    internal static string FormatLocal(int line, in WindowsClipboardSampleCall call, string detail) =>
+        FormatLine(line, KindLocal, call.Marker, detail, call.Sequence);
 
     /// <summary>Describes a text read without disclosing it.</summary>
     /// <param name="result">The read result.</param>

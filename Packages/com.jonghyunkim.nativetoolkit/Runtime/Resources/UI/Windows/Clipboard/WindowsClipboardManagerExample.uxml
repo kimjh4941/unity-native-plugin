@@ -17,7 +17,7 @@
 
                 <ui:VisualElement class="windows-clipboard-section">
                     <ui:Label text="About" class="windows-clipboard-section-title" />
-                    <ui:Label name="AboutContractLabel" text="A failure with no ErrorMessage, or a success whose ErrorCode is not None, is itself a defect. TryShutdown fires neither the event nor the callback, so counters standing still there is correct." class="windows-clipboard-section-note" />
+                    <ui:Label name="AboutContractLabel" text="A failure with no ErrorMessage, or a success whose ErrorCode is not None, is itself a defect. TryShutdown withholds its own shutdown result from the event and the callback, but it also drains any outstanding request on the spot, so Pending and Events moving there is correct too." class="windows-clipboard-section-note" />
                     <ui:Label name="AboutNoiseLabel" text="One external copy raises ClipboardChanged about three times. RecoverDeferredState reports success when there was nothing to recover. Reserve discards whatever the clipboard held." class="windows-clipboard-section-note" />
                     <ui:Label name="AboutScreenshotLabel" text="Taking a screenshot writes an image to the clipboard. Capture only at the boundary between blocks, never between a copy and its paste." class="windows-clipboard-section-note" />
                     <ui:Label name="AboutInteractivityLabel" text="Buttons stay enabled while a call is in flight on purpose: the busy and after-shutdown rejections are two of the things this screen exists to observe." class="windows-clipboard-section-note" />

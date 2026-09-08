@@ -257,15 +257,20 @@ namespace JonghyunKim.NativeToolkit.Tests
                 int await = handler.IndexOf("await ", StringComparison.Ordinal);
                 Assert.Greater(await, -1, label + " is declared async but never awaits");
 
-                int guard = handler.IndexOf("if (Cancelled(", await, StringComparison.Ordinal);
+                // The whole statement, not the guard plus a return somewhere later in the body:
+                // `if (Cancelled(...)) { } return;` satisfied that and made every handler stop
+                // before its Done, including on success.
+                int guard = handler.IndexOf(
+                    "if (Cancelled(call, result.Operation, result.ErrorCode, result.ErrorMessage)) return;",
+                    await, StringComparison.Ordinal);
                 Assert.Greater(
                     guard, -1,
-                    label + " must test its result for Canceled after the await. Cancellation " +
-                    "arrives as a result, so without this the handler runs on past it and touches " +
-                    "elements a destroy may already have removed.");
+                    label + " must test its result for Canceled and return, written as one " +
+                    "statement. Cancellation arrives as a result, so without this the handler runs " +
+                    "on past it and touches elements a destroy may already have removed.");
                 StringAssert.Contains(
-                    "return;", handler.Substring(guard),
-                    label + " must return when the guard reports a cancellation");
+                    "Done(call,", handler.Substring(guard),
+                    label + " must still report a result that was not cancelled");
             }
 
             Assert.AreEqual(
@@ -342,6 +347,26 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(
                 2, CountOccurrences(table, "Interlocked.Increment"),
                 "each provider counts its own call, and Interlocked is the only bookkeeping it may do");
+
+            // Tied to the format, not merely counted. Both increments inside the text provider,
+            // with none in the image one, kept the total at two while the per-format counts - the
+            // whole reason they were split apart - stopped meaning anything.
+            foreach ((string format, string counter) in new[]
+                     {
+                         ("[CfUnicodeText]", "s_renderTextCount"),
+                         ("[CfDib]", "s_renderImageCount"),
+                     })
+            {
+                int at = table.IndexOf(format, StringComparison.Ordinal);
+                Assert.Greater(at, -1, format + " must have a provider");
+                string entry = table.Substring(at, table.IndexOf("},", at, StringComparison.Ordinal) - at);
+                StringAssert.Contains(
+                    "Interlocked.Increment(ref " + counter + ")", entry,
+                    format + " must count into " + counter);
+                Assert.AreEqual(
+                    1, CountOccurrences(entry, "Interlocked.Increment"),
+                    format + " must count once, into its own counter only");
+            }
 
             string[] forbidden =
             {
@@ -494,6 +519,39 @@ namespace JonghyunKim.NativeToolkit.Tests
             return names;
         }
 
+        /// <remarks>
+        /// Every line takes a fresh number, and nothing reuses one. Accept and done used to quote
+        /// the call's number back while an event landing between them took its own, so a history
+        /// read printed 1, 2, 1 - and reading delivery order off the log is the only reason those
+        /// numbers exist.
+        /// <para>
+        /// Read from the source because the numbering lives in the controller's own bookkeeping
+        /// rather than in the formatter. The call a line belongs to travels separately.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void EveryLoggedLineTakesItsOwnNumber()
+        {
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
+
+            foreach (string writer in new[]
+                     {
+                         "private void Call(", "private void Done(", "private void Accept(",
+                         "private void AcceptAwaited(", "private void Local(",
+                         "private void LogEvent(",
+                     })
+            {
+                string body = MethodBody(source, writer);
+                StringAssert.Contains(
+                    "++_resultSequence", body,
+                    writer + " must take a fresh line number; reusing one makes the log count " +
+                    "backwards and the delivery order unreadable");
+                Assert.AreEqual(
+                    0, CountOccurrences(body, "call.Sequence, WindowsClipboardSampleResult.Kind"),
+                    writer + " must not use the call's number as the line number");
+            }
+        }
+
         [Test]
         public void TopMenu_StillExposesTheClipboardEntryPoint()
         {
@@ -514,8 +572,15 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// checked. Banning the word "OperationCanceledException" outright banned the comment that
         /// tells the next reader why nothing catches it.
         /// <para>
-        /// A "//" inside a string literal is left alone by counting the quotes before it. No block
-        /// comments are used in this file's subjects; one would survive this and is not swept.
+        /// Counting quotes was not enough: an escaped one counted as a quote, so a line holding
+        /// the literal "\" // " looked like an open string and everything after it survived as
+        /// code - or, read the other way, real code could be hidden from the forbidden-word scan
+        /// by putting it after such a literal. The scan tracks the string state instead, and skips
+        /// the character after a backslash.
+        /// </para>
+        /// <para>
+        /// Verbatim strings and block comments are not handled. Neither appears in the subjects
+        /// this reads, and a scanner that guesses at them would be worse than one that says so.
         /// </para>
         /// </remarks>
         private static string CodeOnly(string source)
@@ -523,19 +588,28 @@ namespace JonghyunKim.NativeToolkit.Tests
             var kept = new List<string>();
             foreach (string line in source.Split('\n'))
             {
-                int at = line.IndexOf("//", StringComparison.Ordinal);
-                if (at < 0)
+                bool inString = false;
+                int cut = -1;
+                for (int i = 0; i < line.Length; i++)
                 {
-                    kept.Add(line);
-                    continue;
+                    char c = line[i];
+                    if (inString && c == '\\')
+                    {
+                        i++;
+                        continue;
+                    }
+                    if (c == '"')
+                    {
+                        inString = !inString;
+                        continue;
+                    }
+                    if (!inString && c == '/' && i + 1 < line.Length && line[i + 1] == '/')
+                    {
+                        cut = i;
+                        break;
+                    }
                 }
-
-                int quotes = 0;
-                for (int i = 0; i < at; i++)
-                {
-                    if (line[i] == '"') quotes++;
-                }
-                kept.Add(quotes % 2 == 0 ? line.Substring(0, at) : line);
+                kept.Add(cut < 0 ? line : line.Substring(0, cut));
             }
             return string.Join("\n", kept);
         }

@@ -399,11 +399,18 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
     // ── Result plumbing ──────────────────────────────────────────────────────
 
-    /// <summary>Opens a call and returns the identity its completion quotes back.</summary>
+    /// <summary>
+    /// Opens a call and returns the identity its lines quote back.
+    /// </summary>
+    /// <remarks>
+    /// The identity takes the next line number without writing a line of its own, so a call and
+    /// everything it produces share one anchor while each line still counts upward. What is not
+    /// allowed is for a later line to reuse an earlier number: the log is read for delivery order.
+    /// </remarks>
     private WindowsClipboardSampleCall Begin(string marker)
     {
-        var call = new WindowsClipboardSampleCall(++_resultSequence, marker);
-        Debug.Log($"[{LogTag}] issue #{call.Sequence} {marker}");
+        var call = new WindowsClipboardSampleCall(_resultSequence + 1, marker);
+        Debug.Log($"[{LogTag}] issue call=#{call.Sequence} {marker}");
         return call;
     }
 
@@ -424,8 +431,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         bool? completed = null)
     {
         string line = WindowsClipboardSampleResult.FormatLine(
-            call.Sequence, WindowsClipboardSampleResult.KindCall, operation,
-            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape));
+            ++_resultSequence, WindowsClipboardSampleResult.KindCall, operation,
+            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape),
+            call.Sequence);
         AppendResult(line);
         // Also to the console. The result area is 64px tall and a device pass is read back from
         // Player.log afterwards; without this the accept/done/event ordering the design promises
@@ -446,8 +454,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     {
         _pending--;
         string line = WindowsClipboardSampleResult.FormatLine(
-            call.Sequence, WindowsClipboardSampleResult.KindDone, operation,
-            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape));
+            ++_resultSequence, WindowsClipboardSampleResult.KindDone, operation,
+            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape),
+            call.Sequence);
         AppendResult(line);
         Debug.Log($"[{LogTag}] {line}");
         _state = WindowsClipboardSampleResult.Advance(_state, operation, isSuccess, code);
@@ -463,7 +472,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         // cancellation rather than the absence of a target.
         if (requestId != 0) _lastRequestId = requestId;
         _pending++;
-        string line = WindowsClipboardSampleResult.FormatAccept(call.Sequence, operation, requestId);
+        string line = WindowsClipboardSampleResult.FormatAccept(
+            ++_resultSequence, operation, requestId, call.Sequence);
         AppendResult(line);
         Debug.Log($"[{LogTag}] {line}");
         RefreshStatus();
@@ -480,7 +490,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     {
         _pending++;
         string line = WindowsClipboardSampleResult.FormatLine(
-            call.Sequence, WindowsClipboardSampleResult.KindAccept, operation, "awaited (no requestId)");
+            ++_resultSequence, WindowsClipboardSampleResult.KindAccept, operation,
+            "awaited (no requestId)", call.Sequence);
         AppendResult(line);
         Debug.Log($"[{LogTag}] {line}");
 
@@ -498,8 +509,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
     private void Local(in WindowsClipboardSampleCall call, string detail)
     {
-        AppendResult(WindowsClipboardSampleResult.FormatLocal(call, detail));
-        Debug.LogWarning($"[{LogTag}] #{call.Sequence} {call.Marker} local: {detail}");
+        string line = WindowsClipboardSampleResult.FormatLocal(++_resultSequence, call, detail);
+        AppendResult(line);
+        Debug.LogWarning($"[{LogTag}] {line}");
     }
 
     private void AppendResult(string line)
@@ -613,11 +625,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void OnClipboardChangedEvent()
     {
         _changedCount++;
-        _eventCount++;
-        _lastChangedSequence = ++_resultSequence;
-        AppendResult(WindowsClipboardSampleResult.FormatLine(
-            _lastChangedSequence, WindowsClipboardSampleResult.KindEvent,
-            nameof(WindowsClipboardManager.ClipboardChanged), $"total={_changedCount}"));
+        // Through the shared path, so it reaches Player.log like every other event. Writing it
+        // straight to the panel left the one event an external-copy check is watching for out of
+        // the only record that survives the session.
+        LogEvent(nameof(WindowsClipboardManager.ClipboardChanged), $"total={_changedCount}");
+        _lastChangedSequence = _resultSequence;
         RefreshStatus();
     }
 
@@ -708,9 +720,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     }
 
     /// <remarks>
-    /// Both calls go out in one frame, so the initialize lands while the drain is still running and
-    /// is refused with ShuttingDown. Splitting them across frames would let the drain finish first
-    /// and the re-entry would never happen.
+    /// Not in the same frame. Opening a drain only creates its session - the first attempt, and
+    /// with it the move to Draining, happens on the next Update - so an Initialize issued straight
+    /// afterwards still meets a Running manager and comes back an idempotent success. It looked
+    /// like a check of the ShuttingDown guard while never reaching it. The Initialize waits a frame
+    /// so the drain is genuinely under way.
     /// </remarks>
     private void OnForceInitializeWhileDrainingClicked()
     {
@@ -720,9 +734,18 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
             Done(drain, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage));
 
+        StartCoroutine(InitializeOnTheNextFrame());
+    }
+
+    /// <summary>Issues an Initialize once the drain has had a frame to start advancing.</summary>
+    private IEnumerator InitializeOnTheNextFrame()
+    {
+        yield return null;
+
         WindowsClipboardSampleCall init = Begin("lifecycle.forceInit.initialize");
-        WindowsClipboardResult initResult = WindowsClipboardManager.Instance.Initialize();
-        Call(init, initResult.Operation, initResult.IsSuccess, initResult.ErrorCode, initResult.ErrorMessage);
+        WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
+        Call(init, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+            "expected ShuttingDown while the drain runs");
     }
 
     /// <remarks>
@@ -745,7 +768,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardSampleCall call = Begin(marker);
         WindowsClipboardResult result =
             WindowsClipboardManager.Instance.CopyPlainText(body, options);
-        if (result.IsSuccess) _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+        ReplacedClipboard(result, () => _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body));
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"length={body.Length}");
     }
@@ -778,11 +801,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyHtml(
             WindowsClipboardSampleFixtures.HtmlFragment,
             WindowsClipboardSampleFixtures.HtmlPlainFallback);
-        if (result.IsSuccess)
+        ReplacedClipboard(result, () =>
         {
             _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
             _lastTextHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlPlainFallback);
-        }
+        });
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"htmlLength={WindowsClipboardSampleFixtures.HtmlFragment.Length}");
     }
@@ -797,9 +820,12 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             return;
         }
 
-        WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyFiles(_lastFilePaths);
+        // Captured before the write, because a success drops every anchor including this list.
+        IReadOnlyList<string> written = _lastFilePaths;
+        WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyFiles(written);
+        ReplacedClipboard(result, () => _lastFilePaths = written);
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            $"count={_lastFilePaths.Count}");
+            $"count={written.Count}");
     }
 
     private void OnCopyImageClicked()
@@ -808,7 +834,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardSampleCall call = Begin("copy.image");
         byte[] dib = WindowsClipboardSampleFixtures.BuildDib();
         WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyImage(dib);
-        if (result.IsSuccess) _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
+        ReplacedClipboard(result, () => _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib));
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"size={dib.Length}");
     }
@@ -820,7 +846,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         byte[] data = WindowsClipboardSampleFixtures.CustomBytes();
         WindowsClipboardResult result =
             WindowsClipboardManager.Instance.CopyCustomFormat(CustomFormatName(), data);
-        if (result.IsSuccess) _lastCustomHash = WindowsClipboardSampleFixtures.HashOf(data);
+        ReplacedClipboard(result, () => _lastCustomHash = WindowsClipboardSampleFixtures.HashOf(data));
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"size={data.Length}");
     }
@@ -849,10 +875,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             WindowsClipboardFormatPayload.Text(CfUnicodeText, body),
             WindowsClipboardFormatPayload.Html(HtmlFormat, WindowsClipboardSampleFixtures.HtmlFragment),
         }, "count=2");
-        if (!result.IsSuccess) return;
-
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
+        ReplacedClipboard(result, () =>
+        {
+            _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+            _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
+        });
     }
 
     /// <remarks>The only operation that goes through the Bytes payload factory.</remarks>
@@ -866,10 +893,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             WindowsClipboardFormatPayload.Text(CfUnicodeText, body),
             WindowsClipboardFormatPayload.Bytes(CfDib, dib),
         }, $"count=2 dibSize={dib.Length}");
-        if (!result.IsSuccess) return;
-
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
+        ReplacedClipboard(result, () =>
+        {
+            _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+            _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
+        });
     }
 
     /// <remarks>
@@ -886,19 +914,21 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             WindowsClipboardFormatPayload.Text(CfUnicodeText, WindowsClipboardSampleFixtures.AnsiLossyText),
             WindowsClipboardFormatPayload.Text(CfText, WindowsClipboardSampleFixtures.AnsiLossyText),
         }, $"count=2 acp={WindowsClipboardSampleFixtures.CultureAnsiCodePage()}");
-        if (!result.IsSuccess) return;
-
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.AnsiLossyText);
+        ReplacedClipboard(result, () =>
+            _lastTextHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.AnsiLossyText));
     }
 
     private void OnCopyMultipleFormatsDuplicateClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnCopyMultipleFormatsDuplicateClicked)}]");
-        CopyMultiple("copy.multiple.duplicate", new[]
+        // No anchor: which of the two entries the native layer keeps is what this observes, so
+        // there is nothing here this screen can claim to have written.
+        WindowsClipboardResult result = CopyMultiple("copy.multiple.duplicate", new[]
         {
             WindowsClipboardFormatPayload.Text(WindowsClipboardSampleFixtures.DuplicateFormatName, "first"),
             WindowsClipboardFormatPayload.Text(WindowsClipboardSampleFixtures.DuplicateFormatName, "second"),
         }, "count=2 duplicate=true");
+        ReplacedClipboard(result, () => { });
     }
 
     // ── Options ──────────────────────────────────────────────────────────────
@@ -959,6 +989,15 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardResult cleared = WindowsClipboardManager.Instance.Clear();
         Call(clear, cleared.Operation, cleared.IsSuccess, cleared.ErrorCode, cleared.ErrorMessage);
 
+        if (!cleared.IsSuccess)
+        {
+            // The check reads "an empty clipboard answers with a successful, empty read". Pasting
+            // against a clipboard that was not cleared answers something else entirely, and the
+            // line would be filed under this check's name.
+            Local(Begin("paste.afterClear"), "clearFailed; the precondition does not hold");
+            return;
+        }
+
         DropRoundTripAnchors();
         PasteText("paste.afterClear.paste", 0UL);
     }
@@ -982,10 +1021,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardSampleCall copy = Begin("paste.htmlTextOnly.copy");
         WindowsClipboardResult copied =
             WindowsClipboardManager.Instance.CopyHtml(WindowsClipboardSampleFixtures.HtmlFragment);
-        if (copied.IsSuccess)
-        {
-            _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
-        }
+        ReplacedClipboard(copied, () =>
+            _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment));
         Call(copy, copied.Operation, copied.IsSuccess, copied.ErrorCode, copied.ErrorMessage, "plainText=null");
 
         WindowsClipboardSampleCall call = Begin("paste.htmlTextOnly.paste");
@@ -1090,7 +1127,10 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear(callback =>
             LogEvent(callback.Operation, WindowsClipboardSampleResult.FormatOutcome(
                 callback.IsSuccess, callback.ErrorCode, callback.ErrorMessage, "perCallCallback")));
-        DropRoundTripAnchors();
+        // Only on success. A Clear that failed left the clipboard holding what the anchors
+        // describe, and forgetting them turns an observable "the previous content is still there"
+        // into "nothing to compare against".
+        if (result.IsSuccess) DropRoundTripAnchors();
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage);
     }
 
@@ -1098,9 +1138,12 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     /// Forgets what this screen last wrote, so the next read reports no comparison.
     /// </summary>
     /// <remarks>
-    /// All of them together. Leaving the file list behind made Paste Files report "differ" after a
-    /// Clear while Paste Image reported "n/a" for the same empty clipboard, so the judgement column
-    /// meant different things depending on which format was being read.
+    /// <para>
+    /// All of them together, and only from <see cref="ReplacedClipboard"/> or a successful Clear.
+    /// Leaving the file list behind made Paste Files report "differ" after a Clear while Paste
+    /// Image reported "n/a" for the same empty clipboard, so the judgement column meant different
+    /// things depending on which format was being read.
+    /// </para>
     /// </remarks>
     private void DropRoundTripAnchors()
     {
@@ -1109,6 +1152,32 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         _lastImageHash = 0UL;
         _lastCustomHash = 0UL;
         _lastFilePaths = Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Records that a write succeeded: every earlier anchor is gone, whatever this one set is not.
+    /// </summary>
+    /// <param name="result">The write's result. A failed write changes nothing.</param>
+    /// <param name="setAnchors">Sets the anchors for the formats this write actually placed.</param>
+    /// <returns><c>true</c> when the write succeeded and the anchors were replaced.</returns>
+    /// <remarks>
+    /// The anchors had a rule for when they were set and none for when they were dropped, and four
+    /// findings across two reviews came from that. A copy replaces the whole clipboard, so every
+    /// anchor except the ones this operation just wrote is now describing content that is gone -
+    /// and a read for a missing format does not fail. ClassifyFirstRead turns FormatUnavailable
+    /// into an empty success, so the stale anchor is compared against nothing and an untouched
+    /// screen reports a round trip that lost its content.
+    /// <para>
+    /// Every successful write goes through here. A failed one leaves the previous anchors alone,
+    /// because the clipboard it failed to change still holds what they describe.
+    /// </para>
+    /// </remarks>
+    private bool ReplacedClipboard(in WindowsClipboardResult result, Action setAnchors)
+    {
+        if (!result.IsSuccess) return false;
+        DropRoundTripAnchors();
+        setAnchors();
+        return true;
     }
 
     // ── Deferred rendering ───────────────────────────────────────────────────
@@ -1148,10 +1217,13 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             $"formats={providers.Count}");
 
         // A failed reservation leaves the previous generation of providers in place, so an anchor
-        // set here would point at a body the clipboard was never asked for.
-        if (!result.IsSuccess) return;
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
+        // set here would point at a body the clipboard was never asked for. A successful one
+        // discards whatever the clipboard held, which is what D-1 has the operator check.
+        ReplacedClipboard(result, () =>
+        {
+            _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+            _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
+        });
     }
 
     /// <remarks>

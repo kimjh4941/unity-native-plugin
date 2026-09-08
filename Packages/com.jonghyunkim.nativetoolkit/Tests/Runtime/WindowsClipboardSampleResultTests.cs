@@ -28,6 +28,32 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual("#7 [call] copyPlainText OK code=None", line);
         }
 
+        /// <remarks>
+        /// A line number and the call it belongs to are different things. Sharing one made a
+        /// history read print 1, 2, 1: the event that landed between the accept and the done took
+        /// its own number and the done went back to the caller's, so the log counted backwards.
+        /// </remarks>
+        [Test]
+        public void ALineFromAnEarlierCallSaysWhichCall()
+        {
+            string line = WindowsClipboardSampleResult.FormatLine(
+                9, WindowsClipboardSampleResult.KindDone, "getClipboardHistory", "OK code=None", call: 4);
+
+            Assert.AreEqual("#9 [done] getClipboardHistory call=#4 OK code=None", line);
+        }
+
+        /// <remarks>
+        /// The first line of a call is its own origin, so repeating the number would be noise.
+        /// </remarks>
+        [Test]
+        public void ALineThatOpensItsOwnCallDoesNotRepeatTheNumber()
+        {
+            Assert.AreEqual(
+                "#4 [call] copyPlainText OK code=None",
+                WindowsClipboardSampleResult.FormatLine(
+                    4, WindowsClipboardSampleResult.KindCall, "copyPlainText", "OK code=None", call: 4));
+        }
+
         [Test]
         public void ALineWithNothingToSayStopsAfterItsSubject()
         {
@@ -60,7 +86,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             Assert.AreEqual(
                 "#3 [accept] getClipboardHistory requestId=42",
-                WindowsClipboardSampleResult.FormatAccept(3, "getClipboardHistory", 42));
+                WindowsClipboardSampleResult.FormatAccept(3, "getClipboardHistory", 42, call: 3));
         }
 
         /// <remarks>
@@ -70,7 +96,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ARejectedRequestSaysSoRatherThanShowingZero()
         {
-            string line = WindowsClipboardSampleResult.FormatAccept(3, "getClipboardHistory", 0);
+            string line = WindowsClipboardSampleResult.FormatAccept(3, "getClipboardHistory", 0, call: 3);
 
             StringAssert.Contains("requestId=0", line);
             StringAssert.Contains("rejected", line);
