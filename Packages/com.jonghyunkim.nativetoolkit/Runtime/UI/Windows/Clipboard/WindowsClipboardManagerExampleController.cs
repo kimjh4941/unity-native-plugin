@@ -3,6 +3,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -55,15 +56,31 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     // ── Deferred rendering ───────────────────────────────────────────────────
 
     /// <summary>
-    /// How many times a deferred provider has been asked for bytes.
+    /// How many times each deferred provider has been asked for bytes.
     /// </summary>
     /// <remarks>
-    /// Static and touched only through <see cref="Interlocked"/>. A provider runs on whichever
-    /// thread the native window pump is on, and it also runs while the application is shutting
-    /// down, so it must not reach a MonoBehaviour, a VisualElement or any other Unity API. The
-    /// screen reads this in Update instead.
+    /// <para>
+    /// Counted per format rather than in total. Each provider is asked once, so the check is that
+    /// neither number goes above one; a single sum reads as two as soon as the receiving
+    /// application wants both formats, and correct behaviour then looks like a duplicate call.
+    /// </para>
+    /// <para>
+    /// A provider runs on the Unity main thread, synchronously, inside the message the system
+    /// sends to ask for the format. What makes it dangerous is not which thread it is on but
+    /// <b>when</b> it runs: also while the application is shutting down, with the MonoBehaviour and
+    /// its VisualElements possibly already gone. So it touches no Unity API at all, and the screen
+    /// publishes these from Update instead.
+    /// </para>
+    /// <para>
+    /// Static, because the provider closure outlives this component: a reservation stays with the
+    /// Manager after the screen is left. They are reset in OnEnable, or a re-entry would show the
+    /// previous visit's calls as if they had just happened.
+    /// </para>
     /// </remarks>
-    private static int s_renderCount;
+    private static int s_renderTextCount;
+
+    /// <summary>Companion to <see cref="s_renderTextCount"/> for the image format.</summary>
+    private static int s_renderImageCount;
 
     [SerializeField] private UIDocument? uiDocument;
 
@@ -87,7 +104,13 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private int _eventCount;
     private int _changedCount;
     private int _lastChangedSequence;
-    private int _shownRenderCount;
+    private int _shownRenderText;
+    private int _shownRenderImage;
+
+    // Written from a worker thread, drained by Update. A Task.Run body cannot report a failure any
+    // other way: it touches no Unity API, and nothing awaits it, so an exception would otherwise
+    // vanish and leave the pending count stuck at a number that never comes down.
+    private readonly ConcurrentQueue<string> _workerFailures = new();
 
     // Anchors for the round-trip checks. Without them a read cannot tell this app's own write from
     // whatever another application put on the clipboard a moment earlier.
@@ -246,6 +269,15 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         _previousRunInBackground = Application.runInBackground;
         Application.runInBackground = true;
 
+        // The counters are static and the instance mirrors are not, so without this a re-entry
+        // would publish the previous visit's provider calls the first time Update noticed a
+        // difference. Deferred rendering is judged by a single small number; a stale one reads as
+        // "a provider ran just now".
+        Interlocked.Exchange(ref s_renderTextCount, 0);
+        Interlocked.Exchange(ref s_renderImageCount, 0);
+        _shownRenderText = 0;
+        _shownRenderImage = 0;
+
         WindowsClipboardManager manager = WindowsClipboardManager.Instance;
         manager.ClipboardOperationCompleted += OnClipboardOperationCompletedEvent;
         manager.FlagChecked += OnFlagCheckedEvent;
@@ -299,17 +331,28 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Publishes the deferred provider's call count.
+    /// Publishes what the off-screen paths produced: provider call counts and worker failures.
     /// </summary>
     /// <remarks>
-    /// The provider cannot touch the screen itself, so this is where its counter becomes visible.
-    /// Only a change redraws: the status line would otherwise be rebuilt every frame for nothing.
+    /// Neither a deferred provider nor a Task.Run body may touch the screen, so this is where both
+    /// become visible. Only a change redraws; the status line would otherwise be rebuilt every
+    /// frame for nothing.
     /// </remarks>
     private void Update()
     {
-        int rendered = Volatile.Read(ref s_renderCount);
-        if (rendered == _shownRenderCount) return;
-        _shownRenderCount = rendered;
+        while (_workerFailures.TryDequeue(out string? line))
+        {
+            // The worker opened a pending slot it can no longer close itself.
+            _pending--;
+            AppendResult(line);
+            RefreshStatus();
+        }
+
+        int text = Volatile.Read(ref s_renderTextCount);
+        int image = Volatile.Read(ref s_renderImageCount);
+        if (text == _shownRenderText && image == _shownRenderImage) return;
+        _shownRenderText = text;
+        _shownRenderImage = image;
         RefreshStatus();
     }
 
@@ -377,12 +420,18 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         bool isSuccess,
         WindowsClipboardErrorCode code,
         string? message,
-        string shape = "")
+        string shape = "",
+        bool? completed = null)
     {
-        AppendResult(WindowsClipboardSampleResult.FormatLine(
+        string line = WindowsClipboardSampleResult.FormatLine(
             call.Sequence, WindowsClipboardSampleResult.KindCall, operation,
-            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape)));
-        _state = WindowsClipboardSampleResult.Advance(_state, operation, isSuccess, code);
+            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape));
+        AppendResult(line);
+        // Also to the console. The result area is 64px tall and a device pass is read back from
+        // Player.log afterwards; without this the accept/done/event ordering the design promises
+        // can only be checked by scrolling the screen while the run is still open.
+        Debug.Log($"[{LogTag}] {line}");
+        _state = WindowsClipboardSampleResult.Advance(_state, operation, isSuccess, code, completed);
         RefreshState();
     }
 
@@ -396,9 +445,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         string shape = "")
     {
         _pending--;
-        AppendResult(WindowsClipboardSampleResult.FormatLine(
+        string line = WindowsClipboardSampleResult.FormatLine(
             call.Sequence, WindowsClipboardSampleResult.KindDone, operation,
-            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape)));
+            WindowsClipboardSampleResult.FormatOutcome(isSuccess, code, message, shape));
+        AppendResult(line);
+        Debug.Log($"[{LogTag}] {line}");
         _state = WindowsClipboardSampleResult.Advance(_state, operation, isSuccess, code);
         RefreshState();
         RefreshStatus();
@@ -407,9 +458,14 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     /// <summary>Writes the accept line for an asynchronous request and opens its pending slot.</summary>
     private void Accept(in WindowsClipboardSampleCall call, string operation, uint requestId)
     {
-        _lastRequestId = requestId;
+        // Zero means the request was refused and no such request exists. Recording it would leave
+        // Cancel Last aiming at nothing, and the rejection it then reports looks like a defect in
+        // cancellation rather than the absence of a target.
+        if (requestId != 0) _lastRequestId = requestId;
         _pending++;
-        AppendResult(WindowsClipboardSampleResult.FormatAccept(call.Sequence, operation, requestId));
+        string line = WindowsClipboardSampleResult.FormatAccept(call.Sequence, operation, requestId);
+        AppendResult(line);
+        Debug.Log($"[{LogTag}] {line}");
         RefreshStatus();
     }
 
@@ -423,8 +479,20 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void AcceptAwaited(in WindowsClipboardSampleCall call, string operation)
     {
         _pending++;
-        AppendResult(WindowsClipboardSampleResult.FormatLine(
-            call.Sequence, WindowsClipboardSampleResult.KindAccept, operation, "awaited (no requestId)"));
+        string line = WindowsClipboardSampleResult.FormatLine(
+            call.Sequence, WindowsClipboardSampleResult.KindAccept, operation, "awaited (no requestId)");
+        AppendResult(line);
+        Debug.Log($"[{LogTag}] {line}");
+
+        // A drain runs across frames and delivers its result once, at the end. Without this the
+        // state line would read Running for the whole time a shutdown is actually in progress, and
+        // Draining would only ever appear for a shutdown that had already stopped progressing.
+        if (operation == WindowsClipboardManager.OperationShutdown)
+        {
+            _state = WindowsClipboardSampleState.Draining;
+            RefreshState();
+        }
+
         RefreshStatus();
     }
 
@@ -458,7 +526,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             _eventCount,
             _lastChangedSequence,
             _changedCount,
-            _shownRenderCount,
+            _shownRenderText,
+            _shownRenderImage,
             WindowsClipboardSampleFixtures.CultureAnsiCodePage());
     }
 
@@ -479,8 +548,10 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void LogEvent(string eventName, string detail)
     {
         _eventCount++;
-        AppendResult(WindowsClipboardSampleResult.FormatLine(
-            ++_resultSequence, WindowsClipboardSampleResult.KindEvent, eventName, detail));
+        string line = WindowsClipboardSampleResult.FormatLine(
+            ++_resultSequence, WindowsClipboardSampleResult.KindEvent, eventName, detail);
+        AppendResult(line);
+        Debug.Log($"[{LogTag}] {line}");
         RefreshStatus();
     }
 
@@ -570,16 +641,21 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     }
 
     /// <remarks>
-    /// The only operation that fires neither the common event nor a callback. Its line comes from
-    /// the return value alone, and counters standing still afterwards is the contract working.
+    /// Its own shutdown result reaches neither the common event nor a callback, so this line comes
+    /// from the return value alone. That is as far as the exemption goes: the attempt also drains
+    /// the request registry, unconditionally and synchronously, so any request still outstanding is
+    /// delivered right here - usually as Canceled - and both Pending and Events move by that much.
+    /// Reading "no counters may move" into it turns correct behaviour into a reported defect.
     /// </remarks>
     private void OnTryShutdownClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnTryShutdownClicked)}]");
         WindowsClipboardSampleCall call = Begin("lifecycle.tryShutdown");
         WindowsClipboardResult result = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
+        // completed is not decoration. A shutdown can report no error and still be unfinished, and
+        // the state line is wrong for the rest of the session if it takes success to mean done.
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            $"completed={completed}");
+            $"completed={completed}", completed);
     }
 
     private void OnShutdownWithDrainClicked()
@@ -606,9 +682,18 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         AcceptAwaited(call, WindowsClipboardManager.OperationShutdown);
         manager.ShutdownWithDrain(result =>
         {
-            Done(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage);
-            manager.enabled = true;
-            RefreshState();
+            // finally, not a trailing statement. SettleDrain swallows a throwing waiter with one
+            // LogError, and this Manager is a DontDestroyOnLoad singleton: left disabled it stays
+            // disabled for the rest of the session, across screens, with no path back.
+            try
+            {
+                Done(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage);
+            }
+            finally
+            {
+                manager.enabled = true;
+                RefreshState();
+            }
         });
         RefreshState();
     }
@@ -740,25 +825,34 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             $"size={data.Length}");
     }
 
-    private void CopyMultiple(
+    /// <summary>Issues a multi-format write and reports it.</summary>
+    /// <returns>
+    /// The result, so the caller can gate its round-trip anchor on it. Setting an anchor for a
+    /// write that never happened makes the next read compare against content the clipboard was
+    /// never given, and an intact round trip then reports itself as having lost something.
+    /// </returns>
+    private WindowsClipboardResult CopyMultiple(
         string marker, IReadOnlyList<WindowsClipboardFormatPayload> items, string shape)
     {
         WindowsClipboardSampleCall call = Begin(marker);
         WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyMultipleFormats(items);
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage, shape);
+        return result;
     }
 
     private void OnCopyMultipleFormatsClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnCopyMultipleFormatsClicked)}]");
         string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence + 1);
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
-        CopyMultiple("copy.multiple", new[]
+        WindowsClipboardResult result = CopyMultiple("copy.multiple", new[]
         {
             WindowsClipboardFormatPayload.Text(CfUnicodeText, body),
             WindowsClipboardFormatPayload.Html(HtmlFormat, WindowsClipboardSampleFixtures.HtmlFragment),
         }, "count=2");
+        if (!result.IsSuccess) return;
+
+        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+        _lastHtmlHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.HtmlFragment);
     }
 
     /// <remarks>The only operation that goes through the Bytes payload factory.</remarks>
@@ -767,13 +861,15 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyMultipleFormatsWithImageClicked)}]");
         string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence + 1);
         byte[] dib = WindowsClipboardSampleFixtures.BuildDib();
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
-        CopyMultiple("copy.multiple.withImage", new[]
+        WindowsClipboardResult result = CopyMultiple("copy.multiple.withImage", new[]
         {
             WindowsClipboardFormatPayload.Text(CfUnicodeText, body),
             WindowsClipboardFormatPayload.Bytes(CfDib, dib),
         }, $"count=2 dibSize={dib.Length}");
+        if (!result.IsSuccess) return;
+
+        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
     }
 
     /// <remarks>
@@ -785,12 +881,14 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void OnCopyMultipleFormatsAnsiClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnCopyMultipleFormatsAnsiClicked)}]");
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.AnsiLossyText);
-        CopyMultiple("copy.multiple.ansi", new[]
+        WindowsClipboardResult result = CopyMultiple("copy.multiple.ansi", new[]
         {
             WindowsClipboardFormatPayload.Text(CfUnicodeText, WindowsClipboardSampleFixtures.AnsiLossyText),
             WindowsClipboardFormatPayload.Text(CfText, WindowsClipboardSampleFixtures.AnsiLossyText),
         }, $"count=2 acp={WindowsClipboardSampleFixtures.CultureAnsiCodePage()}");
+        if (!result.IsSuccess) return;
+
+        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(WindowsClipboardSampleFixtures.AnsiLossyText);
     }
 
     private void OnCopyMultipleFormatsDuplicateClicked()
@@ -861,7 +959,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardResult cleared = WindowsClipboardManager.Instance.Clear();
         Call(clear, cleared.Operation, cleared.IsSuccess, cleared.ErrorCode, cleared.ErrorMessage);
 
-        _lastTextHash = 0UL;
+        DropRoundTripAnchors();
         PasteText("paste.afterClear.paste", 0UL);
     }
 
@@ -987,27 +1085,46 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnClearClicked)}]");
         WindowsClipboardSampleCall call = Begin("inspect.clear");
+        // Logged as an event rather than a done: a done without a matching accept would be the
+        // one exception to the accept/done pairing that the pending count is read against.
         WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear(callback =>
-            AppendResult(WindowsClipboardSampleResult.FormatLine(
-                ++_resultSequence, WindowsClipboardSampleResult.KindDone, callback.Operation,
-                WindowsClipboardSampleResult.FormatOutcome(
-                    callback.IsSuccess, callback.ErrorCode, callback.ErrorMessage, "perCallCallback"))));
+            LogEvent(callback.Operation, WindowsClipboardSampleResult.FormatOutcome(
+                callback.IsSuccess, callback.ErrorCode, callback.ErrorMessage, "perCallCallback")));
+        DropRoundTripAnchors();
+        Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Forgets what this screen last wrote, so the next read reports no comparison.
+    /// </summary>
+    /// <remarks>
+    /// All of them together. Leaving the file list behind made Paste Files report "differ" after a
+    /// Clear while Paste Image reported "n/a" for the same empty clipboard, so the judgement column
+    /// meant different things depending on which format was being read.
+    /// </remarks>
+    private void DropRoundTripAnchors()
+    {
         _lastTextHash = 0UL;
         _lastHtmlHash = 0UL;
         _lastImageHash = 0UL;
         _lastCustomHash = 0UL;
-        Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage);
+        _lastFilePaths = Array.Empty<string>();
     }
 
     // ── Deferred rendering ───────────────────────────────────────────────────
 
     /// <remarks>
-    /// The providers capture their bytes by value and touch nothing else. They run on the native
-    /// window's thread and they also run while the application is shutting down, so a Unity call
-    /// from inside one would be undefined at exactly the moment the check cares about.
+    /// <para>
+    /// The providers capture their bytes by value and touch nothing else. Each runs on the Unity
+    /// main thread, synchronously, inside the message the system sends to ask for its format - but
+    /// it also runs while the application is shutting down, when this MonoBehaviour and its
+    /// elements may already be gone. That timing, not the thread, is why no Unity API may be
+    /// reached from inside one.
+    /// </para>
     /// <para>
     /// Each format's provider is asked for bytes once. The size phase calls it and caches the
-    /// result; the fill phase reuses that cache, because the two sizes have to agree exactly.
+    /// result; the fill phase reuses that cache, because the two sizes have to agree exactly. The
+    /// counters are per format so that "asked once" stays checkable when both are requested.
     /// </para>
     /// </remarks>
     private void OnReserveDeferredFormatsClicked()
@@ -1015,22 +1132,26 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnReserveDeferredFormatsClicked)}]");
         WindowsClipboardSampleCall call = Begin("deferred.reserve");
 
-        string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence + 1);
+        string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence);
         byte[] textBytes = Encoding.Unicode.GetBytes(body + "\0");
         byte[] dib = WindowsClipboardSampleFixtures.BuildDib();
-        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
-        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
 
         var providers = new Dictionary<string, Func<byte[]>>
         {
-            [CfUnicodeText] = () => { Interlocked.Increment(ref s_renderCount); return textBytes; },
-            [CfDib] = () => { Interlocked.Increment(ref s_renderCount); return dib; },
+            [CfUnicodeText] = () => { Interlocked.Increment(ref s_renderTextCount); return textBytes; },
+            [CfDib] = () => { Interlocked.Increment(ref s_renderImageCount); return dib; },
         };
 
         WindowsClipboardResult result =
             WindowsClipboardManager.Instance.ReserveDeferredFormats(providers);
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"formats={providers.Count}");
+
+        // A failed reservation leaves the previous generation of providers in place, so an anchor
+        // set here would point at a body the clipboard was never asked for.
+        if (!result.IsSuccess) return;
+        _lastTextHash = WindowsClipboardSampleFixtures.HashOf(body);
+        _lastImageHash = WindowsClipboardSampleFixtures.HashOf(dib);
     }
 
     /// <remarks>
@@ -1073,7 +1194,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         {
             RememberNewestHistoryId(result);
             Done(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-                WindowsClipboardSampleResult.DescribeHistory(result, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+                WindowsClipboardSampleResult.DescribeHistory(
+                    result, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), _lastTextHash));
         };
 
     /// <remarks>
@@ -1136,6 +1258,16 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void OnRestoreTwiceInOneFrameClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnRestoreTwiceInOneFrameClicked)}]");
+
+        // A blank id is refused by argument validation before the in-flight guard is reached, so
+        // without an id this produces two InvalidArgument lines and the guard is never observed -
+        // a check that looks like it ran.
+        if (string.IsNullOrWhiteSpace(HistoryItemId()))
+        {
+            Local(Begin("history.restoreTwice"), "noHistoryItemId; press Get History first");
+            return;
+        }
+
         IssueStatusRequest("history.restoreTwice.first", WindowsClipboardManager.OperationRestoreHistoryItem,
             (manager, callback) => manager.RestoreHistoryItem(HistoryItemId(), callback));
         IssueStatusRequest("history.restoreTwice.second", WindowsClipboardManager.OperationRestoreHistoryItem,
@@ -1197,7 +1329,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
         RememberNewestHistoryId(result);
         Done(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            WindowsClipboardSampleResult.DescribeHistory(result, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+            WindowsClipboardSampleResult.DescribeHistory(
+                result, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), _lastTextHash));
     }
 
     /// <remarks>
@@ -1218,7 +1351,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         if (Cancelled(call, result.Operation, result.ErrorCode, result.ErrorMessage)) return;
 
         Done(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            WindowsClipboardSampleResult.DescribeHistory(result, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+            WindowsClipboardSampleResult.DescribeHistory(
+                result, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), _lastTextHash));
     }
 
     private async void OnGetAvailabilityAwaitClicked()
@@ -1331,8 +1465,10 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         _eventCount = 0;
         _changedCount = 0;
         _lastChangedSequence = 0;
-        Interlocked.Exchange(ref s_renderCount, 0);
-        _shownRenderCount = 0;
+        Interlocked.Exchange(ref s_renderTextCount, 0);
+        Interlocked.Exchange(ref s_renderImageCount, 0);
+        _shownRenderText = 0;
+        _shownRenderImage = 0;
         RefreshStatus();
     }
 
@@ -1348,15 +1484,43 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyFromWorkerThreadClicked)}]");
         WindowsClipboardSampleCall call = Begin("threading.copy");
         WindowsClipboardManager manager = WindowsClipboardManager.Instance;
-        string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence + 1);
+        string body = WindowsClipboardSampleFixtures.PlainText(_resultSequence);
 
         AcceptAwaited(call, WindowsClipboardManager.OperationCopyPlainText);
-        Task.Run(() => manager.CopyPlainText(
-            body,
-            WindowsClipboardWriteOptions.None,
-            result => Done(
-                call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-                $"callbackOnMainThread={IsMainThreadNow()}")));
+        Task.Run(() => RunOnWorker(call, WindowsClipboardManager.OperationCopyPlainText, () =>
+            manager.CopyPlainText(
+                body,
+                WindowsClipboardWriteOptions.None,
+                result => Done(
+                    call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                    $"callbackOnMainThread={IsMainThreadNow()}"))));
+    }
+
+    /// <summary>
+    /// Runs a Manager call on the calling worker thread and makes its failure visible.
+    /// </summary>
+    /// <param name="call">Identity of the call, whose pending slot is already open.</param>
+    /// <param name="operation">Native operation name, for the line this writes on failure.</param>
+    /// <param name="body">The Manager call.</param>
+    /// <remarks>
+    /// Nothing awaits these tasks, so an exception inside one is swallowed and the callback never
+    /// runs. The pending count would then sit at a number that never comes down - and that count is
+    /// the only thing on this screen that judges exactly-once delivery, so the harness would be
+    /// reporting a contract violation it caused itself. No Unity API is reachable from here, so the
+    /// line is formatted and queued for Update to publish.
+    /// </remarks>
+    private void RunOnWorker(WindowsClipboardSampleCall call, string operation, Action body)
+    {
+        try
+        {
+            body();
+        }
+        catch (Exception exception)
+        {
+            _workerFailures.Enqueue(WindowsClipboardSampleResult.FormatLine(
+                call.Sequence, WindowsClipboardSampleResult.KindLocal, operation,
+                $"workerThrew={exception.GetType().Name}"));
+        }
     }
 
     /// <remarks>
@@ -1371,9 +1535,10 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardManager manager = WindowsClipboardManager.Instance;
 
         AcceptAwaited(call, WindowsClipboardManager.OperationGetHistory);
-        Task.Run(() => manager.GetHistory(result => Done(
-            call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            $"callbackOnMainThread={IsMainThreadNow()}")));
+        Task.Run(() => RunOnWorker(call, WindowsClipboardManager.OperationGetHistory, () =>
+            manager.GetHistory(result => Done(
+                call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                $"callbackOnMainThread={IsMainThreadNow()}"))));
     }
 
     private bool IsMainThreadNow() =>
@@ -1479,8 +1644,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
     /// <remarks>
     /// Press last. The rejection depends on how far the shutdown got: ShuttingDown while a drain is
-    /// still running, NotInitializedByHost once it finished, ShutdownFailed if it gave up. After
-    /// this the screen needs Initialize again before anything else works.
+    /// still running or after it gave up, NotInitializedByHost once it finished. There is no
+    /// ShutdownFailed error code - that is a state this screen tracks, and the guard folds it into
+    /// ShuttingDown. After this the screen needs Initialize again before anything else works.
     /// </remarks>
     private void OnErrCopyAfterShutdownClicked()
     {
@@ -1489,7 +1655,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardResult shutdownResult =
             WindowsClipboardManager.Instance.TryShutdown(out bool completed);
         Call(shutdown, shutdownResult.Operation, shutdownResult.IsSuccess, shutdownResult.ErrorCode,
-            shutdownResult.ErrorMessage, $"completed={completed}");
+            shutdownResult.ErrorMessage, $"completed={completed}", completed);
 
         WindowsClipboardSampleCall call = Begin("error.afterShutdown.copy");
         WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyPlainText(

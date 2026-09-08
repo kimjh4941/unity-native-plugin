@@ -1,6 +1,9 @@
 #nullable enable
 
-#if UNITY_EDITOR
+// Guarded to match the types under test (common.md: a test's compile guard follows its subject).
+// The assembly is Editor-only, so this changes nothing about what runs; it keeps the pair readable
+// as a pair.
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -57,9 +60,39 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <remarks>
+        /// <para>
+        /// The header said the right things while the pixels said nothing at all: deleting the fill
+        /// loop left every one of these tests green, because the array is allocated at full size
+        /// and the digest is already non-zero by the end of the header. The result is a bitmap of
+        /// 296 correct-looking bytes that pastes as a blank square, which only shows up in Paint.
+        /// </para>
+        /// <para>
+        /// The colour is checked as well as the emptiness. It matches what the native toolkit's own
+        /// sample writes, so that a paste on either side can be compared by eye and a difference
+        /// points at this layer rather than at the operator.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheDibCarriesTheColourItPromises()
+        {
+            byte[] dib = WindowsClipboardSampleFixtures.BuildDib();
+
+            // BGRA, so blue leads. The fourth byte is unused under BI_RGB and stays zero.
+            byte[] expected = { 215, 120, 0, 0 };
+            for (int pixel = 0; pixel < 64; pixel++)
+            {
+                int at = 40 + (pixel * 4);
+                Assert.AreEqual(expected[0], dib[at], $"pixel {pixel} blue");
+                Assert.AreEqual(expected[1], dib[at + 1], $"pixel {pixel} green");
+                Assert.AreEqual(expected[2], dib[at + 2], $"pixel {pixel} red");
+                Assert.AreEqual(expected[3], dib[at + 3], $"pixel {pixel} unused");
+            }
+        }
+
+        /// <remarks>
         /// Positive is bottom-up, which is what the clipboard expects here. Zero is rejected
         /// outright, and a negative value would be a top-down bitmap this sample has no reason to
-        /// produce.
+        /// produce. Stated as a sign rather than as the number 8, so it survives a resize.
         /// </remarks>
         [Test]
         public void TheDibRunsBottomUp()
@@ -155,6 +188,18 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(2, WindowsClipboardSampleFixtures.DeleteTempFiles());
             Assert.AreEqual(0, WindowsClipboardSampleFixtures.DeleteTempFiles());
+        }
+
+        /// <remarks>
+        /// Zero is the sample's "no anchor" sentinel, and a null body digests to it. The two meet
+        /// wherever a read comes back with nothing: the comparison has to report "not applicable"
+        /// rather than a mismatch, and that rests on this equality holding.
+        /// </remarks>
+        [Test]
+        public void ANullBodyDigestsToTheNoAnchorSentinel()
+        {
+            Assert.AreEqual(0UL, WindowsClipboardSampleFixtures.HashOf((string?)null));
+            Assert.AreNotEqual(0UL, WindowsClipboardSampleFixtures.HashOf(string.Empty));
         }
 
         [Test]

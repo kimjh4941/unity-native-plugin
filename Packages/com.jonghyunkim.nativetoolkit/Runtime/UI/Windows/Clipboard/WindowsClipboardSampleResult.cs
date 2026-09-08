@@ -155,20 +155,32 @@ internal static class WindowsClipboardSampleResult
     /// <param name="result">The read result.</param>
     /// <param name="expectedHash">Digest of what was last written, or 0 when nothing was.</param>
     /// <returns>Length, emptiness and whether it matches what this screen wrote.</returns>
+    /// <remarks>
+    /// A failed read compared nothing, so it reports the same "not applicable" as a read with no
+    /// anchor. Putting its absent text through the comparison would print "differ" beside the
+    /// error, accusing the round trip of losing content that was never handed back.
+    /// </remarks>
     internal static string DescribeText(in WindowsClipboardTextResult result, ulong expectedHash)
     {
         int length = result.Text?.Length ?? -1;
-        return $"empty={result.IsEmpty} length={length} " +
-               $"match={MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Text))}";
+        string match = result.IsSuccess
+            ? MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Text))
+            : NotApplicable;
+        return $"empty={result.IsEmpty} length={length} match={match}";
     }
 
     /// <summary>Describes a byte read without disclosing it.</summary>
     /// <param name="result">The read result.</param>
     /// <param name="expectedHash">Digest of what was last written, or 0 when nothing was.</param>
     /// <returns>Size, emptiness and whether it matches what this screen wrote.</returns>
-    internal static string DescribeBytes(in WindowsClipboardBytesResult result, ulong expectedHash) =>
-        $"empty={result.IsEmpty} size={result.Data.Length} " +
-        $"match={MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Data))}";
+    /// <remarks>As in <see cref="DescribeText"/>, a failed read reports no comparison.</remarks>
+    internal static string DescribeBytes(in WindowsClipboardBytesResult result, ulong expectedHash)
+    {
+        string match = result.IsSuccess
+            ? MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Data))
+            : NotApplicable;
+        return $"empty={result.IsEmpty} size={result.Data.Length} match={match}";
+    }
 
     /// <summary>Describes a string list read by shape only.</summary>
     /// <param name="result">The read result.</param>
@@ -180,15 +192,21 @@ internal static class WindowsClipboardSampleResult
     /// Describes a history read by shape only.
     /// </summary>
     /// <param name="result">The read result.</param>
-    /// <returns>Count, emptiness, and the age of the newest item in seconds.</returns>
+    /// <param name="nowUnixSeconds">Current time, for the age of the newest item.</param>
+    /// <param name="expectedHash">Digest of what was last written, or 0 when nothing was.</param>
+    /// <returns>Count, emptiness, the newest item's age, and whether it is this screen's own write.</returns>
     /// <remarks>
-    /// The age is what makes the list comparable against Win+V without showing an item's text:
-    /// "the newest entry is a few seconds old" is checkable by eye, the text is not needed.
+    /// Age alone cannot answer what the history check asks. Another application copying a moment
+    /// earlier also leaves a newest entry a few seconds old, so "recent" reads as a pass while the
+    /// list being held up against Win+V belongs to someone else. The match flag separates the two,
+    /// and it costs nothing in disclosure: the item's text is hashed, never shown.
     /// </remarks>
-    internal static string DescribeHistory(in WindowsClipboardHistoryResult result, long nowUnixSeconds)
+    internal static string DescribeHistory(
+        in WindowsClipboardHistoryResult result, long nowUnixSeconds, ulong expectedHash)
     {
         string newest = NotApplicable;
-        if (result.Items.Count > 0)
+        string match = NotApplicable;
+        if (result.IsSuccess && result.Items.Count > 0)
         {
             System.DateTimeOffset? at = result.Items[0].ToUtcTime();
             if (at != null)
@@ -196,8 +214,10 @@ internal static class WindowsClipboardSampleResult
                 newest = (nowUnixSeconds - at.Value.ToUnixTimeSeconds())
                     .ToString(CultureInfo.InvariantCulture);
             }
+            match = MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Items[0].Text));
         }
-        return $"empty={result.IsEmpty} count={result.Items.Count} newestAgeSec={newest}";
+        return $"empty={result.IsEmpty} count={result.Items.Count} " +
+               $"newestAgeSec={newest} newestMatch={match}";
     }
 
     /// <summary>
@@ -224,6 +244,9 @@ internal static class WindowsClipboardSampleResult
     /// <param name="operation">Native operation name from the result.</param>
     /// <param name="isSuccess">Whether it succeeded.</param>
     /// <param name="code">Error code from the result.</param>
+    /// <param name="completed">
+    /// The out argument of <c>TryShutdown</c>, or <c>null</c> for the calls that have none.
+    /// </param>
     /// <returns>The state after this result.</returns>
     /// <remarks>
     /// Only shutdown and initialize move it. Every other operation can fail for reasons that say
@@ -234,7 +257,8 @@ internal static class WindowsClipboardSampleResult
         WindowsClipboardSampleState current,
         string operation,
         bool isSuccess,
-        WindowsClipboardErrorCode code)
+        WindowsClipboardErrorCode code,
+        bool? completed = null)
     {
         if (operation == WindowsClipboardManager.OperationInitialize)
         {
@@ -243,21 +267,51 @@ internal static class WindowsClipboardSampleResult
 
         if (operation != WindowsClipboardManager.OperationShutdown) return current;
 
-        if (isSuccess) return WindowsClipboardSampleState.ShutDown;
-
-        // The drain gave up. Operations keep being refused from here and no call reopens it, which
-        // is the difference the ShuttingDown code cannot express.
-        if (code == WindowsClipboardErrorCode.ShutdownTimeout)
+        // Refused before any native attempt was made, so the Manager's state never moved. Claiming
+        // a transition here would leave the line describing a shutdown that was never tried.
+        if (code == WindowsClipboardErrorCode.MainThreadRequired ||
+            code == WindowsClipboardErrorCode.ManagerDestroyed)
         {
-            return WindowsClipboardSampleState.ShutdownFailed;
+            return current;
         }
 
-        // Anything else is a shutdown that has not finished yet, including the not-yet answers a
-        // drain makes on its way through.
-        return current == WindowsClipboardSampleState.ShutDown
-            ? current
-            : WindowsClipboardSampleState.Draining;
+        if (isSuccess)
+        {
+            // A shutdown reporting no error is not the same as a finished one. ClassifyShutdown
+            // maps None with completed:false to NotYet, and FinishShutdownAttempt then leaves the
+            // Manager at Draining. Reading that as ShutDown puts this line one state ahead of the
+            // Manager, and the next operation comes back ShuttingDown for no visible reason.
+            // The Editor pins completed to true, so the disagreement only appears on a device.
+            return completed == false
+                ? WindowsClipboardSampleState.Draining
+                : WindowsClipboardSampleState.ShutDown;
+        }
+
+        // Which failures leave a drain able to continue is not ours to decide: ClassifyShutdown
+        // owns that list and FinishShutdownAttempt latches ShutdownFailed for everything outside
+        // it. Singling out ShutdownTimeout would call a terminal failure "still making progress",
+        // inverting the one distinction this enum exists to draw.
+        return KeepsDraining(code)
+            ? WindowsClipboardSampleState.Draining
+            : WindowsClipboardSampleState.ShutdownFailed;
     }
+
+    /// <summary>
+    /// Whether a shutdown failure leaves the drain able to continue.
+    /// </summary>
+    /// <param name="code">Error code from a shutdown result.</param>
+    /// <returns><c>true</c> when another attempt can still finish the shutdown.</returns>
+    /// <remarks>
+    /// Mirrors the retry set in <c>WindowsClipboardManager.ClassifyShutdown</c>. Kept as its own
+    /// function so the two lists can be read side by side rather than inferred from a chain of
+    /// conditions.
+    /// </remarks>
+    internal static bool KeepsDraining(WindowsClipboardErrorCode code) =>
+        code == WindowsClipboardErrorCode.None ||
+        code == WindowsClipboardErrorCode.Busy ||
+        code == WindowsClipboardErrorCode.MonitorRegisterFailed ||
+        code == WindowsClipboardErrorCode.Canceled ||
+        code == WindowsClipboardErrorCode.PartialState;
 
     /// <summary>
     /// Formats the status line.
@@ -266,27 +320,37 @@ internal static class WindowsClipboardSampleResult
     /// <param name="events">How many common events have arrived.</param>
     /// <param name="lastChangedSequence">Sequence of the last ClipboardChanged, or 0.</param>
     /// <param name="changedCount">How many ClipboardChanged events have arrived.</param>
-    /// <param name="renderCount">How many times a deferred provider has run.</param>
+    /// <param name="renderText">How many times the text provider has run.</param>
+    /// <param name="renderImage">How many times the image provider has run.</param>
     /// <param name="ansiCodePage">The culture's ANSI code page.</param>
     /// <returns>The line.</returns>
     /// <remarks>
+    /// <para>
     /// The change count is deliberately not the headline. One external copy fires it about three
     /// times, so a prominent counter makes correct behaviour look broken on every single check.
     /// The sequence of the last one is what a manual check actually needs.
+    /// </para>
+    /// <para>
+    /// The render counts are per format rather than a total. Each provider is asked once, so what
+    /// is being watched is that no single format goes above one. A sum reads as two the moment the
+    /// receiving application asks for both formats, and correct behaviour then looks like a
+    /// duplicate call.
+    /// </para>
     /// </remarks>
     internal static string FormatStatus(
         int pending,
         int events,
         int lastChangedSequence,
         int changedCount,
-        int renderCount,
+        int renderText,
+        int renderImage,
         int ansiCodePage)
     {
         string changed = lastChangedSequence == 0
             ? "-"
             : $"#{lastChangedSequence.ToString(CultureInfo.InvariantCulture)} (x{changedCount})";
         return $"Pending: {pending} | Events: {events} | Changed: {changed} " +
-               $"| Render: {renderCount} | ACP: {ansiCodePage}";
+               $"| Render: text={renderText} image={renderImage} | ACP: {ansiCodePage}";
     }
 
     /// <summary>Formats the lifecycle line.</summary>

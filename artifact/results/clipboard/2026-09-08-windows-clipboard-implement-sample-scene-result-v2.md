@@ -1,4 +1,4 @@
-# Windows Clipboard サンプルシーン 実装結果 v1
+# Windows Clipboard サンプルシーン 実装結果 v2
 
 ## 基本情報
 
@@ -7,12 +7,44 @@
 - サンプル計画: `artifact/designs/clipboard/2026-09-08-windows-clipboard-sample-scene-design-v3.md`
 - 機能実装結果: `artifact/results/clipboard/2026-09-08-windows-clipboard-implementation-feature-result-v6.md`
 - ブランチ: `feature/UNT-11`
+- レビュー: `artifact/reviews/clipboard/2026-09-08-windows-clipboard-implement-sample-scene-review-v1.md`
+  （サブエージェント 5 名。**A 6 / B 22 / C 14**）
+- 前版: v1（レビュー前の状態）
+
+### 0.1 v1 からの変更
+
+**レビュー v1 の A 6 件をすべて修正した。** A 6 件のうち 4 件は同じ失敗形だった —
+**実装は契約どおりに動いているのに、サンプルが嘘の観測結果を出す。**
+
+| # | 内容 |
+|---|---|
+| A-1 | `TryShutdown` が「完了していないがエラー無し」を返したときに `ShutDown` と表示していた。`Advance` に `completed` を渡す |
+| A-2 | `ShutdownTimeout` 以外の terminal 失敗を `Draining` と表示していた。`KeepsDraining` を `ClassifyShutdown` の retry 集合と対にした。あわせて**ドレイン中に `Draining` を表示する**ようにした（従来は `Running` のままだった） |
+| A-3 | 往復アンカーを成功確認前に更新していた 4 箇所を、戻り値でゲートした |
+| A-4 | About の「`TryShutdown` はイベントも callback も出さない」を訂正。**保留中の要求は同期配送されるため Pending と Events は動く** |
+| A-5 | `Task.Run` の本体を `RunOnWorker` で包み、例外時に Pending を閉じて理由を出す |
+| A-6 | `manager.enabled` の復帰を `try/finally` に入れた |
+
+**B のうち実機判定に効くもの**を修正した。
+
+| # | 内容 |
+|---|---|
+| B-1 | provider カウンタを**形式別**にした（合算では M-18 の「1 回」が判定できない） |
+| B-2 | `s_renderTextCount` / `s_renderImageCount` を `OnEnable` でリセット（再入場時に前回の残骸が出ていた） |
+| B-3 | 履歴に**一致判定**を追加。年齢だけでは他アプリの割り込みを区別できない |
+| B-4 | `Call` / `Done` / `Accept` / `LogEvent` を `Debug.Log` にも出す。**Player.log から順序を再現できるようにした** |
+| B-5 | `Restore Twice In One Frame` に id 前提ガードを追加（無いと `OperationBusy` に到達しない） |
+| B-6 | 読み出し失敗時は `match=n/a`（比較していないため） |
+| B-7 | `Accept` は `requestId == 0` を `_lastRequestId` に記録しない |
+| B-8 | `Clear` が `_lastFilePaths` も含めて全アンカーを落とす（`DropRoundTripAnchors`） |
+
+**テストの回避経路**を塞いだ（B-13 〜 B-20）。詳細は 4 節。
 
 ## 0. 状態サマリー
 
 | 区分 | 状態 |
 |---|---|
-| 層 1 EditMode | **792 / 792 passed**（本実装で **+43**） |
+| 層 1 EditMode | **802 / 802 passed**（本実装で **+53**） |
 | 層 2a PlayMode | **181 / 181 passed** |
 | **層 0 Win64 Player ビルド** | **成功** |
 | 実機動作確認 | **未実施。** 本工程はサンプルを作るところまで |
@@ -36,9 +68,9 @@
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardManagerExampleController.cs` | 1519 | 操作と結果表示 |
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardSampleResult.cs` | 312 | 結果整形・状態追跡 |
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardSampleFixtures.cs` | 223 | フィクスチャ生成と後始末 |
-| `Tests/Runtime/WindowsClipboardSampleSceneWiringTests.cs` | 332 | 結線検証（14 件） |
-| `Tests/Runtime/WindowsClipboardSampleResultTests.cs` | 244 | 整形・状態遷移（17 件） |
-| `Tests/Runtime/WindowsClipboardSampleFixtureTests.cs` | 215 | フィクスチャの形（12 件） |
+| `Tests/Runtime/WindowsClipboardSampleSceneWiringTests.cs` | 結線検証（**16 件**） |
+| `Tests/Runtime/WindowsClipboardSampleResultTests.cs` | 整形・状態遷移（**23 件**） |
+| `Tests/Runtime/WindowsClipboardSampleFixtureTests.cs` | フィクスチャの形（**14 件**） |
 
 すべて `Windows` 接頭辞。クラスガードは `#if UNITY_STANDALONE_WIN || UNITY_EDITOR`（P1 / P5 適合）。
 
@@ -62,11 +94,11 @@
 
 | 計画 | 実装 |
 |---|---|
-| 内側コンパイルガードを置かない（7.3） | 置いていない。Editor でも Manager を呼び `PlatformUnavailable` が観測できる |
+| 内側コンパイルガードを置かない（7.3） | 置いていない。**ただし計画 7.3 の根拠「Editor でも `PlatformUnavailable` が観測できる」は成立しない。** TopMenu の Editor 分岐は `DisplayDialog` のみで本画面へ到達しないため（8 節 V-3）。ガードを置かない判断自体は Player の挙動を変えないので維持する |
 | シーケンス番号つきの時系列ログ（4.3） | `#seq [kind] operation ...`。kind は `call` / `accept` / `done` / `event` / `local` |
 | 操作名は `result.Operation` から出す（S-2） | `Call` / `Done` は結果の `Operation` を出力。ボタンのラベルは使わない |
 | クリップボード内容を一切出さない（4.4） | 長さ・サイズ・件数・一致 bool のみ。`ErrorMessage` は出す（固定リテラルのため） |
-| provider は Unity API を呼ばない（8.3） | `Interlocked.Increment(ref s_renderCount)` と値キャプチャした `byte[]` のみ。表示は `Update` |
+| provider は Unity API を呼ばない（8.3） | `Interlocked.Increment` と値キャプチャした `byte[]` のみ。表示は `Update`。**形式別カウンタ**（B-1） |
 | DIB は 8x8 / 32bpp / `BI_RGB` / 296 バイト（8.2） | `BuildDib()`。機械検査つき |
 | パスは `Path.GetFullPath` で正規化（8.2） | `CreateTempFiles()`。機械検査つき |
 | Await の cancel は例外を投げない（7.4.1） | 全 6 await 地点が `Canceled` で早期 return。機械検査つき |
@@ -89,15 +121,19 @@
 | I-4 | `Begin` は開始行を出さない | macOS 版は `FormatRunning` で 1 行出すが、本画面は 1 操作で複数行（accept / event / done）出るためログが倍になる。**開始 seq は結果行が持つ**ので順序は読める |
 | I-5 | 遅延実行はコルーチン | ワーカースレッドのタイマーだと `MainThreadRequired` になり `NotForeground` に到達しない。フレームで待つ必要があるため `WaitForSeconds` |
 | I-6 | メインスレッド id は `Awake` で捕捉 | 「今この場で聞いたスレッド」ではどこからでも true になる。ワーカー観測が成立しない |
-| I-7 | `Clear` の per-call callback 行は `Done` を通さない | `Accept` していないため、`Done` の `_pending--` が未消化件数を負に振る |
+| I-7 | `Clear` の per-call callback 行は `[event]` として出す | `Accept` していないため `Done` を通すと未消化件数が負に振れる。**v2 で `[done]` から `[event]` に変更**（C-9）。accept を伴わない done は、Pending の読み方に対する唯一の例外になってしまう |
+| I-8 | `StatusTextBlock` はカウンタ行にした。計画 4.3 の表は「直近 1 操作の要約」 | 同じ節の本文が「未消化件数を画面に**常時**表示する」を要求しており、両立しない。直近 1 操作は `ResultTextBlock` の最終行が持つ |
+| I-9 | ワーカー版 `Copy` だけ同期 API を `[accept]` / `[done]` で出す | 戻り値がワーカー側にしか無いため。`[call]` 行は作れない |
+| I-10 | 履歴 item id の入力欄を Fixtures ではなく History セクションに置いた | `Get History` が値を埋めるため、操作の近くにある方が自然 |
+| I-11 | テストのソース走査は**コメントを除去してから**行う（`CodeOnly`） | 「`OperationCanceledException` を書かない」規則が、なぜ書かないかを説明したコメント自身を落とした。**規則の説明を規則の隣に置けないなら、その検査は割に合わない** |
 
 ---
 
-## 4. 自動テスト（43 件）
+## 4. 自動テスト（53 件）
 
 計画 7.7 は 3 本を要求。すべて実装した。
 
-### 4.1 `WindowsClipboardSampleSceneWiringTests`（14 件）
+### 4.1 `WindowsClipboardSampleSceneWiringTests`（16 件）
 
 | 検証 | 何を捕まえるか |
 |---|---|
@@ -106,22 +142,29 @@
 | **UXML に未結線のボタンが無い** | 押せて反応しないボタンは、カバレッジ照合で「操作済み」と記録される |
 | ボタン総数 = 66 | 画面と計画の乖離 |
 | 1 ボタン 1 ハンドラ（命名規約照合） | `DeleteLastButton` を `OnRestoreLastClicked` に繋いでも名前検査は全部通る |
-| **`catch (OperationCanceledException` が存在しない** | 投げない実装に対する catch は永久に来ない（R-8） |
-| **await 地点の数 = `Cancelled` ガードの数** | ガードを書かない await が増えたら数がずれる |
-| **provider 内に Unity API が無い** | `Debug.` / `AppendResult` / `_result` / `RefreshStatus` / `Instance` を禁止 |
-| Navigator の `RemoveIfExists` 登録 | 無いと再訪で購読が二重になる |
+| **`catch` がちょうど 1 つ**（ワーカーガードのみ）。コメント除去後に走査 | v1 は 1 リテラルの不在だけを見ており、`catch(` / `System.` 修飾 / `TaskCanceledException` / フィルタ / 素の `catch` ですり抜けた |
+| **ハンドラごとに、await の後ろに `Cancelled` ガードと `return`**。件数は 6 で固定 | v1 は 2 つの総数の一致だけで、地点と結びついていなかった。ローカル変数経由の await、ガードの水増し、**ハンドラの削除**（5==5）で全部すり抜けた |
+| **provider 内に Unity API が無い**。範囲は**波括弧の対応**で取り、両方がラムダであることを要求 | v1 は最初の `};` までを見ており、入れ子の初期化子で範囲が切れた。メソッドグループ化・事前構築でも本体が範囲外に出た。禁止語に `RefreshState` が無かった |
+| Navigator の `RemoveIfExists` が **`RemoveExistingControllers` の本文内にある** | v1 はファイル全体の文字列検査で、**`ShowWindowsClipboard` の検査はメソッド定義自体にマッチするため構造上落ちなかった** |
 | TopMenu の `#elif UNITY_STANDALONE_WIN` 分岐と購読ガード | 無いとボタンは押せるが何も起きない |
+| **Navigator が読む Resources パスが、このテスト群が検証しているものと同一** | パスの typo は他のどのテストも見ない（各自が自分のコピーを読む）。**USS 欠落と同じ穴** |
+| **`OnEnable` の `+=` と `OnDisable` の `-=` が同じイベント集合** | `-=` を 1 行消しても 43 件全部緑だった。総数は Manager の公開イベント数と照合 |
 
-### 4.2 `WindowsClipboardSampleResultTests`（17 件）
+### 4.2 `WindowsClipboardSampleResultTests`（23 件）
 
-整形（内容を出さない・矛盾した結果をそのまま出す・アンカー無しは `n/a`）と、
-`Advance` の状態遷移（`Draining` と `ShutdownFailed` の区別、無関係な失敗で状態を動かさない）。
+整形（内容を出さない・矛盾した結果をそのまま出す・アンカー無しは `n/a`・**失敗した読み出しも `n/a`**）と、
+`Advance` の状態遷移。**v2 で追加**: 成功かつ未完了は `Draining`、`ClassifyShutdown` の retry 集合 5 種と
+terminal 5 種の総当たり、試行前の拒否は状態を動かさない、失敗 Initialize は現状維持（`Running` 起点で固定）。
 
-### 4.3 `WindowsClipboardSampleFixtureTests`（12 件）
+### 4.3 `WindowsClipboardSampleFixtureTests`（14 件）
 
 DIB の全ヘッダフィールド、bottom-up、`BITMAPFILEHEADER` を付けないこと、
 ANSI フィクスチャが非 BMP とハングルを含むこと、パスが絶対かつ `/` を含まないこと、
 2 回目の削除が 0 件で成功すること、フィクスチャのダイジェストが 0 にならないこと。
+
+**v2 で追加**: **画素 64 個の BGRA 値**（画素ループごと削除しても 12 件全部緑だった。
+296 バイトの正しく見えるビットマップが空白として貼られ、Paint に貼るまで気づかない）と、
+`HashOf(null) == 0` が「アンカー無し」番兵と同値であること。
 
 ---
 
@@ -265,6 +308,7 @@ ANSI フィクスチャが非 BMP とハングルを含むこと、パスが絶�
 | V-2 | `Application.temporaryCachePath` の区切り文字。`Path.GetFullPath` で正規化しているが実機で確認する |
 | V-5 | 画像の往復で置いたものと違う画像が返らないか。ネイティブは 8x8 を置いた往復で `1887x820` を得ている |
 | **V-6** | **状態行の `ACP:` は `CultureInfo` 由来であり、ネイティブが使う*システム* ACP と一致する保証はない**（I-2）。食い違う環境があるなら `GetACP` の P/Invoke が要る |
+| V-7 | **`Application.platform` をワーカースレッドから読めるか**（レビュー v1 A-5）。`CanRunOperation` は `IsMainThread()` より先にこれを読む。層 2a のテストはスレッド ID を偽装しているだけで実スレッドでは走っていない。`RunOnWorker` の catch は保険であり、**実際に投げるかは実機で初めて分かる** |
 | V-3 | S-7 を実施するには TopMenu の Editor 分岐を本画面へ遷移させる必要がある。**現状は `DisplayDialog` のみで到達できない**（計画 10 節から未解決） |
 
 ---
@@ -281,12 +325,27 @@ ANSI フィクスチャが非 BMP とハングルを含むこと、パスが絶�
 
 ---
 
+## 9.1 直さなかった残件（レビュー v1 由来）
+
+| # | 内容 | 理由 |
+|---|---|---|
+| B-9 | M-20a の「再試行せずに 1 回で終わった」判定根拠が画面に出ない | 試行回数は Manager 側のログにしかない。**B-4 で結果行を `Debug.Log` に出すようにしたので、Player.log で Manager のログと並べて読める**。画面への露出は製品コードに手を入れないと作れない |
+| B-10 | S-7 の「11. Threading は `MainThreadRequired`」が `Delayed History Call` に当てはまらない | 計画側の記述。**そもそも Editor から本画面に到達できない**（V-3）ため、S-7 全体が実施保留 |
+| B-11 | M-3 は正常時にも `match=differ` を出す | 実装は正しい。**手順側で「M-3 の前に Clear を押す」を守る**。設計変更ではない |
+| B-19 | シーケンス単調性と pending 収支の自動テスト | 純粋型に切り出せば層 1 で見られるが、切り出しは Controller の構造変更になる。**未実施として記録** |
+| C-14 | 計画 v3 の項番ゆれ（9.1 の見出し / 7.3 の S-6 / 3.2 の節番号） | 次の計画改訂時 |
+
+**ミューテーション検証は今回も回していない。** 53 件は依然として私が書いたものであり、
+レビュー v1 が死んだテスト 1 件と回避可能な 3 件を見つけたのは**別の目で読んだから**である。
+**「全部緑」はテストが有効であることの証拠にならない。**
+
 ## 10. 次
 
-1. **実機確認**。計画 6 節のブロック A → B → C → D → E の順。
+1. **レビュアーを替えて再レビュー。** 止める基準の 3 条件のうち
+   「レビュアーを替えて 1 回通す」が未達（v1 は Claude サブエージェント 5 名）
+2. **実機確認**。計画 6 節のブロック A → B → C → D → E の順。
    **初回は落ちる前提**（28 種を初めて動かすため）
-2. **6 節の照合表で全 66 ボタンを潰す**。M 項目だけでは 27 ボタンが残る
-3. `review-implementation-sample-scene`
+3. **6 節の照合表で全 66 ボタンを潰す**。M 項目だけでは 27 ボタンが残る
 
 ## 11. 実行確認
 

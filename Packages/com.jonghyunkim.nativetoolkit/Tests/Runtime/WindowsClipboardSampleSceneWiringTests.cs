@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -38,7 +40,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const string TopMenuSourcePath =
             "Packages/com.jonghyunkim.nativetoolkit/Runtime/UI/Top/TopMenuExampleController.cs";
 
-        /// <summary>The screen's own elements, none of which the controller can do without.</summary>
+        /// <summary>
+        /// Elements the screen cannot lose: the three the controller resolves by name, plus the one
+        /// note whose absence would leave a reader of the Await section with no warning that a
+        /// cancellation there arrives as a result rather than an exception.
+        /// </summary>
         private static readonly string[] RequiredLabelNames =
         {
             "ResultTextBlock",
@@ -192,75 +198,179 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <remarks>
+        /// <para>
         /// The Awaitable forms complete with ErrorCode Canceled rather than throwing, so a
         /// try/catch on OperationCanceledException never runs and the handler carries on past the
         /// await into a screen a destroy may already have taken apart. It compiles, it passes, and
         /// it fails later at a VisualElement, where it looks like a UI defect.
+        /// </para>
+        /// <para>
+        /// Matching the one spelling would have let through catch without the space, the
+        /// namespace-qualified form, TaskCanceledException, an exception filter, and a bare catch.
+        /// The screen has exactly one catch - the worker-thread guard, whose whole job is to keep a
+        /// swallowed exception from stranding the pending count - so the rule is stated as a count.
+        /// </para>
         /// </remarks>
         [Test]
-        public void NoAwaitSiteCatchesOperationCanceledException()
+        public void TheOnlyCatchIsTheWorkerThreadGuard()
         {
-            string source = File.ReadAllText(Path.GetFullPath(ControllerSourcePath));
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
 
-            int at = source.IndexOf("catch (OperationCanceledException", StringComparison.Ordinal);
             Assert.AreEqual(
-                -1, at,
+                1, CountOccurrences(source, "catch"),
                 "cancellation arrives as a result with ErrorCode.Canceled, never as an exception. " +
-                "Check the code and return instead of catching.");
+                "Check the code and return instead of catching. The one permitted catch is the " +
+                "Task.Run guard in RunOnWorker.");
+            StringAssert.Contains(
+                "catch (Exception exception)", source,
+                "the permitted catch is the one in RunOnWorker");
+            Assert.AreEqual(
+                0, CountOccurrences(source, "OperationCanceledException"),
+                "no code here may be written around a cancellation exception");
         }
 
         /// <remarks>
-        /// Every awaited handler must consult the Canceled guard. Counting is enough: each of the
-        /// six await sites calls it exactly once, so a new one added without the check moves the
-        /// two numbers apart.
+        /// <para>
+        /// Per handler, not by counting. Two totals agreeing says nothing about where either sits:
+        /// a seventh await reached through a local variable leaves the await total unchanged, an
+        /// added guard elsewhere restores the balance, and deleting one of these handlers keeps
+        /// both totals equal while a public method quietly stops being exercised at all.
+        /// </para>
+        /// <para>
+        /// Windows Clipboard is the only feature in the repository with Awaitable methods, so a
+        /// handler that disappears here takes the only execution path that method has with it. The
+        /// expected count is therefore fixed as well.
+        /// </para>
         /// </remarks>
         [Test]
-        public void EveryAwaitedHandlerChecksForCancellation()
+        public void EveryAwaitedHandlerChecksForCancellationAfterItsAwait()
         {
-            string source = File.ReadAllText(Path.GetFullPath(ControllerSourcePath));
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
+            var checkedHandlers = new List<string>();
 
-            int awaits = CountOccurrences(source, "await WindowsClipboardManager.Instance");
-            int guards = CountOccurrences(source, "if (Cancelled(call,");
+            foreach (string handler in AsyncHandlerBodies(source))
+            {
+                int name = handler.IndexOf("On", StringComparison.Ordinal);
+                string label = handler.Substring(name, handler.IndexOf('(', name) - name);
+                checkedHandlers.Add(label);
 
-            Assert.Greater(awaits, 0, "the sample must exercise the Awaitable forms");
+                int await = handler.IndexOf("await ", StringComparison.Ordinal);
+                Assert.Greater(await, -1, label + " is declared async but never awaits");
+
+                int guard = handler.IndexOf("if (Cancelled(", await, StringComparison.Ordinal);
+                Assert.Greater(
+                    guard, -1,
+                    label + " must test its result for Canceled after the await. Cancellation " +
+                    "arrives as a result, so without this the handler runs on past it and touches " +
+                    "elements a destroy may already have removed.");
+                StringAssert.Contains(
+                    "return;", handler.Substring(guard),
+                    label + " must return when the guard reports a cancellation");
+            }
+
             Assert.AreEqual(
-                awaits, guards,
-                "every await site must test the result for Canceled and return; continuing past a " +
-                "cancellation touches elements the destroy has already removed");
+                6, checkedHandlers.Count,
+                "the six Awaitable buttons are the only place these methods ever run: " +
+                string.Join(", ", checkedHandlers));
+        }
+
+        /// <summary>
+        /// Splits the controller source into the body of every async handler.
+        /// </summary>
+        /// <param name="source">Controller source.</param>
+        /// <returns>One brace-matched body per <c>private async void</c> method.</returns>
+        private static List<string> AsyncHandlerBodies(string source)
+        {
+            var bodies = new List<string>();
+            const string marker = "private async void ";
+            int at = 0;
+            while ((at = source.IndexOf(marker, at, StringComparison.Ordinal)) >= 0)
+            {
+                int open = source.IndexOf('{', at);
+                bodies.Add(source.Substring(at, MatchingBrace(source, open) - at));
+                at = open;
+            }
+            return bodies;
+        }
+
+        /// <summary>Finds the brace closing the one at <paramref name="open"/>.</summary>
+        /// <param name="source">Source to scan.</param>
+        /// <param name="open">Index of an opening brace.</param>
+        /// <returns>Index just past the matching closing brace.</returns>
+        private static int MatchingBrace(string source, int open)
+        {
+            int depth = 0;
+            for (int i = open; i < source.Length; i++)
+            {
+                if (source[i] == '{') depth++;
+                else if (source[i] == '}' && --depth == 0) return i + 1;
+            }
+            Assert.Fail("unbalanced braces from index " + open);
+            return source.Length;
         }
 
         /// <remarks>
-        /// The provider runs on the native window's thread and keeps running while the application
-        /// shuts down, which is exactly when the deferred check is looking. A Unity call from
-        /// inside one is undefined at that moment, and the reserve is the only place this sample
-        /// hands out a callback the engine does not own.
+        /// <para>
+        /// A provider runs while the application is shutting down, when this MonoBehaviour and its
+        /// elements may already be gone, so it may reach no Unity API at all. The reserve is the
+        /// only place this sample hands the engine a callback it does not own.
+        /// </para>
+        /// <para>
+        /// The table is delimited by matching braces rather than by the first <c>};</c>, or a
+        /// nested initializer inside a lambda would end the scan early and leave everything after
+        /// it unexamined. Requiring both entries to be lambdas closes the other way round the
+        /// check: a method group, or a Func built above the table, would put the body somewhere the
+        /// scan never looks.
+        /// </para>
         /// </remarks>
         [Test]
         public void TheDeferredProvidersTouchNoUnityApi()
         {
-            string source = File.ReadAllText(Path.GetFullPath(ControllerSourcePath));
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
 
             const string marker = "var providers = new Dictionary<string, Func<byte[]>>";
             int start = source.IndexOf(marker, StringComparison.Ordinal);
             Assert.Greater(start, -1, "the reserve handler must build its providers here");
 
-            int end = source.IndexOf("};", start, StringComparison.Ordinal);
-            Assert.Greater(end, start, "the provider table must be closed");
+            int open = source.IndexOf('{', start);
+            string table = source.Substring(open, MatchingBrace(source, open) - open);
 
-            string table = source.Substring(start, end - start);
-            foreach (string forbidden in new[] { "Debug.", "AppendResult", "_result", "RefreshStatus", "Instance" })
+            Assert.AreEqual(
+                2, CountOccurrences(table, "() =>"),
+                "both providers must be written inline. A method group or a Func built above the " +
+                "table moves the body out of everything this test can see.");
+            Assert.AreEqual(
+                2, CountOccurrences(table, "Interlocked.Increment"),
+                "each provider counts its own call, and Interlocked is the only bookkeeping it may do");
+
+            string[] forbidden =
+            {
+                "Debug.", "AppendResult", "RefreshStatus", "RefreshState", "Instance",
+                "Application.", "Time.", "gameObject", "uiDocument", "_result", "_status",
+                "_state", "_last", "Local(", "Call(", "Done(",
+            };
+            foreach (string name in forbidden)
             {
                 Assert.IsFalse(
-                    table.Contains(forbidden),
-                    $"a deferred provider must not reach {forbidden}: it runs off the main thread " +
-                    "and during shutdown. Count with Interlocked and display it from Update.");
+                    table.Contains(name),
+                    $"a deferred provider must not reach {name}: it runs during shutdown, when the " +
+                    "screen it would touch may already be gone. Count with Interlocked and publish " +
+                    "from Update.");
             }
         }
 
         /// <remarks>
+        /// <para>
         /// Without the registration the controller survives a trip back to the TopMenu, keeps its
         /// event subscriptions, and a second visit binds a second copy. Every counter then reads
         /// double and no button responds to the screen the operator is actually looking at.
+        /// </para>
+        /// <para>
+        /// Scoped to the two method bodies. Asserting that the file contains the text
+        /// "ShowWindowsClipboard" was satisfied by the method's own declaration, so that check
+        /// could not fail; and the removal could be moved to a method nobody calls while the same
+        /// assertion stayed green.
+        /// </para>
         /// </remarks>
         [Test]
         public void TheNavigatorRemovesThisControllerBeforeSwitchingScreens()
@@ -269,9 +379,44 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             StringAssert.Contains(
                 "RemoveIfExists<WindowsClipboardManagerExampleController>",
-                source,
-                "RemoveExistingControllers must drop this controller, or a second visit subscribes twice");
-            StringAssert.Contains("ShowWindowsClipboard", source, "the navigator needs an entry point");
+                MethodBody(source, "private static void RemoveExistingControllers"),
+                "the removal must be inside RemoveExistingControllers, which is what ApplyScreen " +
+                "calls, or a second visit subscribes twice");
+        }
+
+        /// <remarks>
+        /// The screen is loaded from Resources by path. A typo there is invisible to every other
+        /// test here, which loads its own copy of the string, and shows up only as a TopMenu button
+        /// that opens nothing. This is the same hole the missing style sheet went through.
+        /// </remarks>
+        [Test]
+        public void TheNavigatorLoadsTheScreenThisTestSuiteChecks()
+        {
+            string body = MethodBody(
+                File.ReadAllText(Path.GetFullPath(NavigatorSourcePath)),
+                "public static void ShowWindowsClipboard");
+
+            StringAssert.Contains(
+                "ApplyScreen<WindowsClipboardManagerExampleController>", body,
+                "the entry point must add this controller");
+            StringAssert.Contains(
+                "\"" + ClipboardResourcesUxmlPath + "\"", body,
+                "the navigator must load the UXML this suite verifies, not another path");
+            StringAssert.Contains(
+                "\"" + ClipboardResourcesUssPath + "\"", body,
+                "the navigator must load the USS this suite verifies, not another path");
+        }
+
+        /// <summary>Returns the brace-matched body of a method, found by its declaration.</summary>
+        /// <param name="source">Source to search.</param>
+        /// <param name="declaration">Text that begins the declaration.</param>
+        /// <returns>The declaration and its body.</returns>
+        private static string MethodBody(string source, string declaration)
+        {
+            int at = source.IndexOf(declaration, StringComparison.Ordinal);
+            Assert.Greater(at, -1, declaration + " must exist");
+            int open = source.IndexOf('{', at);
+            return source.Substring(at, MatchingBrace(source, open) - at);
         }
 
         /// <remarks>
@@ -299,6 +444,56 @@ namespace JonghyunKim.NativeToolkit.Tests
                 "the subscription guard must let Windows through, or the button is hidden there");
         }
 
+        /// <remarks>
+        /// Deleting one line from OnDisable left all 43 tests green. The symptom is that the
+        /// screen's counters read double after a trip to the TopMenu and back - which is exactly
+        /// what the manual checks about re-entry are looking for, so the harness would be
+        /// producing the failure it is meant to detect.
+        /// <para>
+        /// Compared by event name, not by count, so swapping one name for another cannot balance.
+        /// The total is held against the Manager's public events, so a new event that nobody
+        /// subscribes to is reported here rather than discovered on a device.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void EverySubscribedEventIsUnsubscribed()
+        {
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
+
+            List<string> subscribed = EventNames(MethodBody(source, "private void OnEnable"), "+=");
+            List<string> unsubscribed = EventNames(MethodBody(source, "private void OnDisable"), "-=");
+
+            CollectionAssert.AreEquivalent(
+                subscribed, unsubscribed,
+                "OnEnable and OnDisable must name the same events. A subscription left behind " +
+                "doubles that event's counter on the next visit.");
+
+            int declared = typeof(WindowsClipboardManager).GetEvents(
+                BindingFlags.Public | BindingFlags.Instance).Length;
+            Assert.AreEqual(
+                declared, subscribed.Count,
+                "the screen observes every event the Manager publishes; a new one is not optional " +
+                "here, because an event nobody watches cannot be checked on a device");
+        }
+
+        /// <summary>Collects the event names bound with a given operator in a method body.</summary>
+        /// <param name="body">Method body.</param>
+        /// <param name="op">Either "+=" or "-=".</param>
+        /// <returns>The event names, in source order.</returns>
+        private static List<string> EventNames(string body, string op)
+        {
+            var names = new List<string>();
+            foreach (string raw in body.Split('\n'))
+            {
+                string line = raw.Trim();
+                if (!line.StartsWith("manager.", StringComparison.Ordinal)) continue;
+                int at = line.IndexOf(" " + op + " ", StringComparison.Ordinal);
+                if (at < 0) continue;
+                names.Add(line.Substring("manager.".Length, at - "manager.".Length));
+            }
+            return names;
+        }
+
         [Test]
         public void TopMenu_StillExposesTheClipboardEntryPoint()
         {
@@ -307,6 +502,42 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsNotNull(
                 root.Q<Button>("ClipboardFeatureButton"),
                 "the Windows clipboard sample is reached through this button");
+        }
+
+        /// <summary>
+        /// Drops comments, so a rule about what the code does is not tripped by prose describing it.
+        /// </summary>
+        /// <param name="source">C# source.</param>
+        /// <returns>The same source with line and documentation comments removed.</returns>
+        /// <remarks>
+        /// These checks are worth having only if the explanation can sit beside the thing being
+        /// checked. Banning the word "OperationCanceledException" outright banned the comment that
+        /// tells the next reader why nothing catches it.
+        /// <para>
+        /// A "//" inside a string literal is left alone by counting the quotes before it. No block
+        /// comments are used in this file's subjects; one would survive this and is not swept.
+        /// </para>
+        /// </remarks>
+        private static string CodeOnly(string source)
+        {
+            var kept = new List<string>();
+            foreach (string line in source.Split('\n'))
+            {
+                int at = line.IndexOf("//", StringComparison.Ordinal);
+                if (at < 0)
+                {
+                    kept.Add(line);
+                    continue;
+                }
+
+                int quotes = 0;
+                for (int i = 0; i < at; i++)
+                {
+                    if (line[i] == '"') quotes++;
+                }
+                kept.Add(quotes % 2 == 0 ? line.Substring(0, at) : line);
+            }
+            return string.Join("\n", kept);
         }
 
         private static int CountOccurrences(string source, string needle)

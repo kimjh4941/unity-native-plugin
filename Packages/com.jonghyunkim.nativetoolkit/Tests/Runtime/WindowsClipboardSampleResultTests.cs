@@ -1,6 +1,9 @@
 #nullable enable
 
-#if UNITY_EDITOR
+// Guarded to match the types under test (common.md: a test's compile guard follows its subject).
+// The assembly is Editor-only, so this changes nothing about what runs; it keeps the pair readable
+// as a pair.
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 
@@ -108,15 +111,40 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void AByteDescriptionReportsSizeAndMatchOnly()
         {
-            byte[] data = { 1, 2, 3, 4 };
+            byte[] data = System.Text.Encoding.UTF8.GetBytes("battery-staple-bytes");
             WindowsClipboardBytesResult result =
                 WindowsClipboardBytesResult.Success(WindowsClipboardManager.OperationPasteImage, data);
 
             string described = WindowsClipboardSampleResult.DescribeBytes(
                 result, WindowsClipboardSampleFixtures.HashOf(data));
 
-            StringAssert.Contains("size=4", described);
+            StringAssert.Contains($"size={data.Length}", described);
             StringAssert.Contains("match=match", described);
+            Assert.IsFalse(
+                described.Contains("battery-staple-bytes"),
+                "the bytes themselves must not appear: " + described);
+        }
+
+        /// <remarks>
+        /// A failed read handed nothing back, so nothing was compared. Running its absent content
+        /// through the comparison printed "differ" beside the error code and read as a round trip
+        /// that had lost something, which is the same wrong verdict the no-anchor case is written
+        /// to avoid.
+        /// </remarks>
+        [Test]
+        public void AFailedReadReportsNoComparisonRatherThanAMismatch()
+        {
+            WindowsClipboardTextResult text = WindowsClipboardTextResult.Failure(
+                WindowsClipboardManager.OperationPastePlainText, WindowsClipboardErrorCode.FormatUnavailable);
+            WindowsClipboardBytesResult bytes = WindowsClipboardBytesResult.Failure(
+                WindowsClipboardManager.OperationPasteImage, WindowsClipboardErrorCode.FormatUnavailable);
+
+            StringAssert.Contains(
+                "match=" + WindowsClipboardSampleResult.NotApplicable,
+                WindowsClipboardSampleResult.DescribeText(text, 12345UL));
+            StringAssert.Contains(
+                "match=" + WindowsClipboardSampleResult.NotApplicable,
+                WindowsClipboardSampleResult.DescribeBytes(bytes, 12345UL));
         }
 
         /// <remarks>
@@ -197,6 +225,114 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <remarks>
+        /// A shutdown reporting no error is not a finished one: ClassifyShutdown maps None with
+        /// completed:false to NotYet and the Manager stays at Draining. Taking success to mean done
+        /// put the state line one step ahead of the Manager for the rest of the session, and the
+        /// next operation then came back ShuttingDown against a line reading ShutDown. The Editor
+        /// pins completed to true, so this only ever diverged on a device.
+        /// </remarks>
+        [Test]
+        public void AShutdownThatReportedNoErrorButDidNotFinishIsStillDraining()
+        {
+            Assert.AreEqual(
+                WindowsClipboardSampleState.Draining,
+                WindowsClipboardSampleResult.Advance(
+                    WindowsClipboardSampleState.Running,
+                    WindowsClipboardManager.OperationShutdown,
+                    true, WindowsClipboardErrorCode.None, completed: false));
+
+            Assert.AreEqual(
+                WindowsClipboardSampleState.ShutDown,
+                WindowsClipboardSampleResult.Advance(
+                    WindowsClipboardSampleState.Running,
+                    WindowsClipboardManager.OperationShutdown,
+                    true, WindowsClipboardErrorCode.None, completed: true));
+        }
+
+        /// <remarks>
+        /// ClassifyShutdown keeps a drain alive for exactly five codes and treats everything else
+        /// as terminal, latching ShutdownFailed. Naming ShutdownTimeout alone left every other
+        /// terminal failure - a bridge that could not be reached, an unknown native fault - shown
+        /// as "still making progress", which inverts the distinction this state exists to draw.
+        /// </remarks>
+        [Test]
+        public void EveryTerminalShutdownFailureIsShownAsTerminal()
+        {
+            foreach (WindowsClipboardErrorCode code in new[]
+                     {
+                         WindowsClipboardErrorCode.None,
+                         WindowsClipboardErrorCode.Busy,
+                         WindowsClipboardErrorCode.MonitorRegisterFailed,
+                         WindowsClipboardErrorCode.Canceled,
+                         WindowsClipboardErrorCode.PartialState,
+                     })
+            {
+                Assert.IsTrue(WindowsClipboardSampleResult.KeepsDraining(code), code.ToString());
+                Assert.AreEqual(
+                    WindowsClipboardSampleState.Draining,
+                    WindowsClipboardSampleResult.Advance(
+                        WindowsClipboardSampleState.Running,
+                        WindowsClipboardManager.OperationShutdown, false, code),
+                    code.ToString());
+            }
+
+            foreach (WindowsClipboardErrorCode code in new[]
+                     {
+                         WindowsClipboardErrorCode.ShutdownTimeout,
+                         WindowsClipboardErrorCode.BridgeUnavailable,
+                         WindowsClipboardErrorCode.Unknown,
+                         WindowsClipboardErrorCode.WrongThread,
+                         WindowsClipboardErrorCode.AccessDenied,
+                     })
+            {
+                Assert.IsFalse(WindowsClipboardSampleResult.KeepsDraining(code), code.ToString());
+                Assert.AreEqual(
+                    WindowsClipboardSampleState.ShutdownFailed,
+                    WindowsClipboardSampleResult.Advance(
+                        WindowsClipboardSampleState.Running,
+                        WindowsClipboardManager.OperationShutdown, false, code),
+                    code.ToString());
+            }
+        }
+
+        /// <remarks>
+        /// A shutdown refused before any native attempt leaves the Manager exactly where it was.
+        /// Recording a transition would describe a shutdown that never happened.
+        /// </remarks>
+        [Test]
+        public void AShutdownRefusedBeforeItWasTriedMovesNothing()
+        {
+            Assert.AreEqual(
+                WindowsClipboardSampleState.Running,
+                WindowsClipboardSampleResult.Advance(
+                    WindowsClipboardSampleState.Running,
+                    WindowsClipboardManager.OperationShutdown,
+                    false, WindowsClipboardErrorCode.MainThreadRequired));
+        }
+
+        /// <remarks>
+        /// Pinned from a state other than the one the neighbouring tests use, so that replacing the
+        /// body with a fixed return value cannot pass.
+        /// </remarks>
+        [Test]
+        public void AFailedInitializeLeavesWhateverStateWasAlreadyObserved()
+        {
+            Assert.AreEqual(
+                WindowsClipboardSampleState.Running,
+                WindowsClipboardSampleResult.Advance(
+                    WindowsClipboardSampleState.Running,
+                    WindowsClipboardManager.OperationInitialize,
+                    false, WindowsClipboardErrorCode.ShuttingDown));
+
+            Assert.AreEqual(
+                WindowsClipboardSampleState.ShutdownFailed,
+                WindowsClipboardSampleResult.Advance(
+                    WindowsClipboardSampleState.ShutdownFailed,
+                    WindowsClipboardManager.OperationCopyPlainText,
+                    false, WindowsClipboardErrorCode.ShuttingDown));
+        }
+
+        /// <remarks>
         /// A copy can fail for a dozen reasons that say nothing about the lifecycle. Letting those
         /// move the state would make the line drift away from the Manager it describes, and the
         /// operator would be reading a state that was never true.
@@ -233,18 +369,33 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TheStatusLineLeadsWithTheLastChangeRatherThanTheCount()
         {
-            string status = WindowsClipboardSampleResult.FormatStatus(2, 9, 41, 3, 1, 932);
+            string status = WindowsClipboardSampleResult.FormatStatus(2, 9, 41, 3, 1, 0, 932);
 
             StringAssert.Contains("Pending: 2", status);
+            StringAssert.Contains("Events: 9", status);
             StringAssert.Contains("Changed: #41 (x3)", status);
-            StringAssert.Contains("Render: 1", status);
             StringAssert.Contains("ACP: 932", status);
+        }
+
+        /// <remarks>
+        /// Per format, not a total. Each provider is asked once, so the number to watch is that
+        /// neither goes above one; a sum reads as two as soon as the receiving application wants
+        /// both formats, and correct behaviour then looks like a duplicate call.
+        /// </remarks>
+        [Test]
+        public void TheStatusLineSeparatesTheTwoDeferredProviders()
+        {
+            string status = WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 1, 0, 932);
+
+            StringAssert.Contains("Render: text=1 image=0", status);
+            Assert.IsFalse(status.Contains("Render: 1 "), "a single total cannot answer the check");
         }
 
         [Test]
         public void TheStatusLineShowsNoChangeAsADashRatherThanAsZero()
         {
-            StringAssert.Contains("Changed: -", WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 0, 65001));
+            StringAssert.Contains(
+                "Changed: -", WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 0, 0, 65001));
         }
     }
 }
