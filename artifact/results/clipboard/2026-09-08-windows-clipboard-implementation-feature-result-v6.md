@@ -137,6 +137,7 @@
 | R-5 | イベント購読者の隔離が Windows のみ先行 | `artifact/EVENT_SUBSCRIBER_ISOLATION.md`。他 3 プラットフォームは別タスク |
 | R-6 | `s_renderStaging` の再入窓を作る seam が無い | レビュー v5 B-1。設計 9.2 が要求する `InvokeRenderDuringReserveForTests` 未実装 |
 | R-7 | Android / iOS / macOS の層 0（Player ビルドゲート） | 未整備。Windows と同じ穴が空いている可能性が高い |
+| R-8 | `*Async` 5 種は `OperationCanceledException` を投げず、キャンセルを `ErrorCode.Canceled` の結果で返す | **XML doc とマニュアルに未記載。** `common.md`「`isSuccess == false` を例外に変換しない」に従った意図的な形だが、同ルールが `destroyCancellationToken` を渡す運用も示しており、`Canceled` を見落とした await 地点が破棄後に継続する。次回マニュアル作成時に記載する |
 
 ## 7. 変更ファイル（`284a607..HEAD`）
 
