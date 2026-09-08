@@ -967,7 +967,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>
         /// Runs the checks every clipboard operation shares, in the order the design fixes.
-        /// The shutdown paths deliberately do not come through here (see TryShutdownCore).
+        /// The shutdown paths deliberately do not come through here (see RunShutdownAttempt).
         /// </summary>
         /// <param name="operation">Native operation name, used by the rejection message.</param>
         /// <param name="code">The rejection code when this returns false.</param>
@@ -2597,7 +2597,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             }
             catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
             {
-                Debug.LogError($"[{LogTag}][{nameof(TryShutdownCore)}] {ex.GetType().Name}: {ex.Message}");
+                Debug.LogError($"[{LogTag}][{nameof(InvokeNativeShutdown)}] {ex.GetType().Name}: {ex.Message}");
                 completed = false;
                 return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.BridgeUnavailable);
             }
