@@ -1,0 +1,157 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="WindowsClipboardManagerExampleStyle.uss" />
+    <ui:VisualElement class="windows-clipboard-root">
+        <ui:VisualElement class="windows-clipboard-header">
+            <ui:Button name="HomeButton" class="windows-secondary-button" text="Back To Home" />
+            <ui:Label text="WindowsClipboardManager Example" class="windows-clipboard-title" />
+            <ui:Label name="StateTextBlock" text="State: Unknown | Manager enabled: -" class="windows-clipboard-state-text" />
+            <ui:VisualElement class="windows-clipboard-result-border">
+                <ui:ScrollView name="ResultScrollView" class="windows-clipboard-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="Windows clipboard sample ready. Build a Windows Standalone player to reach the native bridge." class="windows-clipboard-result-text" />
+                </ui:ScrollView>
+            </ui:VisualElement>
+            <ui:Label name="StatusTextBlock" text="Pending: 0 | Events: 0 | Changed: - | Render: 0 | ACP: -" class="windows-clipboard-status-text" />
+        </ui:VisualElement>
+        <ui:ScrollView class="windows-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement class="windows-clipboard-content">
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="About" class="windows-clipboard-section-title" />
+                    <ui:Label name="AboutContractLabel" text="A failure with no ErrorMessage, or a success whose ErrorCode is not None, is itself a defect. TryShutdown fires neither the event nor the callback, so counters standing still there is correct." class="windows-clipboard-section-note" />
+                    <ui:Label name="AboutNoiseLabel" text="One external copy raises ClipboardChanged about three times. RecoverDeferredState reports success when there was nothing to recover. Reserve discards whatever the clipboard held." class="windows-clipboard-section-note" />
+                    <ui:Label name="AboutScreenshotLabel" text="Taking a screenshot writes an image to the clipboard. Capture only at the boundary between blocks, never between a copy and its paste." class="windows-clipboard-section-note" />
+                    <ui:Label name="AboutInteractivityLabel" text="Buttons stay enabled while a call is in flight on purpose: the busy and after-shutdown rejections are two of the things this screen exists to observe." class="windows-clipboard-section-note" />
+                    <ui:Label name="AboutContentLabel" text="Clipboard content never appears here. Round trips are reported as a length and a match flag." class="windows-clipboard-section-note" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Lifecycle" class="windows-clipboard-section-title" />
+                    <ui:Label text="Shutdown While Disabled turns the Manager component off first, so the drain gets one forced attempt instead of one per frame. Success there is the expected outcome, not a failure." class="windows-clipboard-section-note" />
+                    <ui:Button name="InitializeButton" class="windows-clipboard-button" text="Initialize" />
+                    <ui:Button name="TryShutdownButton" class="windows-clipboard-button" text="Try Shutdown" />
+                    <ui:Button name="ShutdownWithDrainButton" class="windows-clipboard-button" text="Shutdown With Drain" />
+                    <ui:Button name="CanShutdownNowButton" class="windows-clipboard-button" text="Can Shutdown Now" />
+                    <ui:Button name="ShutdownWhileDisabledButton" class="windows-clipboard-button" text="Shutdown While Disabled" />
+                    <ui:Button name="ForceInitializeWhileDrainingButton" class="windows-clipboard-button" text="Force Initialize While Draining" />
+                    <ui:Button name="QuitButton" class="windows-secondary-button" text="Quit" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Copy" class="windows-clipboard-section-title" />
+                    <ui:Label text="Copy replaces the clipboard. The CF_TEXT variant is only observable when the ANSI code page is not UTF-8; the status line shows which one is in force." class="windows-clipboard-section-note" />
+                    <ui:Button name="CopyPlainTextButton" class="windows-clipboard-button" text="Copy Plain Text" />
+                    <ui:Button name="CopyPlainTextEmptyButton" class="windows-clipboard-button" text="Copy Plain Text (empty)" />
+                    <ui:Button name="CopyLargeTextButton" class="windows-clipboard-button" text="Copy Large Text" />
+                    <ui:Button name="CopyHtmlButton" class="windows-clipboard-button" text="Copy Html" />
+                    <ui:Button name="CopyFilesButton" class="windows-clipboard-button" text="Copy Files" />
+                    <ui:Button name="CopyImageButton" class="windows-clipboard-button" text="Copy Image" />
+                    <ui:Button name="CopyCustomFormatButton" class="windows-clipboard-button" text="Copy Custom Format" />
+                    <ui:Button name="CopyMultipleFormatsButton" class="windows-clipboard-button" text="Copy Multiple Formats" />
+                    <ui:Button name="CopyMultipleFormatsWithImageButton" class="windows-clipboard-button" text="Copy Multiple Formats (with image)" />
+                    <ui:Button name="CopyMultipleFormatsAnsiButton" class="windows-clipboard-button" text="Copy Multiple Formats (CF_TEXT + non-ASCII)" />
+                    <ui:Button name="CopyMultipleFormatsDuplicateButton" class="windows-clipboard-button" text="Copy Multiple Formats (duplicate format)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Options" class="windows-clipboard-section-title" />
+                    <ui:Label text="Exclude Roaming cannot be observed on one machine: judging it needs a second Windows device signed into the same account with sync on. Record it as pressed, not as passed." class="windows-clipboard-section-note" />
+                    <ui:Button name="CopySensitiveButton" class="windows-clipboard-button" text="Copy (Sensitive)" />
+                    <ui:Button name="CopyExcludeHistoryButton" class="windows-clipboard-button" text="Copy (Exclude History)" />
+                    <ui:Button name="CopyExcludeRoamingButton" class="windows-clipboard-button" text="Copy (Exclude Roaming)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Paste" class="windows-clipboard-section-title" />
+                    <ui:Label text="A read can succeed and still be empty. Paste after Clear is the case: empty is the correct answer there, not a failure." class="windows-clipboard-section-note" />
+                    <ui:Button name="PastePlainTextButton" class="windows-clipboard-button" text="Paste Plain Text" />
+                    <ui:Button name="PastePlainTextAfterClearButton" class="windows-clipboard-button" text="Paste Plain Text (after Clear)" />
+                    <ui:Button name="PasteHtmlButton" class="windows-clipboard-button" text="Paste Html" />
+                    <ui:Button name="PasteHtmlTextOnlyButton" class="windows-clipboard-button" text="Paste Html (text only)" />
+                    <ui:Button name="PasteFilesButton" class="windows-clipboard-button" text="Paste Files" />
+                    <ui:Button name="PasteImageButton" class="windows-clipboard-button" text="Paste Image" />
+                    <ui:Button name="PasteCustomFormatButton" class="windows-clipboard-button" text="Paste Custom Format" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Inspect" class="windows-clipboard-section-title" />
+                    <ui:Label text="Get Preferred Format picks from CF_UNICODETEXT, CF_HDROP, CF_DIB and CF_BITMAP only. HTML Format is never returned, and a custom-only clipboard answers with an empty string." class="windows-clipboard-section-note" />
+                    <ui:Button name="HasFormatButton" class="windows-clipboard-button" text="Has Format (CF_UNICODETEXT)" />
+                    <ui:Button name="GetFormatsButton" class="windows-clipboard-button" text="Get Formats" />
+                    <ui:Button name="GetPreferredFormatButton" class="windows-clipboard-button" text="Get Preferred Format" />
+                    <ui:Button name="ClearButton" class="windows-clipboard-button" text="Clear" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Deferred" class="windows-clipboard-section-title" />
+                    <ui:Label text="Run these with clipboard history turned off in Windows settings. With it on, the history service materialises every reserved format immediately and nothing is deferred any more." class="windows-clipboard-section-note" />
+                    <ui:Button name="ReserveDeferredFormatsButton" class="windows-clipboard-button" text="Reserve Deferred Formats" />
+                    <ui:Button name="RecoverDeferredStateButton" class="windows-clipboard-button" text="Recover Deferred State" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="History" class="windows-clipboard-section-title" />
+                    <ui:Label text="Restore and Delete use the id in the field below, which Get History fills with the newest item. Restoring also raises ClipboardChanged: the history service is the one writing." class="windows-clipboard-section-note" />
+                    <ui:TextField name="HistoryItemIdField" label="History item id" class="windows-clipboard-field" />
+                    <ui:Button name="GetHistoryAvailabilityButton" class="windows-clipboard-button" text="Get History Availability" />
+                    <ui:Button name="GetHistoryButton" class="windows-clipboard-button" text="Get History" />
+                    <ui:Button name="RestoreLastButton" class="windows-clipboard-button" text="Restore Last" />
+                    <ui:Button name="DeleteLastButton" class="windows-clipboard-button" text="Delete Last" />
+                    <ui:Button name="ClearUnpinnedButton" class="windows-clipboard-button" text="Clear Unpinned" />
+                    <ui:Button name="CancelLastButton" class="windows-clipboard-button" text="Cancel Last" />
+                    <ui:Button name="RestoreTwiceInOneFrameButton" class="windows-clipboard-button" text="Restore Twice In One Frame" />
+                    <ui:Button name="IssueAndCancelInOneFrameButton" class="windows-clipboard-button" text="Issue And Cancel In One Frame" />
+                    <ui:Button name="RequestAndImmediateShutdownButton" class="windows-clipboard-button" text="Request + Immediate Shutdown" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="History (Await)" class="windows-clipboard-section-title" />
+                    <ui:Label name="AwaitCancelLabel" text="Cancelling an awaited call does not throw. It completes with ErrorCode Canceled, so every await site here checks for it and returns rather than catching OperationCanceledException." class="windows-clipboard-section-note" />
+                    <ui:Button name="GetHistoryAwaitButton" class="windows-clipboard-button" text="Get History (Await)" />
+                    <ui:Button name="GetHistoryAwaitCancelButton" class="windows-clipboard-button" text="Get History (Await + Cancel)" />
+                    <ui:Button name="GetAvailabilityAwaitButton" class="windows-clipboard-button" text="Get Availability (Await)" />
+                    <ui:Button name="RestoreAwaitButton" class="windows-clipboard-button" text="Restore (Await)" />
+                    <ui:Button name="DeleteAwaitButton" class="windows-clipboard-button" text="Delete (Await)" />
+                    <ui:Button name="ClearUnpinnedAwaitButton" class="windows-clipboard-button" text="Clear Unpinned (Await)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Events" class="windows-clipboard-section-title" />
+                    <ui:Label text="Turn history events off before changing the Windows history setting: a failed stop makes MonitorRegisterFailed sticky and every later start is refused. HistoryEnabledChanged not firing is expected." class="windows-clipboard-section-note" />
+                    <ui:Button name="EnableHistoryEventsButton" class="windows-clipboard-button" text="Enable History Events" />
+                    <ui:Button name="DisableHistoryEventsButton" class="windows-clipboard-button" text="Disable History Events" />
+                    <ui:Button name="ResetEventCountersButton" class="windows-secondary-button" text="Reset Event Counters" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Threading" class="windows-clipboard-section-title" />
+                    <ui:Label text="Delayed History Call waits five seconds, so bring another window to the front before it fires. The screen turns runInBackground on while it is open, or the player would stop stepping and the call would land after you came back." class="windows-clipboard-section-note" />
+                    <ui:Button name="CopyFromWorkerThreadButton" class="windows-clipboard-button" text="Copy From Worker Thread" />
+                    <ui:Button name="GetHistoryFromWorkerThreadButton" class="windows-clipboard-button" text="Get History From Worker Thread" />
+                    <ui:Button name="DelayedHistoryCallButton" class="windows-clipboard-button" text="Delayed History Call (5s)" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Errors" class="windows-clipboard-section-title" />
+                    <ui:Label text="Press these while the Manager is Running. Copy After Shutdown goes last: after it the screen needs Initialize again. Paste after Clear lives in the Paste section because it is a success, not an error." class="windows-clipboard-section-note" />
+                    <ui:Button name="ErrCopyPlainTextNullButton" class="windows-secondary-button" text="Error: Copy Plain Text (null)" />
+                    <ui:Button name="ErrCopyFilesEmptyButton" class="windows-secondary-button" text="Error: Copy Files (empty)" />
+                    <ui:Button name="ErrCopyCustomFormatBlankNameButton" class="windows-secondary-button" text="Error: Copy Custom Format (blank name)" />
+                    <ui:Button name="ErrCopyMultipleFormatsEmptyButton" class="windows-secondary-button" text="Error: Copy Multiple Formats (empty)" />
+                    <ui:Button name="ErrRestoreBlankIdButton" class="windows-secondary-button" text="Error: Restore (blank id)" />
+                    <ui:Button name="ErrRestoreUnknownIdButton" class="windows-secondary-button" text="Error: Restore (unknown id)" />
+                    <ui:Button name="ErrCancelUnknownIdButton" class="windows-secondary-button" text="Error: Cancel (unknown id)" />
+                    <ui:Button name="ErrCopyAfterShutdownButton" class="windows-secondary-button" text="Error: Copy After Shutdown" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="windows-clipboard-section">
+                    <ui:Label text="Fixtures" class="windows-clipboard-section-title" />
+                    <ui:Label text="Create the temporary files before Copy Files. The custom format name below is used by both the copy and the paste, so changing it on one side only is how a round trip is meant to fail." class="windows-clipboard-section-note" />
+                    <ui:TextField name="CustomFormatNameField" label="Custom format name" value="NativeToolkitSample" class="windows-clipboard-field" />
+                    <ui:Button name="CreateTempFilesButton" class="windows-clipboard-button" text="Create Temp Files" />
+                    <ui:Button name="DeleteTempFilesButton" class="windows-clipboard-button" text="Delete Temp Files" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

@@ -103,7 +103,7 @@ public class TopMenuExampleController : MonoBehaviour
         }
 #endif
 
-#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR
+#if UNITY_ANDROID || UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN || UNITY_EDITOR
         if (_clipboardButton != null)
         {
             _clipboardButton.clicked += OnClipboardClicked;
@@ -111,7 +111,7 @@ public class TopMenuExampleController : MonoBehaviour
 #else
         if (_clipboardButton != null)
         {
-            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Clipboard feature is only supported on Android, iOS, and macOS. Hiding button.");
+            Debug.Log($"[{LogTag}][{nameof(InitializeUI)}] Clipboard feature is only supported on Android, iOS, macOS, and Windows. Hiding button.");
             _clipboardButton.style.display = DisplayStyle.None;
         }
 #endif
@@ -182,7 +182,7 @@ public class TopMenuExampleController : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.DisplayDialog(
             "Clipboard Feature",
-            "This feature runs natively on Android, iOS, or macOS.\nRun on an Android, iOS, or macOS player for full functionality.",
+            "This feature runs natively on Android, iOS, macOS, or Windows.\nRun on an Android, iOS, macOS, or Windows player for full functionality.",
             "OK");
 #elif UNITY_ANDROID
         NativeToolkitSampleNavigator.ShowAndroidClipboard(uiDocument);
@@ -190,6 +190,8 @@ public class TopMenuExampleController : MonoBehaviour
         NativeToolkitSampleNavigator.ShowIosClipboard(uiDocument);
 #elif UNITY_STANDALONE_OSX
         NativeToolkitSampleNavigator.ShowMacClipboard(uiDocument);
+#elif UNITY_STANDALONE_WIN
+        NativeToolkitSampleNavigator.ShowWindowsClipboard(uiDocument);
 #endif
     }
 }
