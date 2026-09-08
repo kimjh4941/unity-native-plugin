@@ -973,7 +973,7 @@ private static void FinishShutdownAttempt(ShutdownOrigin origin, WindowsClipboar
 | 3. 所有権の解放 | **`completed == true` のときだけ** COM 参照（7.3）と `s_renderProviders` / `s_renderCache` を解放する。delegate の GC ルートは `static readonly` のまま解放しない: 終端失敗のときネイティブはポインタを保持し続けるため、解放できてしまう方が危険 |
 | 4. 状態の確定 | 完了 → `ShutDown` / 継続 → `Draining` / 終端失敗・タイムアウト → `ShutdownFailed`（ネイティブ資源は保持） |
 | 5. quit の再開 | `origin == Quit` なら**成功・タイムアウト・終端失敗のすべてで** `s_quitDrainCompleted = true` を立て、結果をログに残して `Application.Quit()` を再実行する |
-| 6. 結果配送 | **`origin == Drain` のときのみ**、最終結果を共通イベントと per-call callback へ配送する。`PublicApi`（= `TryShutdown`）は戻り値だけで結果を返し、event も callback も発火しない（5.3 の例外規定と一致）。`Destroy` / `Quit` も配送しない |
+| 6. 結果配送 | **`ShutdownWithDrain` が呼ばれた drain だけ**が、最終結果を共通イベントと per-call callback へ配送する。判定は起点ではなく「誰かが結果を待っているか」で行う（`DrainSession.DeliveryRequested`）。`PublicApi`（= `TryShutdown`）は戻り値だけで結果を返し、event も callback も発火しない（5.3 の例外規定と一致）。quit 単独で始まった drain も配送しない。ただし **`ShutdownWithDrain` に quit が後から合流した場合は配送する** — 呼び出し元は結果を待っており、quit が来たことはその約束を取り消さない |
 
 この 1 関数に集約することで、次の 3 つが起点によらず成立する。
 
@@ -1446,7 +1446,10 @@ C# 層では自動リトライしない（ネイティブ側が既に `OpenClipb
 - 非同期 API は、**受付済み・受付前拒否のいずれでも**、成功・失敗・キャンセル・shutdown ドレイン・teardown ドレインのいずれかで
   **ちょうど 1 回**結果が配送される（`TryClaim` による exactly-once。7.6.1）
 - 拒否（受付前失敗）でも共通イベントと per-call callback は必ず発火する
-- 同期 API は戻り値で即時に結果を返す。イベント / callback は**呼び出し元のスタック外**で配送される（同一フレーム内の場合がある。7.1）。teardown ドレインのみ同期発火
+- 同期 API は戻り値で即時に結果を返す。イベント / callback は**呼び出し元のスタック外**で配送される（同一フレーム内の場合がある。7.1）
+- **同期発火は「この先 `Update` が回る保証が無い」場合に限る。** 該当するのは 2 つ:
+  teardown ドレイン（7.6.3）と、**quit を再開する直前の drain の settle**。
+  後者では settle 中に始まった操作の配送も同期になる（配送を積んでも走らせる `Update` が来ないため）
 
 ---
 
