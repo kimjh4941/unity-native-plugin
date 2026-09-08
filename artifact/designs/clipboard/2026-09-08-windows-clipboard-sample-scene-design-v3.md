@@ -31,6 +31,8 @@ v3 の追加分は 1.0 / 1.3 / 7.9 / 8.2.1 / 8.8 / 9.3 として既存章の内�
 | N-4 | ネイティブ実機 | M-19 はネイティブ F2 の回帰確認であると明記（1.3.1） |
 | N-5 | ネイティブ実機 | M-6 の往復判定に上書き注意を追加（10 節 V-5）。**要検証** |
 | N-6 | ネイティブ実機 | `GetPreferredFormat` の期待値 4 件を明記（8.8） |
+| Q-1 | 実装読み合わせ | **Await 版のキャンセルは例外を投げない。** `try/catch` を書かせない旨を明記（7.4） |
+| Q-2 | 実装読み合わせ | Await 6 ボタンのうち M 項目があるのは 1 つだけ。残り 5 つを 9.3 の表に追加 |
 
 ### 1.1 v1 からの変更
 
@@ -431,7 +433,7 @@ macOS / iOS Clipboard と同じ形にする。
 |---|---|
 | 同期 API | 戻り値を `[call]` 行に出す。**`Clear` のみ per-call callback も併用**し、共通イベント → 個別 callback の順序を見せる |
 | 非同期 API（callback 版） | 戻り値の `requestId` を `[accept]` 行に、callback を `[done]` 行に出す |
-| 非同期 API（Await 版） | `requestId` を返さないため `[accept]` 行は作れない。`[done]` のみ |
+| 非同期 API（Await 版） | `requestId` を返さないため `[accept]` 行は作れない。`[done]` のみ。**`try/catch` を書かない**（7.4.1） |
 | 共通イベント 12 種 | `OnEnable` で購読し、`[event]` 行として**時系列に混ぜる**（カウンタだけにしない） |
 
 **`ClipboardChanged` は回数を主表示にしない。** 1 回の外部コピーで実測 3 回発火するため、
@@ -451,6 +453,44 @@ macOS / iOS Clipboard と同じ形にする。
 （同セッションで履歴追加イベントは発火した）。**ブロック C で OS 設定の履歴を切っても
 これらが発火しないのは正常であり、不具合として報告してはならない。**
 設定の現在値が要る時点では `GetHistoryAvailability` を呼ぶ（設計 2.2）。
+
+#### 7.4.1 Await 版のキャンセルは例外を投げない
+
+**`*Async` 5 種は `OperationCanceledException` を投げない。** キャンセルは
+`ErrorCode.Canceled`(15) を持つ**結果**として返る。
+
+```
+WindowsClipboardManager.cs:2070  if (cancellationToken.IsCancellationRequested)
+                          2072      RejectRequest(..., WindowsClipboardErrorCode.Canceled, ...,
+                          2074          result => source.TrySetResult(result), null, null);
+```
+
+`RegisterCancellation` 経由の後発キャンセルも同じで、通常の配送に乗る。
+`AwaitableCompletionSource.TrySetCanceled()` は使っていない。
+
+これは `common.md`「`isSuccess == false` を例外に変換しない」に従った意図的な形であり、
+実装の欠陥ではない（実装結果 v6 の R-8）。
+
+**したがってサンプルはこう書かない。**
+
+```csharp
+try { var r = await mgr.GetHistoryAsync(_cts.Token); }
+catch (OperationCanceledException) { /* 永久に来ない */ }
+```
+
+**こう書く。**
+
+```csharp
+var r = await mgr.GetHistoryAsync(_cts.Token);
+if (r.ErrorCode == WindowsClipboardErrorCode.Canceled) { AppendDone(r); return; }
+```
+
+**`Canceled` を見たら早期 return する形を全 await 地点で守ること。**
+`destroyCancellationToken` を渡す運用（設計 7.6.5）と組み合わさると、
+チェックを飛ばした継続が**破棄済みの `VisualElement` に触る**。
+`MissingReferenceException` になり、しかもコンパイルは通る。
+
+サンプルはこの書き方の見本を兼ねる。**S-9 として観点に加える**（9.1）。
 
 ### 7.5 入力バリデーションと期待値
 
@@ -702,6 +742,7 @@ Copy → Paste の往復で長さと一致 bool を確認する。再試行分�
 | S-6 | **再入場してもイベント購読が二重にならない**（カウンタが 2 倍にならない） |
 | S-7 | Editor 実行時の期待値: **`TryShutdown` / `ShutdownWithDrain` は冪等成功**、11. Threading は `MainThreadRequired`、**それ以外は `PlatformUnavailable`**。例外で落ちない |
 | S-8 | `[accept]` と `[done]` の未消化件数が、操作を止めれば 0 に戻る（exactly-once の目視） |
+| S-9 | **Await 版のキャンセルが `[done]` 行に `Canceled` として出る**（例外として消えない）。全 await 地点が `Canceled` で早期 return している（7.4.1） |
 
 **S-7 の注記**: Editor では TopMenu が `DisplayDialog` を出すだけで本画面に到達しない。
 S-7 を実施するには 5.2 の Editor 分岐も本画面へ遷移させる必要がある。**要検討事項**（10 節 V-3）。
@@ -728,12 +769,17 @@ S-7 を実施するには 5.2 の Editor 分岐も本画面へ遷移させる必
 
 現時点で M 項目に現れないと分かっているボタン:
 
+**9. History (Await) が最も危ない。** 6 ボタンのうち M 項目があるのは 1 つで、
+しかも `Awaitable` を持つのはリポジトリ全体で Windows Clipboard だけである
+（他 3 プラットフォームは 0 件）。**ここで押さなければ、この 5 種は永久に一度も実行されない。**
+
 | ボタン | 扱い |
 |---|---|
 | `Copy (Exclude Roaming)` | **未実施**（R-5）。押して `ErrorCode` が `None` であることまでは見るが、効果は観測できない |
 | `Copy (Exclude History)` | 押して Win+V に出ないことを見る。M-9（Sensitive）と同じ判定 |
 | `Recover Deferred State` | 「復旧すべき状態がないときに安全に呼べ、正常な予約を破壊しないこと」まで。`PartialState` は再現手段が無い（R-1 / D-9） |
 | `Delete Temp Files` | M-5 のあと。2 回目が 0 件で成功することを見る |
+| **9. の Await 5 ボタン** | `Get Availability` / `Restore` / `Delete` / `Clear Unpinned` / 素の `Get History (Await)`。**M 項目に現れるのは `(Await + Cancel)` の 1 つだけ**（M-16）。残り 5 つはここで押す |
 
 **この表は網羅ではない。** 実装後に 8.1 の全ボタンで作り直す。
 
