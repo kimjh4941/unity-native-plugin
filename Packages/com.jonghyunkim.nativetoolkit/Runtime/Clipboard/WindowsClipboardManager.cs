@@ -3001,14 +3001,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             WindowsClipboardResult result = session.Result;
             if (session.DeliveryRequested)
             {
-                try
-                {
-                    _instance?.ClipboardOperationCompleted?.Invoke(result);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a common event subscriber threw: {ex.Message}");
-                }
+                RaiseIsolated(nameof(SettleDrain), _instance?.ClipboardOperationCompleted, result);
             }
 
             // Indexed rather than foreach: a callback may call ShutdownWithDrain again, and while
@@ -3203,10 +3196,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// Invokes the common event and then the per-call callback, containing the exceptions of
         /// each so that one cannot swallow the other's result.
         /// <para>
-        /// The isolation is between those two, not between the subscribers of the event: they share
-        /// one invocation, so the first to throw stops the ones behind it. That is the behaviour
-        /// every manager in this package has, and changing it belongs to all of them at once
-        /// rather than here.
+        /// The event's own subscribers are isolated from each other as well. The other managers in
+        /// this package still share one invocation per event; that difference is deliberate and
+        /// recorded in artifact/EVENT_SUBSCRIBER_ISOLATION.md.
         /// </para>
         /// </summary>
         /// <typeparam name="TResult">The result type being delivered.</typeparam>
@@ -3216,14 +3208,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         internal static void InvokeInOrder<TResult>(
             TResult result, Action<TResult>? common, Action<TResult>? perCall)
         {
-            try
-            {
-                common?.Invoke(result);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(InvokeInOrder)}] a common event subscriber threw: {ex.Message}");
-            }
+            RaiseIsolated(nameof(InvokeInOrder), common, result);
 
             try
             {
@@ -3279,16 +3264,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
             if (dispatcher == null) return;
             dispatcher.Enqueue(() =>
-            {
-                try
-                {
-                    _instance?.ClipboardChanged?.Invoke();
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[{LogTag}][{nameof(RaiseClipboardChanged)}] subscriber threw: {ex.Message}");
-                }
-            });
+                RaiseIsolated(nameof(RaiseClipboardChanged), _instance?.ClipboardChanged));
         }
 
         // ── Native call wrappers ─────────────────────────────────────────────────
@@ -3645,15 +3621,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>Hands a history addition to the subscribers through the dispatcher.</summary>
         private static void RaiseHistoryChanged() => RaiseOnMainThread(
-            nameof(RaiseHistoryChanged), () => _instance?.HistoryChanged?.Invoke());
+            nameof(RaiseHistoryChanged), () => RaiseIsolated(
+                nameof(RaiseHistoryChanged), _instance?.HistoryChanged));
 
         /// <summary>Hands a history-setting change to the subscribers through the dispatcher.</summary>
         private static void RaiseHistoryEnabledChanged(bool enabled) => RaiseOnMainThread(
-            nameof(RaiseHistoryEnabledChanged), () => _instance?.HistoryEnabledChanged?.Invoke(enabled));
+            nameof(RaiseHistoryEnabledChanged), () => RaiseIsolated(
+                nameof(RaiseHistoryEnabledChanged), _instance?.HistoryEnabledChanged, enabled));
 
         /// <summary>Hands a roaming-setting change to the subscribers through the dispatcher.</summary>
         private static void RaiseRoamingEnabledChanged(bool enabled) => RaiseOnMainThread(
-            nameof(RaiseRoamingEnabledChanged), () => _instance?.RoamingEnabledChanged?.Invoke(enabled));
+            nameof(RaiseRoamingEnabledChanged), () => RaiseIsolated(
+                nameof(RaiseRoamingEnabledChanged), _instance?.RoamingEnabledChanged, enabled));
 
         private static void RaiseOnMainThread(string origin, Action raise)
         {
@@ -3676,6 +3655,59 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     Debug.LogError($"[{LogTag}][{origin}] subscriber threw: {ex.Message}");
                 }
             });
+        }
+
+        /// <summary>
+        /// Calls each subscriber of an event separately, containing the exceptions of each.
+        /// <para>
+        /// A multicast delegate invoked in one go stops at the first subscriber that throws, and
+        /// the ones behind it are never called - not once, but on every raise from then on, for as
+        /// long as that subscriber stays subscribed. Nothing a caller does to its own handler
+        /// should be able to silence someone else's.
+        /// </para>
+        /// </summary>
+        /// <typeparam name="TArgument">What the event carries.</typeparam>
+        /// <param name="origin">Where the raise came from, for the diagnostics.</param>
+        /// <param name="handlers">The event, or null when nobody is subscribed.</param>
+        /// <param name="argument">The value to hand each subscriber.</param>
+        private static void RaiseIsolated<TArgument>(
+            string origin, Action<TArgument>? handlers, TArgument argument)
+        {
+            if (handlers == null) return;
+
+            // The array this allocates is the cost of the isolation. These events fire when the
+            // clipboard or the history changes, not every frame, so it is not on a hot path.
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((Action<TArgument>)handler)(argument);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{origin}] a subscriber threw: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>Calls each subscriber of an event that carries nothing, separately.</summary>
+        /// <param name="origin">Where the raise came from, for the diagnostics.</param>
+        /// <param name="handlers">The event, or null when nobody is subscribed.</param>
+        private static void RaiseIsolated(string origin, Action? handlers)
+        {
+            if (handlers == null) return;
+
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((Action)handler)();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{origin}] a subscriber threw: {ex.Message}");
+                }
+            }
         }
 
         private static bool IsMainThread() =>

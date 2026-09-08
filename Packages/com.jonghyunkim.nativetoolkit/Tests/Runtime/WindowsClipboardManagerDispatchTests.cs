@@ -65,7 +65,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 _ => throw new InvalidOperationException("subscriber"),
                 _ => perCallRan = true);
 
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("common event subscriber threw"));
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("a subscriber threw"));
             Assert.IsTrue(perCallRan, "one bad subscriber must not swallow the other delivery");
         }
 
@@ -662,6 +662,22 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 Marshal.FreeHGlobal(buffer);
             }
+        }
+
+
+        [Test]
+        public void InvokeInOrder_OneCommonSubscriberThrowingDoesNotSilenceTheNext()
+        {
+            // A multicast delegate invoked in one go stops at the first exception, and the
+            // subscribers behind it stay silent on every raise from then on - not just this one.
+            var seen = new List<string>();
+            Action<string> first = _ => throw new InvalidOperationException("boom");
+            Action<string> second = seen.Add;
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("a subscriber threw"));
+            WindowsClipboardManager.InvokeInOrder("payload", first + second, null);
+
+            CollectionAssert.AreEqual(new[] { "payload" }, seen);
         }
 
 

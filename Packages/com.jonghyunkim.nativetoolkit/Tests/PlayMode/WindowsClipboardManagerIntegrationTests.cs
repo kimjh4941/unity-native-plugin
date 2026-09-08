@@ -885,6 +885,60 @@ namespace JonghyunKim.NativeToolkit.Tests
                 "the re-entrant caller would otherwise wait for a frame that never comes");
         }
 
+
+        [UnityTest]
+        public IEnumerator OneClipboardChangedSubscriberThrowingDoesNotSilenceTheNext()
+        {
+            // The no-argument path, raised from the native callback rather than a result delivery.
+            WindowsClipboardManager manager = RunningManager();
+            int reached = 0;
+            manager.ClipboardChanged += () => throw new System.InvalidOperationException("boom");
+            manager.ClipboardChanged += () => reached++;
+            yield return null;
+
+            LogAssert.Expect(LogType.Error, new Regex("a subscriber threw"));
+            WindowsClipboardManager.InjectClipboardChangedForTests();
+            yield return null;
+
+            Assert.AreEqual(1, reached, "the second subscriber lost its event to the first");
+        }
+
+        [UnityTest]
+        public IEnumerator OneHistoryEventSubscriberThrowingDoesNotSilenceTheNext()
+        {
+            // The argument-carrying path, which reaches its subscribers through the dispatcher.
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<bool>();
+            manager.HistoryEnabledChanged += _ => throw new System.InvalidOperationException("boom");
+            manager.HistoryEnabledChanged += seen.Add;
+            yield return null;
+
+            LogAssert.Expect(LogType.Error, new Regex("a subscriber threw"));
+            WindowsClipboardManager.InjectHistoryEnabledChangedForTests(true);
+            yield return null;
+
+            CollectionAssert.AreEqual(new[] { true }, seen);
+        }
+
+        [UnityTest]
+        public IEnumerator OneShutdownSubscriberThrowingDoesNotSilenceTheNext()
+        {
+            // The drain settles through its own path rather than InvokeInOrder, so it needs its
+            // own cover.
+            WindowsClipboardManager manager = RunningManager();
+            var seen = new List<WindowsClipboardResult>();
+            manager.ClipboardOperationCompleted += _ => throw new System.InvalidOperationException("boom");
+            manager.ClipboardOperationCompleted += seen.Add;
+            yield return null;
+
+            LogAssert.Expect(LogType.Error, new Regex("a subscriber threw"));
+            manager.ShutdownWithDrain();
+
+            for (int i = 0; i < 10 && seen.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, seen.Count, "the second subscriber lost the shutdown result");
+        }
+
         // ── Rejection paths ──────────────────────────────────────────────────────
 
         [UnityTest]
