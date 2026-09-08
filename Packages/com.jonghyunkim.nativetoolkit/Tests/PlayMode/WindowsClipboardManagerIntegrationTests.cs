@@ -666,7 +666,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return null;
             Assert.IsTrue(WindowsClipboardManager.DrainRunningForTests);
 
-            // The coroutine dies with the object, so nothing would ever reach its tail.
+            // Disabling comes first when an object is destroyed, and that is where the drain takes
+            // its last possible attempt before ending.
+            LogAssert.Expect(LogType.Error, new Regex("no attempts left"));
             Object.DestroyImmediate(manager.gameObject);
 
             Assert.AreEqual(1, results.Count, "the teardown owes this caller its one answer");
@@ -791,6 +793,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(WindowsClipboardQuitState.WaitingForDrain,
                 WindowsClipboardManager.QuitStateForTests);
 
+            LogAssert.Expect(LogType.Error, new Regex("no attempts left"));
             LogAssert.Expect(LogType.Error, new Regex("quitting with an incomplete shutdown"));
             Object.DestroyImmediate(manager.gameObject);
 
@@ -937,6 +940,129 @@ namespace JonghyunKim.NativeToolkit.Tests
             for (int i = 0; i < 10 && seen.Count == 0; i++) yield return null;
 
             Assert.AreEqual(1, seen.Count, "the second subscriber lost the shutdown result");
+        }
+
+
+        // ── One termination for every path (review v5) ───────────────────────────
+        // The session existed but the transitions that end it were owned by four functions, and
+        // only two of them let a pending quit through. These cover the other two.
+
+        [UnityTest]
+        public IEnumerator ADrainDisabledMidFlightStillAnswersItsCaller()
+        {
+            // Update stops when the object is disabled, so the drain cannot advance. Nothing used
+            // to notice, and the caller waited on a drain that would never move again.
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            Assert.IsTrue(WindowsClipboardManager.DrainRunningForTests);
+
+            LogAssert.Expect(LogType.Error, new Regex("no attempts left"));
+            manager.gameObject.SetActive(false);
+
+            Assert.AreNotEqual(WindowsClipboardDrainPhase.Running,
+                WindowsClipboardManager.DrainPhaseForTests,
+                "a drain that cannot advance must not still call itself running");
+
+            // The dispatcher is its own object and keeps running, so the queued result still
+            // arrives; only the drain's own attempts had to stop.
+            for (int i = 0; i < 5 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count, "the caller is still owed its result");
+            Assert.IsNull(WindowsClipboardManager.DrainPhaseForTests);
+
+            manager.gameObject.SetActive(true);
+        }
+
+        [UnityTest]
+        public IEnumerator AQuitArrivingAfterTheResultIsQueuedIsStillResumed()
+        {
+            // Between the drain finishing and the dispatcher delivering it, the drain is over but
+            // its result has not been handed out. A quit arriving in that window used to attach
+            // itself to a session that no longer had anything left to resume it.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            int quits = 0;
+            WindowsClipboardManager.QuitActionForTests = () => quits++;
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            WindowsClipboardManager.StepDrainForTests();
+            Assert.AreEqual(WindowsClipboardDrainPhase.DeliveryQueued,
+                WindowsClipboardManager.DrainPhaseForTests);
+
+            Assert.IsFalse(WindowsClipboardManager.InvokeWantsToQuitForTests(),
+                "the quit waits for the queued result to be handed over");
+
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual(1, quits, "the queued delivery had a quit to let through");
+            Assert.AreEqual(WindowsClipboardQuitState.Resumed,
+                WindowsClipboardManager.QuitStateForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator ATeardownReportsWhatItsOwnAttemptFoundRatherThanATimeout()
+        {
+            // The teardown makes an attempt of its own. Discarding its answer once told waiters a
+            // shutdown had timed out when it had in fact just completed.
+            WindowsClipboardManager manager = RunningManager();
+            int attempts = 0;
+            // Refuses while the drain runs, then succeeds for the attempt the teardown makes.
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => ++attempts < 2
+                    ? (false, WindowsClipboardErrorCode.Busy)
+                    : (true, WindowsClipboardErrorCode.None);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            Assert.IsTrue(WindowsClipboardManager.DrainRunningForTests);
+
+            Object.DestroyImmediate(manager.gameObject);
+
+            Assert.AreEqual(1, results.Count);
+            Assert.IsTrue(results[0].IsSuccess,
+                "the shutdown completed; reporting a timeout would be a lie about the native state");
+        }
+
+        [UnityTest]
+        public IEnumerator ARequestRejectedDuringAQuitSettleIsAnsweredOnTheSpot()
+        {
+            // A callback may start an asynchronous request while the quit settles. Its rejection
+            // takes the request path rather than the result path, and queueing it there means a
+            // frame that never comes.
+            // Judged by order rather than by arrival: the editor keeps running frames after the
+            // stand-in quit, so a queued delivery would turn up eventually and look the same. What
+            // separates the two is whether it arrives before the quit goes through.
+            WindowsClipboardManager manager = RunningManager();
+            var history = new List<WindowsClipboardHistoryResult>();
+            int quits = 0;
+            int quitsWhenRejectionArrived = -1;
+            WindowsClipboardManager.QuitActionForTests = () => quits++;
+            yield return null;
+
+            manager.ShutdownWithDrain(_ => manager.GetHistory(r =>
+            {
+                history.Add(r);
+                quitsWhenRejectionArrived = quits;
+            }));
+            Assert.IsFalse(WindowsClipboardManager.InvokeWantsToQuitForTests());
+
+            for (int i = 0; i < 10 && history.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, history.Count);
+            Assert.IsFalse(history[0].IsSuccess);
+            Assert.AreEqual(0, quitsWhenRejectionArrived,
+                "on a real quit there is no Update after this, so the rejection has to be handed "
+                + "over before the quit is let through");
         }
 
         // ── Rejection paths ──────────────────────────────────────────────────────
