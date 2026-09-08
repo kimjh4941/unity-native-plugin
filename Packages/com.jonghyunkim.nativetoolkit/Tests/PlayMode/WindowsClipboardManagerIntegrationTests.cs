@@ -634,23 +634,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
-        public IEnumerator ADrainThatCannotStartStillAnswersItsCaller()
+        public IEnumerator ADrainOnAnInactiveManagerStillAnswersItsCaller()
         {
-            // A coroutine cannot run on an inactive object. Leaving the running flag set would
-            // make every later caller, and any quit, wait on a drain that does not exist.
+            // Update drives the attempts and a disabled object gets none, so the drain would never
+            // advance. Making the one attempt that is possible beats leaving the caller waiting.
             WindowsClipboardManager manager = RunningManager();
             var results = new List<WindowsClipboardResult>();
             yield return null;
             manager.gameObject.SetActive(false);
 
-            // Unity reports the refusal itself, then this layer reports that it gave up.
-            LogAssert.Expect(LogType.Error, new Regex("Coroutine couldn't be started"));
-            LogAssert.Expect(LogType.Error, new Regex("the drain coroutine did not start"));
             manager.ShutdownWithDrain(results.Add);
             yield return null;
 
-            Assert.IsFalse(WindowsClipboardManager.DrainRunningForTests,
-                "a drain that never started must not stay marked as running");
+            Assert.IsNull(WindowsClipboardManager.DrainPhaseForTests,
+                "a drain that cannot advance must not be left in flight");
             Assert.AreEqual(1, results.Count, "the caller is still owed its result");
 
             manager.gameObject.SetActive(true);
@@ -719,6 +716,173 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(1, second.Count,
                 "the second caller lost its result to the first caller's exception");
+        }
+
+
+        // ── The drain session (review v4) ────────────────────────────────────────
+        // The drain used to be four separate flags. These cover the states that could not be
+        // told apart before: a runner that died, a delivery queued but not yet made, and a
+        // settle in progress.
+
+        [UnityTest]
+        public IEnumerator ADrainSurvivesStopAllCoroutines()
+        {
+            // It used to be a coroutine, which anything could stop without leaving a trace, and
+            // the caller would then wait forever on a drain that no longer existed.
+            WindowsClipboardManager manager = RunningManager();
+            int attempts = 0;
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => ++attempts < 3
+                    ? (false, WindowsClipboardErrorCode.Busy)
+                    : (true, WindowsClipboardErrorCode.None);
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            yield return null;
+            manager.StopAllCoroutines();
+
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count, "the drain no longer depends on a coroutine");
+            Assert.IsTrue(results[0].IsSuccess);
+        }
+
+        [UnityTest]
+        public IEnumerator AnAttemptThatThrowsEndsTheDrainRatherThanStallingIt()
+        {
+            WindowsClipboardManager manager = RunningManager();
+            // Throws once: the teardown makes its own attempt, and a second throw there would be
+            // this seam talking rather than anything under test.
+            bool thrown = false;
+            WindowsClipboardManager.NativeShutdownForTests = () =>
+            {
+                if (thrown) return (true, WindowsClipboardErrorCode.None);
+                thrown = true;
+                throw new System.InvalidOperationException("boom");
+            };
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            LogAssert.Expect(LogType.Error, new Regex("InvalidOperationException"));
+            manager.ShutdownWithDrain(results.Add);
+
+            for (int i = 0; i < 10 && results.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, results.Count, "a throwing attempt still owes the caller an answer");
+            Assert.IsFalse(results[0].IsSuccess);
+            Assert.IsNull(WindowsClipboardManager.DrainPhaseForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator AQuitPendingWhenTheManagerIsDestroyedIsStillResumed()
+        {
+            // The quit was refused once. If the drain carrying it disappears without resuming it,
+            // nothing else will, and the application can never exit.
+            WindowsClipboardManager manager = RunningManager();
+            WindowsClipboardManager.NativeShutdownForTests =
+                () => (false, WindowsClipboardErrorCode.Busy);
+            int quits = 0;
+            WindowsClipboardManager.QuitActionForTests = () => quits++;
+            yield return null;
+
+            Assert.IsFalse(WindowsClipboardManager.InvokeWantsToQuitForTests());
+            yield return null;
+            Assert.AreEqual(WindowsClipboardQuitState.WaitingForDrain,
+                WindowsClipboardManager.QuitStateForTests);
+
+            LogAssert.Expect(LogType.Error, new Regex("quitting with an incomplete shutdown"));
+            Object.DestroyImmediate(manager.gameObject);
+
+            Assert.AreEqual(1, quits, "the destroyed drain still had a quit to let through");
+            Assert.AreEqual(WindowsClipboardQuitState.Resumed,
+                WindowsClipboardManager.QuitStateForTests);
+        }
+
+        [UnityTest]
+        public IEnumerator ATeardownClaimsADeliveryThatWasQueuedButNotYetMade()
+        {
+            // Between the drain finishing and the dispatcher running it, the result exists but has
+            // not been handed over. That used to look exactly like a finished drain, so a teardown
+            // in this window dropped the result.
+            WindowsClipboardManager manager = RunningManager();
+            var results = new List<WindowsClipboardResult>();
+            yield return null;
+
+            manager.ShutdownWithDrain(results.Add);
+            WindowsClipboardManager.StepDrainForTests();
+
+            Assert.AreEqual(WindowsClipboardDrainPhase.DeliveryQueued,
+                WindowsClipboardManager.DrainPhaseForTests);
+            Assert.AreEqual(0, results.Count, "the delivery is queued, not yet made");
+
+            Object.DestroyImmediate(manager.gameObject);
+
+            Assert.AreEqual(1, results.Count, "the teardown owed this caller the queued result");
+
+            yield return null;
+            Assert.AreEqual(1, results.Count, "the queued delivery must not run a second time");
+        }
+
+        [UnityTest]
+        public IEnumerator ACallerJoiningAFailedDrainMidSettleIsAnsweredByTheSamePass()
+        {
+            // After a terminal failure the manager is not ShutDown, so a callback calling
+            // ShutdownWithDrain again does not take the idempotent-success shortcut: it joins the
+            // session that is settling right now, and has to be served by that same pass.
+            WindowsClipboardManager manager = RunningManager();
+            // Fails terminally once. The teardown makes its own attempt, and failing that one too
+            // would be this seam talking rather than anything under test.
+            bool failed = false;
+            WindowsClipboardManager.NativeShutdownForTests = () =>
+            {
+                if (failed) return (true, WindowsClipboardErrorCode.None);
+                failed = true;
+                return (false, WindowsClipboardErrorCode.WrongThread);
+            };
+            var first = new List<WindowsClipboardResult>();
+            var joined = new List<WindowsClipboardResult>();
+            yield return null;
+
+            LogAssert.Expect(LogType.Error, new Regex("terminal shutdown failure"));
+            manager.ShutdownWithDrain(r =>
+            {
+                first.Add(r);
+                manager.ShutdownWithDrain(joined.Add);
+            });
+
+            for (int i = 0; i < 10 && first.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, first.Count);
+            Assert.AreEqual(WindowsClipboardManagerState.ShutdownFailed,
+                WindowsClipboardManager.StateForTests, "the shortcut must not apply here");
+            Assert.AreEqual(1, joined.Count,
+                "a caller that joined while the settle ran was left without an answer");
+        }
+
+        [UnityTest]
+        public IEnumerator ACallerArrivingWhileTheDrainSettlesIsAnsweredByTheSamePass()
+        {
+            // A callback may start another shutdown. During a quit settle there is no next frame
+            // to deliver it on, so it has to join the pass that is already running.
+            WindowsClipboardManager manager = RunningManager();
+            var first = new List<WindowsClipboardResult>();
+            var second = new List<WindowsClipboardResult>();
+            WindowsClipboardManager.QuitActionForTests = () => { };
+            yield return null;
+
+            manager.ShutdownWithDrain(r =>
+            {
+                first.Add(r);
+                manager.ShutdownWithDrain(second.Add);
+            });
+            Assert.IsFalse(WindowsClipboardManager.InvokeWantsToQuitForTests());
+
+            for (int i = 0; i < 10 && first.Count == 0; i++) yield return null;
+
+            Assert.AreEqual(1, first.Count);
+            Assert.AreEqual(1, second.Count,
+                "the re-entrant caller would otherwise wait for a frame that never comes");
         }
 
         // ── Rejection paths ──────────────────────────────────────────────────────

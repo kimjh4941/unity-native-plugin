@@ -101,6 +101,38 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
     /// <summary>
     /// Which COM reference this layer owns on the Unity main thread.
     /// </summary>
+    /// <summary>
+    /// Where one drain has got to.
+    /// <para>
+    /// A drain used to be described by four separate flags, whose combinations could neither tell
+    /// a live drain from one whose runner had died, nor a queued delivery from a finished one.
+    /// </para>
+    /// </summary>
+    internal enum WindowsClipboardDrainPhase
+    {
+        /// <summary>Attempts are still being made, one per frame.</summary>
+        Running,
+
+        /// <summary>The result is known and is being handed over on the current stack.</summary>
+        Settling,
+
+        /// <summary>The result is known and its delivery is waiting on the dispatcher.</summary>
+        DeliveryQueued
+    }
+
+    /// <summary>How far a quit request has got.</summary>
+    internal enum WindowsClipboardQuitState
+    {
+        /// <summary>No quit has been asked for.</summary>
+        None,
+
+        /// <summary>A quit was refused once and is waiting for a drain to finish.</summary>
+        WaitingForDrain,
+
+        /// <summary>The quit has been let through; a second request goes straight past.</summary>
+        Resumed
+    }
+
     internal enum WindowsClipboardComOwnership
     {
         /// <summary>This layer initialized nothing and must release nothing.</summary>
@@ -375,17 +407,49 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         private static bool s_quitHandlerSubscribed;
 
-        // A drain runs across frames, so a second request has to join the running one rather
-        // than start its own: two coroutines would each run the native attempt and each report
-        // a completion for the same shutdown.
-        private static bool s_drainRunning;
-        private static bool s_drainDeliveryRequested;
+        /// <summary>
+        /// One run of the drain, from the first attempt to the moment its result is handed over.
+        /// </summary>
+        /// <remarks>
+        /// A single object rather than a set of flags. The flags could not express the states this
+        /// actually reaches - a runner that died, a delivery queued but not yet made, a settle in
+        /// progress - and every combination they could not express turned into a defect.
+        /// </remarks>
+        private sealed class DrainSession
+        {
+            /// <summary>Identifies this run, so a queued delivery cannot settle a later one.</summary>
+            internal uint Generation;
 
-        // A list rather than a multicast delegate: each caller asked separately and is owed its
-        // own answer, so one that throws must not take the others' results with it.
-        private static List<Action<WindowsClipboardResult>>? s_drainWaiters;
-        private static bool s_quitDrainStarted;
-        private static bool s_quitDrainCompleted;
+            internal WindowsClipboardDrainPhase Phase = WindowsClipboardDrainPhase.Running;
+            internal int Attempts;
+            internal float Deadline;
+            internal bool RecoveryTried;
+
+            /// <summary>Whether anyone asked for the result. A quit alone does not.</summary>
+            internal bool DeliveryRequested;
+
+            // A list rather than a multicast delegate: each caller asked separately and is owed its
+            // own answer, so one that throws must not take the others' results with it. Indexed
+            // during the settle, so a caller that joins while it runs is still served.
+            internal readonly List<Action<WindowsClipboardResult>> Waiters = new();
+
+            internal WindowsClipboardResult Result;
+            internal WindowsClipboardShutdownProgress Progress = WindowsClipboardShutdownProgress.NotYet;
+        }
+
+        private static DrainSession? s_drain;
+
+        // Never rewound, for the same reason request tickets are not: a delivery queued before a
+        // reset still carries its generation, and reusing it would let that stale delivery settle
+        // a later drain.
+        private static uint s_drainGeneration;
+
+        private static WindowsClipboardQuitState s_quitState;
+
+        // True while a settle is running that a quit follows. Nothing pumps the dispatcher after
+        // the quit, so anything delivered during it has to be handed over on this stack - not only
+        // the drain's own result, but whatever a callback starts while it runs.
+        private static bool s_deliveringBeforeQuit;
 
         // ── Shutdown budget ──────────────────────────────────────────────────────
 
@@ -446,7 +510,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         internal static void SetMainThreadIdForTests(int threadId) => s_mainThreadId = threadId;
 
         /// <summary>Whether a drain coroutine is currently running.</summary>
-        internal static bool DrainRunningForTests => s_drainRunning;
+        internal static bool DrainRunningForTests =>
+            s_drain != null && s_drain.Phase == WindowsClipboardDrainPhase.Running;
+
+        /// <summary>The current drain's phase, or null when no drain is in flight.</summary>
+        internal static WindowsClipboardDrainPhase? DrainPhaseForTests => s_drain?.Phase;
+
+        /// <summary>
+        /// Makes one drain attempt without waiting for Update, so a test can stop between the
+        /// moment a delivery is queued and the moment it is claimed.
+        /// </summary>
+        internal static void StepDrainForTests()
+        {
+            DrainSession? session = s_drain;
+            if (session == null || _instance == null) return;
+            if (session.Phase != WindowsClipboardDrainPhase.Running) return;
+            _instance.AdvanceDrain(session, force: false);
+        }
 
         /// <summary>
         /// Stands in for the native shutdown call, so the paths that only exist while the native
@@ -481,7 +561,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         internal static bool InvokeWantsToQuitForTests() => OnWantsToQuit();
 
         /// <summary>Whether the quit drain has started and finished, for the resume tests.</summary>
-        internal static bool QuitDrainCompletedForTests => s_quitDrainCompleted;
+        internal static bool QuitDrainCompletedForTests =>
+            s_quitState == WindowsClipboardQuitState.Resumed;
+
+        /// <summary>How far a quit request has got.</summary>
+        internal static WindowsClipboardQuitState QuitStateForTests => s_quitState;
 
         /// <summary>Puts the manager into a state a test needs without touching the native side.</summary>
         internal static void SetStateForTests(WindowsClipboardManagerState state) => s_state = state;
@@ -656,9 +740,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     $"result: {result.ErrorCode}");
             }
 
-            // A drain coroutine dies with this object, so anyone waiting on it would never hear
-            // back. Synchronous for the same reason the registry drain is: nothing pumps after this.
-            if (s_drainRunning) SettleDrain(result, synchronous: true);
+            // Nothing will call Update or run a queued delivery after this, so a drain still in
+            // flight is ended here - including the quit it may be carrying.
+            AbortDrain();
 
             _instance = null;
             // s_dispatcher is deliberately left set: post-destruction rejections still need it.
@@ -828,33 +912,25 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 return;
             }
 
-            if (onResult != null)
+            // Joining an existing drain, whatever stage it is at. A caller that arrives while
+            // the result is being handed over is picked up by that same pass.
+            DrainSession session = s_drain ?? StartDrain();
+            session.DeliveryRequested = true;
+            if (onResult != null) session.Waiters.Add(onResult);
+            if (!ReferenceEquals(session, s_drain) || session.Phase != WindowsClipboardDrainPhase.Running)
             {
-                s_drainWaiters ??= new List<Action<WindowsClipboardResult>>();
-                s_drainWaiters.Add(onResult);
-            }
-            s_drainDeliveryRequested = true;
-
-            // A drain already in flight will deliver to everyone waiting on it, including a quit
-            // that arrives later.
-            if (s_drainRunning) return;
-
-            s_drainRunning = true;
-            try
-            {
-                if (StartCoroutine(DrainRoutine(ShutdownOrigin.Drain)) != null) return;
-                Debug.LogError($"[{LogTag}][{nameof(ShutdownWithDrain)}] the drain coroutine did not start.");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(ShutdownWithDrain)}] could not start the drain: {ex.Message}");
+                return;
             }
 
-            // Nothing is going to run the drain, and leaving the flag set would make every later
-            // caller - and any quit that arrives - wait on a coroutine that does not exist. One
-            // synchronous attempt still releases what it can.
-            WindowsClipboardResult single = RunShutdownAttempt(ShutdownOrigin.Drain, out _, out _);
-            SettleDrain(single, synchronous: false);
+            // Update drives the attempts, and a disabled object gets none. Rather than leave the
+            // caller waiting on a drain that cannot advance, make the one attempt that is possible.
+            if (!isActiveAndEnabled)
+            {
+                Debug.LogWarning(
+                    $"[{LogTag}][{nameof(ShutdownWithDrain)}] the manager is not active; " +
+                    "draining in one attempt instead of across frames.");
+                AdvanceDrain(session, force: true);
+            }
         }
 
         /// <summary>
@@ -2595,11 +2671,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 completed = uninitClipboardManager(out int pError);
                 return WindowsClipboardResult.FromNative(OperationShutdown, pError);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex)
             {
+                // Every exception, not only the two that name a missing bridge. OnDestroy calls
+                // this and has nowhere to put a throw, so anything escaping here would surface as
+                // an unhandled exception during teardown and skip the rest of it.
                 Debug.LogError($"[{LogTag}][{nameof(InvokeNativeShutdown)}] {ex.GetType().Name}: {ex.Message}");
                 completed = false;
-                return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.BridgeUnavailable);
+                return WindowsClipboardResult.Failure(
+                    OperationShutdown,
+                    ex is DllNotFoundException || ex is EntryPointNotFoundException
+                        ? WindowsClipboardErrorCode.BridgeUnavailable
+                        : WindowsClipboardErrorCode.Unknown);
             }
 #else
 #if UNITY_EDITOR
@@ -2723,109 +2806,228 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             };
         }
 
-        private IEnumerator DrainRoutine(ShutdownOrigin origin)
+        /// <summary>
+        /// Opens a drain. The first attempt happens on the next Update, never inside this call.
+        /// </summary>
+        private static DrainSession StartDrain()
         {
-            // Never finish inside StartCoroutine. A drain that completed before its caller got the
-            // handle back would resume the quit while OnWantsToQuit was still deciding what to
-            // answer, and the caller could not tell a coroutine that ran from one that never
-            // started. One frame is what this API costs anyway.
-            yield return null;
-
-            int attempts = 0;
-            float deadline = Time.realtimeSinceStartup + s_retrySecondBudget;
-            WindowsClipboardResult result = WindowsClipboardResult.Success(OperationShutdown);
-            WindowsClipboardShutdownProgress progress = WindowsClipboardShutdownProgress.NotYet;
-            bool recoveryTried = false;
-
-            while (attempts < s_retryFrameBudget && Time.realtimeSinceStartup < deadline)
+            var session = new DrainSession
             {
-                attempts++;
-                result = RunShutdownAttempt(origin, out _, out progress);
-                if (progress != WindowsClipboardShutdownProgress.NotYet) break;
+                Generation = ++s_drainGeneration,
+                Deadline = Time.realtimeSinceStartup + s_retrySecondBudget,
+                Result = WindowsClipboardResult.Success(OperationShutdown)
+            };
+            s_drain = session;
+            return session;
+        }
+
+        /// <summary>
+        /// Drives the drain, one attempt per frame.
+        /// <para>
+        /// Deliberately not a coroutine. A coroutine dies with StopAllCoroutines or a disabled
+        /// object, silently and with no transition anyone can observe, which left callers waiting
+        /// on a drain that no longer existed. Update either runs or the object is gone, and the
+        /// second case has its own transition.
+        /// </para>
+        /// </summary>
+        private void Update()
+        {
+            DrainSession? session = s_drain;
+            if (session == null || _instance != this) return;
+            if (session.Phase != WindowsClipboardDrainPhase.Running) return;
+
+            AdvanceDrain(session, force: false);
+        }
+
+        /// <summary>
+        /// Makes one shutdown attempt and decides whether the drain is over.
+        /// </summary>
+        /// <param name="session">The drain in flight.</param>
+        /// <param name="force">
+        /// True when this is the only attempt there will be, because nothing will call Update again.
+        /// </param>
+        private void AdvanceDrain(DrainSession session, bool force)
+        {
+            try
+            {
+                session.Attempts++;
+                session.Result = RunShutdownAttempt(
+                    ShutdownOrigin.Drain, out _, out WindowsClipboardShutdownProgress progress);
+                session.Progress = progress;
+
+                if (progress != WindowsClipboardShutdownProgress.NotYet)
+                {
+                    FinishDrain(session);
+                    return;
+                }
 
                 // A half-applied reservation makes the native uninit refuse to finish for as long
                 // as it stands, so recovering from it is part of the drain rather than something
                 // the caller has to know to do. Once only: a second call would spend the budget on
                 // an answer we already have.
-                if (!recoveryTried && result.ErrorCode == WindowsClipboardErrorCode.PartialState)
+                if (!session.RecoveryTried &&
+                    session.Result.ErrorCode == WindowsClipboardErrorCode.PartialState)
                 {
-                    recoveryTried = true;
+                    session.RecoveryTried = true;
                     var recovery = (WindowsClipboardErrorCode)RecoverDeferredStateNative(out _);
-                    Debug.Log($"[{LogTag}][{nameof(DrainRoutine)}] partial state; recovery reported: {recovery}");
+                    Debug.Log($"[{LogTag}][{nameof(AdvanceDrain)}] partial state; recovery reported: {recovery}");
                 }
 
-                Debug.Log($"[{LogTag}][{nameof(DrainRoutine)}] attempt {attempts} not finished yet: {result.ErrorCode}");
-                yield return null;
-            }
+                bool spent = session.Attempts >= s_retryFrameBudget ||
+                             Time.realtimeSinceStartup >= session.Deadline;
+                if (force || spent)
+                {
+                    Debug.LogError(
+                        $"[{LogTag}][{nameof(AdvanceDrain)}] shutdown exceeded its budget after {session.Attempts} attempts.");
+                    session.Result = WindowsClipboardResult.Failure(
+                        OperationShutdown, WindowsClipboardErrorCode.ShutdownTimeout);
+                    session.Progress = WindowsClipboardShutdownProgress.Terminal;
+                    // The last attempt left the state at Draining, which claims a shutdown is still
+                    // making progress. It is not, and operations must keep being refused.
+                    s_state = WindowsClipboardManagerState.ShutdownFailed;
+                    FinishDrain(session);
+                    return;
+                }
 
-            if (progress == WindowsClipboardShutdownProgress.NotYet)
+                Debug.Log($"[{LogTag}][{nameof(AdvanceDrain)}] attempt {session.Attempts} not finished yet: {session.Result.ErrorCode}");
+            }
+            catch (Exception ex)
             {
-                Debug.LogError($"[{LogTag}][{nameof(DrainRoutine)}] shutdown exceeded its budget after {attempts} attempts.");
-                result = WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardErrorCode.ShutdownTimeout);
-                progress = WindowsClipboardShutdownProgress.Terminal;
-                // The last attempt left the state at Draining, which claims a shutdown is still
-                // making progress. It is not, and operations must keep being refused.
-                s_state = WindowsClipboardManagerState.ShutdownFailed;
+                // An attempt that throws must still end the drain. Leaving it Running would hold
+                // every waiter, and any quit, on something that will never progress.
+                Debug.LogError($"[{LogTag}][{nameof(AdvanceDrain)}] {ex.GetType().Name}: {ex.Message}");
+                session.Result = WindowsClipboardResult.Failure(
+                    OperationShutdown, WindowsClipboardErrorCode.Unknown);
+                session.Progress = WindowsClipboardShutdownProgress.Terminal;
+                FinishDrain(session);
             }
-
-            // A quit resumes right after this, and the application may be gone before the
-            // dispatcher runs again, so the result has to be handed over now rather than queued.
-            bool quitting = s_quitDrainStarted && !s_quitDrainCompleted;
-            SettleDrain(result, synchronous: quitting);
-
-            // Whoever asked to quit is resumed here, even when this drain was started by an
-            // ordinary ShutdownWithDrain that the quit later joined.
-            if (quitting) ResumeQuit(progress, result);
         }
 
         /// <summary>
-        /// Ends a drain: clears its state and hands the result to everyone waiting on it.
+        /// Ends a drain that reached a conclusion, and hands the result over or queues it.
         /// </summary>
-        /// <param name="result">The drain's final result.</param>
-        /// <param name="synchronous">
-        /// True when nothing is guaranteed to pump the dispatcher again - a resuming quit, or a
-        /// manager being destroyed. A queued delivery would then never arrive.
-        /// </param>
-        private static void SettleDrain(WindowsClipboardResult result, bool synchronous)
+        private static void FinishDrain(DrainSession session)
         {
-            s_drainRunning = false;
-            if (!s_drainDeliveryRequested) return;
+            // A quit resumes right after this and the application may be gone before the dispatcher
+            // runs again, so the result is handed over on this stack rather than queued.
+            if (s_quitState == WindowsClipboardQuitState.WaitingForDrain)
+            {
+                s_deliveringBeforeQuit = true;
+                try
+                {
+                    SettleDrain(session);
+                }
+                finally
+                {
+                    s_deliveringBeforeQuit = false;
+                }
+                ResumeQuit(session.Progress, session.Result);
+                return;
+            }
 
-            s_drainDeliveryRequested = false;
-            List<Action<WindowsClipboardResult>>? waiters = s_drainWaiters;
-            s_drainWaiters = null;
-            Action<WindowsClipboardResult>? common = _instance?.ClipboardOperationCompleted;
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (dispatcher == null)
+            {
+                SettleDrain(session);
+                return;
+            }
 
-            void Hand()
+            // The session stays until the delivery is claimed, so a teardown in between can take
+            // it over instead of finding no trace of a result that was never handed out.
+            session.Phase = WindowsClipboardDrainPhase.DeliveryQueued;
+            uint generation = session.Generation;
+            dispatcher.Enqueue(() => ClaimDrainDelivery(generation));
+        }
+
+        /// <summary>
+        /// Delivers a queued drain result, unless a teardown already claimed it.
+        /// </summary>
+        private static void ClaimDrainDelivery(uint generation)
+        {
+            DrainSession? session = s_drain;
+            if (session == null || session.Generation != generation) return;
+            if (session.Phase != WindowsClipboardDrainPhase.DeliveryQueued) return;
+            SettleDrain(session);
+        }
+
+        /// <summary>
+        /// Ends a drain that will not finish: the manager is going away, so nothing will call
+        /// Update again and nothing will run a queued delivery.
+        /// </summary>
+        private static void AbortDrain()
+        {
+            DrainSession? session = s_drain;
+            if (session == null) return;
+
+            if (session.Progress == WindowsClipboardShutdownProgress.NotYet)
+            {
+                // No attempt ever concluded, so the drain ran out of time rather than finishing.
+                session.Result = WindowsClipboardResult.Failure(
+                    OperationShutdown, WindowsClipboardErrorCode.ShutdownTimeout);
+                session.Progress = WindowsClipboardShutdownProgress.Terminal;
+            }
+
+            bool quitting = s_quitState == WindowsClipboardQuitState.WaitingForDrain;
+            s_deliveringBeforeQuit = quitting;
+            try
+            {
+                SettleDrain(session);
+            }
+            finally
+            {
+                s_deliveringBeforeQuit = false;
+            }
+
+            if (quitting)
+            {
+                // The quit was refused once and nothing else is left to let it through.
+                ResumeQuit(session.Progress, session.Result);
+            }
+        }
+
+        /// <summary>
+        /// Hands a finished drain's result to everyone waiting on it, exactly once.
+        /// </summary>
+        /// <remarks>
+        /// The single exit of a drain, whatever ended it. The session is cleared only at the end,
+        /// so a caller arriving while this runs joins the same pass instead of waiting on a
+        /// delivery that has already happened.
+        /// </remarks>
+        private static void SettleDrain(DrainSession session)
+        {
+            if (!ReferenceEquals(s_drain, session)) return;
+            session.Phase = WindowsClipboardDrainPhase.Settling;
+
+            WindowsClipboardResult result = session.Result;
+            if (session.DeliveryRequested)
             {
                 try
                 {
-                    common?.Invoke(result);
+                    _instance?.ClipboardOperationCompleted?.Invoke(result);
                 }
                 catch (Exception ex)
                 {
                     Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a common event subscriber threw: {ex.Message}");
                 }
+            }
 
-                if (waiters == null) return;
-                foreach (Action<WindowsClipboardResult> waiter in waiters)
+            // Indexed rather than foreach: a callback may call ShutdownWithDrain again, and while
+            // this drain is settling that caller joins this list and has to be answered here too.
+            for (int i = 0; i < session.Waiters.Count; i++)
+            {
+                // Contained one by one: every caller of ShutdownWithDrain is owed the result it
+                // asked for, whatever the caller before it did with its own.
+                try
                 {
-                    // Contained one by one: every caller of ShutdownWithDrain is owed the result
-                    // it asked for, whatever the caller before it did with its own.
-                    try
-                    {
-                        waiter(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a drain callback threw: {ex.Message}");
-                    }
+                    session.Waiters[i](result);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(SettleDrain)}] a drain callback threw: {ex.Message}");
                 }
             }
 
-            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
-            if (synchronous || dispatcher == null) Hand();
-            else dispatcher.Enqueue(Hand);
+            if (ReferenceEquals(s_drain, session)) s_drain = null;
         }
 
         /// <summary>
@@ -2883,42 +3085,36 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         private static bool OnWantsToQuit()
         {
-            Debug.Log($"[{LogTag}][{nameof(OnWantsToQuit)}] started: {s_quitDrainStarted}, completed: {s_quitDrainCompleted}");
+            Debug.Log($"[{LogTag}][{nameof(OnWantsToQuit)}] state: {s_quitState}");
 
-            if (s_quitDrainCompleted) return true;
-            if (s_quitDrainStarted) return false;
+            if (s_quitState == WindowsClipboardQuitState.Resumed) return true;
 
-            s_quitDrainStarted = true;
+            // A drain is already carrying this quit and will resume it when it ends.
+            if (s_quitState == WindowsClipboardQuitState.WaitingForDrain) return false;
+
             if (_instance == null)
             {
-                // Nothing can run a coroutine, so let the quit through rather than hanging.
-                s_quitDrainCompleted = true;
+                // Nothing can drive a drain, so let the quit through rather than hanging.
+                s_quitState = WindowsClipboardQuitState.Resumed;
                 return true;
             }
 
-            // A drain already running will resume the quit when it ends, whatever started it.
-            if (s_drainRunning) return false;
+            s_quitState = WindowsClipboardQuitState.WaitingForDrain;
+            DrainSession session = s_drain ?? StartDrain();
 
-            try
+            // A disabled manager gets no Update, so the drain would never advance and the quit
+            // would never be let through. Refusing to exit is worse than shutting down without
+            // the retries, so take the one attempt that is possible and go.
+            if (!_instance.isActiveAndEnabled && session.Phase == WindowsClipboardDrainPhase.Running)
             {
-                s_drainRunning = true;
-                if (_instance.StartCoroutine(_instance.DrainRoutine(ShutdownOrigin.Quit)) != null)
-                {
-                    return false;
-                }
-                Debug.LogError($"[{LogTag}][{nameof(OnWantsToQuit)}] the drain coroutine did not start.");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(OnWantsToQuit)}] could not start the drain: {ex.Message}");
+                Debug.LogWarning(
+                    $"[{LogTag}][{nameof(OnWantsToQuit)}] the manager is not active; " +
+                    "draining in one attempt instead of across frames.");
+                _instance.AdvanceDrain(session, force: true);
+                return s_quitState == WindowsClipboardQuitState.Resumed;
             }
 
-            // Nothing will resume the quit now, and refusing it forever is worse than shutting down
-            // without the drain. One synchronous attempt still releases what it can.
-            s_drainRunning = false;
-            _instance.RunShutdownAttempt(ShutdownOrigin.Quit, out _, out _);
-            s_quitDrainCompleted = true;
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -2933,7 +3129,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                     $"[{LogTag}][{nameof(ResumeQuit)}] quitting with an incomplete shutdown: {result.ErrorCode}");
             }
 
-            s_quitDrainCompleted = true;
+            s_quitState = WindowsClipboardQuitState.Resumed;
 #if UNITY_EDITOR
             if (QuitActionForTests != null)
             {
@@ -3062,6 +3258,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
                 Debug.LogError($"[{LogTag}][{nameof(Dispatch)}] no dispatcher; result dropped.");
                 return;
             }
+
+            // A queued delivery needs a later Update, and a quit that is about to go through means
+            // there will not be one.
+            if (s_deliveringBeforeQuit)
+            {
+                InvokeInOrder(result, common, perCall);
+                return;
+            }
+
             dispatcher.Enqueue(() => InvokeInOrder(result, common, perCall));
         }
 
@@ -3504,11 +3709,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
             s_renderProviders = new Dictionary<string, Func<byte[]>>();
             s_renderCache.Clear();
             s_renderStaging = null;
-            s_drainRunning = false;
-            s_drainDeliveryRequested = false;
-            s_drainWaiters = null;
-            s_quitDrainStarted = false;
-            s_quitDrainCompleted = false;
+            s_drain = null;
+            s_quitState = WindowsClipboardQuitState.None;
+            s_deliveringBeforeQuit = false;
             s_isTerminated = false;
 
 #if UNITY_EDITOR
