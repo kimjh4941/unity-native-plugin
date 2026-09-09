@@ -754,6 +754,10 @@ Copy → Paste の往復で長さと一致 bool を確認する。再試行分�
 | S-8 | `[accept]` と `[done]` の未消化件数が、操作を止めれば 0 に戻る（exactly-once の目視） |
 | S-9 | **Await 版のキャンセルが `[done]` 行に `Canceled` として出る**（例外として消えない）。全 await 地点が `Canceled` で早期 return している（7.4.1） |
 
+**S-5 / S-6 の前提**: Manager は `DontDestroyOnLoad` のため、**画面を出入りしても状態が持ち越される**。
+直前に shutdown していると再入場後も `ShutDown` のままで、`ClipboardChanged` が 1 件も来ない。
+**再入場後に `Initialize` を押さないと判定が成立しない。**（実機確認 v1 の 5 節 3）
+
 **S-7 の注記**: Editor では TopMenu が `DisplayDialog` を出すだけで本画面に到達しない。
 S-7 を実施するには 5.2 の Editor 分岐も本画面へ遷移させる必要がある。**要検討事項**（10 節 V-3）。
 

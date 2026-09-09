@@ -116,7 +116,7 @@
 
                 <ui:VisualElement class="windows-clipboard-section">
                     <ui:Label text="Events" class="windows-clipboard-section-title" />
-                    <ui:Label text="Turn history events off before changing the Windows history setting: a failed stop makes MonitorRegisterFailed sticky and every later start is refused. HistoryEnabledChanged not firing is expected." class="windows-clipboard-section-note" />
+                    <ui:Label text="Turn history events off before changing the Windows history setting: a failed stop makes MonitorRegisterFailed sticky and every later start is refused. HistoryEnabledChanged not firing is expected. The Manager outlives this screen, so after leaving and coming back it is still whatever the last shutdown left it: press Initialize again or no events arrive at all." class="windows-clipboard-section-note" />
                     <ui:Button name="EnableHistoryEventsButton" class="windows-clipboard-button" text="Enable History Events" />
                     <ui:Button name="DisableHistoryEventsButton" class="windows-clipboard-button" text="Disable History Events" />
                     <ui:Button name="ResetEventCountersButton" class="windows-secondary-button" text="Reset Event Counters" />
