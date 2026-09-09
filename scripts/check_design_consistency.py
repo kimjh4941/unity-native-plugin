@@ -349,6 +349,40 @@ def check_repeated_counts(text, rep):
               "; ".join(f"{k}: {v}" for k, v in conflicting.items()))
 
 
+_SHIPPED = None
+
+
+def shipped_names():
+    """Every name the package's own sources already define.
+
+    A design document has to introduce the helpers it invents, not the API it
+    calls: "FinishDrain" is a method that exists, and asking prose to declare it
+    again is noise. Reading the sources answers that without a hand-kept list,
+    which is what the previous allow-list was and could never finish being.
+    """
+    global _SHIPPED
+    if _SHIPPED is None:
+        names = set()
+        package = REPO / "Packages" / "com.jonghyunkim.nativetoolkit"
+        # Named rather than walked from the package root: Plugins/ carries the macOS
+        # xcframework, whose Versions/Current symlink is dead on a Windows checkout
+        # and ends the walk with a FileNotFoundError.
+        sources = [package / name for name in ("Runtime", "Editor", "Tests")]
+        for path in [p for root in sources if root.is_dir() for p in root.rglob("*.cs")]:
+            source = path.read_text(encoding="utf-8", errors="replace")
+            for line in source.splitlines():
+                # Comments and doc prose are read out first, or every English word
+                # in the package would count as a name it defines.
+                if line.lstrip().startswith("///"):
+                    continue
+                names.update(re.findall(r"\b[A-Za-z_]\w*\b", readable_code(line)))
+        for path in [p for root in sources if root.is_dir() for p in root.rglob("*.uxml")]:
+            source = path.read_text(encoding="utf-8", errors="replace")
+            names.update(re.findall(r'name="([^"]+)"', source))
+        _SHIPPED = names
+    return _SHIPPED
+
+
 def readable_code(line):
     """A code line with the parts that name nothing removed.
 
@@ -405,6 +439,8 @@ def check_code_identifiers(text, rep):
     interesting = {}
     for name, lineno in used.items():
         if FOREIGN.match(name) or len(name) < 5:
+            continue
+        if name in shipped_names():
             continue
         # SCREAMING_SNAKE is a compile symbol or a native constant, never a helper
         # this document was supposed to declare: UNITY_EDITOR, CLIPBOARD_EMPTY_CONTENT.
