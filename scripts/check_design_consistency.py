@@ -164,6 +164,19 @@ def check_section_refs(text, rep):
         rep.skip("cited sections exist", "no numbered headings")
         return
 
+    # Headings are not the only thing the prose cites. A chapter whose body is an
+    # ordered list is cited by position: "要検証 9.2" is the second item under
+    # "## 9. 要検証事項", which is a heading the document never writes. Counting the
+    # items keeps that a real check - 9.2 resolves, 9.9 does not - instead of either
+    # a false failure or a blanket exclusion.
+    chapters = {}
+    for m in re.finditer(r"^## (\d+)[ .]", text, re.M):
+        rest = text[m.end():]
+        stop = re.search(r"^#{2,4} ", rest, re.M)
+        body = rest[:stop.start()] if stop else rest
+        items = [int(x) for x in re.findall(r"^(\d+)\. ", body, re.M)]
+        chapters[m.group(1)] = max(items) if items else 0
+
     # A bare "1.3.0" is a package version and "0.5" is a number of seconds, so only
     # the two forms that unambiguously cite a section count: inside a parenthetical,
     # or followed by 節 / 参照.
@@ -172,12 +185,30 @@ def check_section_refs(text, rep):
     # An OS version reads exactly like a section number, and both appear inside
     # parentheticals: "（macOS 15.4 未満）".
     os_version = re.compile(r"(?:macOS|iOS|Android|Unity)\s*\d+\.\d+")
+    # So does a package version, and the word it hangs off varies too much to match
+    # on ("現行同梱 AAR（1.3.0）", "第 0 章の XCFramework 更新（1.2.0）", "（例: 1.11.0）").
+    # What does not vary is that the line names the artifact being versioned, so the
+    # line decides rather than the few characters in front of the number.
+    ships_an_artifact = re.compile(r"AAR|XCFramework|\.aar|\.dll|\bdist\b|パッケージ")
     # Inline code spans hold literals, not references: `"3.0"` is a JSON number.
     code_span = re.compile(r"`[^`]*`")
+    # A citation into another document reads exactly like a self-reference:
+    # "（設計 2.9）" names section 2.9 of the feature design, not of this file, and
+    # cannot be resolved from here. The naming word is the tell, and it is only ever
+    # written about another document - no design document names itself this way.
+    # Counted rather than dropped: an unresolvable citation is still a citation, and
+    # a check that quietly ignores part of its subject is the vacuous pass this file
+    # exists to avoid.
+    other_document = re.compile(
+        r"(?:設計|計画書|計画|実装結果|実機確認結果|実機確認|機能実装の?|マニュアル)"
+        r"\s*(?:v\d+)?\s*(?:要検証(?:事項)?)?\s*$")
     fences = {ln for ln, _, inside in fenced(text) if inside}
     missing = {}
+    elsewhere = 0
     for lineno, line in live_lines(text):
         if line.startswith("#") or lineno in fences:
+            continue
+        if ships_an_artifact.search(line):
             continue
         os_spans = [m.span() for m in os_version.finditer(line)]
         os_spans += [m.span() for m in code_span.finditer(line)]
@@ -186,10 +217,24 @@ def check_section_refs(text, rep):
             at = m.start(1) if m.group(1) else m.start(2)
             if any(a <= at < b for a, b in os_spans):
                 continue
-            if ref not in defined:
-                missing.setdefault(ref, lineno)
-    rep.check(not missing, "cited sections exist",
-              f"missing={sorted(missing.items())[:8]}")
+            if other_document.search(line[:at]):
+                elsewhere += 1
+                continue
+            if ref in defined:
+                continue
+            head, _, tail = ref.partition(".")
+            if head not in chapters:
+                # Not this document's numbering at all: another document, or a value
+                # that happens to read like one ("progress 0.5 固定").
+                elsewhere += 1
+                continue
+            if tail.isdigit() and 1 <= int(tail) <= chapters[head]:
+                continue
+            missing.setdefault(ref, lineno)
+    name = "cited sections exist"
+    if elsewhere:
+        name += f" ({elsewhere} unresolvable here: other documents or values)"
+    rep.check(not missing, name, f"missing={sorted(missing.items())[:8]}")
 
 
 def check_id_sequences(text, rep):
