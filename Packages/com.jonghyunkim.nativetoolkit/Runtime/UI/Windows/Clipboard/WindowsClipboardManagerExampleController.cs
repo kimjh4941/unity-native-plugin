@@ -51,6 +51,13 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     /// <summary>Seconds the delayed call waits, long enough to bring another window forward.</summary>
     private const float DelayedCallSeconds = 5f;
 
+    /// <summary>How many frames the forced initialize keeps trying for.</summary>
+    /// <remarks>
+    /// Three is enough for a drain that needs a second attempt, and short enough that a run of
+    /// successes - meaning the guard was never reached - stays readable in the log.
+    /// </remarks>
+    private const int ForceInitializeFrames = 3;
+
     private const string UnknownHistoryItemId = "nativetoolkit-sample-no-such-item";
 
     // ── Deferred rendering ───────────────────────────────────────────────────
@@ -127,7 +134,17 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private ulong _lastHtmlHash;
     private ulong _lastImageHash;
     private ulong _lastCustomHash;
-    private IReadOnlyList<string> _lastFilePaths = Array.Empty<string>();
+    /// <summary>Where the fixture files are, if they have been created.</summary>
+    /// <remarks>
+    /// Not a round-trip anchor, and deliberately not cleared with them. A successful copy of any
+    /// other format used to drop this along with the anchors, so one Copy Plain Text left Copy
+    /// Files reporting that no temporary files existed while they sat on disk untouched. Only
+    /// creating and deleting them changes this.
+    /// </remarks>
+    private IReadOnlyList<string> _tempFilePaths = Array.Empty<string>();
+
+    /// <summary>The paths the last successful file copy placed, for the round-trip comparison.</summary>
+    private IReadOnlyList<string> _lastWrittenFilePaths = Array.Empty<string>();
 
     private uint _lastRequestId;
 
@@ -729,32 +746,57 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     }
 
     /// <remarks>
-    /// Not in the same frame. Opening a drain only creates its session - the first attempt, and
-    /// with it the move to Draining, happens on the next Update - so an Initialize issued straight
-    /// afterwards still meets a Running manager and comes back an idempotent success. It looked
-    /// like a check of the ShuttingDown guard while never reaching it. The Initialize waits a frame
-    /// so the drain is genuinely under way.
+    /// <para>
+    /// Reaching the ShuttingDown guard needs a drain that lasts longer than one attempt, and on a
+    /// healthy machine the native uninit finishes on its first. So an outstanding request goes out
+    /// first: the teardown cancels it, that attempt reports Canceled rather than completion, and
+    /// the drain carries on into the next frame with the Manager left at Draining.
+    /// </para>
+    /// <para>
+    /// The Initialize is then tried once per frame rather than at one chosen moment. Timing this
+    /// by hand has already been wrong twice - the same frame is too early, because opening a drain
+    /// only creates its session, and the next one can be too late. Each attempt is logged with its
+    /// frame number, and the run stops at the first refusal, so the log says which frame the guard
+    /// was reached on, or that it was never reached at all.
+    /// </para>
     /// </remarks>
     private void OnForceInitializeWhileDrainingClicked()
     {
         Debug.Log($"[{LogTag}][{nameof(OnForceInitializeWhileDrainingClicked)}]");
+
+        // Something for the teardown to cancel, so the first shutdown attempt is not the last.
+        WindowsClipboardSampleCall pending = Begin("lifecycle.forceInit.request");
+        uint requestId = WindowsClipboardManager.Instance.GetHistory(HandleHistory(pending));
+        Accept(pending, WindowsClipboardManager.OperationGetHistory, requestId);
+
         WindowsClipboardSampleCall drain = Begin("lifecycle.forceInit.drain");
         AcceptAwaited(drain, WindowsClipboardManager.OperationShutdown);
         WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
             Done(drain, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage));
 
-        StartCoroutine(InitializeOnTheNextFrame());
+        StartCoroutine(InitializeUntilTheDrainRefusesIt());
     }
 
-    /// <summary>Issues an Initialize once the drain has had a frame to start advancing.</summary>
-    private IEnumerator InitializeOnTheNextFrame()
+    /// <summary>
+    /// Tries an Initialize once per frame until the drain refuses one.
+    /// </summary>
+    /// <remarks>
+    /// A refusal is the result this looks for; a run of successes means the drain finished before
+    /// any of them landed, and the guard was not exercised. Both are reported rather than assumed.
+    /// </remarks>
+    private IEnumerator InitializeUntilTheDrainRefusesIt()
     {
-        yield return null;
+        for (int frame = 1; frame <= ForceInitializeFrames; frame++)
+        {
+            yield return null;
 
-        WindowsClipboardSampleCall init = Begin("lifecycle.forceInit.initialize");
-        WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
-        Call(init, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-            "expected ShuttingDown while the drain runs");
+            WindowsClipboardSampleCall init = Begin("lifecycle.forceInit.initialize");
+            WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
+            Call(init, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                $"frame={frame} expected ShuttingDown while the drain runs");
+
+            if (!result.IsSuccess) yield break;
+        }
     }
 
     /// <remarks>
@@ -823,16 +865,15 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCopyFilesClicked)}]");
         WindowsClipboardSampleCall call = Begin("copy.files");
-        if (_lastFilePaths.Count == 0)
+        if (_tempFilePaths.Count == 0)
         {
             Local(call, "noTempFiles; press Create Temp Files first");
             return;
         }
 
-        // Captured before the write, because a success drops every anchor including this list.
-        IReadOnlyList<string> written = _lastFilePaths;
+        IReadOnlyList<string> written = _tempFilePaths;
         WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyFiles(written);
-        ReplacedClipboard(result, () => _lastFilePaths = written);
+        ReplacedClipboard(result, () => _lastWrittenFilePaths = written);
         Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
             $"count={written.Count}");
     }
@@ -1055,11 +1096,11 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     /// <remarks>Paths are compared, never shown: a temporary path still names the machine's user.</remarks>
     private string MatchFiles(IReadOnlyList<string> read)
     {
-        if (_lastFilePaths.Count == 0) return WindowsClipboardSampleResult.NotApplicable;
-        if (read.Count != _lastFilePaths.Count) return "differ";
+        if (_lastWrittenFilePaths.Count == 0) return WindowsClipboardSampleResult.NotApplicable;
+        if (read.Count != _lastWrittenFilePaths.Count) return "differ";
         for (int i = 0; i < read.Count; i++)
         {
-            if (!string.Equals(read[i], _lastFilePaths[i], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(read[i], _lastWrittenFilePaths[i], StringComparison.OrdinalIgnoreCase))
             {
                 return "differ";
             }
@@ -1180,7 +1221,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         _lastHtmlHash = 0UL;
         _lastImageHash = 0UL;
         _lastCustomHash = 0UL;
-        _lastFilePaths = Array.Empty<string>();
+        _lastWrittenFilePaths = Array.Empty<string>();
     }
 
     /// <summary>
@@ -1770,8 +1811,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     {
         Debug.Log($"[{LogTag}][{nameof(OnCreateTempFilesClicked)}]");
         WindowsClipboardSampleCall call = Begin("fixtures.createTempFiles");
-        _lastFilePaths = WindowsClipboardSampleFixtures.CreateTempFiles();
-        Local(call, $"created={_lastFilePaths.Count}");
+        _tempFilePaths = WindowsClipboardSampleFixtures.CreateTempFiles();
+        Local(call, $"created={_tempFilePaths.Count}");
     }
 
     private void OnDeleteTempFilesClicked()
@@ -1779,7 +1820,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnDeleteTempFilesClicked)}]");
         WindowsClipboardSampleCall call = Begin("fixtures.deleteTempFiles");
         int removed = WindowsClipboardSampleFixtures.DeleteTempFiles();
-        _lastFilePaths = Array.Empty<string>();
+        _tempFilePaths = Array.Empty<string>();
         Local(call, $"removed={removed}");
     }
 }
