@@ -13,11 +13,11 @@ reports SKIP and never OK: a silent vacuous pass hands out false confidence,
 which is worse than having no check at all.
 
 Usage:
-    python scripts/check_design_consistency.py <design.md> [...]
+    python3 scripts/check_design_consistency.py <design.md> [...]
 
-Not `python3` on Windows: that name resolves to a Microsoft Store app execution
-alias which runs nothing and exits 49, so the checks look like they passed when
-none of them ran.
+On Windows `python3` may resolve to a Microsoft Store app execution alias, which
+runs nothing and exits 49 - the checks then look like they passed when none of
+them ran. Where `python3 -c "print(1)"` prints nothing, use `python` instead.
 
 Exit status is 1 when any check fails.
 """
