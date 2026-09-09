@@ -5,7 +5,7 @@ All implementation rules are managed in this folder.
 
 ## Index
 
-- Common implementation policy (Bridge pattern / TDD): ./coding-rules/common.md
+- Common implementation policy (Bridge pattern / sample scenes / TDD): ./coding-rules/common.md
 - C# coding rules (Unity6): ./coding-rules/csharp.md
 - Test strategy (test layers / per-platform tooling): ./coding-rules/testing.md
 
