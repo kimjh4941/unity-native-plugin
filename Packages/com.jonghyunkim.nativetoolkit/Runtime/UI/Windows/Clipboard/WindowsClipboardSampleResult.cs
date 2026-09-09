@@ -339,6 +339,7 @@ internal static class WindowsClipboardSampleResult
     /// <param name="renderText">How many times the text provider has run.</param>
     /// <param name="renderImage">How many times the image provider has run.</param>
     /// <param name="ansiCodePage">The culture's ANSI code page.</param>
+    /// <param name="hasHistoryItemId">Whether a history id from a previous read is held.</param>
     /// <returns>The line.</returns>
     /// <remarks>
     /// <para>
@@ -360,13 +361,15 @@ internal static class WindowsClipboardSampleResult
         int changedCount,
         int renderText,
         int renderImage,
-        int ansiCodePage)
+        int ansiCodePage,
+        bool hasHistoryItemId = false)
     {
         string changed = lastChangedSequence == 0
             ? "-"
             : $"#{lastChangedSequence.ToString(CultureInfo.InvariantCulture)} (x{changedCount})";
         return $"Pending: {pending} | Events: {events} | Changed: {changed} " +
-               $"| Render: text={renderText} image={renderImage} | ACP: {ansiCodePage}";
+               $"| Render: text={renderText} image={renderImage} | ACP: {ansiCodePage} " +
+               $"| HistoryId: {(hasHistoryItemId ? "held" : "none")}";
     }
 
     /// <summary>Formats the lifecycle line.</summary>

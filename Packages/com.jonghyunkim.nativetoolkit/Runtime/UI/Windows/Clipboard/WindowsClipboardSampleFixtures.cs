@@ -33,6 +33,15 @@ internal static class WindowsClipboardSampleFixtures
     internal const string HtmlFragment = "<b>Hello</b> from NativeToolkit";
     internal const string HtmlPlainFallback = "Hello from NativeToolkit";
     internal const string CustomFormatDefaultName = "NativeToolkitSample";
+
+    /// <summary>A format name nothing on this screen ever writes.</summary>
+    /// <remarks>
+    /// Reading it back is a successful, empty read rather than a failure, because the native layer
+    /// answers an absent format with FormatUnavailable and the managed layer normalises that into
+    /// an empty success. Fixed here rather than typed in, so the expected outcome can be stated
+    /// before the button is pressed.
+    /// </remarks>
+    internal const string UnknownCustomFormatName = "NativeToolkitSampleNoSuchFormat";
     internal const string CustomBody = "native-toolkit-sample-payload";
 
     /// <summary>

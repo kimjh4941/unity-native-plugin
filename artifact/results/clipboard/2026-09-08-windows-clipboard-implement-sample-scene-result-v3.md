@@ -25,6 +25,29 @@
 同じコードを別のモデルが読んで別の穴を出したということであり、
 **「1 巡で A が 0 なら止める」は成立しない**ことの実例になっている。
 
+### 0.3 入力欄の撤去（レビューではなくユーザー指摘）
+
+**この画面は既存 16 画面で唯一、入力欄を 2 つ持っていた。** 計画 v1 が、先行する Android / iOS の
+計画に明記されていた既定「入力欄は設けない」を**理由を書かずに破った**もので、
+計画レビュー 2 巡・実装レビュー 2 巡のいずれも検出できなかった。
+
+| 撤去したもの | 置き換え |
+|---|---|
+| `CustomFormatNameField` | 固定値 `NativeToolkitSample`。**未登録名の読み出しは `Paste Custom Format (unknown name)` ボタン**に分離（`FormatUnavailable` は `EmptySuccess` に正規化されるため、**成功・空**で返る） |
+| `HistoryItemIdField` | Controller の内部状態 `_historyItemId`。状態行に `HistoryId: held / none` を出す |
+
+ボタンは 66 → **67**。入力欄は **0**。
+
+**理由は自動化の難易度ではない。** 層 2b はテストが Unity プロセス内で動くため
+`TextField.value` の設定は容易で、むしろ `Button.clicked` の方が `Clickable` の
+ポインタイベント列を要する。**当初「UI 全自動テストのため」と説明したのは誤りで、Codex の検証で判明した。**
+実際の理由は既存画面との一貫性、手動確認で打ち間違いが偽の不具合に見えること、
+実行時生成 ID は内部保持の方が手数が少ないことの 3 点。
+
+方針は `agent-rules/coding-rules/common.md`「サンプルシーン」に明文化した。
+**規則が `artifact/designs/` の先行計画にしか無かったことが、4 巡すり抜けた直接の原因である。**
+例外の検査は `review-document` の観点に追加した（理由の無い入力欄は A1）。
+
 ### 0.2 v2 からの変更（レビュー v2 対応）
 
 **A 5 件のうち 4 件は v1 と同じ失敗形** — 実装は契約どおりに動いているのに、サンプルが嘘の観測結果を出す。
@@ -113,8 +136,8 @@ v1 の B-6 修正（失敗した読み出しは `n/a`）は、この経路が**�
 
 | ファイル | 行 | 内容 |
 |---|---|---|
-| `Runtime/Resources/UI/Windows/Clipboard/WindowsClipboardManagerExample.uxml` | 157 | 画面定義。66 ボタン |
-| `Runtime/Resources/UI/Windows/Clipboard/WindowsClipboardManagerExampleStyle.uss` | 177 | macOS 版から複製し、`windows-` 接頭辞に変更。状態行と入力欄のスタイルを追加 |
+| `Runtime/Resources/UI/Windows/Clipboard/WindowsClipboardManagerExample.uxml` | 画面定義。**67 ボタン / 入力欄 0** |
+| `Runtime/Resources/UI/Windows/Clipboard/WindowsClipboardManagerExampleStyle.uss` | macOS 版から複製し、`windows-` 接頭辞に変更。状態行のスタイルを追加 |
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardManagerExampleController.cs` | 1519 | 操作と結果表示 |
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardSampleResult.cs` | 312 | 結果整形・状態追跡 |
 | `Runtime/UI/Windows/Clipboard/WindowsClipboardSampleFixtures.cs` | 223 | フィクスチャ生成と後始末 |
@@ -174,7 +197,7 @@ v1 の B-6 修正（失敗した読み出しは `n/a`）は、この経路が**�
 | I-7 | `Clear` の per-call callback 行は `[event]` として出す | `Accept` していないため `Done` を通すと未消化件数が負に振れる。**v2 で `[done]` から `[event]` に変更**（C-9）。accept を伴わない done は、Pending の読み方に対する唯一の例外になってしまう |
 | I-8 | `StatusTextBlock` はカウンタ行にした。計画 4.3 の表は「直近 1 操作の要約」 | 同じ節の本文が「未消化件数を画面に**常時**表示する」を要求しており、両立しない。直近 1 操作は `ResultTextBlock` の最終行が持つ |
 | I-9 | ワーカー版 `Copy` だけ同期 API を `[accept]` / `[done]` で出す | 戻り値がワーカー側にしか無いため。`[call]` 行は作れない |
-| I-10 | 履歴 item id の入力欄を Fixtures ではなく History セクションに置いた | `Get History` が値を埋めるため、操作の近くにある方が自然 |
+| I-10 | **撤回。** 入力欄そのものを置かないことにした（0.3） | — |
 | I-11 | テストのソース走査は**コメントを除去してから**行う（`CodeOnly`） | 「`OperationCanceledException` を書かない」規則が、なぜ書かないかを説明したコメント自身を落とした。**規則の説明を規則の隣に置けないなら、その検査は割に合わない** |
 
 ---
@@ -288,46 +311,47 @@ ANSI フィクスチャが非 BMP とハングルを含むこと、パスが絶�
 | 27 | Paste | Paste Files | M-5 |
 | 28 | Paste | Paste Image | M-6 / M-21 |
 | 29 | Paste | Paste Custom Format | — |
-| 30 | Inspect | Has Format (CF_UNICODETEXT) | — |
-| 31 | Inspect | Get Formats | — |
-| 32 | Inspect | Get Preferred Format | **8.8 の期待値 4 件** |
-| 33 | Inspect | Clear | M-17 / 共通イベント→callback の順序 |
-| 34 | Deferred | Reserve Deferred Formats | M-17 / M-18 / M-19 |
-| 35 | Deferred | Recover Deferred State | — |
-| 36 | History | Get History Availability | M-12 |
-| 37 | History | Get History | M-11 / M-12 |
-| 38 | History | Restore Last | M-14 / M-24 |
-| 39 | History | Delete Last | M-14 |
-| 40 | History | Clear Unpinned | M-14 |
-| 41 | History | Cancel Last | — |
-| 42 | History | Restore Twice In One Frame | M-15 |
-| 43 | History | Issue And Cancel In One Frame | M-16 |
-| 44 | History | Request + Immediate Shutdown | — |
-| 45 | History (Await) | Get History (Await) | — |
-| 46 | History (Await) | Get History (Await + Cancel) | **M-16 / S-9** |
-| 47 | History (Await) | Get Availability (Await) | — |
-| 48 | History (Await) | Restore (Await) | — |
-| 49 | History (Await) | Delete (Await) | — |
-| 50 | History (Await) | Clear Unpinned (Await) | — |
-| 51 | Events | Enable History Events | M-10 |
-| 52 | Events | Disable History Events | ブロック C の前提 |
-| 53 | Events | Reset Event Counters | — |
-| 54 | Threading | Copy From Worker Thread | S-7 |
-| 55 | Threading | Get History From Worker Thread | S-7 |
-| 56 | Threading | Delayed History Call (5s) | **M-13** |
-| 57 | Errors | Copy Plain Text (null) | 8.5 |
-| 58 | Errors | Copy Files (empty) | 8.5 |
-| 59 | Errors | Copy Custom Format (blank name) | 8.5 |
-| 60 | Errors | Copy Multiple Formats (empty) | 8.5 |
-| 61 | Errors | Restore (blank id) | 8.5 |
-| 62 | Errors | Restore (unknown id) | 8.5 |
-| 63 | Errors | Cancel (unknown id) | 8.5 |
-| 64 | Errors | Copy After Shutdown | 8.5。**最後に押す** |
-| 65 | Fixtures | Create Temp Files | M-5 の前提 |
-| 66 | Fixtures | Delete Temp Files | — |
+| 30 | Paste | Paste Custom Format (unknown name) | **未登録形式の読み出し。成功・空で返る**（入力欄の代替） |
+| 31 | Inspect | Has Format (CF_UNICODETEXT) | — |
+| 32 | Inspect | Get Formats | — |
+| 33 | Inspect | Get Preferred Format | **8.8 の期待値 4 件** |
+| 34 | Inspect | Clear | M-17 / 共通イベント→callback の順序 |
+| 35 | Deferred | Reserve Deferred Formats | M-17 / M-18 / M-19 |
+| 36 | Deferred | Recover Deferred State | — |
+| 37 | History | Get History Availability | M-12 |
+| 38 | History | Get History | M-11 / M-12 |
+| 39 | History | Restore Last | M-14 / M-24 |
+| 40 | History | Delete Last | M-14 |
+| 41 | History | Clear Unpinned | M-14 |
+| 42 | History | Cancel Last | — |
+| 43 | History | Restore Twice In One Frame | M-15 |
+| 44 | History | Issue And Cancel In One Frame | M-16 |
+| 45 | History | Request + Immediate Shutdown | — |
+| 46 | History (Await) | Get History (Await) | — |
+| 47 | History (Await) | Get History (Await + Cancel) | **M-16 / S-9** |
+| 48 | History (Await) | Get Availability (Await) | — |
+| 49 | History (Await) | Restore (Await) | — |
+| 50 | History (Await) | Delete (Await) | — |
+| 51 | History (Await) | Clear Unpinned (Await) | — |
+| 52 | Events | Enable History Events | M-10 |
+| 53 | Events | Disable History Events | ブロック C の前提 |
+| 54 | Events | Reset Event Counters | — |
+| 55 | Threading | Copy From Worker Thread | S-7 |
+| 56 | Threading | Get History From Worker Thread | S-7 |
+| 57 | Threading | Delayed History Call (5s) | **M-13** |
+| 58 | Errors | Copy Plain Text (null) | 8.5 |
+| 59 | Errors | Copy Files (empty) | 8.5 |
+| 60 | Errors | Copy Custom Format (blank name) | 8.5 |
+| 61 | Errors | Copy Multiple Formats (empty) | 8.5 |
+| 62 | Errors | Restore (blank id) | 8.5 |
+| 63 | Errors | Restore (unknown id) | 8.5 |
+| 64 | Errors | Cancel (unknown id) | 8.5 |
+| 65 | Errors | Copy After Shutdown | 8.5。**最後に押す** |
+| 66 | Fixtures | Create Temp Files | M-5 の前提 |
+| 67 | Fixtures | Delete Temp Files | — |
 
-**M 項目に現れないボタンは 27 / 66。** 計画 9.3 の予測（Await 5 ボタンほか）より多い。
-**照合工程を省くと、この 27 ボタンは一度も押されない。**
+**M 項目に現れないボタンは 28 / 67。** 計画 9.3 の予測（Await 5 ボタンほか）より多い。
+**照合工程を省くと、この 28 ボタンは一度も押されない。**
 
 ---
 
@@ -417,7 +441,7 @@ ANSI フィクスチャが非 BMP とハングルを含むこと、パスが絶�
    「レビュアーを替えて 1 回通す」が未達（v1 は Claude サブエージェント 5 名）
 2. **実機確認**。計画 6 節のブロック A → B → C → D → E の順。
    **初回は落ちる前提**（28 種を初めて動かすため）
-3. **6 節の照合表で全 66 ボタンを潰す**。M 項目だけでは 27 ボタンが残る
+3. **6 節の照合表で全 67 ボタンを潰す**。M 項目だけでは 28 ボタンが残る
 
 ## 11. 実行確認
 

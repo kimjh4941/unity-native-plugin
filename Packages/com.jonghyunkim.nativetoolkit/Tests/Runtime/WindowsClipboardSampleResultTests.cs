@@ -395,12 +395,26 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TheStatusLineLeadsWithTheLastChangeRatherThanTheCount()
         {
-            string status = WindowsClipboardSampleResult.FormatStatus(2, 9, 41, 3, 1, 0, 932);
+            string status = WindowsClipboardSampleResult.FormatStatus(2, 9, 41, 3, 1, 0, 932, true);
 
             StringAssert.Contains("Pending: 2", status);
             StringAssert.Contains("Events: 9", status);
             StringAssert.Contains("Changed: #41 (x3)", status);
             StringAssert.Contains("ACP: 932", status);
+            StringAssert.Contains("HistoryId: held", status);
+        }
+
+        /// <remarks>
+        /// The id itself is an opaque handle the history service owns and tells a reader nothing,
+        /// but whether one is held is the precondition for Restore and Delete. Without it on
+        /// screen, those buttons look ready when they are not.
+        /// </remarks>
+        [Test]
+        public void TheStatusLineSaysWhetherAHistoryIdIsHeld()
+        {
+            StringAssert.Contains(
+                "HistoryId: none",
+                WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 0, 0, 932, false));
         }
 
         /// <remarks>
@@ -411,7 +425,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TheStatusLineSeparatesTheTwoDeferredProviders()
         {
-            string status = WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 1, 0, 932);
+            string status = WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 1, 0, 932, false);
 
             StringAssert.Contains("Render: text=1 image=0", status);
             Assert.IsFalse(status.Contains("Render: 1 "), "a single total cannot answer the check");
@@ -421,7 +435,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void TheStatusLineShowsNoChangeAsADashRatherThanAsZero()
         {
             StringAssert.Contains(
-                "Changed: -", WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 0, 0, 65001));
+                "Changed: -", WindowsClipboardSampleResult.FormatStatus(0, 0, 0, 0, 0, 0, 65001, false));
         }
     }
 }

@@ -90,8 +90,17 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private ScrollView? _resultScrollView;
     private Label? _statusLabel;
     private Label? _stateLabel;
-    private TextField? _customFormatField;
-    private TextField? _historyItemIdField;
+    /// <summary>
+    /// Newest history item id from the last successful read, or empty.
+    /// </summary>
+    /// <remarks>
+    /// Held here rather than shown in a field the operator types into. The id only exists at
+    /// runtime, so it has to be carried from Get History to Restore and Delete either way - and a
+    /// mistyped one comes back InvalidArgument, which on this screen is indistinguishable from a
+    /// library defect. The status line reports whether one is held; the id itself is an opaque
+    /// handle the history service owns and says nothing to a reader.
+    /// </remarks>
+    private string _historyItemId = string.Empty;
 
     private readonly StringBuilder _resultLog = new();
     private int _resultSequence;
@@ -184,6 +193,7 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         ("PasteFilesButton", OnPasteFilesClicked),
         ("PasteImageButton", OnPasteImageClicked),
         ("PasteCustomFormatButton", OnPasteCustomFormatClicked),
+        ("PasteCustomFormatUnknownButton", OnPasteCustomFormatUnknownClicked),
 
         ("HasFormatButton", OnHasFormatClicked),
         ("GetFormatsButton", OnGetFormatsClicked),
@@ -370,8 +380,6 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         _resultScrollView = root.Q<ScrollView>("ResultScrollView");
         _statusLabel = root.Q<Label>("StatusTextBlock");
         _stateLabel = root.Q<Label>("StateTextBlock");
-        _customFormatField = root.Q<TextField>("CustomFormatNameField");
-        _historyItemIdField = root.Q<TextField>("HistoryItemIdField");
 
         foreach ((string name, Action handler) in Bindings)
         {
@@ -540,7 +548,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             _changedCount,
             _shownRenderText,
             _shownRenderImage,
-            WindowsClipboardSampleFixtures.CultureAnsiCodePage());
+            WindowsClipboardSampleFixtures.CultureAnsiCodePage(),
+            _historyItemId.Length != 0);
     }
 
     private void RefreshState()
@@ -550,10 +559,10 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             _state, WindowsClipboardManager.Instance.enabled);
     }
 
-    private string CustomFormatName() =>
-        _customFormatField?.value ?? WindowsClipboardSampleFixtures.CustomFormatDefaultName;
+    private static string CustomFormatName() =>
+        WindowsClipboardSampleFixtures.CustomFormatDefaultName;
 
-    private string HistoryItemId() => _historyItemIdField?.value ?? string.Empty;
+    private string HistoryItemId() => _historyItemId;
 
     // ── Common events ────────────────────────────────────────────────────────
 
@@ -1077,6 +1086,26 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             WindowsClipboardSampleResult.DescribeBytes(result, _lastCustomHash));
     }
 
+    /// <remarks>
+    /// A format name the clipboard was never given. The read does not fail: ClassifyFirstRead
+    /// turns FormatUnavailable into an empty success, so what this shows is a successful, empty
+    /// read - the same shape a genuinely empty clipboard produces, and the reason a size alone
+    /// cannot be read as "the format was there".
+    /// <para>
+    /// A button rather than an editable name, so the value is fixed and the expected outcome can
+    /// be stated in advance.
+    /// </para>
+    /// </remarks>
+    private void OnPasteCustomFormatUnknownClicked()
+    {
+        Debug.Log($"[{LogTag}][{nameof(OnPasteCustomFormatUnknownClicked)}]");
+        WindowsClipboardSampleCall call = Begin("paste.customFormat.unknown");
+        WindowsClipboardBytesResult result = WindowsClipboardManager.Instance.PasteCustomFormat(
+            WindowsClipboardSampleFixtures.UnknownCustomFormatName);
+        Call(call, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+            WindowsClipboardSampleResult.DescribeBytes(result, 0UL));
+    }
+
     // ── Inspect ──────────────────────────────────────────────────────────────
 
     /// <remarks>The success flag and the presence flag are independent; both are shown.</remarks>
@@ -1277,8 +1306,8 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     private void RememberNewestHistoryId(in WindowsClipboardHistoryResult result)
     {
         if (!result.IsSuccess || result.Items.Count == 0) return;
-        if (_historyItemIdField == null) return;
-        _historyItemIdField.value = result.Items[0].Id;
+        _historyItemId = result.Items[0].Id;
+        RefreshStatus();
     }
 
     private void OnRestoreLastClicked()

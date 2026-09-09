@@ -10,7 +10,7 @@
                     <ui:Label name="ResultTextBlock" text="Windows clipboard sample ready. Build a Windows Standalone player to reach the native bridge." class="windows-clipboard-result-text" />
                 </ui:ScrollView>
             </ui:VisualElement>
-            <ui:Label name="StatusTextBlock" text="Pending: 0 | Events: 0 | Changed: - | Render: 0 | ACP: -" class="windows-clipboard-status-text" />
+            <ui:Label name="StatusTextBlock" text="Pending: 0 | Events: 0 | Changed: - | Render: text=0 image=0 | ACP: - | HistoryId: none" class="windows-clipboard-status-text" />
         </ui:VisualElement>
         <ui:ScrollView class="windows-clipboard-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="windows-clipboard-content">
@@ -70,6 +70,7 @@
                     <ui:Button name="PasteFilesButton" class="windows-clipboard-button" text="Paste Files" />
                     <ui:Button name="PasteImageButton" class="windows-clipboard-button" text="Paste Image" />
                     <ui:Button name="PasteCustomFormatButton" class="windows-clipboard-button" text="Paste Custom Format" />
+                    <ui:Button name="PasteCustomFormatUnknownButton" class="windows-clipboard-button" text="Paste Custom Format (unknown name)" />
                 </ui:VisualElement>
 
                 <ui:VisualElement class="windows-clipboard-section">
@@ -90,8 +91,7 @@
 
                 <ui:VisualElement class="windows-clipboard-section">
                     <ui:Label text="History" class="windows-clipboard-section-title" />
-                    <ui:Label text="Restore and Delete use the id in the field below, which Get History fills with the newest item. Restoring also raises ClipboardChanged: the history service is the one writing." class="windows-clipboard-section-note" />
-                    <ui:TextField name="HistoryItemIdField" label="History item id" class="windows-clipboard-field" />
+                    <ui:Label text="Restore and Delete act on the newest item from the last Get History, which the screen remembers for you - the status line says whether it holds one. Restoring also raises ClipboardChanged: the history service is the one writing." class="windows-clipboard-section-note" />
                     <ui:Button name="GetHistoryAvailabilityButton" class="windows-clipboard-button" text="Get History Availability" />
                     <ui:Button name="GetHistoryButton" class="windows-clipboard-button" text="Get History" />
                     <ui:Button name="RestoreLastButton" class="windows-clipboard-button" text="Restore Last" />
@@ -145,8 +145,7 @@
 
                 <ui:VisualElement class="windows-clipboard-section">
                     <ui:Label text="Fixtures" class="windows-clipboard-section-title" />
-                    <ui:Label text="Create the temporary files before Copy Files. The custom format name below is used by both the copy and the paste, so changing it on one side only is how a round trip is meant to fail." class="windows-clipboard-section-note" />
-                    <ui:TextField name="CustomFormatNameField" label="Custom format name" value="NativeToolkitSample" class="windows-clipboard-field" />
+                    <ui:Label text="Create the temporary files before Copy Files. Every fixture is fixed in code, so a check can be repeated and its expected outcome stated in advance." class="windows-clipboard-section-note" />
                     <ui:Button name="CreateTempFilesButton" class="windows-clipboard-button" text="Create Temp Files" />
                     <ui:Button name="DeleteTempFilesButton" class="windows-clipboard-button" text="Delete Temp Files" />
                 </ui:VisualElement>

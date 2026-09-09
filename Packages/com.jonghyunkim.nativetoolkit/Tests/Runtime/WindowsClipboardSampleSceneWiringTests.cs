@@ -53,12 +53,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             "AwaitCancelLabel",
         };
 
-        private static readonly string[] RequiredFieldNames =
-        {
-            "CustomFormatNameField",
-            "HistoryItemIdField",
-        };
-
         /// <summary>
         /// The button names the controller actually binds, read from the controller itself.
         /// </summary>
@@ -140,10 +134,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 Assert.IsNotNull(root.Q<Label>(name), $"Label not found in UXML: {name}");
             }
-            foreach (string name in RequiredFieldNames)
-            {
-                Assert.IsNotNull(root.Q<TextField>(name), $"TextField not found in UXML: {name}");
-            }
             Assert.IsNotNull(root.Q<ScrollView>("ResultScrollView"));
         }
 
@@ -168,7 +158,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void Controller_BindsExactlyThePlannedNumberOfButtons()
         {
             string[] names = ReadBoundButtonNames();
-            Assert.AreEqual(66, names.Length, "the sample plan enumerates 66 buttons");
+            Assert.AreEqual(67, names.Length, "the sample plan enumerates 67 buttons");
             CollectionAssert.AllItemsAreUnique(names);
         }
 
@@ -550,6 +540,32 @@ namespace JonghyunKim.NativeToolkit.Tests
                     0, CountOccurrences(body, "call.Sequence, WindowsClipboardSampleResult.Kind"),
                     writer + " must not use the call's number as the line number");
             }
+        }
+
+        /// <remarks>
+        /// Sample screens do not carry input fields by default (common.md, "サンプルシーン"). The
+        /// values a check needs are fixed in code so the expected outcome can be stated before the
+        /// button is pressed, and a runtime-only id is held in controller state rather than typed
+        /// back in - a mistyped one comes back InvalidArgument, which reads as a library defect.
+        /// <para>
+        /// An exception is allowed where the feature genuinely needs one, but it has to be
+        /// explained in the sample scene plan first. This screen claims no such exception, so the
+        /// check is simply that it has none: the previous version placed two without a word, and
+        /// four review rounds went past them.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheScreenCarriesNoInputFields()
+        {
+            VisualElement root = Instantiate(ClipboardResourcesUxmlPath);
+
+            int fields = 0;
+            root.Query<TextField>().ForEach(_ => fields++);
+
+            Assert.AreEqual(
+                0, fields,
+                "input fields are not placed by default. If this feature needs one, say why in " +
+                "the sample scene plan and change this test deliberately.");
         }
 
         [Test]
