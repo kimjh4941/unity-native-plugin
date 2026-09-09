@@ -13,7 +13,11 @@ reports SKIP and never OK: a silent vacuous pass hands out false confidence,
 which is worse than having no check at all.
 
 Usage:
-    python3 scripts/check_design_consistency.py <design.md> [...]
+    python scripts/check_design_consistency.py <design.md> [...]
+
+Not `python3` on Windows: that name resolves to a Microsoft Store app execution
+alias which runs nothing and exits 49, so the checks look like they passed when
+none of them ran.
 
 Exit status is 1 when any check fails.
 """
@@ -21,6 +25,13 @@ Exit status is 1 when any check fails.
 import re
 import sys
 from pathlib import Path
+
+# The findings quote the design documents back, and those are Japanese. A Japanese
+# Windows defaults stdout to cp932, which mangles them, so a finding would arrive
+# unreadable - and any character outside cp932 would end the run in a traceback.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
 REPO = Path(__file__).resolve().parent.parent
 
