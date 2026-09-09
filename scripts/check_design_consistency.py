@@ -38,7 +38,10 @@ REPO = Path(__file__).resolve().parent.parent
 # The change log records what earlier revisions did, and the out-of-scope /
 # rejected-alternatives sections name things this design deliberately does not
 # build. Both legitimately mention identifiers and counts that no longer hold.
-HISTORY_HEADING = re.compile(r"^## v\d+ からの主な変更")
+# Two forms are in use - "## vN からの主な変更" and "### vN からの変更点" - and
+# matching only the first left a whole change log inside the checked text, where a
+# sentence saying an ID was deleted reads exactly like a citation of it.
+HISTORY_HEADING = re.compile(r"^#{2,3} v\d+ からの(?:主な)?変更")
 EXEMPT_HEADINGS = re.compile(r"^## \d+\. (採用しなかった案|出力範囲の明記)")
 SECTION_HEADING = re.compile(r"^#{2,4} (?:\d+\.|v\d+ )")
 
@@ -143,9 +146,20 @@ def check_heading_order(text, rep):
     A version cut by search-and-replace renumbers one table and forgets the
     heading, which every cross-reference then points past.
     """
-    for label, pattern in (("top-level", r"^## (\d+)\."),
-                           ("sub", r"^### (\d+)\.(\d+)"),
-                           ("subsub", r"^#### (\d+)\.(\d+)\.(\d+)")):
+    # The depth of a number is part of it: "### 5.2.1" is not another "### 5.2",
+    # and reading it as one reported a duplicate rather than the wrong heading level
+    # that actually caused it.
+    depth = [(len(m.group(1)) - 1, m.group(2), lineno)
+             for lineno, line in enumerate(text.splitlines(), 1)
+             for m in [re.match(r"^(#{2,4}) (\d+(?:\.\d+)*)[ .]", line)] if m]
+    mislevelled = [(number, lineno) for level, number, lineno in depth
+                   if level != number.count(".") + 1]
+    rep.check(not mislevelled, "heading level matches the depth of its number",
+              f"wrong level={mislevelled[:5]}")
+
+    for label, pattern in (("top-level", r"^## (\d+)\.(?![\d.])"),
+                           ("sub", r"^### (\d+)\.(\d+)(?![\d.])"),
+                           ("subsub", r"^#### (\d+)\.(\d+)\.(\d+)(?![\d.])")):
         found = re.findall(pattern, text, re.M)
         if len(found) < 2:
             rep.skip(f"{label} heading order", f"{len(found)} heading(s)")
@@ -255,6 +269,10 @@ def check_id_sequences(text, rep):
         cited = {}
         for lineno, line in live_lines(text):
             if re.match(rf"^\|\s*\*{{0,2}}{prefix}-\d+", line):
+                continue
+            # "v3 の V-7 は ... 削除した" names the ID to say it is gone. Reading that
+            # as a citation makes the document fail for explaining itself.
+            if any(marker in line for marker in ABSENCE_MARKERS):
                 continue
             for a, b in re.findall(rf"{prefix}-(\d+)\s*〜\s*(?:{prefix}-)?(\d+)", line):
                 for n in range(int(a), int(b) + 1):
