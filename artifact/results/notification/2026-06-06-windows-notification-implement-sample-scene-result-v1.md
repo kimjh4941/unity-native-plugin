@@ -154,3 +154,6 @@ Unity の Windows スタンドアロンビルドは常に unpackaged（MSIX な�
 
 **サンプルから到達できない公開 API が 3 つある。** 利用者は XML コメントだけを見て呼び出せる。
 注記を入れるか、非対応を明記するかは未決定。
+
+**別タスクとして `artifact/UNREACHABLE_NOTIFICATION_APIS.md` に切り出した。**
+判断には実機で 3 API を叩く確認が要るため、本レポートでは結論を出さない。
