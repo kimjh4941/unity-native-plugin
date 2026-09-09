@@ -10,7 +10,8 @@
 - 判定基準: `artifact/designs/clipboard/2026-09-05-windows-clipboard-design-v8.md` 9.3（M-1 〜 M-24）
 - サンプル実装: `artifact/results/clipboard/2026-09-08-windows-clipboard-implement-sample-scene-result-v3.md`
 - ログ: `artifact/results/clipboard/logs/2026-09-09-windows-clipboard-verify-manual-session1.log`
-  および `-session2.log`。**本文の主張はすべてこの 2 本から確認できる**
+  および `-session2.log`。**1 〜 5 節の主張はすべてこの 2 本から確認できる**。
+  8 節（対応後の再確認）は `-session3.log` と `-session4.log`
 
 ## 0. 状態サマリー
 
@@ -186,6 +187,9 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 **2 は今朝の A-3 修正（アンカーの寿命を 1 本の規則に）の副作用。** 規則自体は正しいが、
 `_lastFilePaths` は往復判定のアンカーではなくフィクスチャの所在であり、同じ規則に載せるべきではなかった。
 
+**1 の「`Draining` が 1 フレームに閉じている」は誤りだった。** 対応の過程で判明したもので、
+実際には 1 フレームまるごと開いている。詳細と訂正は 8.1。1 〜 3 の対応と再確認は 8 節。
+
 ---
 
 ## 6. 未実施項目
@@ -193,7 +197,6 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 | # | 内容 | 理由 |
 |---|---|---|
 | M-20b | `ShutdownTimeout` の観測 | ネイティブに `NotYet` を返させる条件が要る。外部プロセスにクリップボードを握らせ続ける道具立て（層 3） |
-| `Force Initialize While Draining` | `Draining` 中の拒否 | 同上。**`Draining` が 1 フレームに閉じている**（5 節の 1） |
 | Exclude Roaming の効果 | — | 同一 Microsoft アカウントの 2 台目デバイスと「デバイス間で同期」有効が必要。本機は `roaming=False`。ネイティブ側も同じ理由で未実施 |
 | D-9 | 予約失敗時の世代管理 | `EmptyClipboard` 失敗や個別 `SetClipboardData` 失敗をサンプルから起こす手段が無い |
 | M-22 | IL2CPP での再実施 | 本回はすべて Mono。**`MonoPInvokeCallback` の IL2CPP 挙動は未確認**（実装結果 v6 の R-3） |
@@ -205,9 +208,50 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 
 ## 7. 次
 
-1. **5 節の A 1 件と B 2 件の対応を決める。** 1 はボタンの撤去か外部ツール前提への分類が候補
+1. ~~**5 節の A 1 件と B 2 件の対応を決める。**~~ **対応済み。8 節。**
+   ボタンの撤去も外部ツール前提への分類も不要だった
 2. **M-22（IL2CPP）** — Scripting Backend を IL2CPP にしてブロック A 〜 C を再実施。
    `[MonoPInvokeCallback]` の実挙動はここでしか確認できない
 3. **S-2 / S-4 / S-8 の事後確認** — 保全したログから判定できる
 4. ネイティブ側への共有: **M-23（隠しウィンドウが出ない）はネイティブでも未検証だった項目**であり、
    Unity Player 上で初めて確認された
+
+---
+
+## 8. 5 節への対応と再確認（同日）
+
+対応後に全ゲート（EditMode 807 / PlayMode 181 / Win64 ビルド）を通し、
+**同じ実機で再確認した**。実行ファイルは 2026-09-09 14:19 ビルド。
+
+| # | 対応 | 再確認 |
+|---|---|---|
+| 1 | 保留要求を先に出して drain を 1 回で終わらせない。**Initialize を `LateUpdate` へ移す** | **到達**。`#7 [call] initClipboardManager NG code=ShuttingDown frame=1`（session4） |
+| 2 | `_lastFilePaths` を `_tempFilePaths`（フィクスチャの所在）と `_lastWrittenFilePaths`（往復アンカー）に分割 | **解消**。`copyPlainText` を挟んでも `copyFiles OK count=2` / `pasteFiles match=match`（session3） |
+| 3 | 計画 v3 の S 表の下と、画面の Events 注記に前提を明記 | 文書のみ |
+| 4 | 未対応 | — |
+| 5 | 未対応 | — |
+
+### 8.1 1 が 2 度外れた理由
+
+**窓は狭くなかった。覗き穴の位置が 1 フレームずれていた。**
+
+```
+frame N   : クリック → ShutdownWithDrain（session を作るだけ。state は Running）
+frame N   : Update → AdvanceDrain 試行 1 → NotYet → state = Draining   ← 窓はここから
+frame N+1 : Update → AdvanceDrain 試行 2 → 成功 → state = ShutDown     ← ここまで
+frame N+1 : Update の後にコルーチンが再開                              ← もう閉じている
+```
+
+`Draining` は **1 フレームまるごと**開いていた。5 節で「1 フレームに閉じている」と書いたのは誤り。
+届かなかったのは `yield return null` が **Update の後・次フレーム**に再開するためで、
+クリックしたフレーム N には戻れない。コルーチンが最初に見られるのは**必ず試行 2 の後**になる。
+
+`LateUpdate` は **Update の後・同じフレーム**であり、この窓の中に入る唯一の点。
+
+3 フレーム分の予算を残したのは、**クリックが Update の前に処理される保証が無い**ため。
+`Running` 中の `Initialize` は冪等成功を返すだけで drain を壊さないので、空振りしても害が無い。
+
+### 8.2 M-20b は依然として未実施
+
+1 が到達したのは `ShuttingDown`（`Draining` 中の拒否）であって、
+`ShutdownTimeout`（ネイティブが `NotYet` を返し続ける）ではない。**6 節の M-20b は残る。**
