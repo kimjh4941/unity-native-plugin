@@ -59,7 +59,10 @@ FOREIGN = re.compile(
     r"|AwaitableCompletionSource|CancellationToken|RuntimeInitializeOnLoadMethod"
     r"|RuntimeInitializeLoadType|SubsystemRegistration|TearDown|SetUp|Sum|Length|Count|Value"
     r"|Items|Keys|Values|Instance|Invoke|Add|Remove|Clear|Contains|ToString"
-    r"|Log|LogError|LogWarning|Enqueue|Update|Awake|OnDestroy|TryParse|nameof)$"
+    r"|Log|LogError|LogWarning|Enqueue|Update|Awake|OnDestroy|TryParse|nameof"
+    r"|Array|Path|File|Directory|FileInfo|EditorUtility|StringComparison|Encoding"
+    r"|TryGetValue|WriteAllText|ReadAllText|Combine|GetStatic|CallStatic|IntPtr"
+    r"|Volatile|Interlocked|StringBuilder|IDisposable|Dispose|Equals|GetHashCode)$"
 )
 
 ID_PREFIXES = ("V", "D", "OP")
@@ -346,6 +349,23 @@ def check_repeated_counts(text, rep):
               "; ".join(f"{k}: {v}" for k, v in conflicting.items()))
 
 
+def readable_code(line):
+    """A code line with the parts that name nothing removed.
+
+    Three of them, and each produced its own class of false report before being
+    taken out: a string literal ("Hello from Unity Native Toolkit") holds prose, a
+    using directive holds a namespace path rather than anything the document has to
+    declare, and a comment holds whatever the author wanted to say.
+    """
+    if re.match(r"\s*(?:using|namespace)\s+[\w.]+\s*;?\s*$", line):
+        return ""
+    line = re.sub(r"//.*$", "", line)
+    for quote in ('"', "'"):
+        halves = line.split(quote)
+        line = quote.join(h if i % 2 == 0 else '' for i, h in enumerate(halves))
+    return line
+
+
 def check_code_identifiers(text, rep):
     """Every project identifier used in pseudo-code must be defined in prose too.
 
@@ -362,7 +382,7 @@ def check_code_identifiers(text, rep):
                              r"|class|struct|enum|delegate|extern)\b")
     occurrences, declared = {}, set()
     for lineno, line in enumerate(text.splitlines(), 1):
-        stripped = re.sub(r"//.*$", "", line)
+        stripped = readable_code(line)
         names = re.findall(r"\b([A-Za-z_]\w*)\b", stripped)
         for name in names:
             occurrences.setdefault(name, []).append(lineno)
@@ -373,13 +393,22 @@ def check_code_identifiers(text, rep):
     for lineno, line, in_f in fenced(text):
         if not in_f or line.lstrip().startswith("```"):
             continue
-        stripped = re.sub(r"//.*$", "", line)
-        for name in re.findall(r"\b([A-Za-z_]\w*)\b", stripped):
-            used.setdefault(name, lineno)
+        stripped = readable_code(line)
+        for m in re.finditer(r"\b([A-Za-z_]\w*)\b", stripped):
+            # A member of a type this document did not invent is not this document's
+            # to declare: "RuntimePlatform.IPhonePlayer" is one name, not two.
+            owner = re.search(r"\b([A-Za-z_]\w*)\.$", stripped[:m.start()])
+            if owner and FOREIGN.match(owner.group(1)):
+                continue
+            used.setdefault(m.group(1), lineno)
 
     interesting = {}
     for name, lineno in used.items():
         if FOREIGN.match(name) or len(name) < 5:
+            continue
+        # SCREAMING_SNAKE is a compile symbol or a native constant, never a helper
+        # this document was supposed to declare: UNITY_EDITOR, CLIPBOARD_EMPTY_CONTENT.
+        if name.upper() == name:
             continue
         if name[0].islower() and not name.startswith("s_"):
             continue  # locals and parameters live only in the sample
