@@ -53,8 +53,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
     /// <summary>How many frames the forced initialize keeps trying for.</summary>
     /// <remarks>
-    /// Three is enough for a drain that needs a second attempt, and short enough that a run of
-    /// successes - meaning the guard was never reached - stays readable in the log.
+    /// More than one, because the frame the click is dispatched in is not guaranteed to be the
+    /// frame the drain makes its first attempt in; few enough that a run of successes - meaning
+    /// the guard was never reached - stays readable in the log.
     /// </remarks>
     private const int ForceInitializeFrames = 3;
 
@@ -145,6 +146,9 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
 
     /// <summary>The paths the last successful file copy placed, for the round-trip comparison.</summary>
     private IReadOnlyList<string> _lastWrittenFilePaths = Array.Empty<string>();
+
+    /// <summary>Frames the forced initialize has left to try, counted down by LateUpdate.</summary>
+    private int _forceInitializeFramesLeft;
 
     private uint _lastRequestId;
 
@@ -750,14 +754,15 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
     /// Reaching the ShuttingDown guard needs a drain that lasts longer than one attempt, and on a
     /// healthy machine the native uninit finishes on its first. So an outstanding request goes out
     /// first: the teardown cancels it, that attempt reports Canceled rather than completion, and
-    /// the drain carries on into the next frame with the Manager left at Draining.
+    /// the Manager is left at Draining for a whole frame.
     /// </para>
     /// <para>
-    /// The Initialize is then tried once per frame rather than at one chosen moment. Timing this
-    /// by hand has already been wrong twice - the same frame is too early, because opening a drain
-    /// only creates its session, and the next one can be too late. Each attempt is logged with its
-    /// frame number, and the run stops at the first refusal, so the log says which frame the guard
-    /// was reached on, or that it was never reached at all.
+    /// The Initialize itself is left to LateUpdate rather than issued here or from a coroutine.
+    /// The Manager advances its drain from Update, and a device run showed why the difference
+    /// matters: here is too early, because the click is dispatched before Update and the drain has
+    /// made no attempt yet, while a coroutine yielding null cannot resume until the frame after
+    /// the one it was started in - by which point the second attempt has already finished the
+    /// drain. LateUpdate is the one point that is both after Update and still in this frame.
     /// </para>
     /// </remarks>
     private void OnForceInitializeWhileDrainingClicked()
@@ -774,29 +779,32 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
         WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
             Done(drain, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage));
 
-        StartCoroutine(InitializeUntilTheDrainRefusesIt());
+        _forceInitializeFramesLeft = ForceInitializeFrames;
     }
 
     /// <summary>
-    /// Tries an Initialize once per frame until the drain refuses one.
+    /// Tries an Initialize after the drain has had this frame's attempt, until one is refused.
     /// </summary>
     /// <remarks>
-    /// A refusal is the result this looks for; a run of successes means the drain finished before
-    /// any of them landed, and the guard was not exercised. Both are reported rather than assumed.
+    /// A refusal is the result this looks for. Several frames are allowed because the frame the
+    /// click lands in is not guaranteed to be the frame the first attempt runs in, and an
+    /// Initialize that arrives while the Manager is still Running is answered idempotently without
+    /// disturbing the drain. A run of successes means the drain was never caught mid-flight, which
+    /// is reported rather than passed over.
     /// </remarks>
-    private IEnumerator InitializeUntilTheDrainRefusesIt()
+    private void LateUpdate()
     {
-        for (int frame = 1; frame <= ForceInitializeFrames; frame++)
-        {
-            yield return null;
+        if (_forceInitializeFramesLeft <= 0) return;
 
-            WindowsClipboardSampleCall init = Begin("lifecycle.forceInit.initialize");
-            WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
-            Call(init, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-                $"frame={frame} expected ShuttingDown while the drain runs");
+        int frame = ForceInitializeFrames - _forceInitializeFramesLeft + 1;
+        _forceInitializeFramesLeft--;
 
-            if (!result.IsSuccess) yield break;
-        }
+        WindowsClipboardSampleCall init = Begin("lifecycle.forceInit.initialize");
+        WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
+        Call(init, result.Operation, result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+            $"frame={frame} expected ShuttingDown while the drain runs");
+
+        if (!result.IsSuccess) _forceInitializeFramesLeft = 0;
     }
 
     /// <remarks>
