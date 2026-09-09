@@ -418,6 +418,26 @@ def readable_code(line):
     return line
 
 
+CODE_FENCE = re.compile(r"^\s*```\s*(csharp|cs|c|cpp|objc|kotlin|java|swift)\s*$")
+
+
+def pseudo_code_lines(text):
+    """(lineno, line) for the lines inside a fence that holds code.
+
+    A design fences three other things - a screen sketch, a sample log, a JSON
+    envelope - and reading them as code reported the words inside them as
+    identifiers the document had failed to declare: "Please provide text or HTML"
+    became a missing declaration of Please.
+    """
+    inside = False
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            inside = bool(CODE_FENCE.match(line)) if not inside else False
+            continue
+        if inside:
+            yield lineno, line
+
+
 def check_code_identifiers(text, rep):
     """Every project identifier used in pseudo-code must be defined in prose too.
 
@@ -442,9 +462,7 @@ def check_code_identifiers(text, rep):
             declared.update(names)
 
     used = {}
-    for lineno, line, in_f in fenced(text):
-        if not in_f or line.lstrip().startswith("```"):
-            continue
+    for lineno, line in pseudo_code_lines(text):
         stripped = readable_code(line)
         for m in re.finditer(r"\b([A-Za-z_]\w*)\b", stripped):
             # A member of a type this document did not invent is not this document's

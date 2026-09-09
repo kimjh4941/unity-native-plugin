@@ -224,6 +224,11 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 
 ### 5.2 Manager イベント購読方針
 
+**ハンドラ名は `On` + イベント名。** `NotificationOperationCompleted` は
+`OnNotificationOperationCompleted`、`NotificationInvoked` は `OnNotificationInvoked`、
+`GetAllNotificationsCompleted` は `OnGetAllNotificationsCompleted`。
+購読と解除が同じ行の並びで対応するため、解除漏れが並べて読めば分かる。
+
 ```csharp
 private void OnEnable()
 {
