@@ -199,7 +199,7 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 | M-20b | `ShutdownTimeout` の観測 | ネイティブに `NotYet` を返させる条件が要る。外部プロセスにクリップボードを握らせ続ける道具立て（層 3） |
 | Exclude Roaming の効果 | — | 同一 Microsoft アカウントの 2 台目デバイスと「デバイス間で同期」有効が必要。本機は `roaming=False`。ネイティブ側も同じ理由で未実施 |
 | D-9 | 予約失敗時の世代管理 | `EmptyClipboard` 失敗や個別 `SetClipboardData` 失敗をサンプルから起こす手段が無い |
-| M-22 | IL2CPP での再実施 | 本回はすべて Mono。**Windows を IL2CPP で動かしたことは無い。** ただし `MonoPInvokeCallback` 自体は iOS / Android の実機確認で AOT 上を通っている（2026-09-10 訂正）。残るのは Windows 固有の代理検証であり、優先度は下がった |
+| M-22 | IL2CPP での再実施（実機） | 本回はすべて Mono。**IL2CPP ビルドは通した**（10 節）が、実機では動かしていない。 ただし `MonoPInvokeCallback` 自体は iOS / Android の実機確認で AOT 上を通っている（2026-09-10 訂正）。残るのは Windows 固有の代理検証であり、優先度は下がった |
 
 **確認していないものを OK として扱っていない。**
 
@@ -341,3 +341,43 @@ Windows Clipboard 専用である（`[call]` / `[accept]` / `[done]` の書式�
 ### 9.4 6 節の更新
 
 S-2 / S-4 / S-8 の行は**未実施ではなくなった**。6 節の表と併せて本節を読むこと。
+
+---
+
+## 10. IL2CPP ビルド（2026-09-10）
+
+**Windows を IL2CPP でビルドしたのは初めて。** 実機は使っていない。
+目的は「AOT に敵対するコードが無いか」の 1 点で、これはビルドだけで分かる。
+
+| | |
+|---|---|
+| 結果 | **`Succeeded`** |
+| 所要 | 16 分 54 秒 |
+| 成果物 | `GameAssembly.dll` が生成された（IL2CPP であることの確認） |
+| エラー 2 件 | **ライセンスのハンドシェイク**。バッチ起動で毎回出るもので、Mono ビルドのログにも同じ 2 行がある。コンパイルエラーではない |
+
+### 10.1 何が言えて、何が言えないか
+
+**言える**: 逆 P/Invoke の宣言・属性・マーシャリング指定が AOT のコード生成を通る。
+IL2CPP が扱えない構文はこのパッケージに無い。
+
+**言えない**: コールバックが実際に発火するか。これはビルドではなく実行の問題であり、
+`GameAssembly.dll` を起動して初めて分かる。
+
+### 10.2 ただし、この検証の価値は下がっている
+
+同日の調査で、**iOS / Android の実機確認が IL2CPP 上で実施済み**と判明した
+（`artifact/DEVICE_VERIFICATION_RECORDS_MISSING.md`）。
+`[MonoPInvokeCallback]` の実挙動はそちらで通っている。
+本節は **Windows 固有の代理検証**であり、AOT 全般の初回確認ではない。
+
+### 10.3 手順（再実行するとき）
+
+バックエンドは `PlayerSettings.SetScriptingBackend` で切り替えた。
+**`ProjectSettings.asset` を直接書き換えない。**
+Windows のビルドプロファイルが `Standalone: 0` の写しを持っており、引き戻される。
+
+検証用の Editor スクリプトは実行後に削除し、`ProjectSettings/` と
+`Assets/Settings/Build Profiles/` を `git checkout` で戻した。
+`scriptingBackend` に `Standalone` の行が無いことを確認済み。
+
