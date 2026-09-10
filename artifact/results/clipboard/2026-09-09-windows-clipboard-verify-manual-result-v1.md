@@ -178,8 +178,8 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 | 1 | **`Force Initialize While Draining` が意図した経路を踏まない。** `Draining` が 1 フレームに閉じているため、同一フレームでは早すぎ、次フレームでは遅すぎる。ボタンの説明文は「expected ShuttingDown」と表示するが `OK` が返る | **A** |
 | 2 | **他形式のコピー 1 回で `Copy Files` が使えなくなる。** `ReplacedClipboard` が全アンカーを落とす際に `_lastFilePaths` も消える。ディスク上のファイルは残っているのに `noTempFiles` になる。**アンカー（往復判定用）とフィクスチャの所在を分けていない** | **B** |
 | 3 | **S-5 / S-6 の手順に Manager 状態の前提が無い。** Manager は `DontDestroyOnLoad` なので画面を出入りしても `ShutDown` のまま。`Initialize` を挟まないと `ClipboardChanged` が来ず、判定が成立しない | **B** |
-| 4 | 失敗した読み出しで `empty=False count=0` と表示される。矛盾ではないが「空でないのに 0 件」と読める。`match` は `n/a` に落としてあるので、`empty` も同様にすべき | **C** |
-| 5 | 終了時に Manager が再生成される。`OnDisable` が破棄済みの `Instance` を無条件に触るため、`GameObject` が 1 つ余分に作られる。`Recreated after destruction; all operations are rejected` として無害だが、`IsTerminated` を見れば避けられる | **C** |
+| 4 | 失敗した読み出しで `empty=False count=0` と表示される。矛盾ではないが「空でないのに 0 件」と読める。`match` は `n/a` に落としてあるので、`empty` も同様にすべき | **C**（**解消済み**。8 節） |
+| 5 |（**解消済み**。8 節）終了時に Manager が再生成される。`OnDisable` が破棄済みの `Instance` を無条件に触るため、`GameObject` が 1 つ余分に作られる。`Recreated after destruction; all operations are rejected` として無害だが、`IsTerminated` を見れば避けられる | **C** |
 
 **1 はレビュー v2 の A-1 に対する私の修正が不十分だったもの。**
 「同一フレームでは早すぎる」までは正しかったが、**次フレームでは遅すぎる**ことを確認していなかった。
@@ -231,8 +231,8 @@ M 項目だけを追った時点では **55 / 67** で、**12 ボタンが残っ
 | 1 | 保留要求を先に出して drain を 1 回で終わらせない。**Initialize を `LateUpdate` へ移す** | **到達**。`#7 [call] initClipboardManager NG code=ShuttingDown frame=1`（session4） |
 | 2 | `_lastFilePaths` を `_tempFilePaths`（フィクスチャの所在）と `_lastWrittenFilePaths`（往復アンカー）に分割 | **解消**。`copyPlainText` を挟んでも `copyFiles OK count=2` / `pasteFiles match=match`（session3） |
 | 3 | 計画 v3 の S 表の下と、画面の Events 注記に前提を明記 | 文書のみ |
-| 4 | 未対応 | — |
-| 5 | 未対応 | — |
+| 4 | 失敗した読み出しは `empty` も長さ・件数も **`n/a`** を出す。4 書式すべて | **解消**（2026-09-10。`cf19a94`） |
+| 5 | `OnDisable` が `IsTerminated` を見てから `Instance` を取る | **解消**（同上） |
 
 ### 8.1 1 が 2 度外れた理由
 
