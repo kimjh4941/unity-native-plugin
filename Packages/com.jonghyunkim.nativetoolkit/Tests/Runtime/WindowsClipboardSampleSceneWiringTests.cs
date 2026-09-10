@@ -470,6 +470,29 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// subscribes to is reported here rather than discovered on a device.
         /// </para>
         /// </remarks>
+        /// <summary>
+        /// The unsubscribe path checks the Manager is still there before reaching for it.
+        /// </summary>
+        /// <remarks>
+        /// Instance builds a Manager when none exists, and quitting destroys the Manager before
+        /// this screen is disabled. Without the guard the teardown creates one final GameObject
+        /// purely to unsubscribe handlers it never carried - visible on a device run as
+        /// "Recreated after destruction; all operations are rejected".
+        /// </remarks>
+        [Test]
+        public void TheTeardownDoesNotResurrectTheManager()
+        {
+            string source = CodeOnly(File.ReadAllText(Path.GetFullPath(ControllerSourcePath)));
+            string body = MethodBody(source, "private void OnDisable");
+
+            int guard = body.IndexOf("IsTerminated", StringComparison.Ordinal);
+            int reach = body.IndexOf("WindowsClipboardManager.Instance", StringComparison.Ordinal);
+
+            Assert.AreNotEqual(-1, guard, "OnDisable must check IsTerminated");
+            Assert.AreNotEqual(-1, reach, "OnDisable is expected to take the Instance");
+            Assert.Less(guard, reach, "the check has to come before the Instance is taken");
+        }
+
         [Test]
         public void EverySubscribedEventIsUnsubscribed()
         {

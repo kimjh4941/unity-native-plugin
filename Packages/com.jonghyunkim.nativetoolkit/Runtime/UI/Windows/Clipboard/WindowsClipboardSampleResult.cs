@@ -167,6 +167,17 @@ internal static class WindowsClipboardSampleResult
     internal static string FormatLocal(int line, in WindowsClipboardSampleCall call, string detail) =>
         FormatLine(line, KindLocal, call.Marker, detail, call.Sequence);
 
+    /// <summary>Shape fields for a read that never happened.</summary>
+    /// <param name="sizeField">Name of the size-like field this result carries.</param>
+    /// <remarks>
+    /// A failed read measured nothing, so reporting a number claims a measurement.
+    /// "empty=False count=0" was the shape it printed before, which reads as "not empty,
+    /// and zero items" - the operator has to know the library's defaults to see that
+    /// neither half is an observation. n/a is the same answer the comparison already gave.
+    /// </remarks>
+    private static string NothingWasRead(string sizeField) =>
+        $"empty={NotApplicable} {sizeField}={NotApplicable} match={NotApplicable}";
+
     /// <summary>Describes a text read without disclosing it.</summary>
     /// <param name="result">The read result.</param>
     /// <param name="expectedHash">Digest of what was last written, or 0 when nothing was.</param>
@@ -178,10 +189,10 @@ internal static class WindowsClipboardSampleResult
     /// </remarks>
     internal static string DescribeText(in WindowsClipboardTextResult result, ulong expectedHash)
     {
+        if (!result.IsSuccess) return NothingWasRead("length");
+
         int length = result.Text?.Length ?? -1;
-        string match = result.IsSuccess
-            ? MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Text))
-            : NotApplicable;
+        string match = MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Text));
         return $"empty={result.IsEmpty} length={length} match={match}";
     }
 
@@ -192,9 +203,9 @@ internal static class WindowsClipboardSampleResult
     /// <remarks>As in <see cref="DescribeText"/>, a failed read reports no comparison.</remarks>
     internal static string DescribeBytes(in WindowsClipboardBytesResult result, ulong expectedHash)
     {
-        string match = result.IsSuccess
-            ? MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Data))
-            : NotApplicable;
+        if (!result.IsSuccess) return NothingWasRead("size");
+
+        string match = MatchLabel(expectedHash, WindowsClipboardSampleFixtures.HashOf(result.Data));
         return $"empty={result.IsEmpty} size={result.Data.Length} match={match}";
     }
 
@@ -202,7 +213,9 @@ internal static class WindowsClipboardSampleResult
     /// <param name="result">The read result.</param>
     /// <returns>Count and emptiness. The values themselves are format names or paths and are not shown.</returns>
     internal static string DescribeStringList(in WindowsClipboardStringListResult result) =>
-        $"empty={result.IsEmpty} count={result.Values.Count}";
+        result.IsSuccess
+            ? $"empty={result.IsEmpty} count={result.Values.Count}"
+            : $"empty={NotApplicable} count={NotApplicable}";
 
     /// <summary>
     /// Describes a history read by shape only.
@@ -220,9 +233,15 @@ internal static class WindowsClipboardSampleResult
     internal static string DescribeHistory(
         in WindowsClipboardHistoryResult result, long nowUnixSeconds, ulong expectedHash)
     {
+        if (!result.IsSuccess)
+        {
+            return $"empty={NotApplicable} count={NotApplicable} " +
+                   $"newestAgeSec={NotApplicable} newestMatch={NotApplicable}";
+        }
+
         string newest = NotApplicable;
         string match = NotApplicable;
-        if (result.IsSuccess && result.Items.Count > 0)
+        if (result.Items.Count > 0)
         {
             System.DateTimeOffset? at = result.Items[0].ToUtcTime();
             if (at != null)

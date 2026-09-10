@@ -431,6 +431,42 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(status.Contains("Render: 1 "), "a single total cannot answer the check");
         }
 
+        /// <summary>
+        /// A failed read reports no shape at all, not a shape of zero.
+        /// </summary>
+        /// <remarks>
+        /// A device run produced "empty=False count=0" beside an error, which reads as a
+        /// successful read of nothing. Neither half was an observation: the library returns a
+        /// default result on failure, so False and 0 are what the struct starts as. The
+        /// comparison already said n/a in that case; the rest now says it too.
+        /// </remarks>
+        [Test]
+        public void AFailedReadReportsNoShapeRatherThanAShapeOfZero()
+        {
+            WindowsClipboardTextResult text = WindowsClipboardTextResult.Failure(
+                WindowsClipboardManager.OperationPastePlainText,
+                WindowsClipboardErrorCode.NotInitialized);
+            WindowsClipboardStringListResult files = WindowsClipboardStringListResult.Failure(
+                WindowsClipboardManager.OperationPasteFiles,
+                WindowsClipboardErrorCode.NotInitialized);
+            WindowsClipboardHistoryResult history = WindowsClipboardHistoryResult.Failure(
+                WindowsClipboardManager.OperationGetHistory,
+                WindowsClipboardErrorCode.NotInitialized);
+
+            string describedText = WindowsClipboardSampleResult.DescribeText(text, 0UL);
+            string describedFiles = WindowsClipboardSampleResult.DescribeStringList(files);
+            string describedHistory = WindowsClipboardSampleResult.DescribeHistory(history, 0L, 0UL);
+
+            foreach (string described in new[] { describedText, describedFiles, describedHistory })
+            {
+                StringAssert.Contains("empty=n/a", described);
+                Assert.IsFalse(described.Contains("empty=False"),
+                    $"a read that did not happen is not a read of something: {described}");
+                Assert.IsFalse(described.Contains("=0"),
+                    $"zero is a measurement, and none was taken: {described}");
+            }
+        }
+
         [Test]
         public void TheStatusLineShowsNoChangeAsADashRatherThanAsZero()
         {

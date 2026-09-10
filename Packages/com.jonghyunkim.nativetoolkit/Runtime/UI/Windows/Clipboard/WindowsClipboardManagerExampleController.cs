@@ -336,6 +336,12 @@ public class WindowsClipboardManagerExampleController : MonoBehaviour
             _delayedCall = null;
         }
 
+        // Quitting destroys the Manager before this runs, and Instance would build a new one
+        // just to unsubscribe handlers it never carried - the destruction took the
+        // subscriptions with it. A device run showed the spare GameObject this leaves behind,
+        // announcing itself as "Recreated after destruction; all operations are rejected".
+        if (WindowsClipboardManager.IsTerminated) return;
+
         WindowsClipboardManager manager = WindowsClipboardManager.Instance;
         manager.ClipboardOperationCompleted -= OnClipboardOperationCompletedEvent;
         manager.FlagChecked -= OnFlagCheckedEvent;
