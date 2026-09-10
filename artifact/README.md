@@ -15,7 +15,7 @@
 | [OS_PREFIX_VIOLATIONS.md](OS_PREFIX_VIOLATIONS.md) | OS 接頭辞ルールの逸脱 11 件（Runtime）。改名は `public` の破壊的変更 | 案 0 完了。案 1〜3 未着手 |
 | [EVENT_SUBSCRIBER_ISOLATION.md](EVENT_SUBSCRIBER_ISOLATION.md) | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める | **Windows 完了**。Android / iOS / macOS 未着手 |
 | [UNREACHABLE_NOTIFICATION_APIS.md](UNREACHABLE_NOTIFICATION_APIS.md) | 通知の 3 API がサンプルから到達できない。非対応の根拠が未検証 | 未着手 |
-| [DEVICE_VERIFICATION_RECORDS_MISSING.md](DEVICE_VERIFICATION_RECORDS_MISSING.md) | 実機確認済みなのに結果文書が「未実施」のまま。**5 機能 9 文書** | 注記のみ。詳細記録は未作成 |
+| [DEVICE_VERIFICATION_RECORDS_MISSING.md](DEVICE_VERIFICATION_RECORDS_MISSING.md) | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。要確認 2 件・dialog の記録欠落も併記 | 注記のみ。詳細記録は未作成 |
 
 **課題ファイルを新設したら、この表に 1 行足すこと。**
 既存 2 本は関連する規則や設計書からしか参照されておらず、
