@@ -56,11 +56,34 @@ Windows の実機確認結果 v1 と同じ粒度で書くなら、iOS / Android 
 
 1. 実施日
 2. 端末と OS バージョン
-3. スクリプティングバックエンド（iOS は IL2CPP 確定。**Android は Mono か IL2CPP か**）
+3. ~~スクリプティングバックエンド~~ **解決済み（下記「バックエンドは確定した」）。聞き取り不要**
 4. 消化した項目（計画の M-1〜M-24 / 7.3 の 18 項目を全部か、一部か）
 5. 失敗・未実施が残っているか
 
 **分からない項目は「記録なし」と書く。** 推測で埋めない。
+
+## バックエンドは確定した（2026-09-10）
+
+当初は「Android が Mono か IL2CPP か」を聞き取り事項に挙げていたが、
+**Unity のエディタ API に直接聞いて確定した。** 新規プロジェクト（6000.4.2f1）で
+`PlayerSettings.GetScriptingBackend` を全プラットフォーム分そのまま出力した結果:
+
+```
+Android    = IL2CPP
+Standalone = Mono2x
+iPhone     = IL2CPP
+WebGL      = IL2CPP
+```
+
+裏付け: 新規プロジェクトの `AndroidTargetArchitectures` は `2`（ARM64 のみ）。
+**ARM64 は Mono では作れない**ため、既定が IL2CPP でなければ辻褄が合わない。
+なお同梱テンプレート `3d-cross-platform-17.0.14` は `1`（ARMv7）のままで、
+**テンプレートを根拠にすると誤る**。
+
+本プロジェクトの `scriptingBackend: Android: 1` は**既定の追認**であり、逸脱ではない。
+
+**したがって `[MonoPInvokeCallback]` は iOS と Android の実機確認で AOT 上を通っている。**
+Android が Mono だった可能性は消えた。
 
 ## 案
 
