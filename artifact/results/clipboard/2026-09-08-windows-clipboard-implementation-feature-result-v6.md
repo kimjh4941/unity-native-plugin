@@ -132,7 +132,7 @@
 |---|---|---|
 | R-1 | v5 の A 4 件の修正が、また新しい欠陥を持ち込んでいないか | **未検証**（レビュー未実施） |
 | R-2 | 履歴 API・遅延レンダリング・イベントのネイティブ経路 | 未実行。M-1 〜 M-24 の担当 |
-| R-3 | IL2CPP での `MonoPInvokeCallback` の実挙動 | 未確認（V-7）。本検証はすべて Mono |
+| R-3 | IL2CPP での `MonoPInvokeCallback` の実挙動 | **Windows では未確認**（本検証はすべて Mono）。ただし iOS / Android は実機確認済みで、そちらは IL2CPP のため**同じ実装パターンは AOT 上で発火している**（2026-09-10 訂正。詳細記録は未作成） |
 | R-4 | 成功した shutdown がログに何も残さない | 観測性の問題。実機記録が「不在による証明」になる |
 | R-5 | イベント購読者の隔離が Windows のみ先行 | `artifact/EVENT_SUBSCRIBER_ISOLATION.md`。他 3 プラットフォームは別タスク |
 | R-6 | `s_renderStaging` の再入窓を作る seam が無い | レビュー v5 B-1。設計 9.2 が要求する `InvokeRenderDuringReserveForTests` 未実装 |

@@ -15,7 +15,7 @@ Designs, results, reviews and the issues carved out as separate tasks.
 
 - Artifact map (成果物の置き場と、未対応として切り出した課題の一覧): ../artifact/README.md
 
-**Read the issue list there before starting work in an area.** Three issues are
+**Read the issue list there before starting work in an area.** Four issues are
 recorded as deliberately deferred, and two of them are only half applied.
 
 ## Workflows
