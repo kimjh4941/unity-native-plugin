@@ -8,7 +8,7 @@
 
 # 버전
 
-## 1.10.0
+## 1.11.0
 
 # 지원 OS 버전
 
@@ -108,6 +108,16 @@
   - 시스템 알림 설정 열기
   - 알림 활성화 이벤트 수신 (콜드 스타트 포함)
 
+- 클립보드 기능
+  - 일반 텍스트 / HTML / 파일 / 이미지 / 커스텀 포맷 복사
+  - 여러 포맷을 한 번에 복사
+  - 클립보드 기록·클라우드 클립보드에서 제외 (개별 또는 둘 다)
+  - 일반 텍스트 / HTML / 파일 / 이미지 / 커스텀 포맷 붙여넣기
+  - 사용 가능한 포맷, 우선 포맷, 특정 포맷의 존재 여부 확인
+  - 지연 렌더링 (포맷별 공급자를 넘기고 요청 시 바이트 생성)
+  - 클립보드 기록 읽기·복원·삭제·고정되지 않은 항목 비우기·요청 취소
+  - 클립보드 및 기록 변경 이벤트
+
 ## macOS
 
 - 다이얼로그 기능
@@ -153,7 +163,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.11.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상

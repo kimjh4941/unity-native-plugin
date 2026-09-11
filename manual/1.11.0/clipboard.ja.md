@@ -84,12 +84,33 @@
   - [App Sandbox](#app-sandbox)
   - [イベントの受信](#イベントの受信-2)
   - [エラーハンドリング](#エラーハンドリング-2)
+- [Windows](#windows)
+  - [セットアップ](#セットアップ-3)
+  - [プレーンテキストのコピー](#プレーンテキストのコピー-3)
+  - [HTML テキストのコピー](#html-テキストのコピー-1)
+  - [ファイルのコピー](#ファイルのコピー)
+  - [画像のコピー](#画像のコピー)
+  - [カスタムフォーマットのコピー](#カスタムフォーマットのコピー)
+  - [複数フォーマットのコピー](#複数フォーマットのコピー)
+  - [コピーオプション](#コピーオプション-1)
+  - [プレーンテキストの貼り付け](#プレーンテキストの貼り付け)
+  - [HTML テキストの貼り付け](#html-テキストの貼り付け)
+  - [ファイルの貼り付け](#ファイルの貼り付け)
+  - [画像の貼り付け](#画像の貼り付け)
+  - [カスタムフォーマットの貼り付け](#カスタムフォーマットの貼り付け)
+  - [クリップボードの内容を調べる](#クリップボードの内容を調べる)
+  - [遅延レンダリング](#遅延レンダリング)
+  - [クリップボード履歴](#クリップボード履歴)
+  - [Await 版](#await-版)
+  - [イベントの受信](#イベントの受信-3)
+  - [クリア](#クリア-1)
+  - [エラー処理](#エラー処理)
 
 ---
 
 ## Android
 
-クリップボード機能は Android と iOS を対象としています。Windows・macOS 向けの実装はありません。両プラットフォームは Manager も API も別系統です。iOS 側は [iOS](#ios) を参照してください。
+クリップボード機能は Android・iOS・macOS・Windows で実装しています。共通の抽象化ではなく、プラットフォームごとに Manager も API も別系統です。4 つのクリップボードは「クリップボードとは何か」の前提が揃っていないためです。iOS 側は [iOS](#ios) を参照してください。
 
 ### セットアップ
 
@@ -2178,3 +2199,516 @@ MacClipboardManager.Instance.Read(_scope, result =>
 ```
 
 > **注意:** `Error.Message` はネイティブ層が組み立てた文字列で、ペーストボード名を含むことがあります。ユーザーの目に触れうる場所では、生のメッセージではなく `Code` と自前の文言を出力してください。
+
+---
+
+## Windows
+
+### セットアップ
+
+#### 名前空間のインポート
+
+`WindowsClipboardManager` は Windows スタンドアロンのビルドターゲットが選択されていれば、Editor でもコンパイルされます。Editor で呼び出してもクラッシュしません。ネイティブ層を必要とする操作は即座に `PlatformUnavailable`（1000）の失敗を返すため、Editor でも動くシーンに同じコードを残しておけます。
+
+```csharp
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+#endif
+```
+
+クリップボード履歴には Windows 10 October 2018 Update 以降が必要で、かつユーザーが有効にしている必要があります。有効かどうかは仮定せず問い合わせます。[クリップボード履歴](#クリップボード履歴)を参照してください。
+
+#### 最初に Initialize を呼ぶ
+
+`Initialize` を実行するまで何も動きません。それ以前は他のすべての API が `NotInitialized`（2）を返します。
+
+```csharp
+WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
+if (!result.IsSuccess)
+{
+    Debug.LogError($"Initialize failed: {result.ErrorCode} {result.ErrorMessage}");
+}
+```
+
+`Initialize` は `enableChangeEvents`（既定 `true`）を取ります。`false` を渡すと変更リスナーを登録せずに初期化するため、`ClipboardChanged` が不要な場合はこちらが軽量です。`Initialize` は冪等で、実行中のマネージャーに対して再度呼んでもネイティブ層に触れずに成功を返します。
+
+#### 同期の戻り値・コールバック・イベント
+
+ここが他プラットフォームとの違いです。ほとんどの操作は**結果を同期的に返し**、さらに呼び出しごとの任意コールバックを受け取り、さらにイベントも発火します。
+
+```csharp
+WindowsClipboardResult returned = WindowsClipboardManager.Instance.CopyPlainText(
+    "hello", onResult: r => Debug.Log($"callback: {r.IsSuccess}"));
+```
+
+履歴操作だけは例外です。こちらは本当に非同期で、結果ではなく `uint` のリクエスト ID を返し、コールバックとイベントで結果を配送します。
+
+| メソッド | 戻り値 | コールバックの結果型 | イベント |
+| --- | --- | --- | --- |
+| `Initialize`, `Clear`, `CopyPlainText`, `CopyHtml`, `CopyFiles`, `CopyImage`, `CopyCustomFormat`, `CopyMultipleFormats`, `CancelRequest`, `SetHistoryEventsEnabled`, `ReserveDeferredFormats`, `RecoverDeferredState`, `TryShutdown` | `WindowsClipboardResult` | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+| `ShutdownWithDrain` | `void` | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+| `CanShutdownNow` | `WindowsClipboardFlagResult` | `WindowsClipboardFlagResult` | `FlagChecked` |
+| `PastePlainText`, `PasteHtml`, `GetPreferredFormat` | `WindowsClipboardTextResult` | `WindowsClipboardTextResult` | `TextReadCompleted` |
+| `PasteFiles`, `GetFormats` | `WindowsClipboardStringListResult` | `WindowsClipboardStringListResult` | `StringListReadCompleted` |
+| `PasteImage`, `PasteCustomFormat` | `WindowsClipboardBytesResult` | `WindowsClipboardBytesResult` | `BytesReadCompleted` |
+| `HasFormat` | `WindowsClipboardFormatPresenceResult` | `WindowsClipboardFormatPresenceResult` | `FormatPresenceChecked` |
+| `GetHistory` | `uint` リクエスト ID | `WindowsClipboardHistoryResult` | `HistoryReadCompleted` |
+| `GetHistoryAvailability` | `uint` リクエスト ID | `WindowsClipboardAvailabilityResult` | `HistoryAvailabilityChecked` |
+| `RestoreHistoryItem`, `DeleteHistoryItem`, `ClearUnpinnedHistory` | `uint` リクエスト ID | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+
+どの結果型も `IsSuccess` / `Operation` / `ErrorCode`（`WindowsClipboardErrorCode`）/ `ErrorMessage` を持ちます。イベントはリクエスト ID を運びません。特定の要求と結果を対応させる必要があるときは呼び出しごとのコールバックを使い、イベントはログや共有 UI に使ってください。
+
+コールバックとイベントは、メソッドが戻った後に**呼び出し元のスタックの外側**で発火します。次の行までにコールバックが走っている前提を置かないでください。
+
+#### メインスレッド専用
+
+すべての公開 API は Unity のメインスレッドから呼ぶ必要があります。他のスレッドからの呼び出しは `MainThreadRequired`（1002）で拒否され、ネイティブ層には届きません。
+
+```csharp
+await Task.Run(() =>
+{
+    // MainThreadRequired が返ります。例外は投げず、クリップボードにも触れません。
+    WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyPlainText("from a worker");
+});
+```
+
+#### マネージャーの寿命と終了
+
+`WindowsClipboardManager.Instance` は初回アクセス時にマネージャーを生成し、シーン遷移を越えて存続します。クリップボードは他プロセスに握られうるため、終了経路が 2 つあります。
+
+```csharp
+// 実行中の要求が無いときだけ完了します。完了したかは completed が示します。
+WindowsClipboardResult immediate = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
+
+// 実行中の要求を取り消し、以降のフレームにまたがって完了します。
+WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
+    Debug.Log($"shutdown: {result.IsSuccess} {result.ErrorCode}"));
+```
+
+`CanShutdownNow` は同じ問いを、実行せずに尋ねます。ドレイン中の `Initialize` は `ShuttingDown`（1011）で拒否されます。マネージャーが破棄された後は `WindowsClipboardManager.IsTerminated` が `true` になり、すべての API が拒否されます。
+
+---
+
+### プレーンテキストのコピー
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyPlainText(
+    "NativeToolkit clipboard sample 1");
+
+if (!result.IsSuccess)
+{
+    Debug.LogError($"CopyPlainText failed: {result.ErrorCode} {result.ErrorMessage}");
+}
+#endif
+```
+
+空文字列は正当なクリップボード内容であり、そのまま書き込まれます。`null` は `InvalidArgument`（1005）で拒否されます。
+
+### HTML テキストのコピー
+
+`CopyHtml` は `HTML Format` を書き込み、`plainText` が null でなければプレーンテキストも並べて書き込みます。HTML を扱えないアプリケーションでも何かを受け取れるようにするためです。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyHtml(
+    "<b>Hello</b> from NativeToolkit",
+    "Hello from NativeToolkit");
+#endif
+```
+
+`plainText` に `null` を渡すと HTML だけを書き込みます。テキストしか要求しない読み手からは、クリップボードが空に見えます。
+
+### ファイルのコピー
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// すでにディスク上に存在するファイルの絶対パス。
+string[] paths = { firstExportPath, secondExportPath };
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyFiles(paths);
+#endif
+```
+
+パスは `CF_HDROP` として書き込まれます。エクスプローラーが貼り付けるのと同じ形式です。絶対パスである必要があり、相対パスの解決は行いません。空のリストは `InvalidArgument`（1005）で拒否されます。
+
+### 画像のコピー
+
+`CopyImage` はデバイス非依存ビットマップ（`CF_DIB`）を生のバイト列で受け取ります。`BITMAPINFOHEADER` に続けてピクセルデータを並べたもので、`.bmp` ファイル先頭の 14 バイトの `BITMAPFILEHEADER` は含みません。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+byte[] dib = BuildDib();   // BITMAPINFOHEADER + BGRA ピクセル
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyImage(dib);
+#endif
+```
+
+### カスタムフォーマットのコピー
+
+カスタムフォーマットは名前で登録します。同じ名前を知っているアプリケーションであれば、バイト列を読み戻せます。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+byte[] payload = Encoding.UTF8.GetBytes("native-toolkit-sample-payload");
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyCustomFormat(
+    "NativeToolkitSample", payload);
+#endif
+```
+
+空白のフォーマット名は `InvalidArgument`（1005）で拒否されます。
+
+### 複数フォーマットのコピー
+
+1 回の書き込みで複数のフォーマットを同時に載せられます。貼り付け先が理解できる中で最も豊かな形式を選べるのはこのためです。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var items = new List<WindowsClipboardFormatPayload>
+{
+    WindowsClipboardFormatPayload.Text("CF_UNICODETEXT", "NativeToolkit clipboard sample 1"),
+    WindowsClipboardFormatPayload.Bytes("NativeToolkitSample", payload),
+};
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyMultipleFormats(items);
+#endif
+```
+
+同じフォーマット名を 2 回指定すると `InvalidArgument`（1005）で拒否されます。空のリストも同様です。
+
+### コピーオプション
+
+すべてのコピーメソッドは `WindowsClipboardWriteOptions` を取ります。内容が本来届く先に届かないよう、Windows に指示するものです。
+
+| オプション | 効果 |
+| --- | --- |
+| `None` | 既定の配置 |
+| `ExcludeHistory` | クリップボード履歴（Win+V）に残さない |
+| `ExcludeRoaming` | クラウドクリップボードに載せない |
+| `Sensitive` | 両方。パスワードなどの内容向け |
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.CopyPlainText(
+    userPassword, WindowsClipboardWriteOptions.Sensitive);
+#endif
+```
+
+> **注意:** これらは OS が尊重するマーカーです。履歴やクラウドクリップボードが有効かどうかに関わらずコピー自体は成功し、**マーカーが実際に効いたことを示す結果フィールドはありません。**
+
+---
+
+### プレーンテキストの貼り付け
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult result = WindowsClipboardManager.Instance.PastePlainText();
+
+if (result.IsSuccess && !result.IsEmpty)
+{
+    Debug.Log($"pasted {result.Text.Length} characters");
+}
+#endif
+```
+
+**空のクリップボードは失敗ではなく、成功した読み出しです。** `IsSuccess` は `true`、`IsEmpty` は `true`、`Text` は null になります。これは空文字列が載っている状態（`IsEmpty` が `false` で `Text` が `""`）とは別物です。両方を「何も無い」として扱うと、この違いが失われます。
+
+### HTML テキストの貼り付け
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult result = WindowsClipboardManager.Instance.PasteHtml();
+#endif
+```
+
+`HTML Format` の内容を返します。プレーンテキストしか載っていないクリップボードは、失敗ではなく空として読まれます。
+
+### ファイルの貼り付け
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardStringListResult result = WindowsClipboardManager.Instance.PasteFiles();
+
+if (result.IsSuccess)
+{
+    foreach (string path in result.Values)
+    {
+        Debug.Log(path);
+    }
+}
+#endif
+```
+
+### 画像の貼り付け
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardBytesResult result = WindowsClipboardManager.Instance.PasteImage();
+
+if (result.IsSuccess && !result.IsEmpty)
+{
+    Debug.Log($"{result.Data.Length} bytes of DIB");
+}
+#endif
+```
+
+バイト列は `CopyImage` が受け取るのと同じ `CF_DIB` の形で返ります。`BITMAPFILEHEADER` は含まれません。
+
+### カスタムフォーマットの貼り付け
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardBytesResult result =
+    WindowsClipboardManager.Instance.PasteCustomFormat("NativeToolkitSample");
+#endif
+```
+
+どのアプリケーションも載せていないフォーマット名は、失敗ではなく空の成功として読まれます。
+
+---
+
+### クリップボードの内容を調べる
+
+クリップボードを取り出さずに、何が載っているかを答える操作が 3 つあります。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardStringListResult formats = WindowsClipboardManager.Instance.GetFormats();
+Debug.Log($"{formats.Values.Count} formats available");
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetFormats.png" alt="Example_WindowsClipboardManager_GetFormats" width="800" />
+</p>
+
+`GetPreferredFormat` は、貼り付け先が通常選ぶであろうフォーマットの名前を返します。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult preferred = WindowsClipboardManager.Instance.GetPreferredFormat();
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetPreferredFormat.png" alt="Example_WindowsClipboardManager_GetPreferredFormat" width="800" />
+</p>
+
+空のクリップボードでは、`Empty` エラーではなく空文字列が返ります。
+
+`HasFormat` は名前を 1 つ指定して有無を答えます。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardFormatPresenceResult presence =
+    WindowsClipboardManager.Instance.HasFormat("CF_UNICODETEXT");
+
+Debug.Log($"present: {presence.Value}");
+#endif
+```
+
+`Value` は `IsSuccess` とは独立です。存在しないフォーマットを正しく確認できた場合は `IsSuccess == true` かつ `Value == false` になります。
+
+---
+
+### 遅延レンダリング
+
+大きな内容をコピー時点で組み立てる必要はありません。`ReserveDeferredFormats` はフォーマットを予約し、フォーマットごとのプロバイダーを Windows に渡します。プロバイダーは、実際にそのフォーマットが要求されたときにだけ実行されます。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var providers = new Dictionary<string, Func<byte[]>>
+{
+    ["CF_UNICODETEXT"] = () => Encoding.Unicode.GetBytes(BuildLargeText()),
+    ["CF_DIB"] = () => BuildScreenshotDib(),
+};
+
+WindowsClipboardResult result =
+    WindowsClipboardManager.Instance.ReserveDeferredFormats(providers);
+#endif
+```
+
+これが成立するかは 2 つの規則で決まります。
+
+- **プロバイダーは Unity API に一切触れてはいけません。** Unity が所有しないスレッドから呼ばれることがあり、マネージャーの終了処理中にも呼ばれます。事前に取得したデータからバイト列を組み立ててください。
+- **プロバイダーはフォーマットごとに最大 1 回しか呼ばれません。** Windows はサイズを先に、内容を後に要求しますが、マネージャーが最初の答えをキャッシュするため 2 回実行されることはありません。
+
+予約が中途半端に残った場合は `RecoverDeferredState` が解消します。終了時のドレインは自動的にこれを呼ぶため、予約が失敗してクリップボードを直ちに使える状態に戻したいときにだけ、明示的に呼んでください。
+
+---
+
+### クリップボード履歴
+
+履歴は Win+V の一覧です。ユーザーが無効にできる Windows の機能なので、**どの履歴操作も「利用できない」という結果を返しうります。**
+
+#### 利用可否
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.GetHistoryAvailability(result =>
+{
+    if (!result.IsSuccess) return;
+    Debug.Log($"history: {result.HistoryEnabled}, cloud: {result.RoamingEnabled}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetHistoryAvailability.png" alt="Example_WindowsClipboardManager_GetHistoryAvailability" width="800" />
+</p>
+
+#### 読み出し
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint requestId = WindowsClipboardManager.Instance.GetHistory(result =>
+{
+    if (result.ErrorCode == WindowsClipboardErrorCode.HistoryDisabled)
+    {
+        Debug.Log("the user has clipboard history turned off");
+        return;
+    }
+
+    foreach (WindowsClipboardHistoryItem item in result.Items)
+    {
+        Debug.Log($"{item.Id}: {item.Text?.Length ?? 0} characters");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetHistory.png" alt="Example_WindowsClipboardManager_GetHistory" width="800" />
+</p>
+
+返る `requestId` は `CancelRequest` が受け取る値です。項目は新しい順に並び、それぞれが復元・削除で使う `Id` を持ちます。
+
+#### 復元・削除・消去
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.RestoreHistoryItem(itemId, result =>
+    Debug.Log($"restore: {result.IsSuccess} {result.ErrorCode}"));
+
+WindowsClipboardManager.Instance.DeleteHistoryItem(itemId, result =>
+    Debug.Log($"delete: {result.IsSuccess} {result.ErrorCode}"));
+
+WindowsClipboardManager.Instance.ClearUnpinnedHistory(result =>
+    Debug.Log($"clear: {result.IsSuccess} {result.ErrorCode}"));
+#endif
+```
+
+復元は、その項目を現在のクリップボード内容として載せ直します。既に存在しない ID は `ItemDeleted`（11）、空白の ID は `InvalidArgument`（1005）になります。
+
+**復元にはフォアグラウンドウィンドウが必要です。** バックグラウンドのアプリケーションに対して Windows は `NotForeground`（17）で拒否します。呼び出した時点でゲームウィンドウが前面にある必要があります。
+
+#### リクエストの取り消し
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint requestId = WindowsClipboardManager.Instance.GetHistory(HandleHistory);
+WindowsClipboardManager.Instance.CancelRequest(requestId);
+#endif
+```
+
+取り消された要求も完了はします。結果は `Canceled`（15）です。既に完了した ID を取り消そうとすると `InvalidArgument`（1005）で拒否されます。
+
+#### 履歴イベント
+
+`HistoryChanged` / `HistoryEnabledChanged` / `RoamingEnabledChanged` は、要求するまで発火しません。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.SetHistoryEventsEnabled(true);
+#endif
+```
+
+> **注意:** Windows の履歴設定を変更する前に、これらをオフにしてください。停止に失敗すると `MonitorRegisterFailed`（12）が固着し、マネージャーを初期化し直すまで以降の開始がすべて拒否されます。
+
+---
+
+### Await 版
+
+履歴の 5 操作には `Awaitable` 版もあります。処理を直線的に書きたい場合に使います。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardHistoryResult result =
+    await WindowsClipboardManager.Instance.GetHistoryAsync(destroyCancellationToken);
+
+if (result.ErrorCode == WindowsClipboardErrorCode.Canceled) return;
+
+Debug.Log($"{result.Items.Count} items");
+#endif
+```
+
+**キャンセルは例外を投げません。** `OperationCanceledException` ではなく `ErrorCode == Canceled` として await が完了するため、何が起きても結果型は同じです。`Canceled` を確認して早期 return してください。キャンセル済みの呼び出しの後ろで継続が動くと、破棄済みの `VisualElement` に触れることがあります。コンパイルは通り、実行時に失敗します。
+
+---
+
+### イベントの受信
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+    manager.ClipboardOperationCompleted += OnOperationCompleted;
+    manager.TextReadCompleted += OnTextRead;
+    manager.ClipboardChanged += OnClipboardChanged;
+}
+
+private void OnDisable()
+{
+    if (WindowsClipboardManager.IsTerminated) return;
+
+    WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+    manager.ClipboardOperationCompleted -= OnOperationCompleted;
+    manager.TextReadCompleted -= OnTextRead;
+    manager.ClipboardChanged -= OnClipboardChanged;
+}
+
+private void OnClipboardChanged() => Debug.Log("the clipboard content changed");
+#endif
+```
+
+`ClipboardChanged` は他アプリケーションの書き込みだけでなく、**自分自身の書き込みでも発火します。** 受け取ってコピーし返すハンドラーはループします。
+
+`IsTerminated` の確認は終了時に効きます。`Instance` はマネージャーが無ければ生成しますが、マネージャーはシーン上のオブジェクトより先に破棄されるため、確認しない後始末は購読解除のためだけに最後のオブジェクトを 1 つ作ってしまいます。
+
+---
+
+### クリア
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear();
+#endif
+```
+
+すべてのフォーマットを一度に空にします。この後の読み出しは空の成功になります。
+
+---
+
+### エラー処理
+
+`ErrorCode` は `WindowsClipboardErrorCode` です。呼び出し側が通常扱うものは次のとおりです。
+
+| コード | 値 | 意味 |
+| --- | --- | --- |
+| `NotInitialized` | 2 | `Initialize` が実行されていない |
+| `Busy` | 3 | 他のアプリケーションがクリップボードを握っている。再試行で通ることが多い |
+| `FormatUnavailable` | 5 | 要求したフォーマットがクリップボードに無い |
+| `AccessDenied` | 9 | Windows がこのプロセスにクリップボードを許可しなかった |
+| `HistoryDisabled` | 10 | ユーザーがクリップボード履歴を無効にしている |
+| `ItemDeleted` | 11 | 対象の履歴項目が既に無い |
+| `Canceled` | 15 | `CancelRequest`、またはキャンセルされた `Awaitable` |
+| `NotForeground` | 17 | 復元にはアプリケーションが前面にある必要がある |
+| `PlatformUnavailable` | 1000 | Editor 実行、または他プラットフォーム |
+| `MainThreadRequired` | 1002 | Unity のメインスレッド以外から呼ばれた |
+| `InvalidArgument` | 1005 | null のテキスト、空のリスト、空白の名前、重複フォーマット |
+| `ShuttingDown` | 1011 | 終了ドレインの実行中 |
+
+**失敗しても例外は投げません。** すべての操作は結果型で報告するため、クリップボードのコードを `try/catch` で囲んでも、クリップボード由来のものは何も捕まりません。
+
+> **注意:** `ErrorMessage` は診断用に組み立てられた文字列で、フォーマット名やパスを含むことがあります。ユーザーに見える場所へ出す可能性がある場合は、生のメッセージではなく `ErrorCode` と自前の文言を記録してください。

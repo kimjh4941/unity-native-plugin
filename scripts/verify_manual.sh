@@ -232,8 +232,13 @@ def runtime_symbols():
     # method, property, event, const or field.
     members = set(re.findall(
         r"\b(?:public|internal)\s+[^;{}()\n]*?\b([A-Za-z0-9_]+)\s*(?:\(|\{|=>|=|;)", source))
-    # Enum members carry no access modifier; the last one has no trailing comma.
-    enum_members = set(re.findall(r"^\s+([A-Z][A-Za-z0-9_]*)\s*,?\s*$", source, flags=re.M))
+    # Enum members carry no access modifier, and the last one has no trailing comma.
+    # A member may also carry an explicit value or a flags expression
+    # (HistoryDisabled = 10, Sensitive = ExcludeHistory | ExcludeRoaming); matching only
+    # the bare form reported every one of those as a name the package does not define.
+    enum_members = set(re.findall(
+        r"^\s+([A-Z][A-Za-z0-9_]*)\s*(?:=[^,;{}\r\n]+)?,?\s*$",
+        source, flags=re.M))
     return types, types | members | enum_members
 
 

@@ -8,7 +8,7 @@
 
 # Version
 
-## 1.10.0
+## 1.11.0
 
 # Supported OS Versions
 
@@ -108,6 +108,16 @@
   - Open system notification settings
   - Notification activation events (including cold-start activation)
 
+- Clipboard features
+  - Copy plain text / HTML / files / image / custom format
+  - Copy several formats in one write
+  - Exclude a copy from clipboard history, from the cloud clipboard, or from both
+  - Paste plain text / HTML / files / image / custom format
+  - Inspect the available formats, the preferred one, and whether one is present
+  - Deferred rendering: hand over a provider per format and build the bytes on demand
+  - Clipboard history: read, restore, delete, clear unpinned, and cancel a request
+  - Clipboard and history change events
+
 ## macOS
 
 - Dialog features
@@ -153,7 +163,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.11.0
 - Click "install".
 - Requirements:
   - Unity 6+

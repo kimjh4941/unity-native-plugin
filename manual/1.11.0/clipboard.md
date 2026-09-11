@@ -84,12 +84,33 @@ Language:
   - [App Sandbox](#app-sandbox)
   - [Receive Events](#receive-events-2)
   - [Error Handling](#error-handling-2)
+- [Windows](#windows)
+  - [Setup](#setup-3)
+  - [Copy Plain Text](#copy-plain-text-3)
+  - [Copy HTML Text](#copy-html-text-3)
+  - [Copy Files](#copy-files)
+  - [Copy Image](#copy-image)
+  - [Copy Custom Format](#copy-custom-format)
+  - [Copy Multiple Formats](#copy-multiple-formats)
+  - [Copy Options](#copy-options)
+  - [Paste Plain Text](#paste-plain-text)
+  - [Paste HTML Text](#paste-html-text)
+  - [Paste Files](#paste-files)
+  - [Paste Image](#paste-image)
+  - [Paste Custom Format](#paste-custom-format)
+  - [Inspect the Clipboard](#inspect-the-clipboard)
+  - [Deferred Rendering](#deferred-rendering)
+  - [Clipboard History](#clipboard-history)
+  - [Awaitable Versions](#awaitable-versions)
+  - [Receive Events](#receive-events-3)
+  - [Clear](#clear-2)
+  - [Error Handling](#error-handling-3)
 
 ---
 
 ## Android
 
-Clipboard support targets Android and iOS. There is no Windows or macOS implementation of this feature. The two platforms have separate managers and separate APIs; see [iOS](#ios) for the iOS side.
+Clipboard is implemented on Android, iOS, macOS and Windows. Each platform has its own manager and its own API rather than a shared abstraction, because the four clipboards do not agree on what a clipboard is: see [iOS](#ios), [macOS](#macos) and [Windows](#windows).
 
 ### Setup
 
@@ -2178,3 +2199,516 @@ MacClipboardManager.Instance.Read(_scope, result =>
 ```
 
 > **Note:** `Error.Message` is built by the native layer and can contain a pasteboard name. Log the `Code` and your own wording rather than the raw message when the text could reach a user-visible surface.
+
+---
+
+## Windows
+
+### Setup
+
+#### Import the namespace
+
+`WindowsClipboardManager` compiles whenever the Windows standalone build target is selected, including in the Editor. Calling it in the Editor does not crash: every operation that needs the native layer returns an immediate `PlatformUnavailable` (1000) failure, so the same code can stay in a scene that also runs in the Editor.
+
+```csharp
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+#endif
+```
+
+Clipboard history needs Windows 10 October 2018 Update or later, and the user has to have turned it on. History is queried rather than assumed; see [Clipboard History](#clipboard-history).
+
+#### Initialize before anything else
+
+Nothing works until `Initialize` has run. Every other API returns `NotInitialized` (2) before it.
+
+```csharp
+WindowsClipboardResult result = WindowsClipboardManager.Instance.Initialize();
+if (!result.IsSuccess)
+{
+    Debug.LogError($"Initialize failed: {result.ErrorCode} {result.ErrorMessage}");
+}
+```
+
+`Initialize` takes `enableChangeEvents` (default `true`). Passing `false` sets the clipboard up without registering the change listener, which is the cheaper option when `ClipboardChanged` is not needed. `Initialize` is idempotent: calling it again while the manager is already running returns success without touching the native layer.
+
+#### Synchronous result, callback, and event
+
+Windows differs from the other platforms here. Most operations **return their result synchronously**, and also accept an optional per-call callback, and also raise an event.
+
+```csharp
+WindowsClipboardResult returned = WindowsClipboardManager.Instance.CopyPlainText(
+    "hello", onResult: r => Debug.Log($"callback: {r.IsSuccess}"));
+```
+
+The history operations are the exception: they are genuinely asynchronous, return a `uint` request id rather than a result, and deliver through the callback and the event.
+
+| Method | Returns | Callback result | Event |
+| --- | --- | --- | --- |
+| `Initialize`, `Clear`, `CopyPlainText`, `CopyHtml`, `CopyFiles`, `CopyImage`, `CopyCustomFormat`, `CopyMultipleFormats`, `CancelRequest`, `SetHistoryEventsEnabled`, `ReserveDeferredFormats`, `RecoverDeferredState`, `TryShutdown` | `WindowsClipboardResult` | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+| `ShutdownWithDrain` | `void` | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+| `CanShutdownNow` | `WindowsClipboardFlagResult` | `WindowsClipboardFlagResult` | `FlagChecked` |
+| `PastePlainText`, `PasteHtml`, `GetPreferredFormat` | `WindowsClipboardTextResult` | `WindowsClipboardTextResult` | `TextReadCompleted` |
+| `PasteFiles`, `GetFormats` | `WindowsClipboardStringListResult` | `WindowsClipboardStringListResult` | `StringListReadCompleted` |
+| `PasteImage`, `PasteCustomFormat` | `WindowsClipboardBytesResult` | `WindowsClipboardBytesResult` | `BytesReadCompleted` |
+| `HasFormat` | `WindowsClipboardFormatPresenceResult` | `WindowsClipboardFormatPresenceResult` | `FormatPresenceChecked` |
+| `GetHistory` | `uint` request id | `WindowsClipboardHistoryResult` | `HistoryReadCompleted` |
+| `GetHistoryAvailability` | `uint` request id | `WindowsClipboardAvailabilityResult` | `HistoryAvailabilityChecked` |
+| `RestoreHistoryItem`, `DeleteHistoryItem`, `ClearUnpinnedHistory` | `uint` request id | `WindowsClipboardResult` | `ClipboardOperationCompleted` |
+
+Every result exposes `IsSuccess`, `Operation`, `ErrorCode` (a `WindowsClipboardErrorCode`) and `ErrorMessage`. The events carry no request id, so use the per-call callback whenever a result has to be matched to a specific request, and the events for logging or shared UI.
+
+The callback and the event are raised **outside** the caller's stack, after the method has already returned. Do not rely on a callback having run by the next line.
+
+#### Main thread only
+
+Every public API must be called from the Unity main thread. A call from any other thread is rejected with `MainThreadRequired` (1002) and never reaches the native layer.
+
+```csharp
+await Task.Run(() =>
+{
+    // Returns MainThreadRequired. It does not throw, and it does not touch the clipboard.
+    WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyPlainText("from a worker");
+});
+```
+
+#### Manager lifetime and shutdown
+
+`WindowsClipboardManager.Instance` creates the manager on first access and survives scene changes. Two shutdown paths exist because the clipboard can be busy:
+
+```csharp
+// Finishes only if nothing is in flight. completed says whether it did.
+WindowsClipboardResult immediate = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
+
+// Cancels outstanding requests and finishes across the following frames.
+WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
+    Debug.Log($"shutdown: {result.IsSuccess} {result.ErrorCode}"));
+```
+
+`CanShutdownNow` asks the same question without acting on it. While a drain runs, `Initialize` is refused with `ShuttingDown` (1011). Once the manager has been destroyed, `WindowsClipboardManager.IsTerminated` is `true` and every API is rejected.
+
+---
+
+### Copy Plain Text
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyPlainText(
+    "NativeToolkit clipboard sample 1");
+
+if (!result.IsSuccess)
+{
+    Debug.LogError($"CopyPlainText failed: {result.ErrorCode} {result.ErrorMessage}");
+}
+#endif
+```
+
+An empty string is a valid clipboard payload and is written as one. `null` is rejected with `InvalidArgument` (1005).
+
+### Copy HTML Text
+
+`CopyHtml` writes the `HTML Format` clipboard format and, unless `plainText` is null, a plain-text copy alongside it so that applications which cannot take HTML still receive something.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyHtml(
+    "<b>Hello</b> from NativeToolkit",
+    "Hello from NativeToolkit");
+#endif
+```
+
+Passing `null` for `plainText` writes the HTML alone. A reader that only asks for text then finds the clipboard empty.
+
+### Copy Files
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// Absolute paths to files that already exist on disk.
+string[] paths = { firstExportPath, secondExportPath };
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyFiles(paths);
+#endif
+```
+
+The paths are written as `CF_HDROP`, which is what File Explorer pastes. They must be absolute; the manager does not resolve relative paths. An empty list is rejected with `InvalidArgument` (1005).
+
+### Copy Image
+
+`CopyImage` takes a device-independent bitmap (`CF_DIB`) as raw bytes: a `BITMAPINFOHEADER` followed by the pixel data, without the 14-byte `BITMAPFILEHEADER` that a `.bmp` file starts with.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+byte[] dib = BuildDib();   // BITMAPINFOHEADER + BGRA pixels
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyImage(dib);
+#endif
+```
+
+### Copy Custom Format
+
+A custom format is registered by name. Any application that knows the same name can read the bytes back.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+byte[] payload = Encoding.UTF8.GetBytes("native-toolkit-sample-payload");
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyCustomFormat(
+    "NativeToolkitSample", payload);
+#endif
+```
+
+A blank format name is rejected with `InvalidArgument` (1005).
+
+### Copy Multiple Formats
+
+One clipboard write can carry several formats at once, which is how a paste target picks the richest one it understands.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var items = new List<WindowsClipboardFormatPayload>
+{
+    WindowsClipboardFormatPayload.Text("CF_UNICODETEXT", "NativeToolkit clipboard sample 1"),
+    WindowsClipboardFormatPayload.Bytes("NativeToolkitSample", payload),
+};
+
+WindowsClipboardResult result = WindowsClipboardManager.Instance.CopyMultipleFormats(items);
+#endif
+```
+
+Naming the same format twice is rejected with `InvalidArgument` (1005), and so is an empty list.
+
+### Copy Options
+
+Every copy method takes a `WindowsClipboardWriteOptions`, which asks Windows to keep the content out of places it would otherwise go.
+
+| Option | Effect |
+| --- | --- |
+| `None` | Default placement |
+| `ExcludeHistory` | Keeps the content out of the clipboard history (Win+V) |
+| `ExcludeRoaming` | Keeps the content out of the cloud clipboard |
+| `Sensitive` | Both, for content such as passwords |
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.CopyPlainText(
+    userPassword, WindowsClipboardWriteOptions.Sensitive);
+#endif
+```
+
+> **Note:** these are markers the operating system honours. The copy itself succeeds whether or not history or cloud clipboard are enabled, and no result field reports that the marker was acted on.
+
+---
+
+### Paste Plain Text
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult result = WindowsClipboardManager.Instance.PastePlainText();
+
+if (result.IsSuccess && !result.IsEmpty)
+{
+    Debug.Log($"pasted {result.Text.Length} characters");
+}
+#endif
+```
+
+**An empty clipboard is a successful read, not a failure.** `IsSuccess` is `true`, `IsEmpty` is `true`, and `Text` is null. That is a different state from a clipboard holding an empty string, where `IsEmpty` is `false` and `Text` is `""`. Treating both as "nothing there" loses the difference.
+
+### Paste HTML Text
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult result = WindowsClipboardManager.Instance.PasteHtml();
+#endif
+```
+
+Returns the `HTML Format` payload. A clipboard holding only plain text reads as empty here rather than as a failure.
+
+### Paste Files
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardStringListResult result = WindowsClipboardManager.Instance.PasteFiles();
+
+if (result.IsSuccess)
+{
+    foreach (string path in result.Values)
+    {
+        Debug.Log(path);
+    }
+}
+#endif
+```
+
+### Paste Image
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardBytesResult result = WindowsClipboardManager.Instance.PasteImage();
+
+if (result.IsSuccess && !result.IsEmpty)
+{
+    Debug.Log($"{result.Data.Length} bytes of DIB");
+}
+#endif
+```
+
+The bytes come back in the same `CF_DIB` shape `CopyImage` takes, without a `BITMAPFILEHEADER`.
+
+### Paste Custom Format
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardBytesResult result =
+    WindowsClipboardManager.Instance.PasteCustomFormat("NativeToolkitSample");
+#endif
+```
+
+A format name that no application has placed reads as an empty success, not as a failure.
+
+---
+
+### Inspect the Clipboard
+
+Three operations answer what is on the clipboard without taking it.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardStringListResult formats = WindowsClipboardManager.Instance.GetFormats();
+Debug.Log($"{formats.Values.Count} formats available");
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetFormats.png" alt="Example_WindowsClipboardManager_GetFormats" width="800" />
+</p>
+
+`GetPreferredFormat` names the one a paste target would normally choose.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardTextResult preferred = WindowsClipboardManager.Instance.GetPreferredFormat();
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetPreferredFormat.png" alt="Example_WindowsClipboardManager_GetPreferredFormat" width="800" />
+</p>
+
+An empty clipboard returns an empty string here rather than an `Empty` error.
+
+`HasFormat` answers for one format by name.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardFormatPresenceResult presence =
+    WindowsClipboardManager.Instance.HasFormat("CF_UNICODETEXT");
+
+Debug.Log($"present: {presence.Value}");
+#endif
+```
+
+`Value` is independent of `IsSuccess`: a successful check of an absent format is `IsSuccess == true` with `Value == false`.
+
+---
+
+### Deferred Rendering
+
+Large payloads do not have to be built at copy time. `ReserveDeferredFormats` claims the formats and hands Windows a provider per format, which runs only if something actually asks for that format.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var providers = new Dictionary<string, Func<byte[]>>
+{
+    ["CF_UNICODETEXT"] = () => Encoding.Unicode.GetBytes(BuildLargeText()),
+    ["CF_DIB"] = () => BuildScreenshotDib(),
+};
+
+WindowsClipboardResult result =
+    WindowsClipboardManager.Instance.ReserveDeferredFormats(providers);
+#endif
+```
+
+Two rules decide whether this works:
+
+- **A provider must not touch any Unity API.** It can be called on a thread Unity does not own, and while the manager is shutting down. Build the bytes from data captured beforehand.
+- **Each provider is called at most once per format.** Windows asks for the size first and the content second, and the manager caches the first answer so the provider does not run twice.
+
+If a reservation is left half-applied, `RecoverDeferredState` clears it. The shutdown drain calls it on its own; call it directly only when a reservation failed and the clipboard has to be usable again immediately.
+
+---
+
+### Clipboard History
+
+History is the Win+V list. It is a Windows feature the user can switch off, so every history call can come back saying it is unavailable.
+
+#### Availability
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.GetHistoryAvailability(result =>
+{
+    if (!result.IsSuccess) return;
+    Debug.Log($"history: {result.HistoryEnabled}, cloud: {result.RoamingEnabled}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetHistoryAvailability.png" alt="Example_WindowsClipboardManager_GetHistoryAvailability" width="800" />
+</p>
+
+#### Read
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint requestId = WindowsClipboardManager.Instance.GetHistory(result =>
+{
+    if (result.ErrorCode == WindowsClipboardErrorCode.HistoryDisabled)
+    {
+        Debug.Log("the user has clipboard history turned off");
+        return;
+    }
+
+    foreach (WindowsClipboardHistoryItem item in result.Items)
+    {
+        Debug.Log($"{item.Id}: {item.Text?.Length ?? 0} characters");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/windows/clipboard/Example_WindowsClipboardManager_GetHistory.png" alt="Example_WindowsClipboardManager_GetHistory" width="800" />
+</p>
+
+The returned `requestId` is what `CancelRequest` takes. Items are newest first, and each carries an `Id` that the restore and delete operations use.
+
+#### Restore, Delete, Clear
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.RestoreHistoryItem(itemId, result =>
+    Debug.Log($"restore: {result.IsSuccess} {result.ErrorCode}"));
+
+WindowsClipboardManager.Instance.DeleteHistoryItem(itemId, result =>
+    Debug.Log($"delete: {result.IsSuccess} {result.ErrorCode}"));
+
+WindowsClipboardManager.Instance.ClearUnpinnedHistory(result =>
+    Debug.Log($"clear: {result.IsSuccess} {result.ErrorCode}"));
+#endif
+```
+
+Restoring puts the item back on the clipboard as the current content. An id that no longer exists comes back as `ItemDeleted` (11); a blank id is `InvalidArgument` (1005).
+
+**Restore needs the foreground window.** Windows refuses it for a background application with `NotForeground` (17), so the game window has to be the active one at the moment of the call.
+
+#### Cancel a Request
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint requestId = WindowsClipboardManager.Instance.GetHistory(HandleHistory);
+WindowsClipboardManager.Instance.CancelRequest(requestId);
+#endif
+```
+
+The cancelled request still completes, with `Canceled` (15). Cancelling an id that has already finished is rejected with `InvalidArgument` (1005).
+
+#### History Events
+
+`HistoryChanged`, `HistoryEnabledChanged` and `RoamingEnabledChanged` are off until asked for.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardManager.Instance.SetHistoryEventsEnabled(true);
+#endif
+```
+
+> **Note:** turn these off before changing the Windows history setting. A failed stop makes `MonitorRegisterFailed` (12) stick, and every later start is refused until the manager is reinitialized.
+
+---
+
+### Awaitable Versions
+
+The five history operations also exist as `Awaitable` methods, for code that reads better in a straight line.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardHistoryResult result =
+    await WindowsClipboardManager.Instance.GetHistoryAsync(destroyCancellationToken);
+
+if (result.ErrorCode == WindowsClipboardErrorCode.Canceled) return;
+
+Debug.Log($"{result.Items.Count} items");
+#endif
+```
+
+**Cancellation does not throw.** The await completes with `ErrorCode == Canceled` instead of raising `OperationCanceledException`, so the result type is the same whatever happens. Check for `Canceled` and return: a continuation that runs past a cancelled call can touch a destroyed `VisualElement`, which compiles and then fails at runtime.
+
+---
+
+### Receive Events
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+    manager.ClipboardOperationCompleted += OnOperationCompleted;
+    manager.TextReadCompleted += OnTextRead;
+    manager.ClipboardChanged += OnClipboardChanged;
+}
+
+private void OnDisable()
+{
+    if (WindowsClipboardManager.IsTerminated) return;
+
+    WindowsClipboardManager manager = WindowsClipboardManager.Instance;
+    manager.ClipboardOperationCompleted -= OnOperationCompleted;
+    manager.TextReadCompleted -= OnTextRead;
+    manager.ClipboardChanged -= OnClipboardChanged;
+}
+
+private void OnClipboardChanged() => Debug.Log("the clipboard content changed");
+#endif
+```
+
+`ClipboardChanged` fires for the application's own writes as well as for other applications', so a handler that reacts by copying will loop.
+
+The `IsTerminated` check matters at quit: `Instance` builds a manager when none exists, and the manager is destroyed before the scene objects are, so an unguarded teardown creates one last object purely to unsubscribe from it.
+
+---
+
+### Clear
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear();
+#endif
+```
+
+Empties the clipboard for every format at once. A read after this is an empty success.
+
+---
+
+### Error Handling
+
+`ErrorCode` is a `WindowsClipboardErrorCode`. The ones a caller normally handles:
+
+| Code | Value | Meaning |
+| --- | --- | --- |
+| `NotInitialized` | 2 | `Initialize` has not run |
+| `Busy` | 3 | Another application holds the clipboard; retrying usually works |
+| `FormatUnavailable` | 5 | The format asked for is not on the clipboard |
+| `AccessDenied` | 9 | Windows refused the clipboard to this process |
+| `HistoryDisabled` | 10 | The user has clipboard history turned off |
+| `ItemDeleted` | 11 | The history item is gone |
+| `Canceled` | 15 | `CancelRequest`, or a cancelled `Awaitable` |
+| `NotForeground` | 17 | Restore needs the application to be in front |
+| `PlatformUnavailable` | 1000 | Running in the Editor, or on another platform |
+| `MainThreadRequired` | 1002 | Called from a thread other than Unity's main thread |
+| `InvalidArgument` | 1005 | Null text, an empty list, a blank name, a duplicate format |
+| `ShuttingDown` | 1011 | A shutdown drain is running |
+
+**A failed call does not throw.** Every operation reports through its result, so a `try/catch` around clipboard code catches nothing the clipboard produces.
+
+> **Note:** `ErrorMessage` is composed for diagnostics and can name a format or a path. Log `ErrorCode` and your own wording rather than the raw message when the text could reach a user-visible surface.
