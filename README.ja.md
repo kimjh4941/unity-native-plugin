@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.10.0
+- 1.11.0
 
 ## 対応 OS バージョン
 
@@ -106,6 +106,15 @@
   - 通知許可設定のクエリ
   - システム通知設定を開く
   - 通知アクティベーションイベントの受信（コールドスタート起動を含む）
+- クリップボード機能
+  - プレーンテキスト / HTML / ファイル / 画像 / カスタムフォーマットのコピー
+  - 複数フォーマットの一括コピー
+  - クリップボード履歴・クラウドクリップボードからの除外（個別・両方）
+  - プレーンテキスト / HTML / ファイル / 画像 / カスタムフォーマットの貼り付け
+  - 利用可能なフォーマット・優先フォーマット・特定フォーマットの有無の確認
+  - 遅延レンダリング（フォーマットごとのプロバイダーを渡し、要求時にバイト列を生成）
+  - クリップボード履歴の読み出し・復元・削除・未固定の消去・リクエスト取り消し
+  - クリップボードと履歴の変更イベント
 
 ### macOS
 
@@ -150,7 +159,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.10.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.11.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降

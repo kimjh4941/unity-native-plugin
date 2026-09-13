@@ -301,7 +301,7 @@ private sealed class ShareChooserActionListenerProxy : AndroidJavaProxy
 1. `ShareChooserActionResult`（struct、null 正規化）
 2. `ShareChooserActionCallbackCoordinator`（ガードなし、注入可能 dispatch）
 3. `AndroidShareManager`: proxy → coordinator 保持/イベント中継 → `ShareText` 引数（coordinator register）→ `ShareWithCallback` 警告ログ → Initialize（try/catch degrade）/ OnDestroy（listener 解除 → Dispose → coordinator Clear）配線 → `FireChooserAction` 委譲
-4. テスト: `ShareChooserActionCallbackCoordinatorTests`（順序・last-registered wins・null クリア・例外継続）、`ShareResultTests`（struct null 正規化）、`AndroidShareJsonBuilderTests`（chooserActions の callback 条件、5.5 / 7 参照）
+4. テスト: `ShareChooserActionCallbackCoordinatorTests`（順序・last-registered wins・null クリア・例外継続）、`ShareResultTests`（struct null 正規化）、`AndroidShareJsonBuilderTests`（chooserActions の callback 条件、1.2 / 7 参照）
 
 ---
 

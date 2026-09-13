@@ -118,6 +118,20 @@ public static class NativeToolkitSampleNavigator
 #endif
     }
 
+    /// <summary>
+    /// Replaces the current screen with the Windows clipboard sample.
+    /// </summary>
+    /// <param name="uiDocument">UIDocument that hosts the sample screens.</param>
+    public static void ShowWindowsClipboard(UIDocument uiDocument)
+    {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+        ApplyScreen<WindowsClipboardManagerExampleController>(
+            uiDocument,
+            "UI/Windows/Clipboard/WindowsClipboardManagerExample",
+            "UI/Windows/Clipboard/WindowsClipboardManagerExampleStyle");
+#endif
+    }
+
     public static void ShowMacDialog(UIDocument uiDocument)
     {
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
@@ -212,6 +226,7 @@ public static class NativeToolkitSampleNavigator
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
         RemoveIfExists<WindowsDialogManagerExampleController>(gameObject);
         RemoveIfExists<WindowsNotificationManagerExampleController>(gameObject);
+        RemoveIfExists<WindowsClipboardManagerExampleController>(gameObject);
 #endif
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR
         RemoveIfExists<MacDialogManagerExampleController>(gameObject);

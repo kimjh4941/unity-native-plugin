@@ -17,6 +17,43 @@ Unity プラグインは「Unity 内部の挙動」と「OS 側の実際の状�
 | **2b. PlayMode（Player 上）** | UI → Manager → ネイティブ → callback の全経路 | 実機 / エミュレータ | **必要** | なし |
 | **3. OS 境界** | クリップボード実内容、共有シート、ネイティブダイアログ | 実機 + 外部ハーネス | **必要** | なし |
 
+### 層 0: Player ビルド（コンパイルゲート）
+
+**層 1 と層 2a は、どちらも `UNITY_EDITOR` が定義された状態でしか走らない。**
+したがって次のコードは、どちらの層でも**一度もコンパイルされない**。
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+    // P/Invoke 宣言、MonoPInvokeCallback の実体、アパートメント判定、
+    // ネイティブ呼び出しの本体
+#endif
+```
+
+つまり **層 1・層 2a がすべて緑でも、出荷される構成がコンパイルできない状態はあり得る。**
+実際に起きた: メソッド改名で内側ガードの `nameof` が取り残され、
+3 ラウンドのレビューが「コンパイルエラー 0」と報告し続けたまま、
+Windows Player は `CS0103` で失敗していた（2026-09-07、Windows Clipboard）。
+
+**Player ビルドは層 2b とは別物である。** 層 2b は実機で「動くか」を見る。
+層 0 は実機なしで「コンパイルできるか」だけを見る。デバイスも署名もいらず、
+1 コマンドで済み、それでいて内側ガードのコードを唯一検査する手段である。
+
+| 層 | `UNITY_EDITOR` | 内側ガードを検査するか | デバイス |
+|---|---|---|---|
+| 1. EditMode | 定義される | **しない** | 不要 |
+| 2a. PlayMode（Editor 内） | 定義される | **しない** | 不要 |
+| **0. Player ビルド** | 定義されない | **する（コンパイルのみ）** | **不要** |
+| 2b. PlayMode（Player 上） | 定義されない | する（実行まで） | 必要 |
+
+**ネイティブ境界を持つコードを変更したら、テストと同時に Player ビルドを通すこと。**
+Windows は次で 3 ゲートをまとめて実行できる。
+
+```bash
+scripts/verify_unity_windows.sh
+```
+
+他プラットフォームの同等ゲートは未整備（7 節「未定義事項」）。
+
 ### 層 2b と層 3 のコスト関係
 
 **デバイス調達・接続・署名・配布の基盤は共有できるが、テストハーネスは別コストである。**
@@ -321,15 +358,16 @@ CI 成果物にも残さないこと。
 
 ---
 
-## 7. 適用状況（2026-09-03 時点）
+## 7. 適用状況（2026-09-07 時点）
 
 **この節は現状のロードマップであり、上記の層モデル・ツール選定（1〜6 節）とは性質が異なる。**
 実装が進んだら更新すること。
 
 | 層 | 状況 |
 |---|---|
+| **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
-| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS）と Share（iOS / macOS）|
+| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
 | 2b. PlayMode（Player 上） | 未着手 |
 | 3. OS 境界 | 未着手 |
 
@@ -348,11 +386,11 @@ CI 成果物にも残さないこと。
 注意: 「テストファイルが 1 つ存在する」ことと「対象契約を網羅した」ことは別である。
 下表の「実装済み」は前者のみを意味し、網羅性は保証していない（網羅性の完了条件は本節「未定義事項」）。
 
-### 層 1 の機能・プラットフォーム別状況（2026-09-03、`Tests/` 配下の実ファイルで確認）
+### 層 1 の機能・プラットフォーム別状況（2026-09-07、`Tests/` 配下の実ファイルで確認）
 
 | 機能 | Android | iOS | macOS | Windows |
 |---|---|---|---|---|
-| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 対象外 |
+| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（builder / parser / result / payload / request table / dispatch） |
 | **Share** | 実装済み（builder / wiring） | 実装済み（builder / dispatch） | 実装済み（builder / dispatch / result / wiring） | 対象外 |
 | **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
 | **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
@@ -365,6 +403,11 @@ CI 成果物にも残さないこと。
 - **iOS Notification のみが真の欠落。** ここだけは層 1 で埋められる
 - **macOS Clipboard に wiring が無いのは欠落ではない。** サンプルシーンをまだ設計していないため、
   `*SampleSceneWiringTests` の対象が存在しない。`design-sample-scene` の完了時に追加する
+- **Windows Clipboard も同じ理由で wiring が無い。** サンプルシーンは未設計
+- **Windows Clipboard は層 2a を持つ最初の Windows 機能。** `WindowsClipboardManagerIntegrationTests`
+  が拒否経路・配送・ライフサイクル・teardown を Editor 内で検証する。Editor は Windows player ではないため、
+  ネイティブ境界に届く経路は原理的に検証できない。**そこは層 2b と実機確認の担当**であり、
+  層 2a のテストが緑であることをネイティブ動作の保証と読んではならない
 
 ### 推奨する導入順序
 
@@ -372,7 +415,8 @@ CI 成果物にも残さないこと。
 
 0. **層 1 の欠落（iOS Notification）を埋める**（最も安く、既存パターンの流用で済む）
 1. **層 2a を埋める**（デバイス不要、前例あり、コストほぼゼロ）
-   - 特に「event を発火しない契約」は現状どの層でも未検証で、リグレッションを検出できない
+   - 「event を発火しない契約」は Windows Clipboard で初めて検証した（`TryShutdown` が
+     共通 event も callback も発火しないこと）。**他機能では依然として未検証**
    - Dialog は層 1 が N/A のため、**層 2a が最初の自動テストになる**
    - B 群 Manager（3 節）が対象の場合は build target 切り替えが要る点に注意
 2. **層 2b を Android に限定して試す**
@@ -384,6 +428,8 @@ CI 成果物にも残さないこと。
 
 現時点で意図的に定義していない。憶測で埋めず、該当層に着手する際に実測に基づいて追加すること。
 
+- Android / iOS / macOS の層 0（Player ビルドゲート）。Windows と同じ穴が空いている可能性が高く、
+  各プラットフォームの内側ガードが一度でもコンパイルされているかは未確認
 - 各プラットフォーム・各機能について、**どの層を必須とするか**のテストマトリクス
   （上表は「現状どうなっているか」であり、「どうあるべきか」は未定義）
 - 「対象契約を網羅した」と判定する完了条件（テストファイルの存在だけでは不十分、上記「判定の定義」参照）

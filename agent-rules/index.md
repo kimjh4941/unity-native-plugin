@@ -5,16 +5,25 @@ All implementation rules are managed in this folder.
 
 ## Index
 
-- Common implementation policy (Bridge pattern / TDD): ./coding-rules/common.md
+- Common implementation policy (Bridge pattern / sample scenes / TDD): ./coding-rules/common.md
 - C# coding rules (Unity6): ./coding-rules/csharp.md
 - Test strategy (test layers / per-platform tooling): ./coding-rules/testing.md
+
+## Artifacts
+
+Designs, results, reviews and the issues carved out as separate tasks.
+
+- Artifact map (成果物の置き場と、未対応として切り出した課題の一覧): ../artifact/README.md
+
+**Read the issue list there before starting work in an area.** Four issues are
+recorded as deliberately deferred, and two of them are only half applied.
 
 ## Workflows
 
 Canonical workflow definitions shared across all agents (Copilot, Claude, Codex).
 Agent-specific wrappers in `.github/` reference these files.
 
-- Design implementation feature (実装計画作成): ./workflows/design-implementation-feature/workflow.md
+- Design feature (実装計画作成): ./workflows/design-feature/workflow.md
 - Implement feature (実装・テスト・確認): ./workflows/implement-feature/workflow.md
 - Design sample scene (サンプルシーン計画作成): ./workflows/design-sample-scene/workflow.md
 - Implement sample scene (サンプルシーン実装): ./workflows/implement-sample-scene/workflow.md

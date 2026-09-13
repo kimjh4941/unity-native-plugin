@@ -1,0 +1,425 @@
+Mono path[0] = 'D:/Build/Windows/Unity NativeToolkit_Data/Managed'
+Mono config path = 'D:/Build/Windows/MonoBleedingEdge/etc'
+CodeReloadManager initialized
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.4.2f1 (7a4c1aeef971)
+[Subsystems] Discovering subsystems at path D:/Build/Windows/Unity NativeToolkit_Data/UnitySubsystems
+[D3D12 Device Filter] Vendor Name: NVIDIA
+[D3D12 Device Filter] Device Name: NVIDIA GeForce MX250
+[D3D12 Device Filter] Driver Version: 32.0.15.8183
+[D3D12 Device Filter] Feature Level: 12.1
+[D3D12 Device Filter] Graphics Memory: 1968 MB
+[D3D12 Device Filter] Processor Count: 8
+[D3D12 Device Filter] Device Type: Discrete
+[D3D12 Device Filter] D3D12 API denied by user filter: {"Graphics Memory Comparator": Less Than"Graphics Memory": "3600", "Device Type:": Do Not Care}
+GfxDevice: creating device client; kGfxThreadingModeClientWorkerJobs
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce MX250 (ID=0x1d13)
+    Vendor:   NVIDIA
+    VRAM:     1968 MB
+    Driver:   32.0.15.8183
+Begin MonoManager ReloadAssembly
+- Finished resetting the current domain, in  0.009 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+<RI> Initializing input.
+Using Windows.Gaming.Input
+XInput1_3.dll not found. Trying XInput9_1_0.dll instead...
+<RI> Input initialized.
+UnloadTime: 2.388400 ms
+[TopMenuExampleController][Start]
+[TopMenuExampleController][InitializeUI]
+[TopMenuExampleController][InitializeUI] Share feature is only supported on Android, iOS, and macOS. Hiding button.
+[TopMenuExampleController][OnClipboardClicked]
+[WindowsClipboardManagerExampleController][Awake] mainThreadId: 1
+[WindowsClipboardManagerExampleController][OnEnable]
+[WindowsClipboardManager] Creating new instance of WindowsClipboardManager
+[WindowsClipboardManager][Awake]
+[WindowsClipboardManagerExampleController][Start]
+[WindowsClipboardManagerExampleController][InitializeUI]
+[TopMenuExampleController][OnDestroy]
+[WindowsClipboardManagerExampleController][OnInitializeClicked]
+[WindowsClipboardManagerExampleController] issue call=#1 lifecycle.initialize
+[WindowsClipboardManager][Initialize] enableChangeEvents: True, onResult: False
+[WindowsClipboardManager][EnsureStaApartment] apartment: MainSta
+[WindowsClipboardManagerExampleController] #1 [call] initClipboardManager OK code=None
+[WindowsClipboardManagerExampleController] #2 [event] ClipboardOperationCompleted initClipboardManager OK code=None
+[WindowsClipboardManagerExampleController] #3 [event] ClipboardChanged total=1
+[WindowsClipboardManagerExampleController][OnCopyImageClicked]
+[WindowsClipboardManagerExampleController] issue call=#4 copy.image
+[WindowsClipboardManager][CopyImage] size: 296, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #4 [call] copyImage OK code=None size=296
+[WindowsClipboardManagerExampleController] #5 [event] ClipboardOperationCompleted copyImage OK code=None
+[WindowsClipboardManagerExampleController][OnPasteImageClicked]
+[WindowsClipboardManagerExampleController] issue call=#6 paste.image
+[WindowsClipboardManager][PasteImage] onResult: False
+[WindowsClipboardManagerExampleController] #6 [call] pasteImage OK code=None empty=False size=296 match=match
+[WindowsClipboardManagerExampleController] #7 [event] BytesReadCompleted pasteImage OK code=None size=296
+[WindowsClipboardManagerExampleController][OnCreateTempFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#8 fixtures.createTempFiles
+[WindowsClipboardSampleFixtures][CreateTempFiles] count: 2
+[WindowsClipboardManagerExampleController] #8 [local] fixtures.createTempFiles created=2
+[WindowsClipboardManagerExampleController][OnCopyFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#9 copy.files
+[WindowsClipboardManager][CopyFiles] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #9 [call] copyFiles OK code=None count=2
+[WindowsClipboardManagerExampleController] #10 [event] ClipboardOperationCompleted copyFiles OK code=None
+[WindowsClipboardManagerExampleController][OnPasteFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#11 paste.files
+[WindowsClipboardManager][PasteFiles] onResult: False
+[WindowsClipboardManagerExampleController] #11 [call] pasteFiles OK code=None empty=False count=2 match=match
+[WindowsClipboardManagerExampleController] #12 [event] StringListReadCompleted pasteFiles OK code=None count=2
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#13 copy.multiple
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #13 [call] copyMultipleFormats OK code=None count=2
+[WindowsClipboardManagerExampleController] #14 [event] ClipboardOperationCompleted copyMultipleFormats OK code=None
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsWithImageClicked]
+[WindowsClipboardManagerExampleController] issue call=#15 copy.multiple.withImage
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #15 [call] copyMultipleFormats OK code=None count=2 dibSize=296
+[WindowsClipboardManagerExampleController] #16 [event] ClipboardOperationCompleted copyMultipleFormats OK code=None
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsAnsiClicked]
+[WindowsClipboardManagerExampleController] issue call=#17 copy.multiple.ansi
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #17 [call] copyMultipleFormats OK code=None count=2 acp=932
+[WindowsClipboardManagerExampleController] #18 [event] ClipboardOperationCompleted copyMultipleFormats OK code=None
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsDuplicateClicked]
+[WindowsClipboardManagerExampleController] issue call=#19 copy.multiple.duplicate
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #19 [call] copyMultipleFormats NG code=InvalidParameter msg=Invalid parameter count=2 duplicate=true
+[WindowsClipboardManagerExampleController] #20 [event] ClipboardOperationCompleted copyMultipleFormats NG code=InvalidParameter
+[WindowsClipboardManagerExampleController][OnCopyPlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#21 copy.plainText
+[WindowsClipboardManager][CopyPlainText] length: 33, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #21 [call] copyPlainText OK code=None length=33
+[WindowsClipboardManagerExampleController] #22 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnClearClicked]
+[WindowsClipboardManagerExampleController] issue call=#23 inspect.clear
+[WindowsClipboardManager][Clear] onResult: True
+[WindowsClipboardManagerExampleController] #23 [call] clearClipboard OK code=None
+[WindowsClipboardManagerExampleController] #24 [event] ClipboardOperationCompleted clearClipboard OK code=None
+[WindowsClipboardManagerExampleController] #25 [event] clearClipboard OK code=None perCallCallback
+[WindowsClipboardManagerExampleController] #26 [event] ClipboardChanged total=2
+[WindowsClipboardManagerExampleController][OnPastePlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#27 paste.plainText
+[WindowsClipboardManager][PastePlainText] onResult: False
+[WindowsClipboardManagerExampleController] #27 [call] pastePlainText OK code=None empty=False length=15 match=n/a
+[WindowsClipboardManagerExampleController] #28 [event] TextReadCompleted pastePlainText OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCopyHtmlClicked]
+[WindowsClipboardManagerExampleController] issue call=#29 copy.html
+[WindowsClipboardManager][CopyHtml] htmlLength: 31, hasPlainText: True, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #29 [call] copyHtml OK code=None htmlLength=31
+[WindowsClipboardManagerExampleController] #30 [event] ClipboardOperationCompleted copyHtml OK code=None
+[WindowsClipboardManagerExampleController][OnPasteHtmlClicked]
+[WindowsClipboardManagerExampleController] issue call=#31 paste.html
+[WindowsClipboardManager][PasteHtml] onResult: False
+[WindowsClipboardManagerExampleController] #31 [call] pasteHtml OK code=None empty=False length=31 match=match
+[WindowsClipboardManagerExampleController] #32 [event] TextReadCompleted pasteHtml OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCopyLargeTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#33 copy.largeText
+[WindowsClipboardManager][CopyPlainText] length: 1048576, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #33 [call] copyPlainText OK code=None length=1048576
+[WindowsClipboardManagerExampleController] #34 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnPastePlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#35 paste.plainText
+[WindowsClipboardManager][PastePlainText] onResult: False
+[WindowsClipboardManagerExampleController] #35 [call] pastePlainText OK code=None empty=False length=1048576 match=match
+[WindowsClipboardManagerExampleController] #36 [event] TextReadCompleted pastePlainText OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCopySensitiveClicked]
+[WindowsClipboardManagerExampleController] issue call=#37 options.sensitive
+[WindowsClipboardManager][CopyPlainText] length: 33, options: Sensitive, onResult: False
+[WindowsClipboardManagerExampleController] #37 [call] copyPlainText OK code=None length=33
+[WindowsClipboardManagerExampleController] #38 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnCopyExcludeHistoryClicked]
+[WindowsClipboardManagerExampleController] issue call=#39 options.excludeHistory
+[WindowsClipboardManager][CopyPlainText] length: 33, options: ExcludeHistory, onResult: False
+[WindowsClipboardManagerExampleController] #39 [call] copyPlainText OK code=None length=33
+[WindowsClipboardManagerExampleController] #40 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnCopyExcludeRoamingClicked]
+[WindowsClipboardManagerExampleController] issue call=#41 options.excludeRoaming
+[WindowsClipboardManager][CopyPlainText] length: 33, options: ExcludeRoaming, onResult: False
+[WindowsClipboardManagerExampleController] #41 [call] copyPlainText OK code=None length=33
+[WindowsClipboardManagerExampleController] #42 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnGetHistoryAvailabilityClicked]
+[WindowsClipboardManagerExampleController] issue call=#43 history.availability
+[WindowsClipboardManager][GetHistoryAvailability] onResult: True
+[WindowsClipboardManagerExampleController] #43 [accept] getClipboardHistoryAvailability requestId=1
+[WindowsClipboardManagerExampleController] #44 [event] HistoryAvailabilityChecked getClipboardHistoryAvailability OK code=None history=True roaming=False
+[WindowsClipboardManagerExampleController] #45 [done] getClipboardHistoryAvailability call=#43 OK code=None history=True roaming=False
+[WindowsClipboardManagerExampleController][OnGetHistoryClicked]
+[WindowsClipboardManagerExampleController] issue call=#46 history.get
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #46 [accept] getClipboardHistory requestId=2
+[WindowsClipboardManagerExampleController] #47 [event] HistoryReadCompleted getClipboardHistory OK code=None count=14
+[WindowsClipboardManagerExampleController] #48 [done] getClipboardHistory call=#46 OK code=None empty=False count=14 newestAgeSec=44 newestMatch=match
+[WindowsClipboardManagerExampleController][OnRestoreLastClicked]
+[WindowsClipboardManagerExampleController] issue call=#49 history.restore
+[WindowsClipboardManager][RestoreHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #49 [accept] restoreHistoryItem requestId=3
+[WindowsClipboardManagerExampleController] #50 [event] ClipboardOperationCompleted restoreHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #51 [done] restoreHistoryItem call=#49 OK code=None
+[WindowsClipboardManagerExampleController][OnDeleteLastClicked]
+[WindowsClipboardManagerExampleController] issue call=#52 history.delete
+[WindowsClipboardManager][DeleteHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #52 [accept] deleteHistoryItem requestId=4
+[WindowsClipboardManagerExampleController] #53 [event] ClipboardOperationCompleted deleteHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #54 [done] deleteHistoryItem call=#52 OK code=None
+[WindowsClipboardManagerExampleController] #55 [event] ClipboardChanged total=3
+[WindowsClipboardManagerExampleController][OnGetHistoryClicked]
+[WindowsClipboardManagerExampleController] issue call=#56 history.get
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #56 [accept] getClipboardHistory requestId=5
+[WindowsClipboardManagerExampleController] #57 [event] HistoryReadCompleted getClipboardHistory OK code=None count=13
+[WindowsClipboardManagerExampleController] #58 [done] getClipboardHistory call=#56 OK code=None empty=False count=13 newestAgeSec=505 newestMatch=differ
+[WindowsClipboardManagerExampleController][OnRestoreTwiceInOneFrameClicked]
+[WindowsClipboardManagerExampleController] issue call=#59 history.restoreTwice.first
+[WindowsClipboardManager][RestoreHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #59 [accept] restoreHistoryItem requestId=6
+[WindowsClipboardManagerExampleController] issue call=#60 history.restoreTwice.second
+[WindowsClipboardManager][RestoreHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #60 [accept] restoreHistoryItem requestId=0 (rejected; the outcome arrives on the callback)
+[WindowsClipboardManagerExampleController] #61 [event] ClipboardOperationCompleted restoreHistoryItem NG code=OperationBusy
+[WindowsClipboardManagerExampleController] #62 [done] restoreHistoryItem call=#60 NG code=OperationBusy msg=restoreHistoryItem is already in progress.
+[WindowsClipboardManagerExampleController] #63 [event] ClipboardOperationCompleted restoreHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #64 [done] restoreHistoryItem call=#59 OK code=None
+[WindowsClipboardManagerExampleController] #65 [event] ClipboardChanged total=4
+[WindowsClipboardManagerExampleController][OnIssueAndCancelInOneFrameClicked]
+[WindowsClipboardManagerExampleController] issue call=#66 history.issueAndCancel.issue
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #66 [accept] getClipboardHistory requestId=7
+[WindowsClipboardManagerExampleController] issue call=#67 history.issueAndCancel.cancel
+[WindowsClipboardManager][CancelRequest] requestId: 7, onResult: False
+[WindowsClipboardManagerExampleController] #67 [call] cancelClipboardRequest OK code=None targetRequestId=7
+[WindowsClipboardManagerExampleController] #68 [event] ClipboardOperationCompleted cancelClipboardRequest OK code=None
+[WindowsClipboardManagerExampleController] #69 [event] HistoryReadCompleted getClipboardHistory NG code=Canceled count=0
+[WindowsClipboardManagerExampleController] #70 [done] getClipboardHistory call=#66 NG code=Canceled msg=Request was canceled empty=False count=0 newestAgeSec=n/a newestMatch=n/a
+[WindowsClipboardManagerExampleController][OnRestoreLastClicked]
+[WindowsClipboardManagerExampleController] issue call=#71 history.restore
+[WindowsClipboardManager][RestoreHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #71 [accept] restoreHistoryItem requestId=8
+[WindowsClipboardManagerExampleController] #72 [event] ClipboardOperationCompleted restoreHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #73 [done] restoreHistoryItem call=#71 OK code=None
+[WindowsClipboardManagerExampleController] #74 [event] ClipboardChanged total=5
+[WindowsClipboardManagerExampleController][OnResetEventCountersClicked]
+[WindowsClipboardManagerExampleController] #75 [event] ClipboardChanged total=1
+[WindowsClipboardManagerExampleController][OnEnableHistoryEventsClicked]
+[WindowsClipboardManagerExampleController] issue call=#76 events.enable
+[WindowsClipboardManager][SetHistoryEventsEnabled] enabled: True, onResult: False
+[WindowsClipboardManagerExampleController] #76 [call] setClipboardHistoryCallbacks OK code=None enabled=True
+[WindowsClipboardManagerExampleController] #77 [event] ClipboardOperationCompleted setClipboardHistoryCallbacks OK code=None
+[WindowsClipboardManagerExampleController] #78 [event] ClipboardChanged total=2
+[WindowsClipboardManagerExampleController] #79 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#80 copy.multiple
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #80 [call] copyMultipleFormats OK code=None count=2
+[WindowsClipboardManagerExampleController] #81 [event] ClipboardOperationCompleted copyMultipleFormats OK code=None
+[WindowsClipboardManagerExampleController] #82 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnGetHistoryAwaitClicked]
+[WindowsClipboardManagerExampleController] issue call=#83 await.history.get
+[WindowsClipboardManagerExampleController] #83 [accept] getClipboardHistory awaited (no requestId)
+[WindowsClipboardManager][GetHistoryAsync]
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #84 [event] HistoryReadCompleted getClipboardHistory OK code=None count=16
+[WindowsClipboardManagerExampleController] #85 [done] getClipboardHistory call=#83 OK code=None empty=False count=16 newestAgeSec=182 newestMatch=match
+[WindowsClipboardManagerExampleController][OnGetHistoryAwaitCancelClicked]
+[WindowsClipboardManagerExampleController] issue call=#86 await.history.getCancelled
+[WindowsClipboardManagerExampleController] #86 [accept] getClipboardHistory awaited (no requestId)
+[WindowsClipboardManager][GetHistoryAsync]
+[WindowsClipboardManagerExampleController] #87 [event] HistoryReadCompleted getClipboardHistory NG code=Canceled count=0
+[WindowsClipboardManagerExampleController] #88 [done] getClipboardHistory call=#86 NG code=Canceled msg=Request was canceled cancelledWithoutThrowing
+[WindowsClipboardManagerExampleController][OnGetAvailabilityAwaitClicked]
+[WindowsClipboardManagerExampleController] issue call=#89 await.history.availability
+[WindowsClipboardManagerExampleController] #89 [accept] getClipboardHistoryAvailability awaited (no requestId)
+[WindowsClipboardManager][GetHistoryAvailabilityAsync]
+[WindowsClipboardManager][GetHistoryAvailability] onResult: True
+[WindowsClipboardManagerExampleController] #90 [event] HistoryAvailabilityChecked getClipboardHistoryAvailability OK code=None history=True roaming=False
+[WindowsClipboardManagerExampleController] #91 [done] getClipboardHistoryAvailability call=#89 OK code=None history=True roaming=False
+[WindowsClipboardManagerExampleController][OnRestoreAwaitClicked]
+[WindowsClipboardManagerExampleController] issue call=#92 await.history.restore
+[WindowsClipboardManagerExampleController] #92 [accept] restoreHistoryItem awaited (no requestId)
+[WindowsClipboardManager][RestoreHistoryItemAsync]
+[WindowsClipboardManager][RestoreHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #93 [event] ClipboardOperationCompleted restoreHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #94 [done] restoreHistoryItem call=#92 OK code=None
+[WindowsClipboardManagerExampleController][OnDeleteAwaitClicked]
+[WindowsClipboardManagerExampleController] issue call=#95 await.history.delete
+[WindowsClipboardManagerExampleController] #95 [accept] deleteHistoryItem awaited (no requestId)
+[WindowsClipboardManager][DeleteHistoryItemAsync]
+[WindowsClipboardManager][DeleteHistoryItem] onResult: True
+[WindowsClipboardManagerExampleController] #96 [event] ClipboardOperationCompleted deleteHistoryItem OK code=None
+[WindowsClipboardManagerExampleController] #97 [done] deleteHistoryItem call=#95 OK code=None
+[WindowsClipboardManagerExampleController] #98 [event] ClipboardChanged total=3
+[WindowsClipboardManagerExampleController] #99 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnClearUnpinnedAwaitClicked]
+[WindowsClipboardManagerExampleController] issue call=#100 await.history.clearUnpinned
+[WindowsClipboardManagerExampleController] #100 [accept] clearUnpinnedHistory awaited (no requestId)
+[WindowsClipboardManager][ClearUnpinnedHistoryAsync]
+[WindowsClipboardManager][ClearUnpinnedHistory] onResult: True
+[WindowsClipboardManagerExampleController] #101 [event] ClipboardOperationCompleted clearUnpinnedHistory OK code=None
+[WindowsClipboardManagerExampleController] #102 [done] clearUnpinnedHistory call=#100 OK code=None
+[WindowsClipboardManagerExampleController] #103 [event] ClipboardChanged total=4
+[WindowsClipboardManagerExampleController] #104 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnCopyCustomFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#105 copy.customFormat
+[WindowsClipboardManager][CopyCustomFormat] format: NativeToolkitSample, size: 29, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #105 [call] copyCustomFormat OK code=None size=29
+[WindowsClipboardManagerExampleController] #106 [event] ClipboardOperationCompleted copyCustomFormat OK code=None
+[WindowsClipboardManagerExampleController][OnPasteCustomFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#107 paste.customFormat
+[WindowsClipboardManager][PasteCustomFormat] format: NativeToolkitSample, onResult: False
+[WindowsClipboardManagerExampleController] #107 [call] pasteCustomFormat OK code=None empty=False size=29 match=match
+[WindowsClipboardManagerExampleController] #108 [event] BytesReadCompleted pasteCustomFormat OK code=None size=29
+[WindowsClipboardManagerExampleController][OnPasteCustomFormatUnknownClicked]
+[WindowsClipboardManagerExampleController] issue call=#109 paste.customFormat.unknown
+[WindowsClipboardManager][PasteCustomFormat] format: NativeToolkitSampleNoSuchFormat, onResult: False
+[WindowsClipboardManagerExampleController] #109 [call] pasteCustomFormat OK code=None empty=True size=0 match=n/a
+[WindowsClipboardManagerExampleController] #110 [event] BytesReadCompleted pasteCustomFormat OK code=None size=0
+[WindowsClipboardManagerExampleController][OnGetFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#111 inspect.getFormats
+[WindowsClipboardManager][GetFormats] onResult: False
+[WindowsClipboardManagerExampleController] #111 [call] getClipboardFormats OK code=None empty=False count=1
+[WindowsClipboardManagerExampleController] #112 [event] StringListReadCompleted getClipboardFormats OK code=None count=1
+[WindowsClipboardManagerExampleController][OnGetPreferredFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#113 inspect.getPreferredFormat
+[WindowsClipboardManager][GetPreferredFormat] onResult: False
+[WindowsClipboardManagerExampleController] #113 [call] getPreferredClipboardFormat OK code=None empty=True format=(none)
+[WindowsClipboardManagerExampleController] #114 [event] TextReadCompleted getPreferredClipboardFormat OK code=None empty=True
+[WindowsClipboardManagerExampleController][OnHasFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#115 inspect.hasFormat
+[WindowsClipboardManager][HasFormat] format: CF_UNICODETEXT, onResult: False
+[WindowsClipboardManagerExampleController] #115 [call] hasClipboardFormat OK code=None hasFormat=False
+[WindowsClipboardManagerExampleController] #116 [event] FormatPresenceChecked hasClipboardFormat OK code=None has=False
+[WindowsClipboardManagerExampleController][OnClearClicked]
+[WindowsClipboardManagerExampleController] issue call=#117 inspect.clear
+[WindowsClipboardManager][Clear] onResult: True
+[WindowsClipboardManagerExampleController] #117 [call] clearClipboard OK code=None
+[WindowsClipboardManagerExampleController] #118 [event] ClipboardOperationCompleted clearClipboard OK code=None
+[WindowsClipboardManagerExampleController] #119 [event] clearClipboard OK code=None perCallCallback
+[WindowsClipboardManagerExampleController][OnCopyMultipleFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#120 copy.multiple
+[WindowsClipboardManager][CopyMultipleFormats] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #120 [call] copyMultipleFormats OK code=None count=2
+[WindowsClipboardManagerExampleController] #121 [event] ClipboardOperationCompleted copyMultipleFormats OK code=None
+[WindowsClipboardManagerExampleController] #122 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnGetPreferredFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#123 inspect.getPreferredFormat
+[WindowsClipboardManager][GetPreferredFormat] onResult: False
+[WindowsClipboardManagerExampleController] #123 [call] getPreferredClipboardFormat OK code=None empty=False format=CF_UNICODETEXT
+[WindowsClipboardManagerExampleController] #124 [event] TextReadCompleted getPreferredClipboardFormat OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCopyFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#125 copy.files
+[WindowsClipboardManagerExampleController] #125 [local] copy.files noTempFiles; press Create Temp Files first
+[WindowsClipboardManagerExampleController][OnGetFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#126 inspect.getFormats
+[WindowsClipboardManager][GetFormats] onResult: False
+[WindowsClipboardManagerExampleController] #126 [call] getClipboardFormats OK code=None empty=False count=5
+[WindowsClipboardManagerExampleController] #127 [event] StringListReadCompleted getClipboardFormats OK code=None count=5
+[WindowsClipboardManagerExampleController][OnGetPreferredFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#128 inspect.getPreferredFormat
+[WindowsClipboardManager][GetPreferredFormat] onResult: False
+[WindowsClipboardManagerExampleController] #128 [call] getPreferredClipboardFormat OK code=None empty=False format=CF_UNICODETEXT
+[WindowsClipboardManagerExampleController] #129 [event] TextReadCompleted getPreferredClipboardFormat OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCopyImageClicked]
+[WindowsClipboardManagerExampleController] issue call=#130 copy.image
+[WindowsClipboardManager][CopyImage] size: 296, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #130 [call] copyImage OK code=None size=296
+[WindowsClipboardManagerExampleController] #131 [event] ClipboardOperationCompleted copyImage OK code=None
+[WindowsClipboardManagerExampleController] #132 [event] HistoryChanged
+[WindowsClipboardManagerExampleController][OnGetPreferredFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#133 inspect.getPreferredFormat
+[WindowsClipboardManager][GetPreferredFormat] onResult: False
+[WindowsClipboardManagerExampleController] #133 [call] getPreferredClipboardFormat OK code=None empty=False format=CF_DIB
+[WindowsClipboardManagerExampleController] #134 [event] TextReadCompleted getPreferredClipboardFormat OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnCreateTempFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#135 fixtures.createTempFiles
+[WindowsClipboardSampleFixtures][CreateTempFiles] count: 2
+[WindowsClipboardManagerExampleController] #135 [local] fixtures.createTempFiles created=2
+[WindowsClipboardManagerExampleController][OnCopyFilesClicked]
+[WindowsClipboardManagerExampleController] issue call=#136 copy.files
+[WindowsClipboardManager][CopyFiles] count: 2, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #136 [call] copyFiles OK code=None count=2
+[WindowsClipboardManagerExampleController] #137 [event] ClipboardOperationCompleted copyFiles OK code=None
+[WindowsClipboardManagerExampleController][OnGetPreferredFormatClicked]
+[WindowsClipboardManagerExampleController] issue call=#138 inspect.getPreferredFormat
+[WindowsClipboardManager][GetPreferredFormat] onResult: False
+[WindowsClipboardManagerExampleController] #138 [call] getPreferredClipboardFormat OK code=None empty=False format=CF_HDROP
+[WindowsClipboardManagerExampleController] #139 [event] TextReadCompleted getPreferredClipboardFormat OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnDelayedHistoryCallClicked]
+[WindowsClipboardManagerExampleController] issue call=#140 threading.delayed
+[WindowsClipboardManagerExampleController] #140 [local] threading.delayed bringAnotherWindowToTheFrontWithin=5s
+[WindowsClipboardManagerExampleController] issue call=#141 threading.delayed.fire
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #141 [accept] getClipboardHistory requestId=14
+[WindowsClipboardManagerExampleController] #142 [event] HistoryReadCompleted getClipboardHistory NG code=NotForeground count=0
+[WindowsClipboardManagerExampleController] #143 [done] getClipboardHistory call=#141 NG code=NotForeground msg=App is not in the foreground empty=False count=0 newestAgeSec=n/a newestMatch=n/a
+[WindowsClipboardManagerExampleController][OnDisableHistoryEventsClicked]
+[WindowsClipboardManagerExampleController] issue call=#144 events.disable
+[WindowsClipboardManager][SetHistoryEventsEnabled] enabled: False, onResult: False
+[WindowsClipboardManagerExampleController] #144 [call] setClipboardHistoryCallbacks OK code=None enabled=False
+[WindowsClipboardManagerExampleController] #145 [event] ClipboardOperationCompleted setClipboardHistoryCallbacks OK code=None
+[WindowsClipboardManagerExampleController] #146 [event] ClipboardChanged total=5
+[WindowsClipboardManagerExampleController] #147 [event] ClipboardChanged total=6
+[WindowsClipboardManagerExampleController][OnGetHistoryAvailabilityClicked]
+[WindowsClipboardManagerExampleController] issue call=#148 history.availability
+[WindowsClipboardManager][GetHistoryAvailability] onResult: True
+[WindowsClipboardManagerExampleController] #148 [accept] getClipboardHistoryAvailability requestId=15
+[WindowsClipboardManagerExampleController] #149 [event] HistoryAvailabilityChecked getClipboardHistoryAvailability OK code=None history=False roaming=False
+[WindowsClipboardManagerExampleController] #150 [done] getClipboardHistoryAvailability call=#148 OK code=None history=False roaming=False
+[WindowsClipboardManagerExampleController][OnGetHistoryClicked]
+[WindowsClipboardManagerExampleController] issue call=#151 history.get
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #151 [accept] getClipboardHistory requestId=16
+[WindowsClipboardManagerExampleController] #152 [event] HistoryReadCompleted getClipboardHistory NG code=HistoryDisabled count=0
+[WindowsClipboardManagerExampleController] #153 [done] getClipboardHistory call=#151 NG code=HistoryDisabled msg=Clipboard history is disabled empty=False count=0 newestAgeSec=n/a newestMatch=n/a
+[WindowsClipboardManagerExampleController][OnCopyPlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#154 copy.plainText
+[WindowsClipboardManager][CopyPlainText] length: 34, options: None, onResult: False
+[WindowsClipboardManagerExampleController] #154 [call] copyPlainText OK code=None length=34
+[WindowsClipboardManagerExampleController] #155 [event] ClipboardOperationCompleted copyPlainText OK code=None
+[WindowsClipboardManagerExampleController][OnPastePlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#156 paste.plainText
+[WindowsClipboardManager][PastePlainText] onResult: False
+[WindowsClipboardManagerExampleController] #156 [call] pastePlainText OK code=None empty=False length=34 match=match
+[WindowsClipboardManagerExampleController] #157 [event] TextReadCompleted pastePlainText OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnReserveDeferredFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#158 deferred.reserve
+[WindowsClipboardManager][ReserveDeferredFormats] count: 2, onResult: False
+[WindowsClipboardManagerExampleController] #158 [call] reserveDeferredFormats OK code=None formats=2
+[WindowsClipboardManagerExampleController] #159 [event] ClipboardOperationCompleted reserveDeferredFormats OK code=None
+[WindowsClipboardManagerExampleController][OnPastePlainTextClicked]
+[WindowsClipboardManagerExampleController] issue call=#160 paste.plainText
+[WindowsClipboardManager][PastePlainText] onResult: False
+[WindowsClipboardManagerExampleController] #160 [call] pastePlainText OK code=None empty=False length=34 match=match
+[WindowsClipboardManagerExampleController] #161 [event] TextReadCompleted pastePlainText OK code=None empty=False
+[WindowsClipboardManagerExampleController][OnReserveDeferredFormatsClicked]
+[WindowsClipboardManagerExampleController] issue call=#162 deferred.reserve
+[WindowsClipboardManager][ReserveDeferredFormats] count: 2, onResult: False
+[WindowsClipboardManagerExampleController] #162 [call] reserveDeferredFormats OK code=None formats=2
+[WindowsClipboardManagerExampleController] #163 [event] ClipboardOperationCompleted reserveDeferredFormats OK code=None
+[WindowsClipboardManagerExampleController][OnQuitClicked]
+[WindowsClipboardManagerExampleController] issue call=#164 lifecycle.quit
+[WindowsClipboardManagerExampleController] #164 [local] lifecycle.quit quitRequested; the quit drain runs after this line
+[WindowsClipboardManager][OnWantsToQuit] state: None
+[WindowsClipboardManager][OnWantsToQuit] state: Resumed
+[WindowsClipboardManager][OnDestroy]
+[WindowsClipboardManagerExampleController][OnDisable]
+[WindowsClipboardManager] Creating new instance of WindowsClipboardManager
+[WindowsClipboardManager][Awake]
+[WindowsClipboardManager][Awake] Recreated after destruction; all operations are rejected.
+[WindowsClipboardManagerExampleController][OnDestroy]
+[WindowsClipboardManager][OnDestroy]
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input Polling Thread exited.
+Input System module state changed to: Shutdown.
+CodeReloadManager destroyed
