@@ -57,7 +57,15 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 
 ## ステップ4: リリースノート生成
 
-1. `git log main..HEAD --oneline` を実行してコミット一覧を取得する
+1. `git fetch origin --tags` の後、`git log <前回タグ>..HEAD --oneline` を実行して
+   コミット一覧を取得する
+   - 基点は前回タグ。ステップ6・7 により前回タグ = 前回の `origin/main` なので
+     `origin/main..HEAD` でも同じ結果になる（1.10.0 と当時の origin/main はいずれも `0ace335`）
+   - **ローカル `main` は使わない。** リリース作業で更新しないため置き去りになり、
+     件数が黙って膨らむ。1.11.0 で 224 件と出た（正しくは 71 件）。タグなら手元に無ければ
+     `unknown revision` で止まるが、ローカル `main` は誤った数字を普通に返す
+   - develop に他の feature が既に入っている場合、feature ブランチの `HEAD` では
+     取りこぼす。ステップ5 の後に `origin/develop` を対象にする
 2. conventional commits の type 別に分類する:
    - `feat` → Features
    - `fix` → Fixes
