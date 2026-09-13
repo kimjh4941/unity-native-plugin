@@ -1,0 +1,82 @@
+Mono path[0] = 'D:/Build/Windows/Unity NativeToolkit_Data/Managed'
+Mono config path = 'D:/Build/Windows/MonoBleedingEdge/etc'
+CodeReloadManager initialized
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.4.2f1 (7a4c1aeef971)
+[Subsystems] Discovering subsystems at path D:/Build/Windows/Unity NativeToolkit_Data/UnitySubsystems
+[D3D12 Device Filter] Vendor Name: NVIDIA
+[D3D12 Device Filter] Device Name: NVIDIA GeForce MX250
+[D3D12 Device Filter] Driver Version: 32.0.15.8183
+[D3D12 Device Filter] Feature Level: 12.1
+[D3D12 Device Filter] Graphics Memory: 1968 MB
+[D3D12 Device Filter] Processor Count: 8
+[D3D12 Device Filter] Device Type: Discrete
+[D3D12 Device Filter] D3D12 API denied by user filter: {"Graphics Memory Comparator": Less Than"Graphics Memory": "3600", "Device Type:": Do Not Care}
+GfxDevice: creating device client; kGfxThreadingModeClientWorkerJobs
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce MX250 (ID=0x1d13)
+    Vendor:   NVIDIA
+    VRAM:     1968 MB
+    Driver:   32.0.15.8183
+Begin MonoManager ReloadAssembly
+- Finished resetting the current domain, in  0.060 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+<RI> Initializing input.
+Using Windows.Gaming.Input
+XInput1_3.dll not found. Trying XInput9_1_0.dll instead...
+<RI> Input initialized.
+UnloadTime: 85.683000 ms
+[TopMenuExampleController][Start]
+[TopMenuExampleController][InitializeUI]
+[TopMenuExampleController][InitializeUI] Share feature is only supported on Android, iOS, and macOS. Hiding button.
+[TopMenuExampleController][OnClipboardClicked]
+[WindowsClipboardManagerExampleController][Awake] mainThreadId: 1
+[WindowsClipboardManagerExampleController][OnEnable]
+[WindowsClipboardManager] Creating new instance of WindowsClipboardManager
+[WindowsClipboardManager][Awake]
+[WindowsClipboardManagerExampleController][Start]
+[WindowsClipboardManagerExampleController][InitializeUI]
+[TopMenuExampleController][OnDestroy]
+[WindowsClipboardManagerExampleController][OnInitializeClicked]
+[WindowsClipboardManagerExampleController] issue call=#1 lifecycle.initialize
+[WindowsClipboardManager][Initialize] enableChangeEvents: True, onResult: False
+[WindowsClipboardManager][EnsureStaApartment] apartment: MainSta
+[WindowsClipboardManagerExampleController] #1 [call] initClipboardManager OK code=None
+[WindowsClipboardManagerExampleController] #2 [event] ClipboardOperationCompleted initClipboardManager OK code=None
+[WindowsClipboardManagerExampleController][OnForceInitializeWhileDrainingClicked]
+[WindowsClipboardManagerExampleController] issue call=#3 lifecycle.forceInit.request
+[WindowsClipboardManager][GetHistory] onResult: True
+[WindowsClipboardManagerExampleController] #3 [accept] getClipboardHistory requestId=1
+[WindowsClipboardManagerExampleController] issue call=#4 lifecycle.forceInit.drain
+[WindowsClipboardManagerExampleController] #4 [accept] uninitClipboardManager awaited (no requestId)
+[WindowsClipboardManager][ShutdownWithDrain] state: Running, onResult: True
+[WindowsClipboardManager][DrainRequestRegistry] draining 1 request(s)
+[WindowsClipboardManagerExampleController] #5 [event] HistoryReadCompleted getClipboardHistory NG code=Canceled count=0
+[WindowsClipboardManagerExampleController] #6 [done] getClipboardHistory call=#3 NG code=Canceled msg=Request was canceled empty=False count=0 newestAgeSec=n/a newestMatch=n/a
+[WindowsClipboardManager][AdvanceDrain] attempt 1 not finished yet: Canceled
+[WindowsClipboardManagerExampleController] issue call=#7 lifecycle.forceInit.initialize
+[WindowsClipboardManager][Initialize] enableChangeEvents: True, onResult: False
+[WindowsClipboardManagerExampleController] #7 [call] initClipboardManager NG code=ShuttingDown msg=initClipboardManager was rejected because the manager is shutting down. frame=1 expected ShuttingDown while the drain runs
+[WindowsClipboardManager][OnRequestCompletedNative] unknown request id 1
+[WindowsClipboardManagerExampleController] #8 [event] ClipboardOperationCompleted initClipboardManager NG code=ShuttingDown
+[WindowsClipboardManagerExampleController] #9 [event] ClipboardOperationCompleted uninitClipboardManager OK code=None
+[WindowsClipboardManagerExampleController] #10 [done] uninitClipboardManager call=#4 OK code=None
+[WindowsClipboardManager][OnWantsToQuit] state: None
+[WindowsClipboardManager][OnWantsToQuit] state: Resumed
+[WindowsClipboardManagerExampleController][OnDisable]
+[WindowsClipboardManagerExampleController][OnDestroy]
+[WindowsClipboardManager][OnDestroy]
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input Polling Thread exited.
+Input System module state changed to: Shutdown.
+CodeReloadManager destroyed

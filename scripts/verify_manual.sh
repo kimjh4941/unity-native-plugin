@@ -73,7 +73,31 @@ if [[ ! -d "manual/$VERSION" ]]; then
   exit 2
 fi
 
-VERSION="$VERSION" STRICT="$STRICT" QUIET="$QUIET" python3 - <<'PYTHON'
+# Pick an interpreter that actually runs code. On Windows `python3` resolves to a
+# Microsoft Store app execution alias that runs nothing and exits 49, so every check
+# would be skipped and the run would still look like a pass.
+pick_python() {
+  local candidate
+  for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1 &&
+       "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+      printf '%s
+' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! PYTHON=$(pick_python); then
+  echo "error: no working python 3.8+ found (tried python3, python, py)" >&2
+  exit 2
+fi
+
+# The findings quote the manual back, and check 5 quotes Korean. A Japanese Windows
+# defaults stdout to cp932, which mangles Japanese and raises on Korean, so a real
+# finding would surface as an encoding traceback instead of as itself.
+PYTHONUTF8=1 VERSION="$VERSION" STRICT="$STRICT" QUIET="$QUIET" "$PYTHON" - <<'PYTHON'
 import filecmp
 import os
 import re
@@ -208,8 +232,13 @@ def runtime_symbols():
     # method, property, event, const or field.
     members = set(re.findall(
         r"\b(?:public|internal)\s+[^;{}()\n]*?\b([A-Za-z0-9_]+)\s*(?:\(|\{|=>|=|;)", source))
-    # Enum members carry no access modifier; the last one has no trailing comma.
-    enum_members = set(re.findall(r"^\s+([A-Z][A-Za-z0-9_]*)\s*,?\s*$", source, flags=re.M))
+    # Enum members carry no access modifier, and the last one has no trailing comma.
+    # A member may also carry an explicit value or a flags expression
+    # (HistoryDisabled = 10, Sensitive = ExcludeHistory | ExcludeRoaming); matching only
+    # the bare form reported every one of those as a name the package does not define.
+    enum_members = set(re.findall(
+        r"^\s+([A-Z][A-Za-z0-9_]*)\s*(?:=[^,;{}\r\n]+)?,?\s*$",
+        source, flags=re.M))
     return types, types | members | enum_members
 
 

@@ -1677,6 +1677,36 @@ private static void DispatchOffThreadRejection<T>(
 - `AndroidJavaProxy` は iOS では使わないため、Android 固有の proxy 制約は本計画に該当しない
 - `using AOT;` は `#if UNITY_IOS && !UNITY_EDITOR` 内でのみ有効にする
 
+### 5.11 結果型のファイル構成
+
+4.1 が挙げる結果型ファイルは、どれも**型を宣言するだけで振る舞いを持たない**。
+値の意味・null 許容・失敗時の既定値は 3.5.3 が確定させており、ここでは
+**どのファイルがどの型を宣言するか**と、全ファイルに共通する実装上の決めごとだけを示す。
+
+共通の決めごと（3.5.1 / 3.5.3 の再掲ではなく、実装時に迷う点のみ）:
+
+- **結果型（`*Result`）は `public readonly struct`。** `IsSuccess == true` ⇔ `Error == null`
+- **値を運ぶ入れ子型は `sealed class`**。`readonly struct` の `default` が
+  「成功でも失敗でもない」状態を作らないようにするため
+- 1 ファイル 1 型に**しない**。結果型と、それが運ぶ入れ子型・列挙は同じファイルに置く。
+  参照が常に一緒に動くため、分けると変更が 2 ファイルに散る
+
+| ファイル | 宣言する型 | 契約 |
+|---|---|---|
+| `IosClipboardErrorInfo.cs` | `IosClipboardErrorInfo` | 3.5.1 |
+| `IosClipboardOperationResult.cs` | `IosClipboardOperationResult` | 3.5.3 |
+| `IosClipboardReadResult.cs` | `IosClipboardReadResult` / `IosClipboardItem` | 3.5.3 |
+| `IosClipboardReadDataResult.cs` | `IosClipboardReadDataResult` | 3.5.3 |
+| `IosClipboardSnapshotResult.cs` | `IosClipboardSnapshotResult` / `IosClipboardSnapshot` | 3.5.3 |
+| `IosPasteboardScopeResult.cs` | `IosPasteboardScopeResult` | 3.5.3（`IosPasteboardScope` 自体は payload 側 3.5.2） |
+| `IosClipboardDetectionResults.cs` | `IosClipboardDetectedPatternsResult` / `IosClipboardDetectedValuesResult` / `IosClipboardDetectionPattern` / `IosClipboardDetectedValues` | 3.5.3 |
+| `IosClipboardLoadedItemResult.cs` | `IosClipboardLoadedItemResult` / `IosClipboardLoadedItem` / `IosClipboardLoadedItemKind` | 3.5.3 |
+| `IosClipboardForegroundChangeResult.cs` | `IosClipboardForegroundChangeResult` | 3.5.3 |
+| `IosClipboardChangeEvent.cs` | `IosClipboardChangeEvent` / `IosClipboardChangeEventKind` | 3.5.3 |
+
+**`IosClipboardDetectionResults.cs` だけ複数形。** 検出系は 2 つの結果型が同じ
+エンティティ型を共有するため、片方に寄せると命名がもう片方と食い違う。
+
 ---
 
 ## 6. エラーケース一覧と返却仕様（層別）

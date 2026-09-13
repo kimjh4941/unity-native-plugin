@@ -224,6 +224,17 @@ public class WindowsNotificationManagerExampleController : MonoBehaviour
 
 ### 5.2 Manager イベント購読方針
 
+> **2026-06-13 追記**: 本計画のうち `RemoveByIdButton` / `GetAllButton` /
+> `SetBadge*Button` / `ClearBadgeButton` の 6 ボタンと、`GetAllNotificationsCompleted`
+> の購読は、実装後に取り外された。理由は「unpackaged アプリでは非対応」
+> （コミット `e29968e`）。**根拠はコミットメッセージのみで、検証記録は無い。**
+> 経緯は実装結果 v1 の 6 章。
+
+**ハンドラ名は `On` + イベント名。** `NotificationOperationCompleted` は
+`OnNotificationOperationCompleted`、`NotificationInvoked` は `OnNotificationInvoked`、
+`GetAllNotificationsCompleted` は `OnGetAllNotificationsCompleted`。
+購読と解除が同じ行の並びで対応するため、解除漏れが並べて読めば分かる。
+
 ```csharp
 private void OnEnable()
 {

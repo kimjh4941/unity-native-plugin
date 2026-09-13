@@ -1,5 +1,13 @@
 # 実装結果レポート
 
+> **2026-09-10 訂正**: 本文が「実機確認は未実施」としている箇所は**古い**。
+> **実機確認は実施済み。ただし詳細記録は未作成。**
+> 実施日・端末・OS バージョン・消化した項目・残った失敗は、この文書には無い。
+> 痕跡として `manual/1.10.0/images/windows/notification/` に、
+> サンプル画面を実機で撮った `Example_*` のスクリーンショットが 4 枚ある。
+> **本文の「未実施」を、そのまま未消化として扱わないこと。**
+> 経緯: `artifact/DEVICE_VERIFICATION_RECORDS_MISSING.md`
+
 ## 基本情報
 
 - 日付: 2026-06-06
@@ -61,6 +69,9 @@
 
 ## 4. 手動確認観点
 
+**この表は 6 章と併せて読むこと。** うち 5 行は操作するボタンが後日取り外されたため、
+「実機待ち」ではなく**実施不能**になっている（6.2）。
+
 | 確認内容 | 操作 | 期待結果 | 状態 |
 |---------|------|---------|------|
 | Initialize が成功すること | clsid 入力 → Initialize ボタン | ResultTextBlock に "✓ Initialize" | 実機待ち |
@@ -85,6 +96,7 @@
 | 項目 | 理由 |
 |------|------|
 | 全手動確認 | Windows 実機 + native DLL が必要 |
+| RemoveById / GetAll / SetBadge / ClearBadge の確認 | **実施不能**。2026-06-13 にボタンごと取り外された（6 章） |
 | Editor での Awake ダイアログ確認 | Unity Editor での実行が必要 |
 | TopMenu 遷移確認 | Unity スタンドアロンビルドが必要 |
 
@@ -98,3 +110,58 @@
   - 修正する: 指摘内容を反映して再実装
   - キャンセル: ここまでの修正差分は保持したまま、終了
 - ユーザー回答: 未回答
+
+---
+
+## 6. 後日の削除（2026-06-13 追記）
+
+本レポートの 2 章が「実装した」と書いた機能のうち **6 ボタン分が、1 週間後に取り外された**。
+コミット `e29968e`「feat(sample): overhaul Windows notification sample for unpackaged apps」。
+
+| 取り外したボタン | 対応 API |
+|---|---|
+| `RemoveByIdButton` | `RemoveNotificationById` |
+| `GetAllButton` | `GetAllNotifications` |
+| `SetBadgeAlertButton` / `SetBadgeNewMessageButton` / `SetBadge1Button` | `SetBadge` |
+| `ClearBadgeButton` | `SetBadge(0)` |
+
+`OnGetAllNotificationsCompleted` の購読も同時に外れ、現在の画面は
+`NotificationOperationCompleted` と `NotificationInvoked` の 2 イベントのみを購読する。
+
+### 6.1 理由と、その根拠の弱さ
+
+コミットメッセージは **`Remove unsupported APIs for unpackaged apps`** と述べる。
+Unity の Windows スタンドアロンビルドは常に unpackaged（MSIX なし）であり
+（機能設計 v2 の 8 章）、その前提と整合する。
+
+**ただし根拠はコミットメッセージ 1 行しかない。**
+設計 v2 の 8 章「要検証事項」は `getAllNotifications` のバッファ不足を挙げているが、
+**3 API が unpackaged で動かないという結論はどの成果物にも書かれていない。**
+実機で確認した結果なのか、ドキュメントから判断したのかは追跡できない。
+**未確認事項として扱うこと。**
+
+### 6.2 4 章の 5 項目は実施不能になった
+
+操作するボタンが存在しないため、次の 5 行は「実機待ち」ではなく**実施不能**である。
+
+- `RemoveNotificationById が指定 ID を削除すること`
+- `GetAllNotifications が JSON を表示すること`
+- `SetBadge(Alert) がグリフバッジを表示すること`
+- `SetBadge(1) が数値バッジを表示すること`
+- `ClearBadge でバッジが消えること`
+
+**待っていれば来る確認ではない。** 4 章の表はこの追記と併せて読むこと。
+
+### 6.3 残っている不整合
+
+| 場所 | 状態 |
+|---|---|
+| サンプルシーン計画 v2 | 取り外した 6 ボタンを載せたまま |
+| `WindowsNotificationManager` | `SetBadge` / `RemoveNotificationById` / `GetAllNotifications` を公開したまま。**unpackaged で動かないという注記が無い** |
+| マニュアル | 3 API を記載していない（結果として整合している） |
+
+**サンプルから到達できない公開 API が 3 つある。** 利用者は XML コメントだけを見て呼び出せる。
+注記を入れるか、非対応を明記するかは未決定。
+
+**別タスクとして `artifact/UNREACHABLE_NOTIFICATION_APIS.md` に切り出した。**
+判断には実機で 3 API を叩く確認が要るため、本レポートでは結論を出さない。
