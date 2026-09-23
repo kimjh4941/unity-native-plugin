@@ -3,8 +3,11 @@
 - 記録日: 2026-09-23
 - 分類: 横断課題（移行）。**機能追加ではない。** clipboard / notification / dialog の 3 機能にまたがる
 - 発見経緯: native-toolkit 側（`feature/NTKIT-16`）から、1.x の C ABI を削除し 2.0.0 に置き換えた旨の申し送りを受けた
-- 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に設計を固める
-- 進捗: **企画中。** 47 本の対応は確定（4 章）。設計書は未着手
+- 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に、
+  設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
+  [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
+- 進捗: **企画中。** 47 本の対応は確定（5 章）。設計書は未着手
+- **先に手当てが要る: 2.5。着手前の今すでに、Windows Player ビルドが 2.0.0 の DLL を掴む**
 
 - 対象: `Runtime/Clipboard/Windows*.cs`、`Runtime/Notification/Windows*.cs`、`Runtime/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
 - チケット: 未採番
@@ -80,6 +83,59 @@ x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致するこ
 - `Tests/Runtime/WindowsClipboard*Tests.cs`（7 本）、`Tests/Runtime/WindowsNotificationTests.cs`
 - `Runtime/Dialog/Win32MessageBox.cs`、`Editor/UI/NativeToolkitEditorWindow.cs`
 
+### 2.5 着手前にすでに壊れている
+
+**移行を始めたかどうかと無関係に、今この repo で Windows Player をビルドすると 2.0.0 の DLL が入る。**
+2026-09-23 に `-testPlatform StandaloneWindows64` を走らせて実測した。
+
+`Editor/Build/PreBuildProcessor.cs` の `FindLatestVersionInDist()` は、
+兄弟リポジトリの `../native-toolkit/dist` にあるディレクトリ名を semver として比較し、
+**最も高いものを選ぶ**。native-toolkit が `dist/1.12.0/` を置いた時点で、それが選ばれる。
+
+```
+[Build] Using native-toolkit version: 1.12.0
+[Build][Windows] No -debug.dll published for prefix=windows-native-toolkit-;
+                 falling back to the release DLL: windows-native-toolkit-capi-2.0.0.dll
+[Build][Windows] Deleted old DLL: ...\Plugins\Windows\unity-windows-native-toolkit.dll
+[Build][Windows] Copied windows-native-toolkit-capi-2.0.0.dll -> unity-windows-native-toolkit-debug.dll
+```
+
+コピーされた DLL の MD5 は `dist/1.12.0/windows/windows-native-toolkit-capi-2.0.0.dll` と一致した。
+**コミット済みの 1.x DLL は削除される。** P/Invoke は 1.x のままなので、
+このビルドを実行すれば全関数が entry point 不在になる。
+
+接頭辞 `windows-native-toolkit-` は `windows-native-toolkit-capi-2.0.0.dll` にも一致してしまう。
+**`-capi-` の付く方と付かない方を区別していない**（2.3 の注記と同じ罠）。
+
+| 版 | `windows/` の中身 |
+|---|---|
+| `dist/1.11.0` | `windows-native-toolkit-1.2.0.dll`（1.x。**これが正しい**） |
+| `dist/1.12.0` | `windows-native-toolkit-capi-2.0.0.dll`（2.0.0） |
+
+#### 対処の選択肢
+
+| 案 | 内容 | 評価 |
+|---|---|---|
+| A | `NATIVE_TOOLKIT_DIST_ROOT` で旧 dist を指す | 環境変数の override は `PreBuildProcessor` が既に持っている。ただし `dist` ルートの差し替えであって**版の固定ではない** |
+| B | 参照する版をリポジトリ側で固定できるようにする | 「最も高い版」という暗黙の選択をやめる。移行後は 1.12.0 に上げるだけで済む |
+| C | 移行が終わるまで native-toolkit の `dist/1.12.0/` を置かない | こちらでは決められない |
+
+**推奨は B。** A は各自の環境に依存し、CI や別の作業者では再発する。
+「最も高い版を黙って選ぶ」仕組み自体が、今回のように相手側の都合で挙動が変わる原因である。
+
+#### 併せて壊れているもの
+
+`Editor/Build/PostBuildProcessor.cs` は development ビルドのとき、
+絶対パスで PDB を探してコピーする。
+
+```
+C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary-Debug.pdb
+```
+
+**このパスは現在解決しない。** 名前も 1.x のもの（`WindowsLibrary-Debug.pdb`）で、
+stage 5 の構成変更より前の前提。ビルドは止まらず `LogError` が出るだけだが、
+移行時に一緒に直す対象。
+
 ## 3. 宣言の置換では済まないもの
 
 **ここが本トピックの中身である。** 以下はいずれも今のコードに概念自体が無い。
@@ -125,7 +181,20 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 | S-3 | **2 回目の `init` が成功ではなく `NOT_SUPPORTED`** | リロード時に再 init する実装がすべて破綻する。ハンドラ差し替えは `ntk_notification_manager_set_invoked_handler` を使う |
 | S-4 | `reserveDeferredFormats` の `release` が `user_data` の解放を持つ | **エラー戻り時に自分で解放すると二重解放。** 失敗しても `release` は必ず呼ばれる |
 
-S-1 / S-2 は EditMode テストで境界値を固定して守る。S-3 / S-4 は 3.1 の後始末と同じ箇所に出るので、設計で一体に扱う。
+### 手動確認では捕まらない
+
+**この 4 件は、人がサンプルを触って見つけられるものではない。** タイムスタンプが 1000 倍ずれても、
+画面上はもっともらしい数字に見える。したがって**自動テストは移行の後で入れるものではなく、
+移行を検証する手段そのものである**（[cross-platform-testing](../cross-platform-testing/README.md)）。
+
+| 項目 | 捕まえる層 | 理由 |
+|---|---|---|
+| S-1 / S-2 タイムスタンプ | 層 2b | 境界値を固定する |
+| S-3 2 回目の `init` | **層 2b のみ** | Player 上でしか再現しない。Editor 内では出ない |
+| S-4 `release` の二重解放 | **層 2b のみ** | Player 上。IL2CPP で顕在化する |
+| 文字列マーシャリングの破損 | **層 3 のみ** | `Copy` → `Paste` の往復は**両側が同じように壊れていても通る**。実際のクリップボードを外から読むしかない |
+
+最後の行が効く。今回は UTF-16 から UTF-8 への変更なので、自前の往復テストでは原理的に取り切れない。
 
 ## 5. 47 本の対応
 
