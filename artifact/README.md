@@ -56,6 +56,7 @@
 | [event-subscriber-isolation](topics/event-subscriber-isolation/README.md) | 契約 | 一部対応 | 2026-09-08 | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める。**Windows 完了**、Android / iOS / macOS 未着手 |
 | [device-verification-records](topics/device-verification-records/README.md) | ドキュメント | 一部対応 | 2026-09-10 | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。注記のみ入れた段階 |
 | [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-07-26 | テスト方針（`testing.md`）の策定記録。層 2b / 3 は未導入 |
+| [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 企画中 | 2026-09-23 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。native-toolkit のマージ待ち |
 
 状態の語彙: 未着手 / 企画中 / 設計済 / 進行中 / 一部対応 / 完了
 
