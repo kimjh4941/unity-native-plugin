@@ -23,10 +23,10 @@
    - 「マニュアル生成 + 公開」を選択した場合のみ、以下の入力を行う:
      - ダイアログで「生成する言語を選択してください」と促す（デフォルト: en / ja / ko 全て）
      - ダイアログで「ソースファイルを指定してください（複数選択可）」と促す
-       - `artifact/results/<feature>/` 配下の次のファイルを候補として提示する:
+       - `artifact/features/<feature>/results/` 配下の次のファイルを候補として提示する:
          - `*-implementation-result*.md`
          - `*-sample-scene-result*.md`
-       - 入力がない場合は `artifact/plans/<feature>/` 配下の `*-implementation-plan*.md` も候補に含める
+       - 入力がない場合は `artifact/features/<feature>/plans/` 配下の `*-implementation-plan*.md` も候補に含める
        - 同一ドキュメントの改訂版がある場合は最も大きいバージョンのみを候補にする
        - 複数ファイルを選択した場合は全て読み込んで内容を統合する
 

@@ -9,7 +9,7 @@
 2. インタラクティブ入力で実装計画を確定する（必須）
    - ダイアログで「実装計画ファイルを指定してください」と促す
    - 入力がない場合は次を候補として提示する:
-     - `artifact/designs/<feature>/` 配下の `*-design*.md`
+     - `artifact/features/<feature>/designs/` 配下の `*-design*.md`
    - 指定された計画ファイルを読み込み、実装対象 API・変更ファイル一覧・エラーケース・テスト方針を把握する
 
 3. 実装を行う（必須）
@@ -35,7 +35,7 @@
 7. 完了結果ファイルを保存する（必須）
 
 - 今回の実装結果をファイルへ保存する
-- 保存先は `artifact/results/<feature>/` とし、必要に応じてディレクトリを作成する
+- 保存先は `artifact/features/<feature>/results/` とし、必要に応じてディレクトリを作成する
 - ファイル名は `YYYY-MM-DD-<os>-<feature>-implementation-feature-result-vN.md` を基本とする
 - 同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない
 - 記載内容は `agent-rules/workflows/implement-feature/IMPLEMENT_RESULT_TEMPLATE.md` に従う

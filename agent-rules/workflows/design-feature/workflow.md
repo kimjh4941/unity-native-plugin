@@ -86,7 +86,7 @@
      - C# Bridge 層: 非対応プラットフォーム・未初期化・`Call` 例外（`{operation} could not be started.` 等）
    - **テスト方針**（EditMode / PlayMode / 手動確認の分担）
 
-   保存先: `artifact/designs/<feature>/`
+   保存先: `artifact/features/<feature>/designs/`
    ファイル名: `YYYY-MM-DD-<os>-<feature>-design-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
 

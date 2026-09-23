@@ -9,8 +9,8 @@
 2. インタラクティブ入力でパラメータを確定する（必須）
    - ダイアログで「レビュー対象のファイルを指定してください」と促す
    - 入力がない場合は以下の候補を提示:
-     - `artifact/designs/<feature>/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
-     - `artifact/designs/<feature>/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
+     - `artifact/features/<feature>/designs/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
+     - `artifact/features/<feature>/designs/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
    - バージョンサフィックスがないファイルは `v1` とみなし、`vN` が存在する場合は `vN` を優先する
    - ユーザーが選択したファイルパスを確定する
 
@@ -36,7 +36,7 @@
        - **P3**: 既存型を再利用・共有と判断した箇所が、**プラットフォームガードの有無ではなく実際の利用箇所**に基づいているか
        - **P4**: `Runtime/Common/` への新規追加が、機能ロジックではなく横断インフラに限られているか
        - **P5**: クラスガード（`#if X \|\| UNITY_EDITOR`）と P/Invoke ガード（`#if X && !UNITY_EDITOR`）の二重構造になっており、Player ビルドに他プラットフォームのコードが入らない設計か
-       - **既知の逸脱 11 件を前例として引用していないか。** `ClipboardOperationResult` などの接頭辞なし型は Android / macOS 専用であり、共有型ではない（`artifact/OS_PREFIX_VIOLATIONS.md`）
+       - **既知の逸脱 11 件を前例として引用していないか。** `ClipboardOperationResult` などの接頭辞なし型は Android / macOS 専用であり、共有型ではない（`artifact/topics/os-prefix-violations/README.md`）
        - P1〜P5 の違反は **A1 区分**として扱う。後から直すと破壊的変更になるため、C（記述整合）に落とさない
    - **サンプルシーン計画書（`*-sample-scene-design*.md`）の場合:**
      - **入力欄（`TextField`）を置く計画になっていないか。** 既定は「設けない」
@@ -69,12 +69,12 @@
    - 総合評価を表示する
 
 7. レビュー結果をファイルに保存する（必須）
-   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
+   - 保存先: `artifact/features/<feature>/reviews/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
      - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）
      - `<feature>`: 対象ファイルのパスから自動抽出（例: `notification`）
      - `<document-type>`: ファイル種別に応じて `design` / `implementation-feature` / `sample-scene-design` など
      - `vN`: レビュー結果のバージョン。**必ずバージョンを付与し、既存ファイルは上書きしない**
-     - 例: `artifact/reviews/notification/2026-05-16-macos-notification-implementation-feature-review-v1.md`
+     - 例: `artifact/features/notification/reviews/2026-05-16-macos-notification-implementation-feature-review-v1.md`
    - **バージョン採番ルール（必須）:**
      - 保存先ディレクトリ内で、同じ `YYYY-MM-DD-<os>-<feature>-<document-type>-review` プレフィックスを持つ
        既存ファイルを探索する

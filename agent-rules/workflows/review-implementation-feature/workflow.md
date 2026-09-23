@@ -16,10 +16,10 @@
 3. インタラクティブ入力で参照ファイルを確定する（必須）
    - ダイアログで「レビュー対象機能の実装計画ファイルを指定してください」と促す
    - 実装計画ファイルの入力がない場合は次を候補として提示する
-     - `artifact/designs/<feature>/` 配下の `*-design*.md`
+     - `artifact/features/<feature>/designs/` 配下の `*-design*.md`
    - ダイアログで「レビュー対象機能の実装結果ファイルを指定してください」と促す
    - 実装結果ファイルの入力がない場合は次を候補として提示する
-     - `artifact/results/<feature>/` 配下の `*-implementation-feature-result*.md`
+     - `artifact/features/<feature>/results/` 配下の `*-implementation-feature-result*.md`
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 4. プロジェクトルールを読み込む（必須）
@@ -63,7 +63,7 @@
    - **P3**: 既存型を再利用した箇所で、**ガードの有無ではなく実際の利用箇所**を確認して単一専用か共有かを判定しているか
    - **P4**: `Runtime/Common/` への追加が横断インフラに限られているか
    - **P5**: クラスガードと P/Invoke ガードが二重構造（`#if X \|\| UNITY_EDITOR` / `#if X && !UNITY_EDITOR`）になっており、Player ビルドに他プラットフォームのコードが入らないか
-   - **既知の逸脱 11 件を前例として引用していないか**（`artifact/OS_PREFIX_VIOLATIONS.md`）
+   - **既知の逸脱 11 件を前例として引用していないか**（`artifact/topics/os-prefix-violations/README.md`）
    - P1〜P5 の違反は **A 区分**として扱う（止める基準の表を参照）
 
    **Bridge 実装品質**
@@ -124,7 +124,7 @@
    - LGTM / 要修正（軽微） / 要修正（重大） のいずれかで示す
 
 8. レビュー結果ファイルを保存する（必須）
-   - 保存先: `artifact/reviews/<feature>/`
+   - 保存先: `artifact/features/<feature>/reviews/`
    - ファイル名: `YYYY-MM-DD-<os>-<feature>-implementation-feature-review-vN.md`
    - 同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない
    - 最低限、次を含める:

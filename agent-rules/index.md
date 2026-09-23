@@ -12,6 +12,8 @@ All implementation rules are managed in this folder.
 ## Artifacts
 
 Designs, results, reviews and the issues carved out as separate tasks.
+`artifact/` is split by scope: `features/<feature>/` holds workflow output for one
+OS feature, `topics/<topic>/` holds issues that cut across features.
 
 - Artifact map (成果物の置き場と、未対応として切り出した課題の一覧): ../artifact/README.md
 

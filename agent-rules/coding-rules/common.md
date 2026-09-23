@@ -283,7 +283,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - **これらを他プラットフォームから使わないこと**
 - **これらを見て「接頭辞なしは共通の意味」と読まないこと。** `Common/` 配下だけが共通である
-- 改名は破壊的変更（すべて `public`）になるため別課題として扱う。詳細と対応案: `artifact/OS_PREFIX_VIOLATIONS.md`
+- 改名は破壊的変更（すべて `public`）になるため別課題として扱う。詳細と対応案: `artifact/topics/os-prefix-violations/README.md`
 
 ---
 
@@ -318,7 +318,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 > 実例: Windows Clipboard のサンプルシーン計画 v1 が、Android / iOS の計画に明記されていた
 > 「入力欄は設けない」を理由なく破って入力欄を 2 つ置いた。計画レビュー 2 巡・実装レビュー 2 巡の
-> いずれも検出できなかった（`artifact/designs/` の先行計画を参照に含めていなかったため）。
+> いずれも検出できなかった（`artifact/features/<feature>/designs/` の先行計画を参照に含めていなかったため）。
 > **方針をこのファイルに置いたのはそのため。**
 
 ---

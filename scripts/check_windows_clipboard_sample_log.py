@@ -14,7 +14,7 @@ than reporting a pass.
 Usage:
     python3 scripts/check_windows_clipboard_sample_log.py [log ...]
 
-With no argument it reads artifact/results/clipboard/logs/*.log.
+With no argument it reads artifact/features/clipboard/results/logs/*.log.
 
 On Windows `python3` may resolve to a Microsoft Store app execution alias,
 which runs nothing and exits 49 - the checks then look like they passed when
@@ -41,7 +41,7 @@ UXML = (PACKAGE / "Runtime" / "Resources" / "UI" / "Windows" / "Clipboard"
         / "WindowsClipboardManagerExample.uxml")
 CONTROLLER = UI / "WindowsClipboardManagerExampleController.cs"
 FIXTURES = UI / "WindowsClipboardSampleFixtures.cs"
-LOGS = REPO / "artifact" / "results" / "clipboard" / "logs"
+LOGS = REPO / "artifact" / "features" / "clipboard" / "results" / "logs"
 
 CLICK = re.compile(r"\]\[(On[A-Za-z]+Clicked)\]\s*$")
 ENTRY = re.compile(r"#(\d+) \[(call|accept|done|local)\] (\S+)")

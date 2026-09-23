@@ -9,7 +9,7 @@
 2. インタラクティブ入力で対象を確定する（必須）
    - ダイアログで「対象機能の実装結果ファイルを指定してください」と促す
    - 実装結果ファイルの入力がない場合は次を候補として提示する:
-     - `artifact/results/<feature>/` 配下の `*-implementation-feature-result*.md`
+     - `artifact/features/<feature>/results/` 配下の `*-implementation-feature-result*.md`
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 3. 前提情報を抽出する（必須）
@@ -83,7 +83,7 @@
      - 固定 fixture の内容と、それを選んだ理由
    - **手動確認観点**
 
-   保存先: `artifact/designs/<feature>/`
+   保存先: `artifact/features/<feature>/designs/`
    ファイル名: `YYYY-MM-DD-<os>-<feature>-sample-scene-design-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
 
