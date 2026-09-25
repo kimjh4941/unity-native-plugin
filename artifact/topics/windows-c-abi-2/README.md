@@ -88,6 +88,28 @@ x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致するこ
 **移行を始めたかどうかと無関係に、今この repo で Windows Player をビルドすると 2.0.0 の DLL が入る。**
 2026-09-23 に `-testPlatform StandaloneWindows64` を走らせて実測した。
 
+#### 影響するのはこの repo だけ（2026-09-23 訂正）
+
+ビルド処理は無条件には走らない。`Editor/Build/NativeToolkit.BuildProcessors.Editor.asmdef` に
+次の制約があり、**define が無ければアセンブリ自体がコンパイルされず、`PreBuildProcessor` は存在しない。**
+
+```
+"defineConstraints": [ "NATIVETOOLKIT_ENABLE_BUILD_STEPS" ],
+```
+
+**このリポジトリは `ProjectSettings/ProjectSettings.asset` で定義している**（`Standalone` /
+`Android` / `iPhone` の 3 つ）。だから今回のビルドで走った。
+
+| 誰 | 走るか |
+|---|---|
+| **この repo での開発・CI** | **走る。** define が設定済み |
+| UPM でパッケージを入れた利用者 | 走らない。define を自分で設定しない限りアセンブリが無い |
+| 仮に利用者が define を設定した場合 | `../native-toolkit/dist` が存在しないので `LogError` を出して copy をスキップする |
+
+したがってこれは**配布物の不具合ではなく、この repo の開発・CI 経路の問題**である。
+コミット `87eb4f5` のメッセージに「Anyone building a Windows player hits this」と書いたが、
+これは範囲を広げすぎている。正しくは「この repo で Windows Player をビルドする人」。
+
 `Editor/Build/PreBuildProcessor.cs` の `FindLatestVersionInDist()` は、
 兄弟リポジトリの `../native-toolkit/dist` にあるディレクトリ名を semver として比較し、
 **最も高いものを選ぶ**。native-toolkit が `dist/1.12.0/` を置いた時点で、それが選ばれる。
@@ -119,9 +141,14 @@ x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致するこ
 | A | `NATIVE_TOOLKIT_DIST_ROOT` で旧 dist を指す | 環境変数の override は `PreBuildProcessor` が既に持っている。ただし `dist` ルートの差し替えであって**版の固定ではない** |
 | B | 参照する版をリポジトリ側で固定できるようにする | 「最も高い版」という暗黙の選択をやめる。移行後は 1.12.0 に上げるだけで済む |
 | C | 移行が終わるまで native-toolkit の `dist/1.12.0/` を置かない | こちらでは決められない |
+| D | 移行までの間、`ProjectSettings` から `Standalone` の `NATIVETOOLKIT_ENABLE_BUILD_STEPS` を外す | コード変更ゼロで即座に止まる。ただし `Standalone` は **macOS も含む**ので macOS の copy も止まる。戻し忘れやすい |
 
 **推奨は B。** A は各自の環境に依存し、CI や別の作業者では再発する。
 「最も高い版を黙って選ぶ」仕組み自体が、今回のように相手側の都合で挙動が変わる原因である。
+
+D は今日すぐビルドを回す必要があるときの応急手当てとしては成立する。
+ただし恒久策にはしない。**止めた状態を正常だと思い込むと、移行後に copy が走らないまま
+1.x の DLL を配り続けることになる。**
 
 #### 併せて壊れているもの
 
