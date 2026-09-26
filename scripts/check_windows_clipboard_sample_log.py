@@ -6,6 +6,11 @@ operating the screen: they are properties of the whole run rather than of any
 one button press. The sample writes enough into Player.log to decide them
 afterwards, so they are decided here instead of being left as "not done".
 
+For the automated runs (windows-clipboard-sample-run-<block>.log) it also checks
+each press's outcome against windows_clipboard_sample_expected.py, the manual
+verification's results written per press, and names the M item a run broke.
+S-2 alone passes a run in which every button answered NG.
+
 Scope: the Windows Clipboard sample only. The [call] / [accept] / [done] line
 format lives in WindowsClipboardSampleResult.cs and no other sample controller
 writes it, so pointing this at another feature's log reports nothing rather
@@ -285,6 +290,135 @@ def check_s8(paths, rep):
     print("       what is checked here is the pairing, not the display.")
 
 
+OUTCOME = re.compile(r"#\d+ \[(call|done|local)\] (\S+)(.*)$")
+KEY_VALUE = re.compile(r"(\w+)=(\S+)")
+
+
+def outcome_of(line):
+    """(operation, status, code, {key: value}) for a [call] / [done] / [local] line, else None."""
+    found = OUTCOME.search(line)
+    if not found:
+        return None
+    kind, operation, rest = found.groups()
+    words = rest.split()
+    if kind == "local":
+        status = "local"
+    else:
+        status = next((w for w in words if w in ("OK", "NG")), None)
+    fields = dict(KEY_VALUE.findall(rest))
+    return operation, status, fields.get("code"), fields
+
+
+class Pattern:
+    """One expected.BLOCKS pattern: alternatives separated by " | ", optional when it starts with "?"."""
+
+    def __init__(self, text):
+        self.text = text.lstrip("?")
+        self.optional = text.startswith("?")
+        self.alternatives = [self._one(part) for part in self.text.split(" | ")]
+
+    @staticmethod
+    def _one(text):
+        words = text.split()
+        operation, status, rest = words[0], words[1], words[2:]
+        code = None
+        if status == "NG":
+            code, rest = rest[0], rest[1:]
+        return operation, status, code, dict(w.split("=", 1) for w in rest)
+
+    def matches(self, outcome):
+        got_operation, got_status, got_code, got_fields = outcome
+        return any(operation == got_operation and status == got_status
+                   and (code is None or code == got_code)
+                   and all(got_fields.get(k) == v for k, v in fields.items())
+                   for operation, status, code, fields in self.alternatives)
+
+    def keys(self):
+        return {k for _, _, _, fields in self.alternatives for k in fields}
+
+
+def presses_of(path):
+    """[(button, [outcome lines])] in press order; lines before the first press are dropped."""
+    presses = []
+    for line in read(path).splitlines():
+        click = CLICK.search(line)
+        if click:
+            presses.append((click.group(1)[len("On"):-len("Clicked")], []))
+        elif presses and outcome_of(line):
+            presses[-1][1].append(line)
+    return presses
+
+
+def describe(line, keys):
+    """The line's operation, status, code, and the fields named in <keys>."""
+    operation, status, code, fields = outcome_of(line)
+    parts = [operation, status] + ([code] if status == "NG" else [])
+    parts += ["%s=%s" % (k, fields[k]) for k in sorted(keys) if k in fields]
+    return " ".join(parts)
+
+
+def check_outcomes(paths, rep):
+    """Each press of an automated run reports what the manual verification expects.
+
+    Only the automated run logs are judged (windows-clipboard-sample-run-<block>.log); the
+    manual logs predate two sample fixes and are the record the expectations came from.
+    """
+    sys.dont_write_bytecode = True  # no __pycache__ left in scripts/
+    import windows_clipboard_sample_expected as expected
+
+    runs = {Path(p).stem[len(RUN_LOG_PREFIX):]: p for p in paths
+            if Path(p).stem.startswith(RUN_LOG_PREFIX)}
+    if not runs:
+        rep.skip("outcomes", "no automated run log (%s<block>.log) among the logs" % RUN_LOG_PREFIX)
+        return
+
+    for block, table in expected.BLOCKS.items():
+        name = "outcomes %s" % block
+        if block not in runs:
+            rep.check(False, name, fail_detail="no run log for this block")
+            continue
+
+        presses = presses_of(runs[block])
+        problems = []
+        if [b for b, _ in presses] != [b for b, _, _ in table]:
+            first = next((i for i, (a, b) in enumerate(zip(presses, table)) if a[0] != b[0]),
+                         min(len(presses), len(table)))
+            problems.append("the presses are not the expected sequence from press %d (%d pressed, %d expected)"
+                            % (first + 1, len(presses), len(table)))
+        for number, ((button, lines), (_, label, texts)) in enumerate(zip(presses, table), 1):
+            patterns = [Pattern(t) for t in texts]
+            unused = [p for p in patterns if not p.optional]
+            unexpected = []
+            for line in lines:
+                outcome = outcome_of(line)
+                required = next((p for p in unused if p.matches(outcome)), None)
+                if required is not None:
+                    unused.remove(required)
+                elif not any(p.optional and p.matches(outcome) for p in patterns):
+                    unexpected.append(line)
+            if unused or unexpected:
+                where = "press %d %s%s" % (number, button, " (%s)" % label if label else "")
+                keys = set().union(*(p.keys() for p in patterns))
+                problems.append("%s: expected %s; got %s"
+                                % (where, [p.text for p in unused] or "nothing more",
+                                   [describe(l, keys) for l in unexpected] or "nothing else"))
+
+        for before, after, drop in expected.HISTORY_COUNT_DROPS.get(block, []):
+            counts = []
+            for number in (before, after):
+                lines = presses[number - 1][1] if number <= len(presses) else []
+                count = next((outcome_of(l)[3].get("count") for l in lines
+                              if outcome_of(l)[0] == "getClipboardHistory"), None)
+                counts.append(int(count) if count and count.isdigit() else None)
+            if None in counts or counts[0] - counts[1] != drop:
+                problems.append("M-14: history count %s at press %d, %s at press %d; expected %d fewer"
+                                % (counts[0], before, counts[1], after, drop))
+
+        rep.check(not problems, name,
+                  "%d presses report what the manual verification expects" % len(table),
+                  "%d problem(s): %s" % (len(problems), "; ".join(problems[:8])))
+
+
 def main(argv):
     args = list(argv[1:])
     not_automated = ()
@@ -323,6 +457,7 @@ def main(argv):
     check_s2(paths, rep, not_automated)
     check_s4(paths, rep)
     check_s8(paths, rep)
+    check_outcomes(paths, rep)
     print("")
     print("failures: %d" % len(rep.failures)
           + (" (%s)" % ", ".join(rep.failures) if rep.failures else ""))

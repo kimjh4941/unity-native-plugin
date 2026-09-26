@@ -261,7 +261,7 @@ else
     failures=$((failures + 1))
   fi
 
-  # S-2 / S-4 / S-8 over the sample's own log, as the manual run was judged. Only a destructive run
+  # S-2 / S-4 / S-8 and each press's outcome over the sample's own log, as the manual run was judged. Only a destructive run
   # presses the sample's buttons (WindowsClipboardSampleRunPlayerTests), so only then is there a
   # log. The test writes it into its output, and the checker takes it from the result file and
   # saves it beside that file; the player's own directory is under Temp, which the editor deletes
@@ -279,7 +279,7 @@ else
       echo "  sample run log: MISSING (no run from WindowsClipboardSampleRunPlayerTests in the results)"
       failures=$((failures + 1))
     else
-      echo "  sample run log (S-2 / S-4 / S-8):"
+      echo "  sample run log (S-2 / S-4 / S-8 / outcomes):"
       python "$PROJECT_DIR/scripts/check_windows_clipboard_sample_log.py" \
         --not-automated "$not_automated" --test-results "$PT_XML" 2>&1 | sed 's/^/    /'
       [ "${PIPESTATUS[0]}" -eq 0 ] || failures=$((failures + 1))

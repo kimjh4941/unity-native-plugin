@@ -481,7 +481,7 @@ session1 の 1〜55 回目（ブロック A）と、session2 の 10〜40 回目�
 **結果**（`--skip-build --include-destructive`）: EditMode 809/809、PlayMode 181/181、Player **20/20**、クリップボードの確認も合格。
 チェッカーは S-2 が PART（60 / 67）、それ以外の S-2 の項目と S-4 は合格、S-8 は 25 件の要求がすべて対になっていた。
 
-**結果の中身を手動確認と比べた。** 各操作の OK / NG とエラーコードを、手動の記録と並べた（今回は手で比較した）。
+**結果の中身を手動確認と比べた。** 各操作の OK / NG とエラーコードを、手動の記録と並べた（最初は手で比較し、その後チェッカーに組み込んだ。次の項）。
 
 - ブロック A: 53 件中 52 件が同じ。違う 1 件は Copy Files で、手動は「一時ファイルがない」、自動は成功
 - ブロック D: 手動の最初の 7 件（ブロック B / C のボタン）を除けば、違うのは Force Initialize While Draining だけ。
@@ -498,7 +498,23 @@ session1 の 1〜55 回目（ブロック A）と、session2 の 10〜40 回目�
 2. **Delete が成功を返したのに、5 秒後も目印の項目が履歴にあった**（`DeleteHistoryItemAsync_RemovesTheItem`）。
    消した ID そのものが残ったのか、同じ文字の別の項目があったのかを、失敗時に出すようにした。次の回は通った
 
-**残り。** ブロック B / C の自動化（`NotYetAutomated` の 7 個）。結果の比較の自動化（S-2 のチェッカーは結果を見ないので、上の比較は M 項目ごとの判定として組み込む）。
+**結果の判定をチェッカーに組み込んだ。** S-2 は例外とエラー行しか見ないので、全ボタンが NG でも合格する。
+押した回ごとの期待値を `scripts/windows_clipboard_sample_expected.py` に書き、チェッカーが `outcomes blockA` / `outcomes blockD` として判定する。
+
+- 期待値の出どころは手動確認の結果（`2026-09-09-windows-clipboard-verify-manual-result-v1.md` の 1 章）。押した回ごとに M / S 項目を添え、失敗すると
+  「press 24 RestoreLast (M-14): expected restoreHistoryItem OK; got restoreHistoryItem NG InvalidArgument」のように出る
+- 見るのは操作・OK / NG・エラーコードと、結果の要点（`match=match`、`format=CF_HDROP` など）。PC や履歴の中身で変わる値（件数、経過秒、ANSI コードページ）は見ない。
+  件数は値ではなく関係で見る（M-14: Delete の後の Get History が 1 件少ない）
+- 期待値にない行があれば失敗にする。予期しない NG を見逃さないため
+- 上の 2 か所（サンプルを直した所）は直した後の動きを期待値にし、理由をファイルに書いた
+- タイミングで結果が変わるものは、許す幅を書いた。Force Initialize While Draining は再試行の前のフレームの成功を任意にし、
+  Request + Immediate Shutdown（4.1）は `Canceled` と `OK` のどちらも可。4.1 の要点は要求が捨てられず 1 回だけ答えられることで、
+  1 回（間を空ける前の回）はシャットダウンより先に履歴が返った
+- これまでの実行記録で確かめた。前面なし・Manager 停止・間を空ける前の回は M 番号付きで失敗し、間を空けた後の 2 回は合格した
+
+層 3（メモ帳・エクスプローラー・ペイントでの見え方、M-2〜M-7 の外側、M-23 のタスクバー）は対象外のまま。
+
+**残り。** ブロック B / C の自動化（`NotYetAutomated` の 7 個）。
 
 #### ファイアウォールのダイアログ（2026-09-26 対応）
 
