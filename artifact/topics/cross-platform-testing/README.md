@@ -249,6 +249,26 @@ Windows Clipboard の 65 本は 1 で Editor 専用にした。
 **これで層 2b の流れ（ビルド → 起動 → 結果の返却 → 終了）が初めて最後まで通った。** 中身はまだ空である。
 次は、本物のネイティブを通すテストを別ファイルに 1 本書き、この流れの上で実際に動くことを確かめる。
 
+#### 最初の 1 本（2026-09-26）
+
+`Tests/PlayMode/WindowsClipboardPlayerTests.cs` を追加した。`#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` で囲み、
+フックは使わない。`Initialize` → `CopyPlainText` → `PastePlainText` → `ShutdownWithDrain` の流れを、
+戻り値と、dispatcher 経由で後のフレームに届くコールバックの両方で確かめる。
+
+| 確かめたこと | 結果 |
+|---|---|
+| テスト用 Player でのコンパイル | 通った（`CS0117` 0 件） |
+| テストの実行 | **1 本実行、1 本成功**（0.36 秒） |
+| Player の中から P/Invoke が通るか | 通った。`PastePlainText` の戻り値が見本値と一致 |
+| dispatcher 経由のコールバックがテスト用 Player で届くか | 届いた（5 秒以内） |
+| テスト用 Player のメインスレッドがクリップボードの持ち主になれるか | なれた。`Player.log` に `apartment: MainSta` |
+| OS のクリップボードに実際に書かれたか | **書かれた。** テストの後、Unity の外から PowerShell の `Get-Clipboard` で見本値を読めた |
+
+最後の行は層 3 の小さな先取りである。`Copy` → `Paste` の往復は両側が同じように壊れていても通るので、
+外から読んで初めて「書けた」と言える。今回は手で 1 回確かめただけで、テストにはまだ組み込んでいない。
+
+**このテストが 1.x での基準（baseline）になる。** 2.0.0 に移行したとき、最初に通すべきはこの 1 本である。
+
 #### `UNITY_INCLUDE_TESTS` はテスト用 Player にだけ入る
 
 手元に残っていた 3 種類のビルドについて、`NativeToolkit.Runtime` をコンパイルしたときの引数
