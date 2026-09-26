@@ -260,10 +260,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return CopyIntoHistory(manager, marker, found => item = found);
             Assert.IsNotNull(item, $"the copied value did not show up in history within {DefaultTimeoutSeconds}s");
 
-            // Something else becomes current, so restoring has something to undo. It must be a second
-            // history item, as in native-toolkit's own restore test. With history-excluded content
-            // current (a Sensitive write), Windows reported the restore as Success and left the
-            // clipboard unchanged, read from inside and from another process alike (2026-09-26).
+            // Something else becomes current, so restoring has something to undo. It must be an
+            // ordinary copy, as in native-toolkit's own restore test: when the content being replaced
+            // was written with ExcludeHistory (Sensitive includes it), Windows reports the restore as
+            // Success and leaves the clipboard untouched. Seen here first, then reproduced by
+            // native-toolkit and documented on ntk_clipboard_restore_history_item (feature/NTKIT-16,
+            // 67217afb). This test does not pin that behaviour; it only avoids it.
             string newer = NewMarker("NEWER");
             WindowsClipboardHistoryItem? newerItem = null;
             yield return CopyIntoHistory(manager, newer, found => newerItem = found);
