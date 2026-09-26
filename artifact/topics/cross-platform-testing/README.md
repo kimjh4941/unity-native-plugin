@@ -32,15 +32,15 @@ v4 の指摘は反映済み（`testing.md` 5 節の確認済み表に macOS 15.4
 
 ## 残っている未導入分
 
-`testing.md` 7 節「適用状況」（2026-09-07 時点）より:
+`testing.md` 7 節「適用状況」（2026-09-26 時点）より:
 
 | 層 | 状況 |
 |---|---|
 | 0. Player ビルド | Windows のみ。Android / iOS / macOS は未整備 |
 | 1. EditMode | 部分的 |
 | 2a. PlayMode（Editor 内） | 部分的。Clipboard 4 種と Share（iOS / macOS） |
-| **2b. PlayMode（Player 上）** | **未着手** |
-| **3. OS 境界** | **未着手** |
+| **2b. PlayMode（Player 上）** | **Windows のみ、1 本**（`WindowsClipboardPlayerTests`） |
+| **3. OS 境界** | **Windows のみ、最小限**（クリップボードの最後の 1 件を外から読む） |
 
 **この表の更新は `testing.md` 側で行う。** ここに写しを置いているのは状態の要約のためで、
 実装が進んだときに両方を直す義務を増やさないよう、数値の正本は `testing.md` に置く。

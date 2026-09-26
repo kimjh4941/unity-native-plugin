@@ -14,8 +14,8 @@ Unity プラグインは「Unity 内部の挙動」と「OS 側の実際の状�
 |---|---|---|---|---|
 | **1. EditMode** | ネイティブ非依存の純粋ロジック | Unity Editor | 不要 | あり（多数） |
 | **2a. PlayMode（Editor 内）** | プレイヤーループが必要な経路、非実機フォールバック | Unity Editor | 不要 | あり（iOS / mac Share） |
-| **2b. PlayMode（Player 上）** | UI → Manager → ネイティブ → callback の全経路 | 実機 / エミュレータ | **必要** | なし |
-| **3. OS 境界** | クリップボード実内容、共有シート、ネイティブダイアログ | 実機 + 外部ハーネス | **必要** | なし |
+| **2b. PlayMode（Player 上）** | UI → Manager → ネイティブ → callback の全経路 | 実機 / エミュレータ | **必要** | Windows Clipboard（1 本、7 節） |
+| **3. OS 境界** | クリップボード実内容、共有シート、ネイティブダイアログ | 実機 + 外部ハーネス | **必要** | Windows のクリップボードの読み取り（7 節） |
 
 ### 層 0: Player ビルド（コンパイルゲート）
 
@@ -358,7 +358,7 @@ CI 成果物にも残さないこと。
 
 ---
 
-## 7. 適用状況（2026-09-07 時点）
+## 7. 適用状況（2026-09-26 時点）
 
 **この節は現状のロードマップであり、上記の層モデル・ツール選定（1〜6 節）とは性質が異なる。**
 実装が進んだら更新すること。
@@ -368,8 +368,11 @@ CI 成果物にも残さないこと。
 | **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
 | 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
-| 2b. PlayMode（Player 上） | 未着手 |
-| 3. OS 境界 | 未着手 |
+| 2b. PlayMode（Player 上） | **Windows のみ、1 本**。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（Initialize → Copy → Paste → Shutdown）。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
+| 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。確かめられるのは最後に書かれた 1 件だけ。ネイティブダイアログ・通知は未着手（外から OS の画面を操作する手段がまだない） |
+
+層 2b / 3 の経緯と、無人で回すための前提（ファイアウォールの規則、テスト用 Player の出力先の固定、
+Editor 専用のテストフックの扱い）は `artifact/topics/cross-platform-testing/README.md` にある。
 
 ### 判定の定義
 

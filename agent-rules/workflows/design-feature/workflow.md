@@ -85,6 +85,19 @@
      - use case / repository 層: ドメインエラー（個別の errorMessage 文言）
      - C# Bridge 層: 非対応プラットフォーム・未初期化・`Call` 例外（`{operation} could not be started.` 等）
    - **テスト方針**（EditMode / PlayMode / 手動確認の分担）
+   - **自動化の前提**（必須。層の定義は `agent-rules/coding-rules/testing.md`）
+     - **検証の層**: 各操作・各エラーケースを、層 1（EditMode）/ 層 2a（PlayMode・Editor 内）/
+       層 2b（PlayMode・Player 上）/ 層 3（OS 境界）/ 手動・computer use のどれで確かめるかを表にする。
+       手動に残す項目には、自動化できない理由を書く（「実装が大変」は理由にしない）
+     - **OS が出す画面・求める許可・前提の OS 設定**: 実行時に OS が出しうるダイアログ（アクセス許可、
+       ファイアウォール、プライバシーの確認など）と、前提になる OS 設定（クリップボード履歴、通知の許可など）を列挙し、
+       無人で実行する前にどう満たすか（事前の設定、実行前のチェック）を書く。出ない・要らない場合も「なし」と明記する
+     - **呼び出し側を止める OS の画面**: OS の画面を同期で出し、閉じられるまで戻らない API があるかを書く。
+       ある場合、その操作は外から画面を閉じる手段（UI Automation など）がないと自動化できない。
+       現在のハーネスにはこの手段がないので、その旨と代わりの検証方法を書く
+     - 背景: 2026-09、Windows のテスト用 Player を初めて回したときに、実装が済んだ後で障害が見つかった
+       （実行のたびに出るファイアウォールのダイアログ、Player に入らない Editor 専用のテストフック）。
+       設計の段階で書いておけば、実装と同時に準備できる。詳細は `artifact/topics/cross-platform-testing/README.md`
 
    保存先: `artifact/features/<feature>/designs/`
    ファイル名: `YYYY-MM-DD-<os>-<feature>-design-vN.md`
