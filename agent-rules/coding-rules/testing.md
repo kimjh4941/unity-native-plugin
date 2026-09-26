@@ -133,6 +133,11 @@ UI Toolkit の `Button.clicked` は `Clickable` マニピュレータがポイ�
 - 共通の UI 操作 helper を 1 つ用意し、全テストがそれを使う（各テストが独自の擬似クリックを実装しない）
 - scene fixture（シーンのロード、`UIDocument` の取得、Navigator 経由の画面遷移）も共通化する
 - 非同期 callback の待機は**固定フレーム待ちにしない**。結果 event の受信または timeout で待つ
+- 手動確認の操作列を再生するときは、**手動確認と同じ順で押し、OS 側の状態が追いつくのを待つ**。
+  結果を待つだけでは足りないことがある。Windows のクリップボード履歴は、すぐ置き換えられた内容をほとんど残さない
+  （経緯と待ち時間の根拠は `artifact/topics/cross-platform-testing/README.md`）
+- **前面を前提とする API は、テストが自分のウィンドウを前面に出してから呼ぶ。** Windows のテスト用 Player は裏で起動され、
+  誰も触らなければ前面にならない。`Application.isFocused` は前面の判定に使えない（前面でなくても `True` になる）
 
 具体的なイベント種別・helper の実装方針は層 2b 着手時に確定する（7 節「未定義事項」）。
 
@@ -368,7 +373,7 @@ CI 成果物にも残さないこと。
 | **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
 | 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
-| 2b. PlayMode（Player 上） | **Windows のみ、18 本**（既定の実行は 17 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本）と、サンプル画面を操作する `WindowsClipboardSampleScreenPlayerTests.cs`（S-1、S-5 / S-6 の 2 本）。9 章の Clear Unpinned は `Destructive` カテゴリで、`--include-destructive` のときだけ走る。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
+| 2b. PlayMode（Player 上） | **Windows のみ、20 本**（既定の実行は 17 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本）、サンプル画面を操作する `WindowsClipboardSampleScreenPlayerTests.cs`（S-1、S-5 / S-6 の 2 本）、手動確認と同じ順で全ボタンを押す `WindowsClipboardSampleRunPlayerTests.cs`（S-2 のブロック A / D の 2 本。B / C のボタン 7 個は未移行）。9 章の Clear Unpinned と全ボタンの 2 本は `Destructive` カテゴリで、`--include-destructive` のときだけ走る。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
 | 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。確かめられるのは最後に書かれた 1 件だけ。ネイティブダイアログ・通知は未着手（外から OS の画面を操作する手段がまだない） |
 
 層 2b / 3 の経緯と、無人で回すための前提（ファイアウォールの規則、テスト用 Player の出力先の固定、

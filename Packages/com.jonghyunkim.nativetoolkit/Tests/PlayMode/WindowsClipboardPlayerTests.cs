@@ -8,6 +8,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
@@ -61,6 +62,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         // The sample's own values for the "unknown id" buttons (WindowsClipboardManagerExampleController).
         private const string UnknownHistoryItemId = "nativetoolkit-sample-no-such-item";
         private const uint UnknownRequestId = uint.MaxValue;
+
+        /// <summary>The history API answers only the foreground window.</summary>
+        [UnitySetUp]
+        public IEnumerator TakeForeground() =>
+            WindowsClipboardSampleScreenDriver.TakeForegroundAndLog(TestContext.CurrentContext.Test.Name);
 
         /// <summary>
         /// Leaves <see cref="SampleText"/> on the clipboard for the layer 3 check. Written with
@@ -166,7 +172,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             manager.GetHistoryAvailability(result => availability = result);
             yield return WaitFor(() => availability != null, "the GetHistoryAvailability callback");
             Assert.IsTrue(availability!.Value.IsSuccess,
-                $"GetHistoryAvailability: {availability.Value.ErrorCode} {availability.Value.ErrorMessage}");
+                $"GetHistoryAvailability: {availability.Value.ErrorCode} {availability.Value.ErrorMessage} ({WindowsClipboardSampleScreenDriver.FocusNote()})");
             if (!availability.Value.HistoryEnabled)
             {
                 Assert.Ignore("Clipboard history (Win+V) is off on this machine; this case needs it on. " +
@@ -253,7 +259,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             WindowsClipboardAvailabilityResult? result = null;
             yield return Await(Running().GetHistoryAvailabilityAsync(), "GetHistoryAvailabilityAsync", r => result = r);
-            Assert.IsTrue(result!.Value.IsSuccess, $"GetHistoryAvailabilityAsync: {result.Value.ErrorCode} {result.Value.ErrorMessage}");
+            Assert.IsTrue(result!.Value.IsSuccess,
+                $"GetHistoryAvailabilityAsync: {result.Value.ErrorCode} {result.Value.ErrorMessage} ({WindowsClipboardSampleScreenDriver.FocusNote()})");
         }
 
         [UnityTest]
@@ -362,7 +369,19 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             bool gone = false;
             yield return WaitUntilGone(manager, marker, result => gone = result);
-            Assert.IsTrue(gone, $"the item was still in history {DefaultTimeoutSeconds}s after deleting it");
+            if (gone) yield break;
+
+            // Once (2026-09-26) the marker was still there five seconds after a successful delete,
+            // where every run before and after saw it go. Whether the deleted entry stayed or a
+            // second entry with the same text did are different problems; say which.
+            string remaining = "";
+            yield return ReadHistory(manager, items =>
+            {
+                string[] ids = items.Where(entry => entry.Text == marker).Select(entry => entry.Id).ToArray();
+                remaining = $"{ids.Length} entr{(ids.Length == 1 ? "y" : "ies")} with the marker, "
+                    + (ids.Contains(item!.Id) ? "the deleted id among them" : "none with the deleted id");
+            });
+            Assert.Fail($"the item was still in history {DefaultTimeoutSeconds}s after deleting it: {remaining}");
         }
 
         [UnityTest, Category(DestructiveCategory)]
@@ -490,10 +509,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         private static void RequireHistory(WindowsClipboardAvailabilityResult availability)
         {
             string hint = availability.ErrorCode == WindowsClipboardErrorCode.NotForeground
-                ? " - the test player window was not in the foreground; do not use the machine during the run"
+                ? " - the test player window did not keep the foreground (TakeForegroundAndLog); was the machine used during the run?"
                 : "";
             Assert.IsTrue(availability.IsSuccess,
-                $"GetHistoryAvailabilityAsync: {availability.ErrorCode} {availability.ErrorMessage}{hint}");
+                $"GetHistoryAvailabilityAsync: {availability.ErrorCode} {availability.ErrorMessage}{hint} ({WindowsClipboardSampleScreenDriver.FocusNote()})");
             if (!availability.HistoryEnabled) Assert.Ignore(HistoryOffMessage);
         }
 

@@ -12,9 +12,20 @@ writes it, so pointing this at another feature's log reports nothing rather
 than reporting a pass.
 
 Usage:
-    python3 scripts/check_windows_clipboard_sample_log.py [log ...]
+    python3 scripts/check_windows_clipboard_sample_log.py [--not-automated A,B,...]
+        [--test-results RESULTS.xml] [log ...]
 
-With no argument it reads artifact/features/clipboard/results/logs/*.log.
+--not-automated names buttons a partial automated run is known not to press
+(WindowsClipboardSampleRunPlayerTests.NotYetAutomated). S-2 then reports PART
+for them instead of passing, and fails if any of them was pressed after all.
+
+--test-results reads the runs WindowsClipboardSampleRunPlayerTests wrote into
+its test output, bracketed by "[SampleRun] begin NAME" / "[SampleRun] end NAME",
+from a Test Framework result file. Each run is saved beside that file as
+windows-clipboard-sample-run-NAME.log and checked with any logs given.
+
+With no log and no --test-results it reads
+artifact/features/clipboard/results/logs/*.log.
 
 On Windows `python3` may resolve to a Microsoft Store app execution alias,
 which runs nothing and exits 49 - the checks then look like they passed when
@@ -27,6 +38,7 @@ import glob
 import io
 import re
 import sys
+import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from pathlib import Path
 
@@ -52,6 +64,11 @@ BUTTON_TEXT = re.compile(r'name="([A-Za-z0-9]+)"[^>]*text="([^"]*)"')
 CONST = re.compile(r'internal const string ([A-Za-z0-9_]+) = "([^"]*)";')
 BLEW_UP = re.compile(r"Exception|Stack trace|NullReference|LogError", re.I)
 
+# WindowsClipboardSampleRunPlayerTests.RunLogBegin / RunLogEnd.
+RUN_BEGIN = "[SampleRun] begin "
+RUN_END = "[SampleRun] end "
+RUN_LOG_PREFIX = "windows-clipboard-sample-run-"
+
 # The screen is entered from the top menu, whose button belongs to another controller.
 FOREIGN_CLICK = "OnClipboardClicked"
 
@@ -68,9 +85,15 @@ PATH_MARKERS = ["AppData", "\\Temp\\", "/Temp/", ".tmp"]
 class Report:
     def __init__(self):
         self.failures = []
+        self.partial = []
 
     def ok(self, name, detail=""):
         print("  OK   " + name + (": " + detail if detail else ""))
+
+    def part(self, name, detail):
+        """Held back from OK on purpose: the check holds for what ran, and what did not run is named."""
+        self.partial.append(name)
+        print("  PART " + name + ": " + detail)
 
     def skip(self, name, why):
         print("  SKIP " + name + ": " + why)
@@ -85,6 +108,31 @@ class Report:
 
 def read(path):
     return io.open(str(path), encoding="utf-8", errors="replace").read()
+
+
+def extract_runs(results):
+    """Saves each bracketed run in a result file's test cases beside it; returns the paths.
+
+    Only test-case elements are read: a suite's output repeats its cases' output.
+    """
+    saved = []
+    for case in ET.parse(str(results)).getroot().iter("test-case"):
+        output = case.find("output")
+        if output is None or not output.text:
+            continue
+        name, lines = None, []
+        for line in output.text.splitlines():
+            if name is None:
+                if line.startswith(RUN_BEGIN):
+                    name, lines = line[len(RUN_BEGIN):].strip(), []
+            elif line == RUN_END + name:
+                path = Path(results).parent / (RUN_LOG_PREFIX + name + ".log")
+                path.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+                saved.append(str(path))
+                name = None
+            else:
+                lines.append(line)
+    return saved
 
 
 def per_click(paths):
@@ -107,8 +155,14 @@ def per_click(paths):
     return seen
 
 
-def check_s2(paths, rep):
-    """Every button was pressed, nothing threw, and the operations are readable."""
+def check_s2(paths, rep, not_automated=()):
+    """Every button was pressed, nothing threw, and the operations are readable.
+
+    not_automated names buttons (as in OnXClicked, without On / Clicked) that a partial run is
+    known not to press - the automated run leaves out the blocks that need the OS in another
+    state. They are reported as PART rather than passed, and a name on that list that was in
+    fact pressed is a failure, so the list cannot quietly go stale.
+    """
     if not (UXML.is_file() and CONTROLLER.is_file()):
         rep.skip("S-2 button coverage", "the sample sources are not where they were")
         return
@@ -118,10 +172,26 @@ def check_s2(paths, rep):
                      for button, handler in BINDING.findall(read(CONTROLLER)))
     pressed = per_click(paths)
 
+    declared = set("On%sClicked" % name for name in not_automated)
+    if declared:
+        unknown_declared = sorted(declared - set(button_of))
+        rep.check(not unknown_declared, "S-2 not-automated list names bound buttons",
+                  "%d named" % len(declared), "not in the bindings: %s" % unknown_declared[:8])
+
     missing = sorted(h for h in button_of if h not in pressed)
-    rep.check(not missing, "S-2 every button appears in the log",
-              "%d buttons, all pressed" % len(button_of),
-              "never pressed: %s" % missing[:8])
+    unexpected = [h for h in missing if h not in declared]
+    stale = sorted(h for h in declared if h in pressed)
+    rep.check(not unexpected, "S-2 every button appears in the log",
+              "%d buttons, all pressed" % len(button_of) if not missing
+              else "all but the %d listed as not automated" % len(missing),
+              "never pressed: %s" % unexpected[:8])
+    if declared:
+        rep.check(not stale, "S-2 not-automated list is current",
+                  "none of them was pressed", "listed as not automated but pressed: %s" % stale[:8])
+    if missing and not unexpected:
+        rep.part("S-2 coverage",
+                 "%d of %d buttons pressed; not automated yet: %s"
+                 % (len(button_of) - len(missing), len(button_of), missing))
 
     unknown = sorted(h for h in pressed if h not in button_of and h != FOREIGN_CLICK)
     rep.check(not unknown, "S-2 every click belongs to a bound button",
@@ -216,7 +286,29 @@ def check_s8(paths, rep):
 
 
 def main(argv):
-    paths = argv[1:] or sorted(glob.glob(str(LOGS / "*.log")))
+    args = list(argv[1:])
+    not_automated = ()
+    if "--not-automated" in args:
+        at = args.index("--not-automated")
+        if at + 1 >= len(args):
+            print("error: --not-automated needs a comma-separated list", file=sys.stderr)
+            return 2
+        not_automated = tuple(name for name in args[at + 1].split(",") if name)
+        del args[at:at + 2]
+
+    extracted = []
+    if "--test-results" in args:
+        at = args.index("--test-results")
+        if at + 1 >= len(args) or not Path(args[at + 1]).is_file():
+            print("error: --test-results needs a Test Framework result file", file=sys.stderr)
+            return 2
+        extracted = extract_runs(args[at + 1])
+        if not extracted:
+            print("error: no sample run in %s" % args[at + 1], file=sys.stderr)
+            return 2
+        del args[at:at + 2]
+
+    paths = args + extracted if (args or extracted) else sorted(glob.glob(str(LOGS / "*.log")))
     paths = [p for p in paths if Path(p).is_file()]
     if not paths:
         print("error: no log files to read", file=sys.stderr)
@@ -228,12 +320,14 @@ def main(argv):
     print("")
 
     rep = Report()
-    check_s2(paths, rep)
+    check_s2(paths, rep, not_automated)
     check_s4(paths, rep)
     check_s8(paths, rep)
     print("")
     print("failures: %d" % len(rep.failures)
           + (" (%s)" % ", ".join(rep.failures) if rep.failures else ""))
+    if rep.partial:
+        print("partial: %s - holds for what ran; see PART above for what did not" % ", ".join(rep.partial))
     return 1 if rep.failures else 0
 
 

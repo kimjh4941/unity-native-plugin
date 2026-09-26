@@ -260,6 +260,31 @@ else
     echo "  system clipboard: FAILED (neither the sample value nor the sentinel; something else wrote last)"
     failures=$((failures + 1))
   fi
+
+  # S-2 / S-4 / S-8 over the sample's own log, as the manual run was judged. Only a destructive run
+  # presses the sample's buttons (WindowsClipboardSampleRunPlayerTests), so only then is there a
+  # log. The test writes it into its output, and the checker takes it from the result file and
+  # saves it beside that file; the player's own directory is under Temp, which the editor deletes
+  # as it exits. Buttons that only blocks B and C press are passed as not automated, read from
+  # the test.
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
+    RUN_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardSampleRunPlayerTests.cs"
+    # The constant's value is on the line after its name.
+    not_automated="$(awk '/const string NotYetAutomated =/ { getline; print; exit }' "$RUN_SOURCE" \
+      | sed -n 's/.*"\([^"]*\)".*/\1/p')"
+    if [ -z "$not_automated" ]; then
+      echo "  sample run log: CANNOT CHECK (no NotYetAutomated in $RUN_SOURCE)"
+      failures=$((failures + 1))
+    elif ! grep -q '\[SampleRun\] begin ' "$PT_XML" 2>/dev/null; then
+      echo "  sample run log: MISSING (no run from WindowsClipboardSampleRunPlayerTests in the results)"
+      failures=$((failures + 1))
+    else
+      echo "  sample run log (S-2 / S-4 / S-8):"
+      python "$PROJECT_DIR/scripts/check_windows_clipboard_sample_log.py" \
+        --not-automated "$not_automated" --test-results "$PT_XML" 2>&1 | sed 's/^/    /'
+      [ "${PIPESTATUS[0]}" -eq 0 ] || failures=$((failures + 1))
+    fi
+  fi
 fi
 
 echo

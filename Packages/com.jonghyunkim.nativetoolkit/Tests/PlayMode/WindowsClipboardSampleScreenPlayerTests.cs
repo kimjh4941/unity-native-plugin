@@ -12,9 +12,9 @@ using System.Reflection;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
+using static JonghyunKim.NativeToolkit.Tests.WindowsClipboardSampleScreenDriver;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
@@ -23,24 +23,12 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// checks S-1 (the top menu opens the clipboard screen) and S-5 / S-6 (leaving and re-entering
     /// the screen tears each one down and leaves exactly one subscription behind).
     /// <para>
-    /// The sample scene is loaded additively and unloaded afterwards, so the test runner's own scene
-    /// is never replaced. A test player can load it because the Test Framework adds every scene in
-    /// the build settings to the player it builds (PlayerLauncher).
-    /// </para>
-    /// <para>
-    /// Buttons are pressed by sending a NavigationSubmitEvent. Button answers it with
-    /// clickable.SimulateSingleClick, which invokes clicked synchronously; only the pressed-state
-    /// styling is delayed. This is the same handler a mouse click reaches, without depending on
-    /// pointer coordinates or layout.
+    /// How the sample is loaded and its buttons pressed is in
+    /// <see cref="WindowsClipboardSampleScreenDriver"/>.
     /// </para>
     /// </summary>
     public sealed class WindowsClipboardSampleScreenPlayerTests
     {
-        private const string SampleScene = "NativeToolkitExampleScene";
-        private const float TimeoutSeconds = 5f;
-
-        private const string TopMenuClipboardButton = "ClipboardFeatureButton";
-        private const string ClipboardHomeButton = "HomeButton";
         private const string ControllerLogTag = "[WindowsClipboardManagerExampleController]";
 
         private readonly List<string> _log = new();
@@ -49,24 +37,16 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator LoadTheSample()
         {
             _log.Clear();
+            yield return TakeForegroundAndLog(TestContext.CurrentContext.Test.Name);
             Application.logMessageReceived += Record;
-
-            AsyncOperation load = SceneManager.LoadSceneAsync(SampleScene, LoadSceneMode.Additive);
-            yield return WaitFor(() => load.isDone, "the sample scene to load");
-            yield return WaitFor(() => FindButton(TopMenuClipboardButton) != null, "the top menu");
+            yield return LoadAtTopMenu();
         }
 
         [UnityTearDown]
         public IEnumerator UnloadTheSample()
         {
             Application.logMessageReceived -= Record;
-
-            Scene scene = SceneManager.GetSceneByName(SampleScene);
-            if (scene.isLoaded)
-            {
-                AsyncOperation unload = SceneManager.UnloadSceneAsync(scene);
-                yield return WaitFor(() => unload.isDone, "the sample scene to unload");
-            }
+            yield return Unload();
 
             // This class may be the last to run; the layer 3 check after the run expects the sample.
             WindowsClipboardPlayerTests.LeaveSampleOnClipboard();
@@ -150,32 +130,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Eventually(() => ClipboardController() == null && FindButton(TopMenuClipboardButton) != null, done);
         }
 
-        private static void Press(Button button)
-        {
-            using NavigationSubmitEvent submit = NavigationSubmitEvent.GetPooled();
-            submit.target = button;
-            button.SendEvent(submit);
-        }
-
-        /// <summary>The sample's UIDocument: the one that lives in the sample scene.</summary>
-        private static UIDocument? SampleDocument()
-        {
-            Scene scene = SceneManager.GetSceneByName(SampleScene);
-            if (!scene.isLoaded) return null;
-            return UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None)
-                .FirstOrDefault(document => document.gameObject.scene == scene);
-        }
-
-        private static Button? FindButton(string name) => SampleDocument()?.rootVisualElement?.Q<Button>(name);
-
-        private static WindowsClipboardManagerExampleController? ClipboardController()
-        {
-            WindowsClipboardManagerExampleController? controller =
-                SampleDocument()?.GetComponent<WindowsClipboardManagerExampleController>();
-            // Unity's null: a component destroyed this frame still exists as a C# object.
-            return controller != null ? controller : null;
-        }
-
         /// <summary>
         /// The targets of a manager event's handlers that are screen controllers. A field-like event is
         /// backed by a private field of the same name; reading it is the only way to count
@@ -192,34 +146,6 @@ namespace JonghyunKim.NativeToolkit.Tests
                 .Select(handler => handler.Target)
                 .Where(target => target is WindowsClipboardManagerExampleController)
                 .ToArray()!;
-        }
-
-        private static IEnumerator Eventually(Func<bool> condition, Action<bool> met)
-        {
-            float deadline = Time.realtimeSinceStartup + TimeoutSeconds;
-            while (!condition())
-            {
-                if (Time.realtimeSinceStartup > deadline)
-                {
-                    met(false);
-                    yield break;
-                }
-                yield return null;
-            }
-            met(true);
-        }
-
-        private static IEnumerator WaitFor(Func<bool> condition, string what)
-        {
-            float deadline = Time.realtimeSinceStartup + TimeoutSeconds;
-            while (!condition())
-            {
-                if (Time.realtimeSinceStartup > deadline)
-                {
-                    Assert.Fail($"Timed out after {TimeoutSeconds}s waiting for {what}.");
-                }
-                yield return null;
-            }
         }
     }
 }
