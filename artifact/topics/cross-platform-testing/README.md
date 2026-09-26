@@ -39,7 +39,7 @@ v4 の指摘は反映済み（`testing.md` 5 節の確認済み表に macOS 15.4
 | 0. Player ビルド | Windows のみ。Android / iOS / macOS は未整備 |
 | 1. EditMode | 部分的 |
 | 2a. PlayMode（Editor 内） | 部分的。Clipboard 4 種と Share（iOS / macOS） |
-| **2b. PlayMode（Player 上）** | **Windows のみ、16 本**（`WindowsClipboardPlayerTests`、既定の実行は 15 本） |
+| **2b. PlayMode（Player 上）** | **Windows のみ、18 本**（`WindowsClipboardPlayerTests` と `WindowsClipboardSampleScreenPlayerTests`、既定の実行は 17 本） |
 | **3. OS 境界** | **Windows のみ、最小限**（クリップボードの最後の 1 件を外から読む） |
 
 **この表の更新は `testing.md` 側で行う。** ここに写しを置いているのは状態の要約のためで、
@@ -422,6 +422,16 @@ S 観点は 3 段階に分けて移す。
 2. **UI を操作する仕組み**: サンプルのシーンをテスト用 Player で読み込み、トップメニューから Clipboard 画面へボタンで移る（S-1）。
    行き来を 2 回して `OnDisable` → `OnDestroy` が対になることを確かめる（S-5 / S-6）。
    テスト用 Player にはビルド設定のシーンがすべて入る（`PlayerLauncher` が `EditorBuildSettings.scenes` を足す）ので、サンプルのシーンはそのまま読める
+   **完了**（2026-09-26）。`WindowsClipboardSampleScreenPlayerTests` の 2 本。
+   - サンプルのシーンを**追加読み込み**し、終わったら取り除く。テストを動かしている側のシーンは置き換えない
+   - ボタンは `NavigationSubmitEvent` を送って押す。`Button` はこれを受けて `clickable.SimulateSingleClick` を呼び、
+     `clicked` をその場で発火する（Unity の `Button.cs` / `Clickable.cs` で確認）。マウスで押したときと同じ処理を通り、座標やレイアウトに依存しない
+   - S-6 は、Manager の公開イベント 12 個それぞれについて、登録されている受け手のうち画面の Controller がちょうど 1 つで、
+     それが今表示中のものかを数える（イベントの裏にある同名の非公開フィールドをリフレクションで読む。Manager にテスト用の口は足さない）
+   - **わざと壊して確かめた。** Controller の `OnDisable` から `ClipboardChanged` の登録解除を 1 行だけ外すと、
+     「`ClipboardChanged`: 受け手が 1 つのはずが 3 つ」で失敗した（3 回入って、出るたびに 1 つ残るため）。元に戻して再確認済み
+   - Unity は新しいテストファイルを取り込むと `unity-native-plugin.slnx` を作り直し、プロジェクトの並び順だけが変わる。
+     検証スクリプトの後片付けの対象に加えた
 3. **全ボタンを押す**（S-2）。終わったら Player のログを `scripts/check_windows_clipboard_sample_log.py` に渡して S-2 / S-4 / S-8 を判定する。
    ボタン 67 個のうち、`QuitButton`（Player が終了する）、`ClearUnpinned` 系 2 個（開発機の履歴が消える）、
    `RestoreLast` / `DeleteLast` / `RestoreAwait` / `DeleteAwait`（直前に取った履歴の先頭、つまり開発者の項目を戻す・消す）は通常の実行から外す

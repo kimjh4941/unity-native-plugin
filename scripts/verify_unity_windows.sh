@@ -69,6 +69,8 @@ SIDE_EFFECT_PATHS=(
   "Assets/Settings"
   "Assets/TextMesh Pro"
   "ProjectSettings"
+  # Regenerated when a test file is added; Unity only reorders its project list.
+  "unity-native-plugin.slnx"
 )
 
 # Prints "<XY>\t<path>" for every change under SIDE_EFFECT_PATHS. -z keeps paths with spaces and

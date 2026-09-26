@@ -68,7 +68,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// a plain, history-visible copy through, and this only restores the value it expects.
         /// </summary>
         [TearDown]
-        public void PutSampleBack()
+        public void PutSampleBack() => LeaveSampleOnClipboard();
+
+        /// <summary>
+        /// What <see cref="PutSampleBack"/> does, for other player test classes: any of them may be the
+        /// last to run, and the layer 3 check after the run expects <see cref="SampleText"/>.
+        /// </summary>
+        internal static void LeaveSampleOnClipboard()
         {
             WindowsClipboardResult result = Running().CopyPlainText(SampleText, WindowsClipboardWriteOptions.Sensitive);
             Assert.IsTrue(result.IsSuccess, $"putting the sample back: {result.ErrorCode} {result.ErrorMessage}");
