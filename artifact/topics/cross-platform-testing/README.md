@@ -265,7 +265,29 @@ Windows Clipboard の 65 本は 1 で Editor 専用にした。
 | OS のクリップボードに実際に書かれたか | **書かれた。** テストの後、Unity の外から PowerShell の `Get-Clipboard` で見本値を読めた |
 
 最後の行は層 3 の小さな先取りである。`Copy` → `Paste` の往復は両側が同じように壊れていても通るので、
-外から読んで初めて「書けた」と言える。今回は手で 1 回確かめただけで、テストにはまだ組み込んでいない。
+外から読んで初めて「書けた」と言える。
+
+#### `verify_unity_windows.sh` に組み込んだ（2026-09-26）
+
+Player テストと層 3 の読み取りを、`scripts/verify_unity_windows.sh` の手順として追加した（`--skip-player-tests` で外せる）。
+
+1. 見本値をテストのソース（`WindowsClipboardPlayerTests.cs` の `SampleText`）から読む。両者がずれないようにするため
+2. **実行前に、毎回違う番兵の値をクリップボードに置く。** 前の実行が残した見本値で合格にならないようにするため
+3. `-testPlatform StandaloneWindows64` で Player テストを回す。**1 本も実行されなければ失敗にする**
+   （実行 0 本でも失敗件数は 0 なので、従来の判定では合格になってしまう）
+4. 実行後に PowerShell の `Get-Clipboard` で読み、見本値なら合格、番兵のままなら「Player が何も書かなかった」、それ以外なら「別の何かが最後に書いた」として失敗にする
+
+制約: 確かめられるのは**最後に書かれた 1 件だけ**である。Player テストでクリップボードに書くのが
+`WindowsClipboardPlayerTests` だけという前提に立っている。項目ごとに確かめるには、Player とスクリプトの間の合図が要る（M-10 / M-19 と同じ）。
+
+`--skip-build` を付けてスクリプト全体を回した結果:
+
+| 手順 | 結果 |
+|---|---|
+| EditMode | 809 / 809 |
+| PlayMode（Editor 内） | 181 / 181。うち `WindowsClipboardManagerIntegrationTests` は **65 / 65**（ガードを `UNITY_EDITOR` に狭めた後も Editor では全件実行されている） |
+| Player テスト | 1 / 1 |
+| OS のクリップボード | 見本値を読めた |
 
 **このテストが 1.x での基準（baseline）になる。** 2.0.0 に移行したとき、最初に通すべきはこの 1 本である。
 
