@@ -32,6 +32,120 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
     }
 
+    /// <summary>
+    /// The Windows entry in <c>Plugins/Windows/VERSION.txt</c>: which dist folder to copy from and
+    /// which artifact to take.
+    /// </summary>
+    /// <remarks>
+    /// Windows reads this instead of calling <see cref="FindLatestVersionInDist"/>. That method picks
+    /// the highest semantic version it finds, and the DLL lookup it used to feed picked the
+    /// highest-sorting file matching the prefix "windows-native-toolkit-" - two implicit choices whose
+    /// outcome depends on what the sibling repository happens to contain, and a prefix that matches
+    /// windows-native-toolkit-capi-2.0.0.dll as readily as the 1.x artifact. Both of those helpers are
+    /// gone; this struct replaced them. When native-toolkit published dist/1.12.0, both choices
+    /// moved on their own: the build deleted the committed 1.x DLL and copied the 2.0.0 C ABI DLL in
+    /// its place, with the P/Invoke layer still on 1.x. Naming the version and the artifact makes that
+    /// a reviewable line in a commit instead of a consequence of someone else's release.
+    /// Android, iOS and macOS still use the scanning path; only Windows is pinned so far.
+    /// </remarks>
+    private readonly struct WindowsPin
+    {
+        internal const string FileName = "VERSION.txt";
+
+        internal string DistVersion { get; }
+        internal string ReleaseDll { get; }
+
+        /// <summary>Empty means "use <see cref="ReleaseDll"/>" - dist publishes no -debug.dll here.</summary>
+        internal string DebugDll { get; }
+
+        /// <summary>
+        /// The file name to place in Plugins/Windows. Empty means "keep the dist file name". The 1.x
+        /// P/Invoke layer loads "unity-windows-native-toolkit", so 1.x pins set this explicitly; the
+        /// 2.0.0 C ABI is used under its own dist name, so its pin leaves it empty.
+        /// </summary>
+        internal string InstallAs { get; }
+
+        /// <summary>
+        /// The file name for development builds. Empty falls back to <see cref="InstallAs"/>, then to the
+        /// dist file name.
+        /// </summary>
+        internal string InstallAsDebug { get; }
+
+        private WindowsPin(string distVersion, string releaseDll, string debugDll, string installAs, string installAsDebug)
+        {
+            DistVersion = distVersion;
+            ReleaseDll = releaseDll;
+            DebugDll = debugDll;
+            InstallAs = installAs;
+            InstallAsDebug = installAsDebug;
+        }
+
+        /// <summary>The artifact to copy from dist for this build.</summary>
+        internal string SourceFor(bool isDevelopmentBuild)
+            => isDevelopmentBuild && !string.IsNullOrEmpty(DebugDll) ? DebugDll : ReleaseDll;
+
+        /// <summary>The name to place it under in Plugins/Windows for this build.</summary>
+        internal string DestinationFor(bool isDevelopmentBuild)
+        {
+            if (isDevelopmentBuild && !string.IsNullOrEmpty(InstallAsDebug))
+                return InstallAsDebug;
+            if (!string.IsNullOrEmpty(InstallAs))
+                return InstallAs;
+            return SourceFor(isDevelopmentBuild);
+        }
+
+        /// <summary>
+        /// Reads the pin. Throws <see cref="BuildFailedException"/> when the file or a required key is
+        /// missing, rather than falling back to a guess.
+        /// </summary>
+        internal static WindowsPin Read(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new BuildFailedException(
+                    $"[Build][Windows] {FileName} not found at {path}. It declares which native-toolkit " +
+                    "artifact this folder holds; without it the build has nothing to copy from.");
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string rawLine in File.ReadAllLines(path))
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
+                    continue;
+
+                int separator = line.IndexOf(':');
+                if (separator <= 0)
+                    continue;
+
+                string key = line.Substring(0, separator).Trim();
+                // Values may contain ':' (the source URL does), so split on the first one only.
+                values[key] = line.Substring(separator + 1).Trim();
+            }
+
+            string distVersion = Get(values, "dist_version", path, required: true);
+            string releaseDll = Get(values, "release_dll", path, required: true);
+            string debugDll = Get(values, "debug_dll", path, required: false);
+            string installAs = Get(values, "install_as", path, required: false);
+            string installAsDebug = Get(values, "install_as_debug", path, required: false);
+
+            return new WindowsPin(distVersion, releaseDll, debugDll, installAs, installAsDebug);
+        }
+
+        private static string Get(IDictionary<string, string> values, string key, string path, bool required)
+        {
+            if (values.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
+                return value;
+
+            if (!required)
+                return null;
+
+            throw new BuildFailedException(
+                $"[Build][Windows] {FileName} has no value for '{key}' ({path}). " +
+                "Add it; the build does not guess which version or artifact to use.");
+        }
+    }
+
     public int callbackOrder => 0;
 
     // Determine config from build options
@@ -68,11 +182,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else if (report.summary.platform == BuildTarget.StandaloneWindows64)
         {
-            string latestVersion = FindLatestVersionInDist();
-            if (!string.IsNullOrEmpty(latestVersion))
-            {
-                CopyWindowsLibraries(config, latestVersion);
-            }
+            // Windows does not call FindLatestVersionInDist: it reads the pin in
+            // Plugins/Windows/VERSION.txt instead. See WindowsPin for why.
+            CopyWindowsLibraries(config);
         }
         else if (report.summary.platform == BuildTarget.StandaloneOSX)
         {
@@ -392,30 +504,37 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// <summary>
     /// Copies Windows DLL (Debug/Release) from dist folder to Plugins/Windows.
     /// </summary>
-    private void CopyWindowsLibraries(string config, string version)
+    private void CopyWindowsLibraries(string config)
     {
-        UnityEngine.Debug.Log($"[Build][Windows] Copying libraries from dist (config={config}, version={version})");
-
         bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
-        string distWinDir = Path.Combine(NativeToolkitDistRoot, version, "windows");
-
-        if (!Directory.Exists(distWinDir))
-        {
-            UnityEngine.Debug.LogError($"[Build][Windows] Windows dist directory not found: {distWinDir}");
-            return;
-        }
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
 
+        WindowsPin pin = WindowsPin.Read(Path.Combine(destDir, WindowsPin.FileName));
+        string selectedDll = pin.SourceFor(isDevelopmentBuild);
+        string destName = pin.DestinationFor(isDevelopmentBuild);
+
+        UnityEngine.Debug.Log(
+            $"[Build][Windows] Pinned by {WindowsPin.FileName}: dist_version={pin.DistVersion}, " +
+            $"dll={selectedDll}, install_as={destName} (config={config})");
+
+        string distWinDir = Path.Combine(NativeToolkitDistRoot, pin.DistVersion, "windows");
+
         // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
-        string selectedDll = FindDllNameInDist(distWinDir, "windows-native-toolkit-", "[Build][Windows]", isDevelopmentBuild);
-        if (string.IsNullOrEmpty(selectedDll))
+        // A pin that does not resolve is a configuration error, not something to work around by
+        // copying whatever else is in dist: that is exactly how the 2.0.0 C ABI DLL got in here
+        // while the P/Invoke layer was still 1.x.
+        string srcPathCheck = Path.Combine(distWinDir, selectedDll);
+        if (!File.Exists(srcPathCheck))
         {
-            UnityEngine.Debug.LogError(
-                $"[Build][Windows] Aborting copy: could not resolve a DLL in {distWinDir}. " +
-                "Existing libraries were left untouched.");
-            return;
+            string available = Directory.Exists(distWinDir)
+                ? string.Join(", ", Directory.GetFiles(distWinDir, "*.dll").Select(Path.GetFileName))
+                : "(dist directory does not exist)";
+            throw new BuildFailedException(
+                $"[Build][Windows] {WindowsPin.FileName} names {selectedDll} under dist/{pin.DistVersion}/windows, " +
+                $"which is not there. Existing libraries were left untouched. Looked in: {distWinDir}. " +
+                $"Available: {available}. Fix the pin or the dist folder; do not let the build pick something else.");
         }
 
         if (!Directory.Exists(destDir))
@@ -424,16 +543,28 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else
         {
-            // Clean existing native-toolkit DLL files only (preserve third-party DLLs like Bootstrap),
-            // now that the replacement is known to exist.
-            foreach (string dll in Directory.GetFiles(destDir, "unity-windows-native-toolkit*.dll"))
+            // Remove every other native-toolkit DLL (preserve third-party DLLs like Bootstrap), now that
+            // the replacement is known to exist. Both naming schemes are matched: the 1.x DLL was installed
+            // as unity-windows-native-toolkit*.dll, the 2.0.0 C ABI keeps its dist name
+            // windows-native-toolkit-capi-*.dll. Moving the pin from one to the other must not leave the
+            // old library beside the new one, or the player ships both.
+            // The file being replaced under the same name is overwritten below instead, so its .meta (and
+            // GUID) survives; a file under a different name goes together with its .meta.
+            IEnumerable<string> previous = Directory.GetFiles(destDir, "unity-windows-native-toolkit*.dll")
+                .Concat(Directory.GetFiles(destDir, "windows-native-toolkit*.dll"));
+            foreach (string dll in previous)
             {
+                if (string.Equals(Path.GetFileName(dll), destName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 File.Delete(dll);
+                string meta = dll + ".meta";
+                if (File.Exists(meta))
+                    File.Delete(meta);
                 UnityEngine.Debug.Log($"[Build][Windows] Deleted old DLL: {dll}");
             }
         }
 
-        string destName = isDevelopmentBuild ? "unity-windows-native-toolkit-debug.dll" : "unity-windows-native-toolkit.dll";
         string srcPath = Path.Combine(distWinDir, selectedDll);
         string dstPath = Path.Combine(destDir, destName);
         File.Copy(srcPath, dstPath, true);
@@ -445,80 +576,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         ConfigureWindowsPluginImporter(assetPath);
 
         UnityEngine.Debug.Log($"[Build][Windows] Copy completed to {destDir}");
-    }
-
-    /// <summary>
-    /// Finds a DLL file name in dist using prefix and build-mode filter.
-    /// Falls back to the release DLL when no <c>-debug.dll</c> variant is published (see
-    /// <see cref="FindAarNameInDist"/> for the rationale).
-    /// </summary>
-    private string FindDllNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
-    {
-        if (!Directory.Exists(distDir))
-        {
-            UnityEngine.Debug.LogError($"{logPrefix} Dist directory not found: {distDir}");
-            return null;
-        }
-
-        string[] candidates = Directory.GetFiles(distDir, "*.dll");
-
-        string selectedName = SelectDllName(candidates, prefix, preferDebug: isDevelopmentBuild, logPrefix);
-
-        if (selectedName == null && isDevelopmentBuild)
-        {
-            selectedName = SelectDllName(candidates, prefix, preferDebug: false, logPrefix);
-            if (selectedName != null)
-            {
-                UnityEngine.Debug.LogWarning(
-                    $"{logPrefix} No -debug.dll published for prefix={prefix}; falling back to the release DLL: {selectedName}");
-            }
-        }
-
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates.Select(Path.GetFileName));
-            UnityEngine.Debug.LogError($"{logPrefix} DLL not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
-            return null;
-        }
-
-        UnityEngine.Debug.Log($"{logPrefix} Selected DLL: {selectedName}");
-        return selectedName;
-    }
-
-    /// <summary>
-    /// Picks the highest-sorting DLL matching <paramref name="prefix"/> and the requested debug/release
-    /// flavour. Returns null when no candidate matches.
-    /// </summary>
-    private static string SelectDllName(string[] candidates, string prefix, bool preferDebug, string logPrefix)
-    {
-        string selectedName = null;
-        bool hasMultipleMatches = false;
-
-        foreach (string candidatePath in candidates)
-        {
-            string candidateName = Path.GetFileName(candidatePath);
-            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            bool isDebugName = candidateName.EndsWith("-debug.dll", StringComparison.OrdinalIgnoreCase);
-            if (isDebugName != preferDebug)
-                continue;
-
-            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
-            {
-                hasMultipleMatches = selectedName != null || hasMultipleMatches;
-                selectedName = candidateName;
-            }
-            else
-            {
-                hasMultipleMatches = true;
-            }
-        }
-
-        if (selectedName != null && hasMultipleMatches)
-            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple DLL matches found. Selected: {selectedName}");
-
-        return selectedName;
     }
 
     /// <summary>

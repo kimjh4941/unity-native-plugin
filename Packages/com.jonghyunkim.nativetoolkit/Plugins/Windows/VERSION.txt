@@ -1,2 +1,44 @@
-unity-windows-native-toolkit.dll 1.2.0
+# Which native-toolkit artifact this folder holds, and where it came from.
+#
+# PreBuildProcessor READS the keys below from this file. It does not scan dist
+# and guess. If a required key is missing, or the artifact it names is not in
+# dist, the build FAILS rather than copying something else.
+#
+# Change these keys in the same commit as the DLL. The whole point is that the
+# binary in this folder and the line that names it move together.
+#
+# dist_version      the folder under native-toolkit/dist to copy from (required)
+# release_dll       the artifact to use for release builds (required)
+# debug_dll         the artifact for development builds; empty = use release_dll
+#                   (dist has never published a -debug.dll for Windows)
+# install_as        the file name to place here; empty = keep the dist file name
+# install_as_debug  the file name for development builds; empty = install_as,
+#                   then the dist file name
+#
+# The name placed here must match DLL_NAME in the three Windows managers
+# (Runtime/Clipboard, Runtime/Notification, Runtime/Dialog), without ".dll".
+
+dist_version: 1.11.0
+release_dll: windows-native-toolkit-1.2.0.dll
+debug_dll:
+install_as: unity-windows-native-toolkit.dll
+install_as_debug: unity-windows-native-toolkit-debug.dll
+
+# The native library's own version is 1.2.0, which is not the same number as
+# dist_version. The 1.x P/Invoke layer loads it as "unity-windows-native-toolkit"
+# (release) or "unity-windows-native-toolkit-debug" (DEVELOPMENT_BUILD), hence
+# the two install_as names.
 source: https://github.com/kimjh4941/native-toolkit/blob/main/dist/1.11.0/windows/windows-native-toolkit-1.2.0.dll
+
+# Moving to the 2.0.0 C ABI (artifact/topics/windows-c-abi-2) - the C API DLL is
+# used under its own dist name, so both install_as keys are left empty:
+#
+#   dist_version: 1.12.0
+#   release_dll: windows-native-toolkit-capi-2.0.0.dll
+#   debug_dll:
+#   install_as:
+#   install_as_debug:
+#
+# In the same change, DLL_NAME in the three managers becomes
+# "windows-native-toolkit-capi-2.0.0" and the DEVELOPMENT_BUILD switch between
+# two names goes away, since only one file is placed.
