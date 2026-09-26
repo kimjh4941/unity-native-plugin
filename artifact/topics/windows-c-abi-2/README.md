@@ -7,7 +7,7 @@
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
 - 進捗: **企画中。** 47 本の対応は確定（5 章）。設計書は未着手
-- **先に手当てが要る: 2.5。着手前の今すでに、Windows Player ビルドが 2.0.0 の DLL を掴む**
+- 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
 
 - 対象: `Runtime/Clipboard/Windows*.cs`、`Runtime/Notification/Windows*.cs`、`Runtime/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
 - チケット: 未採番
@@ -68,10 +68,19 @@ ABI から JSON が消えるため、JSON を前提に作った層が丸ごと�
 
 | 今 | 2.0.0 |
 |---|---|
-| `Plugins/Windows/unity-windows-native-toolkit.dll` | `NativeToolkitC.dll`（配布物は `dist/1.12.0/windows/windows-native-toolkit-capi-2.0.0.dll`） |
+| `Plugins/Windows/unity-windows-native-toolkit.dll` | `Plugins/Windows/windows-native-toolkit-capi-2.0.0.dll`（**dist の名前のまま置く**。DLL 自身の名前は `NativeToolkitC.dll`） |
 | `Plugins/Windows/Microsoft.WindowsAppRuntime.Bootstrap.dll` | **変更なし。** 隣に置く要件も同じ |
 
 x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致することを起動時に 1 回確かめる。
+
+**配置名は dist の名前のままにする**（2026-09-26 決定）。C# からは P/Invoke でしか読まないので、
+DLL 自身の名前（`NativeToolkitC.dll`）に合わせる必要はない。3 つの Manager の `DLL_NAME` は
+`"windows-native-toolkit-capi-2.0.0"` になり、今の `#if DEVELOPMENT_BUILD` による 2 つの名前の
+切り替えはなくなる（置くファイルが 1 本になるため）。
+
+名前に版が入るので、**2.0.1 に上げるたびに `DLL_NAME` 3 箇所の書き換えが要る**。
+その代わり、C# と DLL の版がずれたときは起動時に `DllNotFoundException` で止まり、
+別の版が黙って読み込まれることはない（2.5 で起きたのはまさにそれだった）。
 
 ### 2.4 波及先
 
@@ -83,9 +92,12 @@ x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致するこ
 - `Tests/Runtime/WindowsClipboard*Tests.cs`（7 本）、`Tests/Runtime/WindowsNotificationTests.cs`
 - `Runtime/Dialog/Win32MessageBox.cs`、`Editor/UI/NativeToolkitEditorWindow.cs`
 
-### 2.5 着手前にすでに壊れている
+### 2.5 着手前にすでに壊れていた（対応済み）
 
-**移行を始めたかどうかと無関係に、今この repo で Windows Player をビルドすると 2.0.0 の DLL が入る。**
+> **対応済み（2026-09-26、`0948942`）。** 案 B を実装した。下の「対応」を参照。
+> 以下は発見時の記録として残す。
+
+**移行を始めたかどうかと無関係に、この repo で Windows Player をビルドすると 2.0.0 の DLL が入っていた。**
 2026-09-23 に `-testPlatform StandaloneWindows64` を走らせて実測した。
 
 #### 影響するのはこの repo だけ（2026-09-23 訂正）
@@ -149,6 +161,49 @@ x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致するこ
 D は今日すぐビルドを回す必要があるときの応急手当てとしては成立する。
 ただし恒久策にはしない。**止めた状態を正常だと思い込むと、移行後に copy が走らないまま
 1.x の DLL を配り続けることになる。**
+
+#### 対応（2026-09-26、`0948942`）
+
+**案 B を実装した。** Windows は `FindLatestVersionInDist()` を呼ばず、
+`Plugins/Windows/VERSION.txt` のピンを読む。VERSION.txt はもともと
+「dist 1.11.0 の `windows-native-toolkit-1.2.0.dll`」と正しい答えを文章で書いていたが、
+ビルドはそれを読んでいなかった。
+
+| キー | 意味 |
+|---|---|
+| `dist_version` | コピー元の dist フォルダ（必須） |
+| `release_dll` | release ビルドで使う成果物（必須） |
+| `debug_dll` | development ビルドで使う成果物。空なら `release_dll` |
+| `install_as` | `Plugins/Windows` に置く名前。空なら dist の名前のまま |
+| `install_as_debug` | development ビルドで置く名前。空なら `install_as`、それも空なら dist の名前 |
+
+- ファイルが無い、必須キーが無い、宣言した成果物が dist に無い、のいずれでも
+  `BuildFailedException` でビルドを止める。以前は `LogError` を出して続行していた
+- 古い DLL の削除は `unity-windows-native-toolkit*.dll` と `windows-native-toolkit*.dll` の両方を対象にする。
+  ピンを切り替えたときに新旧 2 本が Player に入らないようにするため
+- 推測していた `FindDllNameInDist` / `SelectDllName` は削除した。Android / iOS / macOS は従来どおり dist を走査する
+
+**確かめたこと**（`dist/1.12.0` が置かれた状態で、Release ビルド 2 回）:
+
+| ピン | 置かれた DLL | Player 内の md5 |
+|---|---|---|
+| 1.11.0（`install_as: unity-windows-native-toolkit.dll`） | `unity-windows-native-toolkit.dll`（git 上の変更なし） | `37a460f8...`（1.x） |
+| 1.12.0（`install_as` は空。一時的に書き換えて戻した） | `windows-native-toolkit-capi-2.0.0.dll`。1.x の DLL と `.meta` は削除 | `03645af6...`（2.0.0、1 本だけ） |
+
+**確かめていないこと:**
+
+- 止まる経路。宣言した成果物が dist に無いとき、Unity が実際にビルドを止めるか（コードを読んだだけ）
+- development ビルド。`install_as_debug` から名前を決める経路は通っていない
+
+どちらも移行作業で次にビルドするときに合わせて確かめる。
+
+#### 移行時にやること
+
+1. VERSION.txt の有効なキーを、ファイル末尾のコメントにある 1.12.0 のブロックに書き換える
+   （`install_as` と `install_as_debug` は空）
+2. 3 つの Manager の `DLL_NAME` を `"windows-native-toolkit-capi-2.0.0"` にし、
+   `#if DEVELOPMENT_BUILD` による切り替えをやめる
+3. 1 と 2 は**同じコミット**で行う。ずれると、ビルドは通っても起動時に `DllNotFoundException` になる
 
 #### 併せて壊れているもの
 
