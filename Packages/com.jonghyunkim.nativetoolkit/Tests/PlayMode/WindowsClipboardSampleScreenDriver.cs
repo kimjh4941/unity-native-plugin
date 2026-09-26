@@ -102,10 +102,45 @@ namespace JonghyunKim.NativeToolkit.Tests
             return pid == (uint)Process.GetCurrentProcess().Id;
         }
 
-        private static void TakeForeground()
+        /// <summary>
+        /// Minimizes the player window, so that another window has the foreground, as a person
+        /// switching to another app does for block B (M-13). Returns the window for
+        /// <see cref="ComeBack"/>: once minimized it is no longer the active one.
+        /// </summary>
+        internal static IEnumerator LeaveForeground(Action<IntPtr> window)
         {
             IntPtr own = GetActiveWindow();
+            window(own);
+            if (own == IntPtr.Zero) yield break;
+            ShowWindow(own, ShowMinimized);
+            yield return Eventually(() => !IsForeground(), _ => { });
+        }
+
+        /// <summary>Restores the window <see cref="LeaveForeground"/> minimized and takes the foreground back.</summary>
+        internal static IEnumerator ComeBack(IntPtr own)
+        {
+            if (own == IntPtr.Zero) yield break;
+            ShowWindow(own, ShowRestored);
+            TakeForeground(own);
+            yield return Eventually(IsForeground, _ => { });
+        }
+
+        private const int ShowMinimized = 6;
+        private const int ShowRestored = 9;
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr window, int command);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr window);
+
+        private static void TakeForeground() => TakeForeground(GetActiveWindow());
+
+        private static void TakeForeground(IntPtr own)
+        {
             if (own == IntPtr.Zero) return;
+            // A test that failed while stepped back (LeaveForeground) leaves the window minimized.
+            if (IsIconic(own)) ShowWindow(own, ShowRestored);
 
             IntPtr foreground = GetForegroundWindow();
             uint foregroundThread = foreground != IntPtr.Zero ? GetWindowThreadProcessId(foreground, out _) : 0;

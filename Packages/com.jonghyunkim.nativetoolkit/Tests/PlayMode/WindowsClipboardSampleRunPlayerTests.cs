@@ -25,9 +25,10 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// artifact/features/clipboard/results/logs/2026-09-09-windows-clipboard-verify-manual-session1.log
     /// are block A of the sample-scene design (history on, foreground), and presses 10-40 of
     /// session2.log are block D (the errors, last) followed by the extra S checks. They were pulled
-    /// from those logs mechanically. Blocks B (not foreground) and C (history off) need the OS put
-    /// into another state first and are not driven here yet; the buttons only they press are
-    /// <see cref="NotYetAutomated"/>, which the checker reports rather than passes.
+    /// from those logs mechanically. Block B is press 56 of session 1, made with another window in
+    /// front. Block C (history off) needs the OS put into another state first and is not driven
+    /// here yet; the buttons only it presses are <see cref="NotYetAutomated"/>, which the checker
+    /// reports rather than passes.
     /// </para>
     /// <para>
     /// Destructive: the copy buttons add ordinary items to the machine's clipboard history, some
@@ -45,11 +46,11 @@ namespace JonghyunKim.NativeToolkit.Tests
     public sealed class WindowsClipboardSampleRunPlayerTests
     {
         /// <summary>
-        /// Buttons pressed only in blocks B and C. verify_unity_windows.sh reads this constant and
-        /// hands it to the log checker, which lists them as not automated instead of passing S-2.
+        /// Buttons pressed only in block C. verify_unity_windows.sh reads this constant and hands it
+        /// to the log checker, which lists them as not automated instead of passing S-2.
         /// </summary>
         internal const string NotYetAutomated =
-            "CanShutdownNow,DelayedHistoryCall,DisableHistoryEvents,Quit,RecoverDeferredState,ReserveDeferredFormats,ShutdownWhileDisabled";
+            "CanShutdownNow,DisableHistoryEvents,Quit,RecoverDeferredState,ReserveDeferredFormats,ShutdownWhileDisabled";
 
         /// <summary>
         /// Brackets each run's log in the test output. The output reaches the result file, which is
@@ -93,6 +94,18 @@ namespace JonghyunKim.NativeToolkit.Tests
             "GetFormats", "GetPreferredFormat", "CopyImage", "GetPreferredFormat", "CreateTempFiles",
             "CopyFiles", "GetPreferredFormat",
         };
+
+        // Session 1, press 56: block B. Into the screen and initialized first, as this test starts
+        // from the top menu where the manual session had just finished block A.
+        private static readonly string[] BlockB = { "Clipboard", "Initialize", "DelayedHistoryCall" };
+
+        /// <summary>
+        /// Presses after which the player steps behind another window until the request they lead
+        /// to is answered. Delayed History Call issues its GetHistory five seconds after the press
+        /// (DelayedCallSeconds in the sample), for the person to bring another window up meanwhile.
+        /// </summary>
+        private static readonly string[] StepBackAfter = { "DelayedHistoryCall" };
+        private const float DelayedCallSeconds = 5f;
 
         // Session 2: into the screen and initialized, then presses 10-40, block D and the extras.
         private static readonly string[] BlockD =
@@ -138,15 +151,19 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator BlockA_PressesSession1InOrder() => Run("blockA", BlockA);
 
         [UnityTest, Timeout(RunTimeoutMilliseconds)]
+        public IEnumerator BlockB_DelayedHistoryCallFromBehind() => Run("blockB", BlockB);
+
+        [UnityTest, Timeout(RunTimeoutMilliseconds)]
         public IEnumerator BlockD_PressesSession2InOrder() => Run("blockD", BlockD);
 
         private IEnumerator Run(string name, string[] presses)
         {
             var unsettled = new List<string>();
-            // Both blocks are the foreground runs of the manual verification. Pressed from behind
-            // another window, every history button answers NotForeground, which is block B's
-            // outcome, and S-2 alone would still pass.
+            // Every press is made in the foreground, block B's included: it is the request after it
+            // that must meet another window in front. Pressed from behind, every history button
+            // answers NotForeground, block B's outcome, and S-2 alone would still pass.
             var background = new List<string>();
+            var stayedInFront = new List<string>();
             // The log goes out even when a press fails, so the checker can show how far the run got.
             try
             {
@@ -164,6 +181,25 @@ namespace JonghyunKim.NativeToolkit.Tests
                     Press(FindButton(buttonName)!);
                     yield return null;
 
+                    if (StepBackAfter.Contains(press))
+                    {
+                        int acceptedBefore = Accepted();
+                        IntPtr window = IntPtr.Zero;
+                        yield return LeaveForeground(w => window = w);
+                        if (IsForeground()) stayedInFront.Add($"{step + 1}:{press}");
+
+                        // The request comes later than the press; wait for it to be accepted first.
+                        bool issued = false;
+                        yield return Eventually(() => Accepted() > acceptedBefore, ok => issued = ok,
+                            DelayedCallSeconds + SettleSeconds);
+                        bool answered = false;
+                        yield return Eventually(() => Outstanding() == 0, ok => answered = ok, SettleSeconds);
+                        if (!issued || !answered) unsettled.Add($"{step + 1}:{press}");
+
+                        yield return ComeBack(window);
+                        continue;
+                    }
+
                     bool settled = false;
                     yield return Eventually(() => Outstanding() == 0, ok => settled = ok, SettleSeconds);
                     if (!settled) unsettled.Add($"{step + 1}:{press}");
@@ -178,12 +214,15 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
 
             Assert.IsEmpty(background, $"{name}: pressed without the foreground ({FocusNote()})");
+            Assert.IsEmpty(stayedInFront, $"{name}: the player kept the foreground after minimizing ({FocusNote()})");
             Assert.IsEmpty(unsettled, $"{name}: requests still outstanding {SettleSeconds}s after these presses");
         }
 
         private static bool ChangesClipboard(string press) =>
             WritesClipboard.Any(prefix => press.StartsWith(prefix, StringComparison.Ordinal))
             || AlsoWritesClipboard.Contains(press);
+
+        private int Accepted() => _lines.Count(line => AcceptLine.IsMatch(line));
 
         /// <summary>Accepted requests with no done line yet, from the sample's own log lines.</summary>
         private int Outstanding()

@@ -1,7 +1,7 @@
 """What each press of the automated Windows Clipboard sample run should report.
 
-The runs are WindowsClipboardSampleRunPlayerTests' blocks A and D: presses 1-55 of the
-manual session 1 and presses 10-40 of session 2, in the same order. The expectations are
+The runs are WindowsClipboardSampleRunPlayerTests' blocks A, B and D: presses 1-55 and 56
+of the manual session 1 and presses 10-40 of session 2, in the same order. The expectations are
 the manual verification's (artifact/features/clipboard/results/
 2026-09-09-windows-clipboard-verify-manual-result-v1.md, section 1), written per press so
 that check_windows_clipboard_sample_log.py can say which M item a run broke.
@@ -88,6 +88,13 @@ BLOCKS = {
         ("CreateTempFiles", None, ["fixtures.createTempFiles local created=2"]),
         ("CopyFiles", None, ["copyFiles OK count=2"]),
         ("GetPreferredFormat", "8.8", ["getPreferredClipboardFormat OK format=CF_HDROP"]),
+    ],
+    "blockB": [
+        ("Clipboard", "S-1", []),
+        ("Initialize", "M-1", ["initClipboardManager OK"]),
+        # The GetHistory goes out five seconds after the press, with another window in front.
+        ("DelayedHistoryCall", "M-13", ["threading.delayed local",
+                                        "getClipboardHistory NG NotForeground"]),
     ],
     "blockD": [
         ("Clipboard", "S-1", []),
