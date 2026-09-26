@@ -87,10 +87,12 @@ report_tests() {
     return 1
   fi
   local counts
-  counts="$(grep -o 'total="[0-9]*" passed="[0-9]*" failed="[0-9]*"' "$xml" | head -1)"
+  # skipped is shown because a case whose precondition is not met is skipped, not failed, and a
+  # run that skipped its only interesting case must not read like a clean pass.
+  counts="$(grep -o 'total="[0-9]*" passed="[0-9]*" failed="[0-9]*" inconclusive="[0-9]*" skipped="[0-9]*"' "$xml" | head -1)"
   echo "  $label: ${counts:-unreadable}"
   case "$counts" in
-    *'failed="0"') return 0 ;;
+    *'failed="0" '*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -171,6 +173,14 @@ else
     echo "  note: no firewall rule for the test player, so Windows will stop this run with a dialog."
     echo "        Once, from an elevated PowerShell:"
     echo "        New-NetFirewallRule -DisplayName 'NativeToolkit test player' -Direction Inbound -Action Block -Profile Any -Program '$PT_PLAYER_EXE'"
+  fi
+
+  # The unknown-id restore case needs clipboard history (Win+V) on; with it off the OS answers
+  # HistoryDisabled instead, and the test skips itself rather than fail. Say so up front.
+  history="$(powershell.exe -NoProfile -Command "(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -ErrorAction SilentlyContinue).EnableClipboardHistory" 2>/dev/null | tr -d '\r')"
+  if [ "$history" != "1" ]; then
+    echo "  note: clipboard history (Win+V) is off, so the unknown-id restore case will be skipped."
+    echo "        Settings > System > Clipboard > Clipboard history."
   fi
 
   # No -nographics: the player opens a window and owns the clipboard from its main thread. This

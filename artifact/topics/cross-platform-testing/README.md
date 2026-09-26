@@ -39,7 +39,7 @@ v4 の指摘は反映済み（`testing.md` 5 節の確認済み表に macOS 15.4
 | 0. Player ビルド | Windows のみ。Android / iOS / macOS は未整備 |
 | 1. EditMode | 部分的 |
 | 2a. PlayMode（Editor 内） | 部分的。Clipboard 4 種と Share（iOS / macOS） |
-| **2b. PlayMode（Player 上）** | **Windows のみ、1 本**（`WindowsClipboardPlayerTests`） |
+| **2b. PlayMode（Player 上）** | **Windows のみ、9 本**（`WindowsClipboardPlayerTests`） |
 | **3. OS 境界** | **Windows のみ、最小限**（クリップボードの最後の 1 件を外から読む） |
 
 **この表の更新は `testing.md` 側で行う。** ここに写しを置いているのは状態の要約のためで、
@@ -320,6 +320,34 @@ Share の 2 本も同じ形をしている。それぞれの Player でテスト
 既存の `scripts/check_windows_clipboard_sample_log.py` がログ事後解析なのも、おそらく同じ事情。
 
 **これは FlaUI 方式でも同じ制約**なので、層 2b を選ぶ理由にも反証にもならない。
+
+#### 手動確認ブロック D（異常系）を移した（2026-09-26）
+
+手動確認結果（`2026-09-09-windows-clipboard-verify-manual-result-v1.md`）のブロック D、8 項目を
+`WindowsClipboardPlayerTests` に移した。値はサンプル画面と同じものを使う（`nativetoolkit-sample-no-such-item`、`uint.MaxValue`）。
+
+| 手動確認 | どこで弾かれるか | 結果 |
+|---|---|---|
+| Copy Plain Text (null) | C# | 成功（`InvalidArgument`） |
+| Copy Files (empty) | C# | 成功（`InvalidArgument`） |
+| Copy Custom Format (blank name) | C# | 成功（`InvalidArgument`） |
+| Copy Multiple Formats (empty) | C# | 成功（`InvalidArgument`） |
+| Restore (blank id) | C#（受け付ける前に拒否） | 成功（requestId=0、`InvalidArgument`） |
+| Restore (unknown id) | ネイティブ | 成功（requestId≠0、`ItemDeleted`） |
+| Cancel (unknown id) | ネイティブ | 成功（`InvalidParameter`） |
+| Copy After Shutdown | C# | 成功（`NotInitializedByHost`、2 回目の shutdown も完了） |
+
+- 1〜4 のエラーメッセージは、Editor 側のテストでは一度も確かめられていなかった。Editor では初期化が通らず、
+  引数の検査より手前で弾かれるため。Player に移して初めて自動で確かめられるようになった
+- **Restore (unknown id) はクリップボード履歴（Win+V）が有効であることが前提**。無効なら OS は `HistoryDisabled` を返す。
+  テストは冒頭で製品の API（`GetHistoryAvailability`）で確かめ、無効なら理由を付けてスキップする。
+  スクリプトも実行前にレジストリを見て知らせ、結果の表示にスキップ件数を出す（スキップを合格と見誤らないため）
+- 8 本はどれもクリップボードに書き込まない。テストは名前の順に走り、往復テストの後に 2 本走ったが、
+  層 3 の確認は見本値を読めた。この前提が実際に確かめられた
+- テストごとに初期化とシャットダウンを繰り返しても、1.x では再初期化が毎回成功した。
+  2.0.0 では S-3（2 回目の初期化が `NOT_SUPPORTED`）が関わるので、移行後に最初に見る箇所になる
+
+`--skip-build` での実行結果: EditMode 809/809、PlayMode 181/181、Player **9/9**（スキップ 0）、クリップボードの確認も合格。
 
 #### ファイアウォールのダイアログ（2026-09-26 対応）
 
