@@ -181,6 +181,21 @@ else
     echo "        New-NetFirewallRule -DisplayName 'NativeToolkit test player' -Direction Inbound -Action Block -Profile Any -Program '$PT_PLAYER_EXE'"
   fi
 
+  # The Test Framework does not get its player to quit on a command-line run: at the end it sends
+  # the quit message and closes the connection in the same breath, the editor then exits, and the
+  # message never arrives. The player stays up on its results screen, announcing itself to editors,
+  # one more per run (RemotePlayerTestController.RunFinished). Only players on the pinned path are
+  # stopped, so nothing else running on the machine is touched.
+  stop_test_players() {
+    powershell.exe -NoProfile -Command \
+      "Get-Process PlayerWithTests -ErrorAction SilentlyContinue | Where-Object { \$_.Path -eq '$PT_PLAYER_EXE' } | ForEach-Object { Stop-Process -Id \$_.Id -Force; \$_.Id }" \
+      2>/dev/null | tr -d '\r'
+  }
+  leftover="$(stop_test_players)"
+  if [ -n "$leftover" ]; then
+    echo "  note: stopped $(printf '%s\n' "$leftover" | wc -l) test player(s) left running by an earlier run"
+  fi
+
   # The unknown-id restore case needs clipboard history (Win+V) on; with it off the OS answers
   # HistoryDisabled instead, and the test skips itself rather than fail. Say so up front.
   history="$(powershell.exe -NoProfile -Command "(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -ErrorAction SilentlyContinue).EnableClipboardHistory" 2>/dev/null | tr -d '\r')"
@@ -211,6 +226,8 @@ else
       -testResults "$PT_XML" -logFile "$PT_LOG" >/dev/null 2>&1
   fi
   pt_code=$?
+  # The editor has the results by the time it exits, so this player has nothing left to do.
+  stop_test_players >/dev/null
   report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))
   grep -n "error CS" "$PT_LOG" | sort -u -t: -k2 | head -5
 
