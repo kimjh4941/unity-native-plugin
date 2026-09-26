@@ -12,8 +12,10 @@
 # Plugins/Windows/VERSION.txt, and Unity may re-serialize settings and assets (render pipeline
 # settings, the Windows build profile - sometimes only their line endings). The player-test
 # step is a development build, so it also swaps unity-windows-native-toolkit.dll for
-# unity-windows-native-toolkit-debug.dll. None of this belongs in a commit, so check `git status`
-# afterwards and restore it.
+# unity-windows-native-toolkit-debug.dll. None of this belongs in a commit, so the script puts it
+# back at the end: it restores or removes what the run changed under those locations, and leaves
+# alone any file that already had changes before the run, so uncommitted work there is never
+# thrown away. --keep-changes skips the cleanup when the build output itself is what you want.
 #
 # The player-test step runs PlayMode tests on a Windows player (layer 2b), the only place the
 # P/Invoke path actually executes, and then reads the system clipboard from outside Unity (a first
@@ -21,7 +23,7 @@
 # work from a service account or a headless agent. --skip-player-tests leaves it out.
 #
 # Usage:
-#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests]
+#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests] [--keep-changes]
 #
 # Environment:
 #   UNITY_EXE   Path to Unity.exe. Defaults to the 6000.4.2f1 install used by this project.
@@ -34,11 +36,13 @@ UNITY_EXE="${UNITY_EXE:-/d/Program Files/Unity/Hub/Editor/6000.4.2f1/Editor/Unit
 OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/unity-windows-verify}"
 SKIP_BUILD=0
 SKIP_PLAYER_TESTS=0
+KEEP_CHANGES=0
 
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
     --skip-player-tests) SKIP_PLAYER_TESTS=1 ;;
+    --keep-changes) KEEP_CHANGES=1 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -51,6 +55,29 @@ fi
 
 mkdir -p "$OUT_DIR"
 failures=0
+
+# Where Unity and PreBuildProcessor are known to write during a run. Cleanup looks nowhere else, so
+# a file edited elsewhere while the run is going (it takes a quarter of an hour) is not touched.
+SIDE_EFFECT_PATHS=(
+  "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows"
+  "Assets/Settings"
+  "Assets/TextMesh Pro"
+  "ProjectSettings"
+)
+
+# Prints "<XY>\t<path>" for every change under SIDE_EFFECT_PATHS. -z keeps paths with spaces and
+# "&" unquoted; a rename or copy carries its old path as an extra entry, which is read and dropped.
+changed_paths() {
+  git -C "$PROJECT_DIR" status --porcelain=v1 -z --untracked-files=all -- "${SIDE_EFFECT_PATHS[@]}" |
+    while IFS= read -r -d '' entry; do
+      local status="${entry:0:2}" path="${entry:3}"
+      case "$status" in R*|C*) IFS= read -r -d '' _ ;; esac
+      printf '%s\t%s\n' "$status" "$path"
+    done
+}
+
+# What was already changed before the run. Cleanup leaves these alone.
+CHANGED_BEFORE="$(changed_paths)"
 
 # Prints the counts from an NUnit result file, or says why it cannot.
 report_tests() {
@@ -182,6 +209,28 @@ else
     echo "  system clipboard: FAILED (neither the sample value nor the sentinel; something else wrote last)"
     failures=$((failures + 1))
   fi
+fi
+
+echo
+if [ "$KEEP_CHANGES" -eq 1 ]; then
+  echo "-- cleanup: skipped (--keep-changes); check git status before committing --"
+else
+  echo "-- cleanup --"
+  cleaned=0
+  while IFS=$'\t' read -r status path; do
+    [ -n "$path" ] || continue
+    if printf '%s\n' "$CHANGED_BEFORE" | cut -f2- | grep -Fxq -- "$path"; then
+      echo "  left alone (already changed before the run): $path"
+      continue
+    fi
+    if [ "$status" = "??" ]; then
+      rm -f -- "$PROJECT_DIR/$path"
+    else
+      git -C "$PROJECT_DIR" restore -- "$path"
+    fi
+    cleaned=$((cleaned + 1))
+  done <<< "$(changed_paths)"
+  echo "  restored or removed $cleaned file(s) the run changed"
 fi
 
 echo
