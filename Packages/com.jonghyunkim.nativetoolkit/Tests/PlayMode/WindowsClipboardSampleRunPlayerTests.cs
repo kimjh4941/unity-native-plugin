@@ -26,9 +26,9 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// are block A of the sample-scene design (history on, foreground), and presses 10-40 of
     /// session2.log are block D (the errors, last) followed by the extra S checks. They were pulled
     /// from those logs mechanically. Block B is press 56 of session 1, made with another window in
-    /// front. Block C (history off) needs the OS put into another state first and is not driven
-    /// here yet; the buttons only it presses are <see cref="NotYetAutomated"/>, which the checker
-    /// reports rather than passes.
+    /// front. Block C is presses 57-64 of session 1 and 1-9 of session 2, with clipboard history
+    /// turned off as the manual run did in Settings. Quit (press 65, M-19) ends the player and is
+    /// <see cref="NotYetAutomated"/>, which the checker reports rather than passes.
     /// </para>
     /// <para>
     /// Destructive: the copy buttons add ordinary items to the machine's clipboard history, some
@@ -46,11 +46,11 @@ namespace JonghyunKim.NativeToolkit.Tests
     public sealed class WindowsClipboardSampleRunPlayerTests
     {
         /// <summary>
-        /// Buttons pressed only in block C. verify_unity_windows.sh reads this constant and hands it
+        /// Buttons no test presses yet. Quit ends the player, and the test run with it; M-19 needs
+        /// the player started on its own. verify_unity_windows.sh reads this constant and hands it
         /// to the log checker, which lists them as not automated instead of passing S-2.
         /// </summary>
-        internal const string NotYetAutomated =
-            "CanShutdownNow,DisableHistoryEvents,Quit,RecoverDeferredState,ReserveDeferredFormats,ShutdownWhileDisabled";
+        internal const string NotYetAutomated = "Quit";
 
         /// <summary>
         /// Brackets each run's log in the test output. The output reaches the result file, which is
@@ -107,6 +107,25 @@ namespace JonghyunKim.NativeToolkit.Tests
         private static readonly string[] StepBackAfter = { "DelayedHistoryCall" };
         private const float DelayedCallSeconds = 5f;
 
+        // Session 1, presses 57-64: block C, history turned off after the first. The manual run
+        // unsubscribed from history events first, since stopping them fails once history is off
+        // (MonitorRegisterFailed, which then sticks; design 2.9).
+        private static readonly string[] BlockCSession1 =
+        {
+            "Clipboard", "Initialize", "DisableHistoryEvents", "GetHistoryAvailability", "GetHistory",
+            "CopyPlainText", "PastePlainText", "ReserveDeferredFormats", "PastePlainText",
+            "ReserveDeferredFormats",
+        };
+        private const int HistoryOffAfterPress = 3;
+        private const int AnotherAppPastesAfterPress = 9;
+
+        // Session 2, presses 1-9: block C again, after the Quit that ended session 1.
+        private static readonly string[] BlockCSession2 =
+        {
+            "Clipboard", "Initialize", "CanShutdownNow", "ShutdownWhileDisabled", "Initialize",
+            "RecoverDeferredState", "ReserveDeferredFormats", "RecoverDeferredState", "PastePlainText",
+        };
+
         // Session 2: into the screen and initialized, then presses 10-40, block D and the extras.
         private static readonly string[] BlockD =
         {
@@ -126,10 +145,15 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private readonly List<string> _lines = new();
 
+        /// <summary>The history switch before a block C test turned it off; put back in teardown.</summary>
+        private uint? _historyBefore;
+        private bool _historyTurnedOff;
+
         [UnitySetUp]
         public IEnumerator LoadTheSample()
         {
             _lines.Clear();
+            _historyTurnedOff = false;
             yield return TakeForegroundAndLog(TestContext.CurrentContext.Test.Name);
             Application.logMessageReceived += Record;
             yield return LoadAtTopMenu();
@@ -138,6 +162,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTearDown]
         public IEnumerator UnloadTheSample()
         {
+            // First, so that nothing below can leave the developer's history off.
+            if (_historyTurnedOff) WriteHistorySetting(_historyBefore);
             Application.logMessageReceived -= Record;
             yield return Unload();
             WindowsClipboardPlayerTests.LeaveSampleOnClipboard();
@@ -154,9 +180,65 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator BlockB_DelayedHistoryCallFromBehind() => Run("blockB", BlockB);
 
         [UnityTest, Timeout(RunTimeoutMilliseconds)]
+        public IEnumerator BlockC_Session1_WithHistoryOff() => Run("blockC1", BlockCSession1, new Dictionary<int, Func<IEnumerator>>
+        {
+            [HistoryOffAfterPress] = TurnHistoryOff,
+            [AnotherAppPastesAfterPress] = AnotherAppPastes,
+        });
+
+        [UnityTest, Timeout(RunTimeoutMilliseconds)]
+        public IEnumerator BlockC_Session2_WithHistoryOff() => Run("blockC2", BlockCSession2, new Dictionary<int, Func<IEnumerator>>
+        {
+            [0] = TurnHistoryOff,
+        });
+
+        [UnityTest, Timeout(RunTimeoutMilliseconds)]
         public IEnumerator BlockD_PressesSession2InOrder() => Run("blockD", BlockD);
 
-        private IEnumerator Run(string name, string[] presses)
+        /// <summary>What the manual run did in Settings: clipboard history off.</summary>
+        private IEnumerator TurnHistoryOff()
+        {
+            _historyBefore = ReadHistorySetting();
+            _historyTurnedOff = true;
+            WriteHistorySetting(0);
+            Note("test.historyOff", $"before={(_historyBefore?.ToString() ?? "absent")}");
+            yield return null;
+        }
+
+        /// <summary>
+        /// M-18: another application pastes what the reservation holds, after the sample's own
+        /// paste. The manual run pasted into Notepad and read the provider counts off the screen;
+        /// each provider must have been asked once however many applications read the format.
+        /// Only the length goes into the log (S-4).
+        /// </summary>
+        private IEnumerator AnotherAppPastes()
+        {
+            string? text = null;
+            yield return ReadClipboardFromAnotherProcess(read => text = read);
+            string? ownLength = _lines.LastOrDefault(line => line.Contains("[call] pastePlainText OK")) is { } paste
+                ? Regex.Match(paste, @" length=(-?\d+)").Groups[1].Value
+                : null;
+            Note("test.anotherAppPastes",
+                $"empty={string.IsNullOrEmpty(text)} length={text?.Length.ToString() ?? "n/a"} " +
+                $"sameLengthAsOwnPaste={text != null && text.Length.ToString() == ownLength}");
+
+            // The screen picks up the counts in Update.
+            yield return null;
+            yield return null;
+            Match render = Regex.Match(StatusLine() ?? "", @"Render: text=(\d+) image=(\d+)");
+            Note("test.screenRender", render.Success
+                ? $"text={render.Groups[1].Value} image={render.Groups[2].Value}"
+                : "text=n/a image=n/a");
+        }
+
+        /// <summary>
+        /// A line in the sample's own [local] form, so the checker reads it with the press before
+        /// it. It goes through Debug.Log and so into the run log like the sample's lines.
+        /// </summary>
+        private static void Note(string what, string detail) =>
+            Debug.Log($"[SampleRun] #0 [local] {what} {detail}");
+
+        private IEnumerator Run(string name, string[] presses, IReadOnlyDictionary<int, Func<IEnumerator>>? after = null)
         {
             var unsettled = new List<string>();
             // Every press is made in the foreground, block B's included: it is the request after it
@@ -167,6 +249,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             // The log goes out even when a press fails, so the checker can show how far the run got.
             try
             {
+                // Hook 0 runs before the first press; hook N after press N has settled.
+                if (after != null && after.TryGetValue(0, out Func<IEnumerator>? first)) yield return first();
+
                 for (int step = 0; step < presses.Length; step++)
                 {
                     string press = presses[step];
@@ -206,6 +291,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                     yield return null;
 
                     if (ChangesClipboard(press)) yield return new WaitForSecondsRealtime(ClipboardWriteSeconds);
+                    if (after != null && after.TryGetValue(step + 1, out Func<IEnumerator>? hook)) yield return hook();
                 }
             }
             finally

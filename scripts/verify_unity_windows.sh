@@ -231,6 +231,20 @@ else
   # The editor has the results by the time it exits, so this player has nothing left to do.
   stop_test_players >/dev/null
   report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))
+
+  # Block C turns clipboard history off and puts it back in its teardown. A player that died in
+  # between would leave the developer's history off, so the setting read before the run is put
+  # back here too, and a run that needed it counts as failed.
+  history_after="$(powershell.exe -NoProfile -Command "(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -ErrorAction SilentlyContinue).EnableClipboardHistory" 2>/dev/null | tr -d '\r')"
+  if [ "$history_after" != "$history" ]; then
+    if [ -z "$history" ]; then
+      powershell.exe -NoProfile -Command "Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -Name EnableClipboardHistory -ErrorAction SilentlyContinue" >/dev/null 2>&1
+    else
+      powershell.exe -NoProfile -Command "Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -Name EnableClipboardHistory -Value $history -Type DWord" >/dev/null 2>&1
+    fi
+    echo "  clipboard history setting: RESTORED (the run left it at '${history_after:-absent}', put back to '${history:-absent}')"
+    failures=$((failures + 1))
+  fi
   grep -n "error CS" "$PT_LOG" | sort -u -t: -k2 | head -5
 
   # A run in which nothing executed reports failed="0" too. Here that would mean the player tests
@@ -269,8 +283,8 @@ else
   # the test.
   if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
     RUN_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardSampleRunPlayerTests.cs"
-    # The constant's value is on the line after its name.
-    not_automated="$(awk '/const string NotYetAutomated =/ { getline; print; exit }' "$RUN_SOURCE" \
+    # The constant's value is on the line of its name, or on the next when it is long.
+    not_automated="$(awk '/const string NotYetAutomated =/ { if ($0 !~ /"/) getline; print; exit }' "$RUN_SOURCE" \
       | sed -n 's/.*"\([^"]*\)".*/\1/p')"
     if [ -z "$not_automated" ]; then
       echo "  sample run log: CANNOT CHECK (no NotYetAutomated in $RUN_SOURCE)"

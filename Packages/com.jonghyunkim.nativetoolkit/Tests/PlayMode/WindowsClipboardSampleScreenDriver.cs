@@ -246,6 +246,90 @@ namespace JonghyunKim.NativeToolkit.Tests
             button.SendEvent(submit);
         }
 
+        // ── Clipboard history on and off (block C) ───────────────────────────────
+
+        private const string ClipboardKey = @"Software\Microsoft\Clipboard";
+        private const string HistoryValue = "EnableClipboardHistory";
+        private static readonly IntPtr CurrentUser = new(unchecked((int)0x80000001));
+
+        /// <summary>
+        /// The Settings switch for clipboard history (HKCU\...\Clipboard\EnableClipboardHistory),
+        /// or null when the value is absent. Setting it takes effect at once for
+        /// Clipboard.IsHistoryEnabled, which is what the native layer asks (2026-09-26, checked from
+        /// PowerShell without the Settings app open).
+        /// </summary>
+        internal static uint? ReadHistorySetting()
+        {
+            uint size = sizeof(uint);
+            int status = RegGetValueW(CurrentUser, ClipboardKey, HistoryValue, RrfRtRegDword, out _, out uint data, ref size);
+            return status == 0 ? data : null;
+        }
+
+        /// <summary>Writes the switch, or removes the value when <paramref name="value"/> is null.</summary>
+        internal static void WriteHistorySetting(uint? value)
+        {
+            int status;
+            if (value is uint set)
+            {
+                status = RegSetKeyValueW(CurrentUser, ClipboardKey, HistoryValue, RegDword, ref set, sizeof(uint));
+            }
+            else
+            {
+                status = RegDeleteKeyValueW(CurrentUser, ClipboardKey, HistoryValue);
+                if (status == ErrorFileNotFound) status = 0;
+            }
+            Assert.AreEqual(0, status, $"writing {HistoryValue}: Win32 error {status}");
+        }
+
+        private const uint RrfRtRegDword = 0x10;
+        private const uint RegDword = 4;
+        private const int ErrorFileNotFound = 2;
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
+        private static extern int RegGetValueW(IntPtr key, string subKey, string value, uint flags,
+            out uint type, out uint data, ref uint size);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
+        private static extern int RegSetKeyValueW(IntPtr key, string subKey, string valueName, uint type,
+            ref uint data, uint size);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode)]
+        private static extern int RegDeleteKeyValueW(IntPtr key, string subKey, string valueName);
+
+        // ── Another application pasting (M-18) ───────────────────────────────────
+
+        /// <summary>
+        /// Reads the clipboard as text from another process, the way Notepad pasting did in the
+        /// manual run. Frames keep running while it waits: a deferred format is rendered by a
+        /// provider on this player's main thread, inside the message the other process's read
+        /// sends, so blocking the main thread here would leave that read waiting on us.
+        /// </summary>
+        internal static IEnumerator ReadClipboardFromAnotherProcess(Action<string?> text, float timeoutSeconds = 15f)
+        {
+            var info = new ProcessStartInfo(
+                "powershell.exe",
+                "-NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw\"")
+            {
+                UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+            };
+            using Process? process = Process.Start(info);
+            if (process == null)
+            {
+                text(null);
+                yield break;
+            }
+            System.Threading.Tasks.Task<string> output = process.StandardOutput.ReadToEndAsync();
+            yield return Eventually(() => output.IsCompleted, _ => { }, timeoutSeconds);
+            text(output.IsCompleted ? output.Result.TrimEnd('\r', '\n') : null);
+        }
+
+        // ── What the screen shows ────────────────────────────────────────────────
+
+        /// <summary>The sample's status line, where the deferred providers' call counts are shown.</summary>
+        internal static string? StatusLine() =>
+            SampleDocument()?.rootVisualElement?.Q<Label>("StatusTextBlock")?.text;
+
         internal static WindowsClipboardManagerExampleController? ClipboardController()
         {
             WindowsClipboardManagerExampleController? controller =

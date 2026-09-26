@@ -1,7 +1,8 @@
 """What each press of the automated Windows Clipboard sample run should report.
 
-The runs are WindowsClipboardSampleRunPlayerTests' blocks A, B and D: presses 1-55 and 56
-of the manual session 1 and presses 10-40 of session 2, in the same order. The expectations are
+The runs are WindowsClipboardSampleRunPlayerTests' blocks A, B, C and D: presses 1-64 of
+the manual session 1 and 1-40 of session 2, in the same order, without Quit (press 65).
+Lines the test itself adds (test.*) are in the sample's [local] form. The expectations are
 the manual verification's (artifact/features/clipboard/results/
 2026-09-09-windows-clipboard-verify-manual-result-v1.md, section 1), written per press so
 that check_windows_clipboard_sample_log.py can say which M item a run broke.
@@ -95,6 +96,37 @@ BLOCKS = {
         # The GetHistory goes out five seconds after the press, with another window in front.
         ("DelayedHistoryCall", "M-13", ["threading.delayed local",
                                         "getClipboardHistory NG NotForeground"]),
+    ],
+    # History off from after press 3 (block C1) and from the start (block C2), as the manual run
+    # did in Settings. Block C2 is session 2, which started after Quit; here it starts after the
+    # scene is reloaded instead, and the Manager is the same one.
+    "blockC1": [
+        ("Clipboard", "S-1", []),
+        ("Initialize", "M-1", ["initClipboardManager OK"]),
+        ("DisableHistoryEvents", None, ["setClipboardHistoryCallbacks OK enabled=False",
+                                        "test.historyOff local"]),
+        ("GetHistoryAvailability", "M-12", ["getClipboardHistoryAvailability OK history=False"]),
+        ("GetHistory", "M-12", ["getClipboardHistory NG HistoryDisabled"]),
+        ("CopyPlainText", None, ["copyPlainText OK"]),
+        ("PastePlainText", None, ["pastePlainText OK empty=False match=match"]),
+        ("ReserveDeferredFormats", "M-17", ["reserveDeferredFormats OK formats=2"]),
+        # M-17: the reservation replaced what was there; the paste reads the provider's text.
+        # M-18: another application reads it too, and each provider was asked once.
+        ("PastePlainText", "M-17", ["pastePlainText OK empty=False match=match",
+                                    "test.anotherAppPastes local empty=False sameLengthAsOwnPaste=True",
+                                    "test.screenRender local text=1 image=0"]),
+        ("ReserveDeferredFormats", None, ["reserveDeferredFormats OK formats=2"]),
+    ],
+    "blockC2": [
+        ("Clipboard", "S-1", []),
+        ("Initialize", "M-1", ["initClipboardManager OK"]),
+        ("CanShutdownNow", None, ["canDestroyClipboardManager OK value=False"]),
+        ("ShutdownWhileDisabled", "M-20a", ["uninitClipboardManager OK"]),
+        ("Initialize", None, ["initClipboardManager OK"]),
+        ("RecoverDeferredState", None, ["recoverDeferredState OK"]),
+        ("ReserveDeferredFormats", None, ["reserveDeferredFormats OK formats=2"]),
+        ("RecoverDeferredState", None, ["recoverDeferredState OK"]),
+        ("PastePlainText", None, ["pastePlainText OK empty=False match=match"]),
     ],
     "blockD": [
         ("Clipboard", "S-1", []),
