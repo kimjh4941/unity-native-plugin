@@ -542,8 +542,32 @@ session1 の 1〜55 回目（ブロック A）と、session2 の 10〜40 回目�
 
 実行結果: Player **23/23**、S-2 は PART（66 / 67、残りは Quit）、`outcomes` は A / B / C1 / C2 / D すべて合格。実行後の履歴設定は元の 1。
 
-**残り。** Quit（M-19）。Player が終わるとテストの実行も終わるので、テスト用 Player の中では押せない。
-Player を単体で起動して予約したまま終了させ、終了後に外から貼り付ける仕組みが要る。
+**Quit（M-19）を移した。** 予約したまま Quit しても、終了後に他のアプリで貼り付けられること（ネイティブ F2 の回帰確認）。
+Player が終わるとテストの実行も終わり、結果は Editor に届かない。そこで次のようにした。
+
+- `WindowsClipboardSampleQuitPlayerTests`（カテゴリ `QuitsThePlayer`）が、履歴を切ってから Clipboard → Initialize → Reserve Deferred Formats → Quit を押す。
+  本体の実行からは常に除外し（`-testCategory "!Destructive;!QuitsThePlayer"`。`!` の指定は AND で結ばれる）、
+  `--include-destructive` のときだけ本体の後に単独で走らせる
+- 判定はスクリプトが Player の終了後に行う。Player が自分で終わっていた（止める必要がなかった）、Player.log に Quit まで進んだ記録がある、
+  別プロセスの `Get-Clipboard` で予約したテキスト（`PlainTextPrefix` で始まる）が読める、の 3 点
+- テスト用 Player の Player.log は、LocalLow の下から先頭行にテスト用 Player のパスを含むものを探す（製品名はプロジェクト設定と違う名前で出ており、決め打ちしない）。
+  チェッカーの `--player-log quit=<パス>` に渡すと、テスト開始より前（Player 自身の Temp のパスが出る）と、開発ビルドが各メッセージの下に書くスタックトレースを落としてから判定する。
+  これで Quit も押したボタンに数えられ、`NotYetAutomated` は空になった
+- 後片付けが走らないので、履歴設定はスクリプトが戻す（この実行では正規の手順）
+
+**最初の試行で Editor が 1 時間止まった。** Player が終わると、Editor は生存通知（heartbeat）の途絶をタイムアウトとして実行を失敗にするが、
+**コマンドラインの実行でも Editor は終了せず待ち続ける**（`RemotePlayerTestController.TimeoutCallback` は `RunFailed` を呼ぶだけ）。
+その間、スクリプトは Editor の終了を待っていたので、**開発者の履歴設定が 1 時間オフのままだった**。対応:
+
+- タイムアウトは `-playerHeartbeatTimeout 60` で 60 秒に縮める
+- Editor を裏で起動し、ログにタイムアウトが出たら、その Editor（batch mode で `QuitsThePlayer` を実行しているもの）を止める。上限は 15 分
+- 止めた Editor は Test Framework のシーン（`Assets/InitTestScene<guid>.unity`）を残すので、この実行の開始より新しいものを消す
+
+実行結果（`--skip-build --include-destructive`、約 6.5 分）: EditMode 809/809、PlayMode 181/181、Player **23/23**、M-19 合格、
+S-2 は **67 / 67**、S-4 / S-8 と `outcomes` は A / B / C1 / C2 / quit / D すべて合格。実行後の履歴設定は元の 1、Unity もテスト用 Player も残らない。
+
+**Clipboard の手動確認項目で、自動化していないもの。** 層 3 の見え方（メモ帳・Word・エクスプローラー・ペイントでの貼り付け結果、M-2〜M-7 の外側）、
+M-23（隠しウィンドウがタスクバーや Alt+Tab に出ない）、M-20b（未実施のまま）、ブロック E（IL2CPP）。
 
 #### ファイアウォールのダイアログ（2026-09-26 対応）
 

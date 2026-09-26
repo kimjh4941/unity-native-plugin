@@ -209,19 +209,26 @@ else
   # Destructive tests are excluded with the Test Framework's "!" category filter. The category name
   # is read from the test, like the sample value, so a rename cannot quietly let them through.
   destructive="$(sed -n 's/.*const string DestructiveCategory = "\([^"]*\)".*/\1/p' "$PT_SOURCE" | head -1)"
+  # The M-19 test quits the player, which ends the run it is in; it is run on its own further down.
+  QUIT_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardSampleQuitPlayerTests.cs"
+  quits="$(sed -n 's/.*const string QuitCategory = "\([^"]*\)".*/\1/p' "$QUIT_SOURCE" | head -1)"
   category_args=()
-  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
+  if [ -z "$quits" ]; then
+    echo "  StandaloneWindows64: CANNOT RUN (no QuitCategory in $QUIT_SOURCE; that test would end the run)"
+    failures=$((failures + 1))
+  elif [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
     echo "  note: --include-destructive: this run clears the unpinned clipboard history on this machine."
+    category_args=(-testCategory "!$quits")
   elif [ -z "$destructive" ]; then
     echo "  StandaloneWindows64: CANNOT RUN (no DestructiveCategory in $PT_SOURCE, so nothing could be excluded)"
     failures=$((failures + 1))
   else
-    category_args=(-testCategory "!$destructive")
+    category_args=(-testCategory "!$destructive;!$quits")
   fi
 
   # No -nographics: the player opens a window and owns the clipboard from its main thread. This
   # step has been run without it; it has not been tried with it.
-  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] || [ -n "$destructive" ]; then
+  if [ ${#category_args[@]} -gt 0 ]; then
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
       -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
       "${category_args[@]}" \
@@ -275,6 +282,83 @@ else
     failures=$((failures + 1))
   fi
 
+  # M-19: a deferred reservation still pastes after the player has quit. The test reserves with
+  # history off and presses Quit, which ends the player and the test run with it, so no result
+  # comes back: the editor gives up when the player's heartbeat stops. It is judged here instead,
+  # after the player has gone: it quit by itself (none left to stop), Player.log shows the sample
+  # got to Quit, and another process reads the reserved text. Its Player.log also joins the sample
+  # logs below, so Quit counts as pressed. Nothing tears the test down, so the history setting is
+  # put back here as the normal course, not as a failure.
+  #
+  # The editor does not exit after that timeout: it reports the run failed and waits, and the
+  # first try waited an hour (2026-09-26). So it runs in the background and is stopped once its log
+  # shows the timeout. Stopped like that, it leaves the Test Framework's scene in Assets
+  # (InitTestScene<guid>.unity); those newer than the run's start are removed.
+  QUIT_PLAYER_LOG=""
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ -n "$quits" ]; then
+    prefix="$(sed -n 's/.*const string PlainTextPrefix = "\([^"]*\)".*/\1/p' \
+      "$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Runtime/UI/Windows/Clipboard/WindowsClipboardSampleFixtures.cs" | head -1)"
+    powershell.exe -NoProfile -Command "Set-Clipboard -Value '$sentinel'" >/dev/null 2>&1
+    quit_started="$OUT_DIR/.quit-started"
+    touch "$quit_started"
+    rm -f "$OUT_DIR/Quit.log"
+    "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
+      -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
+      -testCategory "$quits" -playerHeartbeatTimeout 60 \
+      -testResults "$OUT_DIR/Quit.xml" -logFile "$OUT_DIR/Quit.log" >/dev/null 2>&1 &
+    quit_editor=$!
+    waited=0
+    while kill -0 "$quit_editor" 2>/dev/null; do
+      if grep -q "Test execution timed out" "$OUT_DIR/Quit.log" 2>/dev/null || [ "$waited" -ge 900 ]; then
+        # Only the editor this step started: batch mode, running the quit category.
+        powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" | Where-Object { \$_.CommandLine -like '*-batchmode*' -and \$_.CommandLine -like '*$quits*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }" >/dev/null 2>&1
+        break
+      fi
+      sleep 5
+      waited=$((waited + 5))
+    done
+    wait "$quit_editor" 2>/dev/null
+    find "$PROJECT_DIR/Assets" -maxdepth 1 -name 'InitTestScene*.unity*' -newer "$quit_started" -exec rm -f {} + 2>/dev/null
+    rm -f "$quit_started"
+    left="$(stop_test_players)"
+    quit_clipboard="$(powershell.exe -NoProfile -Command "Get-Clipboard -Raw" 2>/dev/null)"
+    quit_clipboard="${quit_clipboard%$'\r'}"
+    # The test player's Player.log: the newest one whose first lines name the pinned player.
+    player_log="$(ls -t "$USERPROFILE"/AppData/LocalLow/*/*/Player.log 2>/dev/null \
+      | while read -r f; do head -3 "$f" | grep -q NativeToolkitTestPlayer && { echo "$f"; break; }; done)"
+
+    history_after="$(powershell.exe -NoProfile -Command "(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -ErrorAction SilentlyContinue).EnableClipboardHistory" 2>/dev/null | tr -d '\r')"
+    if [ "$history_after" != "$history" ]; then
+      if [ -z "$history" ]; then
+        powershell.exe -NoProfile -Command "Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -Name EnableClipboardHistory -ErrorAction SilentlyContinue" >/dev/null 2>&1
+      else
+        powershell.exe -NoProfile -Command "Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Clipboard' -Name EnableClipboardHistory -Value $history -Type DWord" >/dev/null 2>&1
+      fi
+    fi
+
+    if [ -n "$left" ]; then
+      echo "  M-19 quit with a reservation: FAILED (the player was still running and had to be stopped)"
+      failures=$((failures + 1))
+    elif [ -z "$player_log" ] || ! grep -q "lifecycle.quit quitRequested" "$player_log"; then
+      echo "  M-19 quit with a reservation: FAILED (no Player.log showing the sample reached Quit)"
+      failures=$((failures + 1))
+    elif [ -z "$prefix" ]; then
+      echo "  M-19 quit with a reservation: CANNOT CHECK (no PlainTextPrefix in the sample fixtures)"
+      failures=$((failures + 1))
+    elif [ "${quit_clipboard#"$prefix"}" = "$quit_clipboard" ]; then
+      if [ "$quit_clipboard" = "$sentinel" ]; then
+        echo "  M-19 quit with a reservation: FAILED (the clipboard still holds the sentinel)"
+      else
+        echo "  M-19 quit with a reservation: FAILED (the clipboard does not hold the reserved text after the player quit)"
+      fi
+      failures=$((failures + 1))
+    else
+      echo "  M-19 quit with a reservation: another process reads the reserved text after the player quit (length ${#quit_clipboard})"
+      QUIT_PLAYER_LOG="$OUT_DIR/Player-quit.log"
+      cp "$player_log" "$QUIT_PLAYER_LOG"
+    fi
+  fi
+
   # S-2 / S-4 / S-8 and each press's outcome over the sample's own log, as the manual run was judged. Only a destructive run
   # presses the sample's buttons (WindowsClipboardSampleRunPlayerTests), so only then is there a
   # log. The test writes it into its output, and the checker takes it from the result file and
@@ -286,7 +370,7 @@ else
     # The constant's value is on the line of its name, or on the next when it is long.
     not_automated="$(awk '/const string NotYetAutomated =/ { if ($0 !~ /"/) getline; print; exit }' "$RUN_SOURCE" \
       | sed -n 's/.*"\([^"]*\)".*/\1/p')"
-    if [ -z "$not_automated" ]; then
+    if ! grep -q 'const string NotYetAutomated =' "$RUN_SOURCE"; then
       echo "  sample run log: CANNOT CHECK (no NotYetAutomated in $RUN_SOURCE)"
       failures=$((failures + 1))
     elif ! grep -q '\[SampleRun\] begin ' "$PT_XML" 2>/dev/null; then
@@ -295,7 +379,7 @@ else
     else
       echo "  sample run log (S-2 / S-4 / S-8 / outcomes):"
       python "$PROJECT_DIR/scripts/check_windows_clipboard_sample_log.py" \
-        --not-automated "$not_automated" --test-results "$PT_XML" 2>&1 | sed 's/^/    /'
+        --not-automated "$not_automated" --test-results "$PT_XML" ${QUIT_PLAYER_LOG:+--player-log "quit=$QUIT_PLAYER_LOG"} 2>&1 | sed 's/^/    /'
       [ "${PIPESTATUS[0]}" -eq 0 ] || failures=$((failures + 1))
     fi
   fi

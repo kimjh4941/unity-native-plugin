@@ -128,6 +128,15 @@ BLOCKS = {
         ("RecoverDeferredState", None, ["recoverDeferredState OK"]),
         ("PastePlainText", None, ["pastePlainText OK empty=False match=match"]),
     ],
+    # Presses 64 and 65 of session 1, from WindowsClipboardSampleQuitPlayerTests, read from the
+    # player's own Player.log: that run ends with the player and reports nothing to the editor.
+    # That the reservation still pastes afterwards is checked by verify_unity_windows.sh.
+    "quit": [
+        ("Clipboard", "S-1", []),
+        ("Initialize", "M-1", ["initClipboardManager OK"]),
+        ("ReserveDeferredFormats", "M-19", ["reserveDeferredFormats OK formats=2"]),
+        ("Quit", "M-19", ["lifecycle.quit local"]),
+    ],
     "blockD": [
         ("Clipboard", "S-1", []),
         ("Initialize", "M-1", ["initClipboardManager OK"]),

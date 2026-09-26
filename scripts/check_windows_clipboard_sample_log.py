@@ -18,11 +18,17 @@ than reporting a pass.
 
 Usage:
     python3 scripts/check_windows_clipboard_sample_log.py [--not-automated A,B,...]
-        [--test-results RESULTS.xml] [log ...]
+        [--test-results RESULTS.xml] [--player-log NAME=PATH] [log ...]
 
 --not-automated names buttons a partial automated run is known not to press
 (WindowsClipboardSampleRunPlayerTests.NotYetAutomated). S-2 then reports PART
 for them instead of passing, and fails if any of them was pressed after all.
+
+--player-log NAME=PATH reads a run from a test player's own Player.log, for a
+run that reports nothing to the editor (WindowsClipboardSampleQuitPlayerTests
+quits the player). It keeps what the test logged from its start on, drops the
+stack trace a development player writes under every message, saves the rest
+beside PATH as windows-clipboard-sample-run-NAME.log and checks it with the others.
 
 --test-results reads the runs WindowsClipboardSampleRunPlayerTests wrote into
 its test output, bracketed by "[SampleRun] begin NAME" / "[SampleRun] end NAME",
@@ -138,6 +144,26 @@ def extract_runs(results):
             else:
                 lines.append(line)
     return saved
+
+
+# The first line a player test writes (WindowsClipboardSampleScreenDriver.LogFocus). What comes
+# before it is the player starting up, which names the player's own path under Temp.
+TEST_START = "[PlayerTests][focus] "
+# A managed frame of the stack trace a development player writes under each message, e.g.
+# "UnityEngine.Debug:Log (object)" or "Foo:Bar () (at ./Packages/x.cs:12)". A message such as
+# "NullReferenceException: ..." has a space after its colon and is kept.
+STACK_FRAME = re.compile(r"^\S+:\S+ \(.*\)( \(at .*\))?\s*$")
+
+
+def extract_player_log(name, path):
+    """Saves the test's part of a Player.log, messages only, beside it; returns the saved path."""
+    lines = read(path).splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith(TEST_START)), 0)
+    kept = [line for line in lines[start:]
+            if not STACK_FRAME.match(line) and not line.startswith("(Filename: ")]
+    saved = Path(path).parent / (RUN_LOG_PREFIX + name + ".log")
+    saved.write_bytes(("\n".join(kept) + "\n").encode("utf-8"))
+    return str(saved)
 
 
 def per_click(paths):
@@ -440,6 +466,15 @@ def main(argv):
         if not extracted:
             print("error: no sample run in %s" % args[at + 1], file=sys.stderr)
             return 2
+        del args[at:at + 2]
+
+    while "--player-log" in args:
+        at = args.index("--player-log")
+        name, _, path = (args[at + 1] if at + 1 < len(args) else "").partition("=")
+        if not name or not Path(path).is_file():
+            print("error: --player-log needs NAME=PATH to a Player.log", file=sys.stderr)
+            return 2
+        extracted.append(extract_player_log(name, path))
         del args[at:at + 2]
 
     paths = args + extracted if (args or extracted) else sorted(glob.glob(str(LOGS / "*.log")))

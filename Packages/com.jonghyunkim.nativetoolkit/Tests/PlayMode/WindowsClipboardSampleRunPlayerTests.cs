@@ -27,8 +27,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// session2.log are block D (the errors, last) followed by the extra S checks. They were pulled
     /// from those logs mechanically. Block B is press 56 of session 1, made with another window in
     /// front. Block C is presses 57-64 of session 1 and 1-9 of session 2, with clipboard history
-    /// turned off as the manual run did in Settings. Quit (press 65, M-19) ends the player and is
-    /// <see cref="NotYetAutomated"/>, which the checker reports rather than passes.
+    /// turned off as the manual run did in Settings. Quit (press 65, M-19) ends the player, so
+    /// WindowsClipboardSampleQuitPlayerTests presses it in a run of its own.
     /// </para>
     /// <para>
     /// Destructive: the copy buttons add ordinary items to the machine's clipboard history, some
@@ -46,11 +46,12 @@ namespace JonghyunKim.NativeToolkit.Tests
     public sealed class WindowsClipboardSampleRunPlayerTests
     {
         /// <summary>
-        /// Buttons no test presses yet. Quit ends the player, and the test run with it; M-19 needs
-        /// the player started on its own. verify_unity_windows.sh reads this constant and hands it
-        /// to the log checker, which lists them as not automated instead of passing S-2.
+        /// Buttons no test presses, comma-separated; none now. verify_unity_windows.sh reads this
+        /// constant and hands it to the log checker, which lists them as not automated instead of
+        /// passing S-2. Quit is pressed by WindowsClipboardSampleQuitPlayerTests, whose Player.log
+        /// the script hands to the checker with the other runs.
         /// </summary>
-        internal const string NotYetAutomated = "Quit";
+        internal const string NotYetAutomated = "";
 
         /// <summary>
         /// Brackets each run's log in the test output. The output reaches the result file, which is
