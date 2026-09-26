@@ -22,8 +22,12 @@
 # layer 3 check). It needs an interactive desktop session: the clipboard and the player window do not
 # work from a service account or a headless agent. --skip-player-tests leaves it out.
 #
+# Player tests in the Destructive category change what the developer keeps in clipboard history
+# (Clear Unpinned wipes every unpinned item), so they are left out unless --include-destructive is
+# given. Use it on a machine whose clipboard history nobody needs.
+#
 # Usage:
-#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests] [--keep-changes]
+#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests] [--include-destructive] [--keep-changes]
 #
 # Environment:
 #   UNITY_EXE   Path to Unity.exe. Defaults to the 6000.4.2f1 install used by this project.
@@ -37,11 +41,13 @@ OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/unity-windows-verify}"
 SKIP_BUILD=0
 SKIP_PLAYER_TESTS=0
 KEEP_CHANGES=0
+INCLUDE_DESTRUCTIVE=0
 
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
     --skip-player-tests) SKIP_PLAYER_TESTS=1 ;;
+    --include-destructive) INCLUDE_DESTRUCTIVE=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -183,11 +189,27 @@ else
     echo "        Settings > System > Clipboard > Clipboard history."
   fi
 
+  # Destructive tests are excluded with the Test Framework's "!" category filter. The category name
+  # is read from the test, like the sample value, so a rename cannot quietly let them through.
+  destructive="$(sed -n 's/.*const string DestructiveCategory = "\([^"]*\)".*/\1/p' "$PT_SOURCE" | head -1)"
+  category_args=()
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
+    echo "  note: --include-destructive: this run clears the unpinned clipboard history on this machine."
+  elif [ -z "$destructive" ]; then
+    echo "  StandaloneWindows64: CANNOT RUN (no DestructiveCategory in $PT_SOURCE, so nothing could be excluded)"
+    failures=$((failures + 1))
+  else
+    category_args=(-testCategory "!$destructive")
+  fi
+
   # No -nographics: the player opens a window and owns the clipboard from its main thread. This
   # step has been run without it; it has not been tried with it.
-  "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
-    -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
-    -testResults "$PT_XML" -logFile "$PT_LOG" >/dev/null 2>&1
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] || [ -n "$destructive" ]; then
+    "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
+      -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
+      "${category_args[@]}" \
+      -testResults "$PT_XML" -logFile "$PT_LOG" >/dev/null 2>&1
+  fi
   pt_code=$?
   report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))
   grep -n "error CS" "$PT_LOG" | sort -u -t: -k2 | head -5

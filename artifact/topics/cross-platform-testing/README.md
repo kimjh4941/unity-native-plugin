@@ -39,7 +39,7 @@ v4 の指摘は反映済み（`testing.md` 5 節の確認済み表に macOS 15.4
 | 0. Player ビルド | Windows のみ。Android / iOS / macOS は未整備 |
 | 1. EditMode | 部分的 |
 | 2a. PlayMode（Editor 内） | 部分的。Clipboard 4 種と Share（iOS / macOS） |
-| **2b. PlayMode（Player 上）** | **Windows のみ、9 本**（`WindowsClipboardPlayerTests`） |
+| **2b. PlayMode（Player 上）** | **Windows のみ、15 本**（`WindowsClipboardPlayerTests`、既定の実行は 14 本） |
 | **3. OS 境界** | **Windows のみ、最小限**（クリップボードの最後の 1 件を外から読む） |
 
 **この表の更新は `testing.md` 側で行う。** ここに写しを置いているのは状態の要約のためで、
@@ -348,6 +348,51 @@ Share の 2 本も同じ形をしている。それぞれの Player でテスト
   2.0.0 では S-3（2 回目の初期化が `NOT_SUPPORTED`）が関わるので、移行後に最初に見る箇所になる
 
 `--skip-build` での実行結果: EditMode 809/809、PlayMode 181/181、Player **9/9**（スキップ 0）、クリップボードの確認も合格。
+
+#### 手動確認 9 章（履歴の Await）を移した（2026-09-26）
+
+9 章の 6 項目を `WindowsClipboardPlayerTests` に移した。
+
+| 手動確認 | テスト | 実開発機の履歴への影響 |
+|---|---|---|
+| Get Availability (Await) | `GetHistoryAvailabilityAsync_Answers` | なし |
+| Get History (Await + Cancel) | `GetHistoryAsync_AlreadyCancelled_...`（S-9。サンプルと同じく取り消し済みのトークンで呼ぶ） | なし |
+| Get History (Await) | `GetHistoryAsync_FindsWhatWasJustCopied_...` | 自分で足した項目を最後に消す |
+| Restore (Await) | `RestoreHistoryItemAsync_PutsAnOlderItemBackOnTheClipboard` | 同上 |
+| Delete (Await) | `DeleteHistoryItemAsync_RemovesTheItem` | 同上 |
+| Clear Unpinned (Await) | `ClearUnpinnedHistoryAsync_RemovesUnpinnedItems` | **ピン留めしていない履歴がすべて消える** |
+
+- **履歴は実際の開発機のもの**（Win+V、上限 25 件）。テストが項目を足すたびに開発者の項目が押し出されるので、
+  テストは毎回違う目印の値だけを扱い、足した項目は最後に自分で消す。最後に見本値を書き戻す処理（`[TearDown]`）は
+  `Sensitive`（履歴にもクラウドにも残さない）で書く
+- **Clear Unpinned は他の項目も消すので、`Destructive` カテゴリにした。** スクリプトは既定で
+  `-testCategory "!Destructive"` を渡して除外し、`--include-destructive` のときだけ含める。
+  カテゴリ名はテストのソースから読む。**このテストはまだ一度も実行していない**（実行すると開発機の履歴が消えるため）
+- **S-2 の網を張った。** Get History のテストは、見つけた項目の時刻が今から 10 分以内かを確かめる。
+  1.x のタイムスタンプは FILETIME、2.0.0 は Unix ミリ秒で、変換を直し忘れると 1601 年 1 月になる
+
+#### 実行して分かったこと（2026-09-26）
+
+**1. 今のクリップボードの中身が履歴から除外されていると、Restore は「成功」を返すのに中身を差し替えない。**
+最初の版のテストは、復元の前に見本値を `Sensitive` で書いていた。その状態で復元すると、成功が返るのに、
+アプリの中からもアプリの外（別プロセスの `Get-Clipboard`）からも、中身は見本値のままだった。
+復元の前に書く値を「履歴に残る 2 つ目の目印」に変えると（native-toolkit の同じテストと同じ手順）、中からも外からも復元した値になった。
+**製品の不具合ではなく Windows 側の挙動と見ている**が、どちらも 1 回ずつの観測で、原因は推測である。
+利用者から見ると「パスワードを `Sensitive` でコピーした直後に復元すると、成功と言われるのに戻らない」ことになる。
+native-toolkit に伝える価値がある。手動確認（M-14、9 章）は成功の戻り値と件数しか見ておらず、中身が差し替わるかは今回初めて確かめた
+
+**2. 履歴の API は、テスト用 Player のウィンドウが前面にないと動かない（`NotForeground`）。**
+1 回、履歴のテストが「履歴が無効」としてスキップされた。原因は補助関数の誤りで、問い合わせの失敗まで「無効」と扱っていた。
+問い合わせの失敗はエラーコード付きの失敗として報告するよう直した。スキップされた回の失敗理由は残っていないが、
+M-13（非フォアグラウンド）と同じ制約である可能性が高い。**無人で実行する間は、その PC を操作しないことが前提になる**
+
+**3. テストの中から、別プロセスで OS のクリップボードを読める。**
+Restore のテストは、テストの中から PowerShell を起動して `Get-Clipboard` で読む。
+これで、**スクリプトの最後に 1 回だけ確かめる層 3 の制約（最後の 1 件しか見られない）が、項目ごとに解ける**。
+出力は UTF-8 に固定した。この PC は既定がもともと UTF-8（コードページ 65001）で、日本語も固定の有無にかかわらず正しく読めた。
+既定が 932 の PC で固定が効くかは確かめていない
+
+`--skip-build` での実行結果: EditMode 809/809、PlayMode 181/181、Player **14/14**（スキップ 0）、クリップボードの確認も合格。
 
 #### ファイアウォールのダイアログ（2026-09-26 対応）
 
