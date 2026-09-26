@@ -196,18 +196,80 @@ error CS0117: 'WindowsClipboardManager' does not contain a definition for 'Injec
 | 引数 1 つで既存 193 本が Player 上でどうなるか分かる | **ビルドが通らず、1 本も実行に至らない** |
 
 既存の PlayMode テストは「Editor 内で動く」前提で、Manager の内部状態に
-`ForTests` フックで直接触る設計になっている。層 2b へ持っていくには次のどちらかが要る。
+`ForTests` フックで直接触る設計になっている。
 
-| 案 | 内容 | 懸念 |
+当初は「フックのガードを広げる（案 A）」か「フックを使わない形で別に書く（案 B）」かの
+二択として整理したが、**この二択は前提が誤っていた**（2026-09-26）。
+
+#### 65 本は、Player 上で動かすためのテストではない
+
+統合テストのクラスコメントに、前提が書いてある。
+
+> The native boundary is compiled out in the Editor, so every operation that gets past the
+> guard reports PlatformUnavailable. That is what makes the rejection paths and the delivery
+> contract testable here without a Windows player.
+
+コードもそのとおりで、Editor 内では `Initialize` もネイティブ呼び出しのラッパーもすべて
+`#else` 側に入り、`PlatformUnavailable` を返す。65 本は、ネイティブが存在しない状態で
+完了イベントを `InjectCompletionForTests` などで注入し、C# 側の受け渡しの約束を確かめている。
+
+Player ではネイティブが実際に動くため、案 A でコンパイルを通しても
+「すべて `PlatformUnavailable` になる」という前提が崩れる。注入したイベントと本物のコールバックが混ざり、
+テストとして意味を持たなくなる。
+
+| | 既存の 65 本 | 層 2b に必要なテスト |
 |---|---|---|
-| A | `ForTests` のガードを `UNITY_EDITOR` から広げる（`DEVELOPMENT_BUILD` など） | internal とはいえ配布物に検査用の口が増える。`UNITY_INCLUDE_TESTS` の扱いを確認する必要がある |
-| B | Player 上で動かすテストを、フックを使わない形で別に書く | 既存 65 本と二重管理になる |
+| 検証する対象 | C# 側の受け渡しの約束（ネイティブなし） | 本物のネイティブを通した動作 |
+| 動く場所 | Editor（層 2a） | Player |
+| 捕まえられるもの | 受け渡しの順序、拒否の経路 | S-3 / S-4、マーシャリング |
 
-**どちらを採るかは未決。** ただし**この判断は層 2b 着手の最初の分岐**であり、
-helper の設計より前に決まっている必要がある。
+検証する対象が違うので、案 B の懸念だった「二重管理」にはならない。
 
-なお `WindowsClipboardManager.cs:168` には `#if DEVELOPMENT_BUILD` の前例があるため、
-案 A の方向自体はこのファイルにとって新しくない。
+#### 採った対応
+
+1. 統合テストのファイルのガードを `#if UNITY_STANDALONE_WIN || UNITY_EDITOR` から
+   **`#if UNITY_EDITOR` に狭める**。ファイルの前提が成り立つ場所に合わせるだけで、
+   フックは `UNITY_EDITOR` のまま、配布物には何も増えない
+2. 層 2b のテストは**別ファイルに新しく書く**。フックが必要になったら
+   **`UNITY_INCLUDE_TESTS`** で囲む（下記）
+
+#### 結果（2026-09-26）
+
+1 の変更を入れて `-testPlatform StandaloneWindows64` をもう一度回した。
+
+| | 09-23 | 09-26 |
+|---|---|---|
+| テスト用 Player のビルド | 399 件の `CS0117` で失敗 | **成功**（`CS0117` 0 件） |
+| Player の起動 | 至らず | **起動した**。`Player.log` に D3D11 のデバイス作成、入力の初期化、Editor との接続、正常終了が残っている |
+| 結果 | 結果ファイルなし、終了コード 3 | 結果ファイルあり、終了コード 0。**実行されたテストは 0 本** |
+
+0 本なのは、Windows の Player に入るテストが今は 1 本もないため。他のプラットフォームの統合テストはそれぞれのプラットフォームのガードで除外され、
+Windows Clipboard の 65 本は 1 で Editor 専用にした。
+
+**これで層 2b の流れ（ビルド → 起動 → 結果の返却 → 終了）が初めて最後まで通った。** 中身はまだ空である。
+次は、本物のネイティブを通すテストを別ファイルに 1 本書き、この流れの上で実際に動くことを確かめる。
+
+#### `UNITY_INCLUDE_TESTS` はテスト用 Player にだけ入る
+
+手元に残っていた 3 種類のビルドについて、`NativeToolkit.Runtime` をコンパイルしたときの引数
+（`Library/Bee/artifacts/<dag>/NativeToolkit.Runtime.rsp`）を確認した（2026-09-26）。
+
+| ビルド | `UNITY_EDITOR` | `UNITY_INCLUDE_TESTS` | `DEVELOPMENT_BUILD` |
+|---|---|---|---|
+| Editor（`1900b0aE.dag`） | 定義 | **定義** | なし |
+| 通常の Player、Release（`1900b0aP.dag`） | なし | **なし** | なし |
+| テスト用 Player（`1900b0aPDevDbg.dag`、`-testPlatform StandaloneWindows64`） | なし | **定義** | 定義 |
+
+`#if UNITY_EDITOR || UNITY_INCLUDE_TESTS` で囲んだコードは、テスト用 Player には入り、
+**配布する Player には入らない**。
+
+**未確認:** テストを含めない development ビルドでの扱い（手元にビルドが残っていなかった）。
+
+#### 同じ形のガードが他のプラットフォームにもある
+
+`IosClipboardManagerIntegrationTests.cs`（`#if UNITY_IOS || UNITY_EDITOR`）、
+`MacClipboardManagerIntegrationTests.cs`（`#if UNITY_STANDALONE_OSX || UNITY_EDITOR`）、
+Share の 2 本も同じ形をしている。それぞれの Player でテスト用ビルドが同じように失敗するかは確かめていない。
 
 ### CI 上の制約
 

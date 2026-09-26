@@ -1,6 +1,12 @@
 #nullable enable
 
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+// Editor only. These tests rest on the native boundary being compiled out (see the class
+// summary): every operation past the guard reports PlatformUnavailable, and native events are
+// injected through the *ForTests hooks, which exist only under UNITY_EDITOR. In a Windows
+// player the native path is live, so the premise does not hold and the hooks do not exist -
+// including this file there broke the test player build with 399 CS0117. Tests that exercise
+// the real native path on a player belong in a separate file, not here.
+#if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;

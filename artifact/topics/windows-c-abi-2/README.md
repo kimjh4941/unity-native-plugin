@@ -190,12 +190,12 @@ D は今日すぐビルドを回す必要があるときの応急手当てとし
 | 1.11.0（`install_as: unity-windows-native-toolkit.dll`） | `unity-windows-native-toolkit.dll`（git 上の変更なし） | `37a460f8...`（1.x） |
 | 1.12.0（`install_as` は空。一時的に書き換えて戻した） | `windows-native-toolkit-capi-2.0.0.dll`。1.x の DLL と `.meta` は削除 | `03645af6...`（2.0.0、1 本だけ） |
 
-**確かめていないこと:**
+**development ビルドも確かめた**（2026-09-26、テスト用 Player のビルド）。
+`install_as_debug` から `unity-windows-native-toolkit-debug.dll` という名前が選ばれ、
+中身は 1.x（md5 `37a460f8...`）だった。09-23 に同じ操作をしたときは 2.0.0 が入っていた。
 
-- 止まる経路。宣言した成果物が dist に無いとき、Unity が実際にビルドを止めるか（コードを読んだだけ）
-- development ビルド。`install_as_debug` から名前を決める経路は通っていない
-
-どちらも移行作業で次にビルドするときに合わせて確かめる。
+**確かめていないこと:** 止まる経路。宣言した成果物が dist に無いとき、Unity が実際にビルドを止めるか
+（コードを読んだだけ）。移行作業で次にビルドするときに合わせて確かめる。
 
 #### 移行時にやること
 
