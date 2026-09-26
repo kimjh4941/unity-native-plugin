@@ -158,7 +158,7 @@ Unity プロセスの外側の状態を検証する。ツールはプラット�
 | **Android** | Appium + UiAutomator2、または Espresso / UiAutomator instrumentation | Appium: `mobile: getClipboard` / `setClipboard` | Android 10+ のフォアグラウンド制限。既定 IME の変更を伴う（下記） |
 | **iOS** | XCTest（XCUITest） | `UIPasteboard.general` に**テストプロセスから API 経由でアクセス可能** | 他アプリ由来データの読み取りは pasteboard privacy の影響を受ける（下記） |
 | **macOS** | XCTest、ネイティブダイアログ操作は `osascript`（System Events） | `NSPasteboard.general` に**API 経由でアクセス可能** | macOS 15.4+ は `NSPasteboard.AccessBehavior` による許可状態に依存（下記） |
-| **Windows** | Appium + `appium-windows-driver`（Microsoft の現行推奨）。UI 操作が不要ならツール不要 | PowerShell の `Get-Clipboard` / `Set-Clipboard` | 現状、特筆すべき許可制約は確認していない |
+| **Windows** | Appium + `appium-windows-driver`（Microsoft の現行推奨）。UI 操作が不要ならツール不要。**アプリが出す Win32 のダイアログを閉じるだけなら**、PowerShell から Win32 のメッセージを送る（コントロール ID で探し、クリックと同じ `WM_COMMAND` を送る。インストール不要。`artifact/features/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v1.md` 2 章）。PowerShell の UI Automation（managed クライアント）は Win32 のボタンを押せなかった | PowerShell の `Get-Clipboard` / `Set-Clipboard` | 現状、特筆すべき許可制約は確認していない |
 
 **「API を呼べること」と「無人 CI で常に無操作・無許可で読めること」は別である。**
 以下の制約は、実機 / Simulator、対話セッション / CI セッションで挙動が変わりうる。
@@ -373,8 +373,8 @@ CI 成果物にも残さないこと。
 | **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
 | 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
-| 2b. PlayMode（Player 上） | **Windows のみ、24 本**（既定の実行は 17 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本）、サンプル画面を操作する `WindowsClipboardSampleScreenPlayerTests.cs`（S-1、S-5 / S-6 の 2 本）、手動確認と同じ順で全ボタンを押す `WindowsClipboardSampleRunPlayerTests.cs`（S-2 のブロック A / B / C〈2 本〉/ D の 5 本）、予約したまま Quit する `WindowsClipboardSampleQuitPlayerTests.cs`（M-19。Player を終了させるので単独の実行で走らせ、スクリプトが終了後に判定する）。9 章の Clear Unpinned と全ボタンの 5 本は `Destructive` カテゴリで、`--include-destructive` のときだけ走る。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
-| 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。確かめられるのは最後に書かれた 1 件だけ。ネイティブダイアログ・通知は未着手（外から OS の画面を操作する手段がまだない） |
+| 2b. PlayMode（Player 上） | **Windows のみ、26 本**（既定の実行は 19 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本）、サンプル画面を操作する `WindowsClipboardSampleScreenPlayerTests.cs`（S-1、S-5 / S-6 の 2 本）、手動確認と同じ順で全ボタンを押す `WindowsClipboardSampleRunPlayerTests.cs`（S-2 のブロック A / B / C〈2 本〉/ D の 5 本）、予約したまま Quit する `WindowsClipboardSampleQuitPlayerTests.cs`（M-19。Player を終了させるので単独の実行で走らせ、スクリプトが終了後に判定する）、Dialog のサンプルを外からダイアログを閉じて操作する `WindowsDialogSamplePlayerTests.cs`（D-01 / D-02 の 2 本。残りは計画書 `artifact/features/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v1.md`）。9 章の Clear Unpinned と全ボタンの 5 本は `Destructive` カテゴリで、`--include-destructive` のときだけ走る。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
+| 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。テストの中からも別プロセスの `Get-Clipboard` で読む（Restore、M-18、終了後の M-19）。ネイティブダイアログは、テストが PowerShell から Win32 のメッセージを送って閉じる（Dialog の D-01 / D-02 まで）。通知は未着手 |
 
 層 2b / 3 の経緯と、無人で回すための前提（ファイアウォールの規則、テスト用 Player の出力先の固定、
 Editor 専用のテストフックの扱い）は `artifact/topics/cross-platform-testing/README.md` にある。
