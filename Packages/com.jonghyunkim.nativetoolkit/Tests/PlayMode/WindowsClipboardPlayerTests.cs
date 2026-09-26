@@ -9,6 +9,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using JonghyunKim.NativeToolkit.Runtime.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
@@ -196,6 +197,47 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardResult again = manager.TryShutdown(out bool completed);
             Assert.IsTrue(again.IsSuccess, $"TryShutdown after shutdown: {again.ErrorCode} {again.ErrorMessage}");
             Assert.IsTrue(completed, "a second shutdown has nothing left to do");
+        }
+
+        // ── S-7: calls from a worker thread ──────────────────────────────────────
+
+        [UnityTest]
+        public IEnumerator CopyPlainText_FromAWorkerThread_IsRefusedAndAnsweredOnTheMainThread()
+        {
+            // Captured here, as the sample does: Instance may create a GameObject, which a worker
+            // thread cannot, and the test would then be observing that failure instead.
+            WindowsClipboardManager manager = Running();
+            int mainThread = Thread.CurrentThread.ManagedThreadId;
+
+            WindowsClipboardResult? returned = null;
+            WindowsClipboardResult? delivered = null;
+            int callbackThread = 0;
+            Exception? thrown = null;
+            Task worker = Task.Run(() =>
+            {
+                try
+                {
+                    returned = manager.CopyPlainText("NTK-FROM-WORKER", WindowsClipboardWriteOptions.None, result =>
+                    {
+                        callbackThread = Thread.CurrentThread.ManagedThreadId;
+                        delivered = result;
+                    });
+                }
+                catch (Exception exception)
+                {
+                    thrown = exception;
+                }
+            });
+
+            yield return WaitFor(() => worker.IsCompleted, "the worker thread");
+            Assert.IsNull(thrown, $"the call threw on the worker thread: {thrown?.GetType().Name}");
+            AssertRejected(returned!.Value.IsSuccess, returned.Value.ErrorCode, returned.Value.ErrorMessage,
+                WindowsClipboardErrorCode.MainThreadRequired, null);
+
+            yield return WaitFor(() => delivered != null, "the CopyPlainText callback");
+            Assert.AreEqual(mainThread, callbackThread, "the callback must run on the main thread");
+            AssertRejected(delivered!.Value.IsSuccess, delivered.Value.ErrorCode, delivered.Value.ErrorMessage,
+                WindowsClipboardErrorCode.MainThreadRequired, null);
         }
 
         // ── Chapter 9: history through the Awaitable API ─────────────────────────

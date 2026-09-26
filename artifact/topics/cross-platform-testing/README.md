@@ -39,7 +39,7 @@ v4 の指摘は反映済み（`testing.md` 5 節の確認済み表に macOS 15.4
 | 0. Player ビルド | Windows のみ。Android / iOS / macOS は未整備 |
 | 1. EditMode | 部分的 |
 | 2a. PlayMode（Editor 内） | 部分的。Clipboard 4 種と Share（iOS / macOS） |
-| **2b. PlayMode（Player 上）** | **Windows のみ、15 本**（`WindowsClipboardPlayerTests`、既定の実行は 14 本） |
+| **2b. PlayMode（Player 上）** | **Windows のみ、16 本**（`WindowsClipboardPlayerTests`、既定の実行は 15 本） |
 | **3. OS 境界** | **Windows のみ、最小限**（クリップボードの最後の 1 件を外から読む） |
 
 **この表の更新は `testing.md` 側で行う。** ここに写しを置いているのは状態の要約のためで、
@@ -411,6 +411,22 @@ Restore のテストは、テストの中から PowerShell を起動して `Get-
 既定が 932 の PC で固定が効くかは確かめていない
 
 `--skip-build` での実行結果: EditMode 809/809、PlayMode 181/181、Player **14/14**（スキップ 0）、クリップボードの確認も合格。
+
+#### S 観点に着手した（2026-09-26）
+
+S 観点は 3 段階に分けて移す。
+
+1. **S-7**（Manager を直接呼ぶ。UI 不要）: **完了**。`CopyPlainText_FromAWorkerThread_IsRefusedAndAnsweredOnTheMainThread`。
+   サンプルと同じく Manager はメインスレッドで取得し、別スレッドから `CopyPlainText` を呼ぶ。
+   戻り値が `MainThreadRequired`、別スレッドで例外が出ない、コールバックがメインスレッドで届く、の 3 点を確かめる
+2. **UI を操作する仕組み**: サンプルのシーンをテスト用 Player で読み込み、トップメニューから Clipboard 画面へボタンで移る（S-1）。
+   行き来を 2 回して `OnDisable` → `OnDestroy` が対になることを確かめる（S-5 / S-6）。
+   テスト用 Player にはビルド設定のシーンがすべて入る（`PlayerLauncher` が `EditorBuildSettings.scenes` を足す）ので、サンプルのシーンはそのまま読める
+3. **全ボタンを押す**（S-2）。終わったら Player のログを `scripts/check_windows_clipboard_sample_log.py` に渡して S-2 / S-4 / S-8 を判定する。
+   ボタン 67 個のうち、`QuitButton`（Player が終了する）、`ClearUnpinned` 系 2 個（開発機の履歴が消える）、
+   `RestoreLast` / `DeleteLast` / `RestoreAwait` / `DeleteAwait`（直前に取った履歴の先頭、つまり開発者の項目を戻す・消す）は通常の実行から外す
+
+S-3 と S-9 は、D と 9 章のテストで実質的に確かめている。
 
 #### ファイアウォールのダイアログ（2026-09-26 対応）
 

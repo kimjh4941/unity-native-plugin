@@ -368,7 +368,7 @@ CI 成果物にも残さないこと。
 | **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
 | 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
-| 2b. PlayMode（Player 上） | **Windows のみ、15 本**（既定の実行は 14 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本。うち Clear Unpinned は `Destructive` カテゴリで、`--include-destructive` のときだけ走る）。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
+| 2b. PlayMode（Player 上） | **Windows のみ、16 本**（既定の実行は 15 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本。うち Clear Unpinned は `Destructive` カテゴリで、`--include-destructive` のときだけ走る）。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。Android / iOS / macOS は未着手 |
 | 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。確かめられるのは最後に書かれた 1 件だけ。ネイティブダイアログ・通知は未着手（外から OS の画面を操作する手段がまだない） |
 
 層 2b / 3 の経緯と、無人で回すための前提（ファイアウォールの規則、テスト用 Player の出力先の固定、
