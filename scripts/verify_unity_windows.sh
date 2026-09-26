@@ -131,10 +131,25 @@ else
   sentinel="ntk-verify-sentinel-$$-$RANDOM"
   powershell.exe -NoProfile -Command "Set-Clipboard -Value '$sentinel'" >/dev/null 2>&1
 
+  # The test player listens for the editor, and Windows asks about the firewall the first time a
+  # program listens without a rule. The Test Framework's default location has a fresh directory per
+  # run (Temp/UnityTempFile-<guid>), so every run was a new program and every run stopped on that
+  # dialog. -buildPlayerPath pins the executable, so a single rule settles it for good. The rule is a
+  # Block: the player only needs to reach the editor on this machine, not the network.
+  PT_PLAYER_DIR="$PROJECT_DIR/Temp/NativeToolkitTestPlayer"
+  PT_PLAYER_EXE="$(cygpath -w "$PT_PLAYER_DIR/PlayerWithTests/PlayerWithTests.exe")"
+  if ! powershell.exe -NoProfile -Command \
+      "if (Get-NetFirewallApplicationFilter -Program '$PT_PLAYER_EXE' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" \
+      >/dev/null 2>&1; then
+    echo "  note: no firewall rule for the test player, so Windows will stop this run with a dialog."
+    echo "        Once, from an elevated PowerShell:"
+    echo "        New-NetFirewallRule -DisplayName 'NativeToolkit test player' -Direction Inbound -Action Block -Profile Any -Program '$PT_PLAYER_EXE'"
+  fi
+
   # No -nographics: the player opens a window and owns the clipboard from its main thread. This
   # step has been run without it; it has not been tried with it.
   "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
-    -runTests -testPlatform StandaloneWindows64 \
+    -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
     -testResults "$PT_XML" -logFile "$PT_LOG" >/dev/null 2>&1
   pt_code=$?
   report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))

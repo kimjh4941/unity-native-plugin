@@ -321,6 +321,36 @@ Share の 2 本も同じ形をしている。それぞれの Player でテスト
 
 **これは FlaUI 方式でも同じ制約**なので、層 2b を選ぶ理由にも反証にもならない。
 
+#### ファイアウォールのダイアログ（2026-09-26 対応）
+
+テスト用 Player は Editor に結果を返すために待ち受ける。Windows は、規則のないプログラムが
+待ち受けを始めると「アクセスを許可しますか」というダイアログを出す。Test Framework の既定では
+テスト用 Player が毎回 `Temp/UnityTempFile-<毎回違う値>/PlayerWithTests/PlayerWithTests.exe` に作られるため、
+**Windows からは毎回別のプログラムに見え、実行のたびにダイアログで止まっていた**。
+許可しても次の実行には効かず、規則だけが溜まった（3 回の実行で 6 件、すべてパブリックで許可）。
+
+対応:
+
+- `verify_unity_windows.sh` の Player テストに **`-buildPlayerPath`** を付け、出力先を
+  `Temp/NativeToolkitTestPlayer/PlayerWithTests/PlayerWithTests.exe` に固定した。
+  Test Framework のコマンドライン引数で、出力先を変えるだけで、ビルドのみのモード（`buildOnly`）には
+  ならない（`SettingsBuilder.cs` と `PlayerLauncher.cs` で確認）。コードは不要だった
+- そのパスに対して**受信ブロック**の規則を全プロファイルに 1 つ作る（管理者で 1 回だけ）。
+  規則があればダイアログは出ない。ブロックにしたのは、Player は同じ PC の Editor に届けば足り、
+  ネットワーク上の他の機器から接続される必要がないため
+- スクリプトは実行前に規則の有無を確かめ、無ければ作成コマンドを表示する
+
+```powershell
+New-NetFirewallRule -DisplayName 'NativeToolkit test player' -Direction Inbound -Action Block -Profile Any -Program '<プロジェクト>\Temp\NativeToolkitTestPlayer\PlayerWithTests\PlayerWithTests.exe'
+```
+
+**確かめたこと:** 規則を作った後に `--skip-build` でスクリプトを回し、EditMode 809/809、PlayMode 181/181、
+Player 1/1、クリップボードの確認も合格。**受信ブロックの規則があっても、結果は Editor に届いた**
+（同じ PC の中の通信はファイアウォールで止まらない）。実行の前後でファイアウォール規則の数は変わらず、
+実行中に新しい規則は作られていない。
+
+規則はプロジェクトの場所ごとに要る。別の PC や別の場所に clone した場合は、スクリプトの表示に従って作る。
+
 ### 100% にはならない
 
 native-toolkit も `ComputerUse/CU-01-hero-image.md` で
