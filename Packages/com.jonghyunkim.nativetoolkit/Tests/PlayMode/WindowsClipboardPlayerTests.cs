@@ -408,6 +408,121 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(gone, $"the unpinned item was still in history {DefaultTimeoutSeconds}s after clearing");
         }
 
+        // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
+        // artifact/features/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md, 5.6 step 1
+        // and 7.3: these pin down what 1.x does, so the migration can compare.
+
+        /// <summary>A registered format name for the raw-bytes cases; nothing else uses it.</summary>
+        private const string TestBytesFormat = "NativeToolkit Test Bytes";
+
+        [TestCase("@@@@")]
+        [TestCase("QQ=")]
+        [TestCase("Q=Q=")]
+        [TestCase("QQ=Q")]
+        public void CopyMultipleFormats_MalformedBase64_IsInvalidParameter(string base64)
+        {
+            WindowsClipboardResult result = Running().CopyMultipleFormats(
+                new[] { WindowsClipboardFormatPayload.Base64(TestBytesFormat, base64) });
+            AssertRejected(result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                WindowsClipboardErrorCode.InvalidParameter, null);
+        }
+
+        /// <remarks>Carriage returns, line feeds, spaces and tabs are skipped, as 1.x's decoder did.</remarks>
+        [Test]
+        public void CopyMultipleFormats_Base64WithWhitespace_PlacesTheDecodedBytes()
+        {
+            WindowsClipboardManager manager = Running();
+            WindowsClipboardResult copied = manager.CopyMultipleFormats(
+                new[] { WindowsClipboardFormatPayload.Base64(TestBytesFormat, "QU JD\r\n\tRA==") });
+            Assert.IsTrue(copied.IsSuccess, $"CopyMultipleFormats: {copied.ErrorCode} {copied.ErrorMessage}");
+
+            WindowsClipboardBytesResult pasted = manager.PasteCustomFormat(TestBytesFormat);
+            Assert.IsTrue(pasted.IsSuccess, $"PasteCustomFormat: {pasted.ErrorCode} {pasted.ErrorMessage}");
+            CollectionAssert.AreEqual(new byte[] { 0x41, 0x42, 0x43, 0x44 }, pasted.Data);
+        }
+
+        /// <remarks>Empty bytes are encoded as an empty base64 string, which the decoder refuses.</remarks>
+        [Test]
+        public void CopyMultipleFormats_EmptyBytes_IsInvalidParameter()
+        {
+            WindowsClipboardResult result = Running().CopyMultipleFormats(
+                new[] { WindowsClipboardFormatPayload.Bytes(TestBytesFormat, Array.Empty<byte>()) });
+            AssertRejected(result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                WindowsClipboardErrorCode.InvalidParameter, null);
+        }
+
+        /// <remarks>
+        /// A well-formed base64 that is not a DIB, then a malformed one. 1.x looked at the entries one
+        /// by one and stopped at the first: the DIB check. After the move every base64 is decoded
+        /// first, so the answer becomes InvalidParameter (design v12, 5.4).
+        /// </remarks>
+        [Test]
+        public void CopyMultipleFormats_ABadDibBeforeABadBase64_ReportsTheFirstInOrder()
+        {
+            WindowsClipboardResult result = Running().CopyMultipleFormats(new[]
+            {
+                WindowsClipboardFormatPayload.Base64("CF_DIB", "AAAA"),
+                WindowsClipboardFormatPayload.Base64(TestBytesFormat, "@@@@"),
+            });
+            AssertRejected(result.IsSuccess, result.ErrorCode, result.ErrorMessage,
+                WindowsClipboardErrorCode.InvalidData, null);
+        }
+
+        [UnityTest]
+        public IEnumerator CanShutdownNow_WithoutASession_IsTrue()
+        {
+            WindowsClipboardManager manager = Running();
+            yield return ShutDown(manager);
+
+            WindowsClipboardFlagResult canShutdown = manager.CanShutdownNow();
+            Assert.IsTrue(canShutdown.IsSuccess, $"CanShutdownNow: {canShutdown.ErrorCode} {canShutdown.ErrorMessage}");
+            Assert.IsTrue(canShutdown.Value, "nothing is left to shut down");
+        }
+
+        /// <remarks>
+        /// A history request still waiting when the shutdown starts. On 1.x the first attempt never
+        /// finishes while a request waits; after the move it may, by delivering the request as
+        /// Canceled inside the call (design v12, 5.4). Either way the request is delivered once.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TryShutdown_WithARequestWaiting_DeliversItOnce()
+        {
+            WindowsClipboardManager manager = Running();
+            int delivered = 0;
+            WindowsClipboardAvailabilityResult? answer = null;
+            uint requestId = manager.GetHistoryAvailability(result =>
+            {
+                delivered++;
+                answer = result;
+            });
+            Assert.AreNotEqual(0u, requestId, "the request was accepted");
+
+            WindowsClipboardResult attempt = manager.TryShutdown(out bool completed);
+            TestContext.WriteLine($"first TryShutdown: completed={completed}, {attempt.ErrorCode}");
+            Assert.IsFalse(completed, "1.x: the first attempt does not finish while a request waits");
+
+            yield return ShutDown(manager);
+            yield return WaitFor(() => delivered > 0, "the waiting request's callback");
+            for (int frame = 0; frame < 5; frame++) yield return null;
+            Assert.AreEqual(1, delivered, "the waiting request is delivered once");
+            TestContext.WriteLine($"the waiting request ended with {answer!.Value.ErrorCode}");
+        }
+
+        /// <remarks>A shutdown releases the native manager; a new Initialize makes a fresh one.</remarks>
+        [UnityTest]
+        public IEnumerator Initialize_AfterAShutdown_WritesAndReadsAgain()
+        {
+            yield return ShutDown(Running());
+
+            WindowsClipboardManager manager = Running();
+            string marker = NewMarker("REINIT");
+            WindowsClipboardResult copied = manager.CopyPlainText(marker, WindowsClipboardWriteOptions.Sensitive);
+            Assert.IsTrue(copied.IsSuccess, $"CopyPlainText: {copied.ErrorCode} {copied.ErrorMessage}");
+            WindowsClipboardTextResult pasted = manager.PastePlainText();
+            Assert.IsTrue(pasted.IsSuccess, $"PastePlainText: {pasted.ErrorCode} {pasted.ErrorMessage}");
+            Assert.AreEqual(marker, pasted.Text);
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         /// <summary>
