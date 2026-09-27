@@ -212,18 +212,25 @@ else
   # The M-19 test quits the player, which ends the run it is in; it is run on its own further down.
   QUIT_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardSampleQuitPlayerTests.cs"
   quits="$(sed -n 's/.*const string QuitCategory = "\([^"]*\)".*/\1/p' "$QUIT_SOURCE" | head -1)"
+  # The notification manager's recreate test leaves the manager uninitialized if it fails half way,
+  # which would fail every later notification set-up; it is run on its own further down.
+  RECREATE_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsNotificationRecreatePlayerTests.cs"
+  recreates="$(sed -n 's/.*const string RecreateCategory = "\([^"]*\)".*/\1/p' "$RECREATE_SOURCE" | head -1)"
   category_args=()
   if [ -z "$quits" ]; then
     echo "  StandaloneWindows64: CANNOT RUN (no QuitCategory in $QUIT_SOURCE; that test would end the run)"
     failures=$((failures + 1))
+  elif [ -z "$recreates" ]; then
+    echo "  StandaloneWindows64: CANNOT RUN (no RecreateCategory in $RECREATE_SOURCE; that test could leave the manager uninitialized)"
+    failures=$((failures + 1))
   elif [ "$INCLUDE_DESTRUCTIVE" -eq 1 ]; then
     echo "  note: --include-destructive: this run clears the unpinned clipboard history on this machine."
-    category_args=(-testCategory "!$quits")
+    category_args=(-testCategory "!$quits;!$recreates")
   elif [ -z "$destructive" ]; then
     echo "  StandaloneWindows64: CANNOT RUN (no DestructiveCategory in $PT_SOURCE, so nothing could be excluded)"
     failures=$((failures + 1))
   else
-    category_args=(-testCategory "!$destructive;!$quits")
+    category_args=(-testCategory "!$destructive;!$quits;!$recreates")
   fi
 
   # No -nographics: the player opens a window and owns the clipboard from its main thread. This
@@ -286,6 +293,26 @@ else
   else
     echo "  system clipboard: FAILED (neither the sample value nor the sentinel; something else wrote last)"
     failures=$((failures + 1))
+  fi
+
+  # The notification manager destroyed and made again (design v8, 7.3), in a player of its own. It
+  # returns its results like any other run, so it runs in the foreground and is judged the same
+  # way, into files of its own: the main run's XML is read again by the sample run log below.
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ -n "$recreates" ]; then
+    RECREATE_XML="$OUT_DIR/Recreate.xml"
+    rm -f "$RECREATE_XML" "$OUT_DIR/Recreate.log"
+    "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
+      -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
+      -testCategory "$recreates" \
+      -testResults "$RECREATE_XML" -logFile "$OUT_DIR/Recreate.log" >/dev/null 2>&1
+    recreate_code=$?
+    stop_test_players >/dev/null
+    report_tests "Recreate (StandaloneWindows64)" "$RECREATE_XML" "$recreate_code" || failures=$((failures + 1))
+    recreate_total="$(grep -o 'total="[0-9]*"' "$RECREATE_XML" 2>/dev/null | head -1 | tr -dc '0-9')"
+    if [ -f "$RECREATE_XML" ] && [ "${recreate_total:-0}" -eq 0 ]; then
+      echo "  Recreate (StandaloneWindows64): NO TESTS RAN"
+      failures=$((failures + 1))
+    fi
   fi
 
   # M-19: a deferred reservation still pastes after the player has quit. The test reserves with
