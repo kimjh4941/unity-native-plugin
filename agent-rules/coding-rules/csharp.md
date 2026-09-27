@@ -15,6 +15,7 @@ Debug.Log($"[{LogTag}][{nameof(MethodName)}] param1: {param1}, param2: {param2}"
 ```
 
 エラーは `Debug.LogError` を使ってログ出力する。
+ただし Windows の C ABI の Bridge / Manager では、結果（エラーコード）として呼び出し側に返す失敗は `Debug.LogWarning` までにする（`common.md`「Unity Bridge パターン > Windows」の「ログ」）。
 
 ```csharp
 Debug.LogError($"[{LogTag}][{nameof(MethodName)}] param1: {param1}, param2: {param2}");

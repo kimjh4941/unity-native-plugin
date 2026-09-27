@@ -398,7 +398,7 @@ Editor 専用のテストフックの扱い）は `artifact/topics/cross-platfor
 
 | 機能 | Android | iOS | macOS | Windows |
 |---|---|---|---|---|
-| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（builder / parser / result / payload / request table / dispatch） |
+| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（builder / parser / result / payload / request table / dispatch / sample fixture / sample result / wiring） |
 | **Share** | 実装済み（builder / wiring） | 実装済み（builder / dispatch） | 実装済み（builder / dispatch / result / wiring） | 対象外 |
 | **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
 | **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
@@ -411,7 +411,8 @@ Editor 専用のテストフックの扱い）は `artifact/topics/cross-platfor
 - **iOS Notification のみが真の欠落。** ここだけは層 1 で埋められる
 - **macOS Clipboard に wiring が無いのは欠落ではない。** サンプルシーンをまだ設計していないため、
   `*SampleSceneWiringTests` の対象が存在しない。`design-sample-scene` の完了時に追加する
-- **Windows Clipboard も同じ理由で wiring が無い。** サンプルシーンは未設計
+- **Windows Clipboard の wiring は 2026-09-08 のサンプルシーンで追加済み**（`WindowsClipboardSampleSceneWiringTests`）
+- **Windows の 3 機能は C ABI 2.0.0 への移行で層 1 が変わる。** Dialog にも層 1（Bridge の変換の関数と構造体の位置）ができ、上の「N/A」は外れる。Clipboard の `WindowsClipboardJsonParserTests` は無くなる（移設あり）。本数と内訳は移行の実装のときにこの節を直す（各機能の 2026-09-27 の設計書）
 - **Windows Clipboard は層 2a を持つ最初の Windows 機能。** `WindowsClipboardManagerIntegrationTests`
   が拒否経路・配送・ライフサイクル・teardown を Editor 内で検証する。Editor は Windows player ではないため、
   ネイティブ境界に届く経路は原理的に検証できない。**そこは層 2b と実機確認の担当**であり、

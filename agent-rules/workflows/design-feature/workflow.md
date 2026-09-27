@@ -19,7 +19,7 @@
    | Android  | `/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin/src/main/java/android/unity/` |
    | iOS      | `/Users/jonghyunkim/Desktop/native-toolkit/ios/UnityIosPlugin/UnityIosPlugin/` |
    | macOS    | `/Users/jonghyunkim/Desktop/native-toolkit/mac/UnityMacPlugin/UnityMacPlugin/` |
-   | Windows  | `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibrary` |
+   | Windows  | C ABI のヘッダー `C:\Users\User\Desktop\native-toolkit\dist\<版>\windows\include\NativeToolkitC\`（公開の契約）と、実装 `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryCApi\`・`windows\WindowsLibrary\`。版は `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` のピン |
 
    - 公開されている関数名・コールバック型・定数を一覧化する
    - C# 側で `[DllImport]` / `AndroidJavaObject` で呼び出す対象を確定する
@@ -35,6 +35,12 @@
 
    - `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/` 配下の AAR を展開し、`AndroidManifest.xml` と `res/` に何が内包されているかを把握する
    - manifest 宣言やリソース（FileProvider の `res/xml/` 等）が AAR に含まれていない場合、利用アプリ側に追加設定が必要になる可能性がある。設計段階で配置責任を確定する
+
+   Windows の場合は C ABI の約束ごとも確認する:
+
+   - 構造体の大きさとフィールドの位置は `windows\WindowsLibraryCApiTest\Common\CApiLayoutTest.cpp`、スレッド・寿命・エラーの規則はヘッダーのコメントと `windows\WindowsLibraryCApiTest\` のテストで確かめる
+   - C# 側の書き方は `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows（native-toolkit の C ABI）」に従う。DLL 名・版の確認・`Common.h` の関数は `Runtime/Common/Windows/WindowsNativeToolkitCApi.cs` を使い、機能の Bridge で重ねて宣言しない
+   - 既存の公開 API の振る舞いを変える場合は、「既知の差分」の表を計画に含める
 
 4. 既存の C# 実装を確認する（必須）
 
