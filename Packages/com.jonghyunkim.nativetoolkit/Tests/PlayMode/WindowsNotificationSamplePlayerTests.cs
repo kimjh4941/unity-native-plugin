@@ -23,7 +23,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Drives the Windows Notification sample on a player and checks its toasts in the notification
-    /// center: W-01 to W-11 of artifact/features/notification/designs/2026-09-27-windows-notification-ui-test-plan-v1.md.
+    /// center: W-01 to W-11 of artifact/features/notification/designs/2026-09-27-windows-notification-ui-test-plan-v2.md.
     /// <para>
     /// The notification center is worked from a PowerShell process through UI Automation. It is
     /// ShellExperienceHost's CoreWindow, which neither EnumWindows nor UI Automation's top-level
@@ -125,28 +125,56 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // ── W-04 ─────────────────────────────────────────────────────────────────
 
+        /// <remarks>
+        /// On hold while the 1.x library was bundled: it did not write CustomActivator, so no click
+        /// reached a running unpackaged app. The 2.0.0 C ABI writes it in Initialize.
+        /// </remarks>
         [UnityTest]
-        [Ignore("W-04 on hold: the 1.x library does not write AppUserModelId\\<AUMID>\\CustomActivator, without which Windows " +
-                "routes no click to a running unpackaged app. Fixed in native-toolkit c9f4071b (dist 1.12.0); comes back with the C ABI 2.0.0 migration. " +
-                "artifact/features/notification/designs/2026-09-27-windows-notification-ui-test-plan-v1.md, chapter 2")]
-        public IEnumerator ShowNotification_OpenInTheCenter_ComesBackAsInvoked()
+        public IEnumerator ShowNotification_OpenInTheCenter_ComesBackAsInvoked() => OpenAndComeBackAsInvoked();
+
+        // ── W-11 ─────────────────────────────────────────────────────────────────
+
+        /// <remarks>The screen made again subscribes again; a click still reaches it.</remarks>
+        [UnityTest]
+        public IEnumerator Home_ThenTheScreenAgain_StillGetsTheClick()
+        {
+            Press(FindButton("HomeButton")!);
+            bool left = false;
+            yield return Eventually(() => FindButton(TopMenuNotificationButton) != null && FindButton("InitializeButton") == null, ok => left = ok);
+            Assert.IsTrue(left, "the top menu did not come back");
+
+            yield return OpenNotificationScreen();
+            string? text = null;
+            yield return Eventually(() =>
+            {
+                Press(FindButton("InitializeButton")!);
+                text = ResultText();
+                return text?.StartsWith("✓ Initialize") == true;
+            }, _ => { });
+            StringAssert.StartsWith("✓ Initialize", text, "Initialize on the screen made again");
+
+            yield return OpenAndComeBackAsInvoked();
+        }
+
+        /// <summary>W-03 then a press of Open in the center, which comes back as NotificationInvoked on the screen.</summary>
+        private IEnumerator OpenAndComeBackAsInvoked()
         {
             // Windows 11 routes a click on an unpackaged app's toast to the COM class named by
             // AppUserModelId\<AUMID>\CustomActivator; the shortcut's ToastActivatorCLSID alone does not
-            // get it there (native-toolkit measured it, 2026-09-27). 1.x registers its class but never
-            // writes that value, and one left by a Windows App SDK build points elsewhere. Either
-            // way no click comes, so say which, rather than time out.
+            // get it there (native-toolkit measured it, 2026-09-27). Initialize writes it; one left by
+            // another build would point elsewhere. Either way no click would come, so say which,
+            // rather than time out.
             string? activator = ReadCurrentUserString($@"Software\Classes\AppUserModelId\{App}", "CustomActivator");
             Assert.IsNotNull(activator,
-                $"HKCU\\Software\\Classes\\AppUserModelId\\{App} has no CustomActivator, so Windows routes no click to this player. " +
-                "The 1.x library does not write it (plan, chapter 2).");
+                $"HKCU\\Software\\Classes\\AppUserModelId\\{App} has no CustomActivator, so Windows routes no click to this player " +
+                "(plan, chapter 2).");
             string? server = ReadCurrentUserString($@"Software\Classes\CLSID\{activator}\LocalServer32", "");
             string exe = Process.GetCurrentProcess().MainModule!.FileName;
             Assert.IsTrue(server != null && server.Trim('"').StartsWith(exe, StringComparison.OrdinalIgnoreCase),
                 $"CustomActivator {activator} is served by [{server}], not by this player ({exe}), so the click goes there (plan, chapter 2).");
 
-            // Diagnostics while the click does not arrive (2026-09-27). The dispatcher is created on
-            // first use; not created here, since doing so would hide a first use off the main thread.
+            // Diagnostics for a click that does not arrive. The dispatcher is created on first use;
+            // not created here, since doing so would hide a first use off the main thread.
             TestContext.WriteLine($"dispatcher present before the click: {GameObject.Find("UnityMainThreadDispatcher") != null}");
             string? managerArgs = null;
             void OnInvoked(string args) => managerArgs = args;
@@ -396,6 +424,55 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
             Assert.AreEqual(0, completed, "GetAllNotificationsCompleted after the callback threw");
             yield break;
+        }
+
+        // ── After the move to the 2.0.0 C ABI only (design v8, 5.4 and 7.3) ─────
+        // 1.x answered these differently (5 for a bad key), or crashed (a null payload).
+
+        [TestCase("{\"buttons\":[{\"args\":{\"k\":\"v\"}}]}")]
+        [TestCase("{\"textBoxes\":[{\"placeholder\":\"p\"}]}")]
+        [TestCase("{\"title\":null}")]
+        [TestCase("{\"title\":1}")]
+        [TestCase("{\"buttons\":[null]}")]
+        [TestCase("{\"audio\":{\"type\":\"uri\"}}")]
+        [TestCase("{\"timestamp\":1e300}")]
+        public void ShowNotification_AMissingKey_AWrongType_OrNull_Is7(string json) =>
+            AssertOneResult(r => WindowsNotificationManager.Instance.ShowNotification(json, r), 7);
+
+        [Test]
+        public void ShowNotification_NullPayload_Is3() =>
+            AssertOneResult(r => WindowsNotificationManager.Instance.ShowNotification(null!, r), 3);
+
+        [Test]
+        public void ShowNotification_ALoopingSoundWithoutLongDuration_Is7_FromTheNativeShow() =>
+            AssertOneResult(r => WindowsNotificationManager.Instance.ShowNotification("{\"title\":\"Loop\",\"audio\":{\"type\":\"mute\",\"loop\":true}}", r), 7);
+
+        [TestCase(922_337_203_685_478L)]
+        [TestCase(-922_337_203_685_478L)]
+        public void ScheduleNotification_BeyondTheRange_Is7(long unixMs) =>
+            AssertOneResult(r => WindowsNotificationManager.Instance.ScheduleNotification("{\"title\":\"Far\"}", unixMs, r), 7);
+
+        /// <remarks>
+        /// Every extern that takes NULL safely, called with it once, so a wrong name or signature
+        /// shows here. The others are called by W-01 to W-11 and the tests above.
+        /// </remarks>
+        [Test]
+        public void TheExternsThatTakeNull_Bind()
+        {
+            Assert.DoesNotThrow(() => Runtime.Windows.Common.WindowsNativeToolkitCApi.ntk_last_system_code());
+            Assert.AreEqual(UIntPtr.Zero, WindowsNotificationCApi.ntk_notification_list_count(IntPtr.Zero));
+            Assert.AreEqual(0u, WindowsNotificationCApi.ntk_notification_list_id_at(IntPtr.Zero, UIntPtr.Zero));
+            Assert.AreEqual(IntPtr.Zero, WindowsNotificationCApi.ntk_notification_list_tag_at(IntPtr.Zero, UIntPtr.Zero, out _));
+            Assert.AreEqual(IntPtr.Zero, WindowsNotificationCApi.ntk_notification_list_group_at(IntPtr.Zero, UIntPtr.Zero, out _));
+            Assert.DoesNotThrow(() => WindowsNotificationCApi.ntk_notification_list_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => WindowsNotificationCApi.ntk_notification_runtime_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => WindowsNotificationCApi.ntk_notification_manager_close(IntPtr.Zero));
+            Assert.DoesNotThrow(() => WindowsNotificationCApi.ntk_notification_manager_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => WindowsNotificationCApi.ntk_notification_content_free(IntPtr.Zero));
+            Assert.AreEqual(WindowsNotificationCApi.ErrorInvalidParameter, WindowsNotificationCApi.ntk_notification_open_settings(IntPtr.Zero));
+            Assert.AreEqual(WindowsNotificationCApi.ErrorInvalidParameter, WindowsNotificationCApi.ntk_notification_get_all(IntPtr.Zero, out IntPtr list));
+            Assert.AreEqual(IntPtr.Zero, list);
+            Assert.AreEqual(IntPtr.Zero, WindowsNotificationCApi.ntk_notification_activation_raw_arguments(IntPtr.Zero, out _));
         }
 
         // ── Fixtures (UI test plan v2) ───────────────────────────────────────────
