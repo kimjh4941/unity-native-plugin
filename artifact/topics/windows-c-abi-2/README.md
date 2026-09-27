@@ -364,7 +364,7 @@ native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原�
 | Q-1 | 関数の数 | **解決（2026-09-23）。** 105。`.def` が 105 行で、これがリンカの export。114 は typedef 9 本を含めた数 |
 | Q-2 | JSON 依存層の廃止範囲 | **解決（2026-09-23）。** 5 ファイルすべて廃止。base64 ヘルパーと truncation 処理も道連れ。残る JSON は `raw_arguments` のみ（2.2） |
 | Q-3 | 47 本の対応と未使用 5 本 | **解決（2026-09-23）。** 5 章。未使用 5 本は E-6 で廃止、移植不要 |
-| Q-4 | サンプルシーンの作り直しが要るか。要るなら `design-sample-scene` へ別途切り出す | **解決（2026-09-27）。作り直さない。** Manager の公開 API を保ち、中の P/Invoke 層だけを 2.0.0 に置き換える。サンプルの UI 自動テストがそのまま移行の検証になる。2.0.0 で意味が変わる戻り値（ダイアログのキャンセルなど）を公開 API にどう出すかは、設計書で 1 つずつ決める |
+| Q-4 | サンプルシーンの作り直しが要るか。要るなら `design-sample-scene` へ別途切り出す | **解決（2026-09-27）。作り直さない。** Manager の公開 API を保ち、中の P/Invoke 層だけを 2.0.0 に置き換える。サンプルの UI 自動テストがそのまま移行の検証になる。2.0.0 で意味が変わる戻り値（ダイアログのキャンセルなど）を公開 API にどう出すかは、設計書で 1 つずつ決める。**例外（2026-09-27）: Windows の型の名前空間を `JonghyunKim.NativeToolkit.Runtime.<機能>` から `JonghyunKim.NativeToolkit.Runtime.Windows.<機能>` に変え、ファイルを `Runtime/Windows/<機能>/` に移す。**利用者がまだいないため、ここで揃える（`agent-rules/coding-rules/common.md`「命名」）。Android / iOS / macOS は、それぞれの OS の対応のときに移す |
 | Q-5 | NuGet の `NativeToolkit.CApi 2.0.0` を使うか、DLL を直接同梱するか | **解決（2026-09-27）。DLL を直接同梱する。** Unity は NuGet をそのまま使えない。今と同じく PreBuildProcessor が dist からコピーし、`windows-native-toolkit-capi-2.0.0.dll` を dist の名前のまま使う（`Plugins/Windows/VERSION.txt` のコメント） |
 | Q-6 | チケット番号（`UNT-13` 以降）を採番する | **解決（2026-09-27）。新しく採番しない。** UI 自動化と同じ `feature/UNT-12` で続ける。PR は大きくなるが、コミットは内容ごとに分かれている |
 

@@ -39,7 +39,7 @@
    Windows の場合は C ABI の約束ごとも確認する:
 
    - 構造体の大きさとフィールドの位置は `windows\WindowsLibraryCApiTest\Common\CApiLayoutTest.cpp`、スレッド・寿命・エラーの規則はヘッダーのコメントと `windows\WindowsLibraryCApiTest\` のテストで確かめる
-   - C# 側の書き方は `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows（native-toolkit の C ABI）」に従う。DLL 名・版の確認・`Common.h` の関数は `Runtime/Common/Windows/WindowsNativeToolkitCApi.cs` を使い、機能の Bridge で重ねて宣言しない
+   - C# 側の書き方は `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows（native-toolkit の C ABI）」に従う。DLL 名・版の確認・`Common.h` の関数は `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs` を使い、機能の Bridge で重ねて宣言しない
    - 既存の公開 API の振る舞いを変える場合は、「既知の差分」の表を計画に含める
 
 4. 既存の C# 実装を確認する（必須）

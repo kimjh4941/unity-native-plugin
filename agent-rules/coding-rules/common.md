@@ -79,9 +79,11 @@ DLL は dist の `windows-native-toolkit-capi-<版>.dll`）を P/Invoke で呼�
 
 | ファイル | 持つもの |
 |---|---|
-| `Runtime/Common/Windows/WindowsNativeToolkitCApi.cs`（1 つだけ） | DLL 名の定数、版の確認、`Common.h` の関数（`ntk_version`、`ntk_last_system_code`、`ntk_string_*`、`ntk_bytes_*`、`ntk_string_list_*`）の `extern`、UTF-8 の読み書き。**各機能は DLL 名を自分で書かず、ここの定数を使う**（native-toolkit の版を上げるときの書き換えを 1 か所にするため） |
-| `Runtime/<Feature>/Windows<Feature>CApi.cs`（Bridge） | その機能の `ntk_<feature>_*` の `extern`、入れ子の構造体、コールバックの delegate と受け口、ネイティブの値と C# の値の変換 |
-| `Runtime/<Feature>/Windows<Feature>Manager.cs` | 公開 API、状態、イベント（Manager 設計ルール） |
+| `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs`（1 つだけ。名前空間 `JonghyunKim.NativeToolkit.Runtime.Windows.Common`） | DLL 名の定数、版の確認、`Common.h` の関数（`ntk_version`、`ntk_last_system_code`、`ntk_string_*`、`ntk_bytes_*`、`ntk_string_list_*`）の `extern`、UTF-8 の読み書き。**各機能は DLL 名を自分で書かず、ここの定数を使う**（native-toolkit の版を上げるときの書き換えを 1 か所にするため） |
+| `Runtime/Windows/<Feature>/Windows<Feature>CApi.cs`（Bridge） | その機能の `ntk_<feature>_*` の `extern`、入れ子の構造体、コールバックの delegate と受け口、ネイティブの値と C# の値の変換 |
+| `Runtime/Windows/<Feature>/Windows<Feature>Manager.cs` | 公開 API、状態、イベント（Manager 設計ルール） |
+
+名前空間は `JonghyunKim.NativeToolkit.Runtime.Windows.<Feature>`（「命名」の節）。
 
 層は Bridge と Manager の 2 つだけにする。変換（引数の組み立て、結果とエラーの変換、版の判定）は Bridge の中の
 `internal static` の純粋な関数にし、`DllImport` を囲む `#if` の**外**に置く（Editor でもコンパイルされ、EditMode でテストできる）。
@@ -323,7 +325,20 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 ### 命名: OS 接頭辞と、共通ファイルを作らない方針
 
-**`Runtime/<Feature>/` と `Tests/` 配下は、プラットフォーム単位で管理する。共通ファイルを作らない。**
+**`Runtime/` と `Tests/` 配下は、プラットフォーム単位で管理する。共通ファイルを作らない。**
+
+**Runtime のディレクトリと名前空間（2026-09-27 決定）**
+
+| 対象 | ディレクトリ | 名前空間 |
+|---|---|---|
+| 正しい形 | `Runtime/<Platform>/<Feature>/` | `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>` |
+| そのプラットフォームの全機能が使う共通部 | `Runtime/<Platform>/Common/` | `JonghyunKim.NativeToolkit.Runtime.<Platform>.Common` |
+| プラットフォームをまたぐ共通（下の「例外」） | `Runtime/Common/` | `JonghyunKim.NativeToolkit.Runtime.Common` |
+
+- `<Platform>` のディレクトリ名は `Windows` / `Android` / `iOS` / `macOS`（`UI/<Platform>/` と同じ綴り）
+- **Windows は移行済み**（`Runtime/Windows/Clipboard/` など）。**Android / iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
+- 移すときは `.cs` と `.meta` をいっしょに `git mv` する（GUID を保つ）。名前空間の変更は公開 API の破壊的変更になるので、その版の既知の差分とマニュアルに書く
+- `Tests/Runtime/` と `Tests/PlayMode/` はプラットフォームで分けない（ファイル名の接頭辞で分かる）
 
 ファイル名と、その中の public / internal な型名には、対象プラットフォームを接頭辞で表す。**テストファイルも同じ規則に従う。**
 
@@ -336,7 +351,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - **機能ディレクトリに接頭辞なしのファイルを作らない。** 2 つのプラットフォームが同じロジックを必要とする場合も、**共通化せずそれぞれに持たせる**
 - ファイル名と、そのファイルが定義する主たる型の名前を一致させる
-- ディレクトリではプラットフォームを分けない（`UI/` と `Common/<Platform>/` を除く。後述）
+- ディレクトリの形は上の表（`Runtime/<Platform>/<Feature>/`）と、後述の `UI/<Platform>/<Feature>/`
 - **`Tests/Runtime/` と `Tests/PlayMode/` のファイル名・クラス名にも接頭辞を付ける。** テスト対象のプラットフォームがファイル名から分かることが目的
   - 例: `MacClipboardJsonParserTests.cs` / `IosClipboardManagerDispatchTests.cs`
   - **複数プラットフォームの型を 1 つのテストファイルで扱わない。** 対象ごとにファイルを分ける
@@ -354,13 +369,13 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 新しく `Common/` へ置く場合は、**機能ロジックではなく横断インフラであること**を条件とする。特定プラットフォームの機能に属するものは機能ディレクトリへ置き、接頭辞を付ける。
 
-**例外: `Runtime/Common/<Platform>/`**
+**例外: `Runtime/<Platform>/Common/`**
 
 そのプラットフォームの**全機能が使うネイティブライブラリの共通部**だけを置ける。ファイル名には接頭辞を付ける。機能の中身は置かない。
 
 | ファイル | 位置づけ |
 |---|---|
-| `Windows/WindowsNativeToolkitCApi.cs` | Windows の全機能が使う native-toolkit の C ABI の共通部（DLL 名、版の確認、`Common.h` の関数、UTF-8 の読み書き。「Unity Bridge パターン」の Windows） |
+| `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs` | Windows の全機能が使う native-toolkit の C ABI の共通部（DLL 名、版の確認、`Common.h` の関数、UTF-8 の読み書き。「Unity Bridge パターン」の Windows） |
 
 **共通化しない理由との関係:** 共通化を避けるのは、片方のプラットフォームの都合がもう片方に及ぶのを防ぐため（上）。
 同じプラットフォームの機能どうしは**同じネイティブライブラリの同じ版を必ず一緒に使う**ので、この理由が当てはまらない。
@@ -369,8 +384,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 **`UI/` のディレクトリ構成**
 
-`UI/` は `UI/<Platform>/<Feature>/` の構造を採る。ファイル名の接頭辞は同じ規則に従う。
-（プラットフォームでディレクトリを分けるのは、この `UI/` と上の `Common/<Platform>/` だけ）
+`UI/` は `UI/<Platform>/<Feature>/` の構造を採る（Runtime の正しい形と同じ順）。ファイル名の接頭辞は同じ規則に従う。
 
 **既知の逸脱（新規実装で真似しない）: Runtime 11 件**
 
