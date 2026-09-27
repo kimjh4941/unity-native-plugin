@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_STANDALONE_WIN
-namespace JonghyunKim.NativeToolkit.Runtime.Dialog
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
 {
     using UnityEngine;
     using System.Runtime.InteropServices;

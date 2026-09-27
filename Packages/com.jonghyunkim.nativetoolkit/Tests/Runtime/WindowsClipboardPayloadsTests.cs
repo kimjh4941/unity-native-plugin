@@ -2,7 +2,7 @@
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 using NUnit.Framework;
 
 namespace JonghyunKim.NativeToolkit.Tests

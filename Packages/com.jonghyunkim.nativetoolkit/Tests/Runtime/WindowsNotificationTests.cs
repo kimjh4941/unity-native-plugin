@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

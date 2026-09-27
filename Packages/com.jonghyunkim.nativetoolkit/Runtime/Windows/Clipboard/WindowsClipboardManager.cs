@@ -3,7 +3,7 @@
 // Class guard: compiled in the editor as well, so the public API and its EditMode tests build on
 // any active build target. The native boundary sits behind a second, narrower guard below.
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 {
     using System;
     using System.Collections;

@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 {
     using System;
 

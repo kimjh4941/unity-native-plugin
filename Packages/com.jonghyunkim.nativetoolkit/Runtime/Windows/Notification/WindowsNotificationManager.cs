@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
 {
     using System;
     using System.Runtime.InteropServices;

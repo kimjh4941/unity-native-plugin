@@ -3,7 +3,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System.Collections.Generic;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
 {
     /// <summary>
     /// Notification permission setting values returned by getNotificationSetting.

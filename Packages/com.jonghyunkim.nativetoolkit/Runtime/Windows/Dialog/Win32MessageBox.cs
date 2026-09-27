@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace JonghyunKim.NativeToolkit.Runtime.Dialog
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
 {
     /// <summary>
     /// Static class containing Win32 MessageBox constants for comprehensive native dialog configuration.

@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 {
     /// <summary>
     /// Result of a clipboard read that yields text: PastePlainText, PasteHtml and GetPreferredFormat.

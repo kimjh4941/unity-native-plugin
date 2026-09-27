@@ -1,16 +1,17 @@
 #nullable enable
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 {
     /// <summary>
-    /// Result of a query that answers with a single flag, such as CanShutdownNow.
+    /// Result of HasFormat.
     /// <para>
-    /// As with HasFormat, the native API answers FALSE both for "no" and for a failed query, so
-    /// <see cref="Value"/> is meaningful only when <see cref="IsSuccess"/> is true.
+    /// The native API returns FALSE both when the format is absent and when the query itself
+    /// failed, so <see cref="IsSuccess"/> and <see cref="HasFormat"/> are independent:
+    /// <see cref="HasFormat"/> carries no meaning unless <see cref="IsSuccess"/> is true.
     /// </para>
     /// </summary>
-    public readonly struct WindowsClipboardFlagResult
+    public readonly struct WindowsClipboardFormatPresenceResult
     {
         /// <summary>Native operation name that produced this result.</summary>
         public string Operation { get; }
@@ -18,8 +19,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// <summary>Whether the query itself completed.</summary>
         public bool IsSuccess { get; }
 
-        /// <summary>The queried flag. Meaningful only when <see cref="IsSuccess"/> is true.</summary>
-        public bool Value { get; }
+        /// <summary>Whether the format is present. Meaningful only when <see cref="IsSuccess"/> is true.</summary>
+        public bool HasFormat { get; }
 
         /// <summary>Error code. None on success.</summary>
         public WindowsClipboardErrorCode ErrorCode { get; }
@@ -29,31 +30,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>Creates a successful query result.</summary>
         /// <param name="operation">Native operation name.</param>
-        /// <param name="value">The queried flag.</param>
+        /// <param name="hasFormat">Whether the clipboard holds the format.</param>
         /// <returns>A successful result.</returns>
-        public static WindowsClipboardFlagResult Success(string operation, bool value) =>
-            new(operation, true, value, WindowsClipboardErrorCode.None, null);
+        public static WindowsClipboardFormatPresenceResult Success(string operation, bool hasFormat) =>
+            new(operation, true, hasFormat, WindowsClipboardErrorCode.None, null);
 
         /// <summary>Creates a failed result.</summary>
         /// <param name="operation">Native operation name.</param>
         /// <param name="code">The error code.</param>
         /// <param name="detail">Extra text for InvalidArgument.</param>
         /// <returns>A failed result whose message is never null.</returns>
-        public static WindowsClipboardFlagResult Failure(
+        public static WindowsClipboardFormatPresenceResult Failure(
             string operation, WindowsClipboardErrorCode code, string? detail = null)
         {
             WindowsClipboardErrorCode effective =
                 code == WindowsClipboardErrorCode.None ? WindowsClipboardErrorCode.Unknown : code;
-            return new WindowsClipboardFlagResult(
+            return new WindowsClipboardFormatPresenceResult(
                 operation, false, false, effective, effective.ToMessage(operation, detail));
         }
 
-        private WindowsClipboardFlagResult(string operation, bool isSuccess, bool value,
+        private WindowsClipboardFormatPresenceResult(string operation, bool isSuccess, bool hasFormat,
             WindowsClipboardErrorCode errorCode, string? errorMessage)
         {
             Operation = operation;
             IsSuccess = isSuccess;
-            Value = value;
+            HasFormat = hasFormat;
             ErrorCode = errorCode;
             ErrorMessage = errorMessage;
         }
