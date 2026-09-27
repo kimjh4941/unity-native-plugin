@@ -73,7 +73,7 @@ Windows は native-toolkit の C ABI（ヘッダーは `native-toolkit/dist/<版
 DLL は dist の `windows-native-toolkit-capi-<版>.dll`）を P/Invoke で呼ぶ。
 以下は Dialog / Notification / Clipboard を 2.0.0 に移す設計（`artifact/features/{dialog,notification,clipboard}/designs/`
 の 2026-09-27 版）で決めた約束ごとで、新しい Windows の機能も従う。
-1.x の C ABI（`unity-windows-native-toolkit.dll`、UTF-16 のバッファと JSON）で書かれた既存のコードは、移行が済むまでこの限りではない。
+3 機能とも 2026-09-27 に移行を終え、1.x の C ABI（`unity-windows-native-toolkit.dll`、UTF-16 のバッファと JSON）を呼ぶコードは残っていない。
 
 **ファイルの置き場所**
 

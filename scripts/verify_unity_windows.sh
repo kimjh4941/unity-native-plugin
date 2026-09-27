@@ -10,9 +10,9 @@
 #
 # The build steps mutate the working tree: PreBuildProcessor places the native DLL named by
 # Plugins/Windows/VERSION.txt, and Unity may re-serialize settings and assets (render pipeline
-# settings, the Windows build profile - sometimes only their line endings). The player-test
-# step is a development build, so it also swaps unity-windows-native-toolkit.dll for
-# unity-windows-native-toolkit-debug.dll. None of this belongs in a commit, so the script puts it
+# settings, the Windows build profile - sometimes only their line endings). The Windows DLL keeps
+# its dist name in both builds, so the development build of the player-test step places the same
+# file. None of this belongs in a commit, so the script puts it
 # back at the end: it restores or removes what the run changed under those locations, and leaves
 # alone any file that already had changes before the run, so uncommitted work there is never
 # thrown away. --keep-changes skips the cleanup when the build output itself is what you want.

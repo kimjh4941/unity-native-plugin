@@ -70,9 +70,9 @@ ABI から JSON が消えるため、JSON を前提に作った層が丸ごと�
 
 ### 2.3 差し替えるバイナリ
 
-| 今 | 2.0.0 |
+| 1.x（移行前） | 2.0.0（2026-09-27 に移行済み） |
 |---|---|
-| `Plugins/Windows/unity-windows-native-toolkit.dll` | `Plugins/Windows/windows-native-toolkit-capi-2.0.0.dll`（**dist の名前のまま置く**。DLL 自身の名前は `NativeToolkitC.dll`） |
+| `Plugins/Windows/unity-windows-native-toolkit.dll`（削除した） | `Plugins/Windows/windows-native-toolkit-capi-2.0.0.dll`（**dist の名前のまま置く**。DLL 自身の名前は `NativeToolkitC.dll`） |
 | `Plugins/Windows/Microsoft.WindowsAppRuntime.Bootstrap.dll` | **変更なし。** 隣に置く要件も同じ |
 
 x64 のみ。最初のネイティブ呼び出しの前に、`ntk_version()` の major（`>> 16`）が 2 であることを 1 回確かめる
@@ -212,7 +212,7 @@ D は今日すぐビルドを回す必要があるときの応急手当てとし
    1.x を追加のピン（`extra_dist_version` / `extra_dll` / `extra_install_as` / `extra_install_as_debug`）に移した。
    PreBuildProcessor は両方のコピー元を削除より前に解決し、両方の名前を削除から除き、両方に importer を当てる
 2. 機能ごとに: Manager を `WindowsNativeToolkitCApi` と機能の Bridge 経由に書き換える（Dialog は済み）
-3. 3 機能を移し終えたら: 追加のピンのキーと PreBuildProcessor の処理を消し、VERSION.txt のコメントを直す
+3. 済み（2026-09-27、Clipboard の手順 6）: 追加のピンのキーと PreBuildProcessor の処理を消し、1.x の DLL を削除し、VERSION.txt のコメントを直した
 
 #### 併せて壊れているもの
 

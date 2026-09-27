@@ -95,18 +95,15 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
 
         /// <summary>
-        /// Reads the pins: the main one, and the extra one when <c>extra_dist_version</c> is set.
-        /// Throws <see cref="BuildFailedException"/> when the file or a required key is missing,
-        /// rather than falling back to a guess.
+        /// Reads the pin. Throws <see cref="BuildFailedException"/> when the file or a required key is
+        /// missing, rather than falling back to a guess.
         /// </summary>
         /// <remarks>
-        /// The extra pin exists only while the Windows features move to the 2.0.0 C ABI one at a time
-        /// (artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, J-6): the main
-        /// pin is the 2.0.0 C ABI DLL, the extra one the 1.x DLL the features not moved yet still load.
-        /// Its keys mean what the main ones do, except that it has no debug_dll: dist has never
-        /// published a -debug.dll for Windows, so its source is always extra_dll.
+        /// While the Windows features moved to the 2.0.0 C ABI one at a time, a second pin placed the
+        /// 1.x DLL beside this one (artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md,
+        /// J-6). It was removed with the last feature's move; an extra_* key left in the file is ignored.
         /// </remarks>
-        internal static IReadOnlyList<WindowsPin> Read(string path)
+        internal static WindowsPin Read(string path)
         {
             if (!File.Exists(path))
             {
@@ -131,27 +128,12 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
                 values[key] = line.Substring(separator + 1).Trim();
             }
 
-            var pins = new List<WindowsPin>
-            {
-                new WindowsPin(
-                    Get(values, "dist_version", path, required: true),
-                    Get(values, "release_dll", path, required: true),
-                    Get(values, "debug_dll", path, required: false),
-                    Get(values, "install_as", path, required: false),
-                    Get(values, "install_as_debug", path, required: false)),
-            };
-
-            if (Get(values, "extra_dist_version", path, required: false) is string extraDistVersion)
-            {
-                pins.Add(new WindowsPin(
-                    extraDistVersion,
-                    Get(values, "extra_dll", path, required: true),
-                    null,
-                    Get(values, "extra_install_as", path, required: false),
-                    Get(values, "extra_install_as_debug", path, required: false)));
-            }
-
-            return pins;
+            return new WindowsPin(
+                Get(values, "dist_version", path, required: true),
+                Get(values, "release_dll", path, required: true),
+                Get(values, "debug_dll", path, required: false),
+                Get(values, "install_as", path, required: false),
+                Get(values, "install_as_debug", path, required: false));
         }
 
         private static string Get(IDictionary<string, string> values, string key, string path, bool required)
@@ -524,8 +506,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Copies the Windows DLLs named by Plugins/Windows/VERSION.txt from the dist folder to
-    /// Plugins/Windows: the main pin, and the extra pin while one is declared.
+    /// Copies the Windows DLL named by Plugins/Windows/VERSION.txt from the dist folder to
+    /// Plugins/Windows.
     /// </summary>
     private void CopyWindowsLibraries(string config)
     {
@@ -534,37 +516,29 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows");
 
-        IReadOnlyList<WindowsPin> pins = WindowsPin.Read(Path.Combine(destDir, WindowsPin.FileName));
-        var copies = new List<(string source, string destName)>();
+        WindowsPin pin = WindowsPin.Read(Path.Combine(destDir, WindowsPin.FileName));
+        string selectedDll = pin.SourceFor(isDevelopmentBuild);
+        string destName = pin.DestinationFor(isDevelopmentBuild);
 
-        // Resolve every source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        UnityEngine.Debug.Log(
+            $"[Build][Windows] Pinned by {WindowsPin.FileName}: dist_version={pin.DistVersion}, " +
+            $"dll={selectedDll}, install_as={destName} (config={config})");
+
+        // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
         // A pin that does not resolve is a configuration error, not something to work around by
         // copying whatever else is in dist: that is exactly how the 2.0.0 C ABI DLL got in here
-        // while the P/Invoke layer was still 1.x. The extra pin is checked the same way: without
-        // it, the features still on 1.x would build fine and fail only when they first load.
-        foreach (WindowsPin pin in pins)
+        // while the P/Invoke layer was still 1.x.
+        string distWinDir = Path.Combine(NativeToolkitDistRoot, pin.DistVersion, "windows");
+        string source = Path.Combine(distWinDir, selectedDll);
+        if (!File.Exists(source))
         {
-            string selectedDll = pin.SourceFor(isDevelopmentBuild);
-            string destName = pin.DestinationFor(isDevelopmentBuild);
-
-            UnityEngine.Debug.Log(
-                $"[Build][Windows] Pinned by {WindowsPin.FileName}: dist_version={pin.DistVersion}, " +
-                $"dll={selectedDll}, install_as={destName} (config={config})");
-
-            string distWinDir = Path.Combine(NativeToolkitDistRoot, pin.DistVersion, "windows");
-            string source = Path.Combine(distWinDir, selectedDll);
-            if (!File.Exists(source))
-            {
-                string available = Directory.Exists(distWinDir)
-                    ? string.Join(", ", Directory.GetFiles(distWinDir, "*.dll").Select(Path.GetFileName))
-                    : "(dist directory does not exist)";
-                throw new BuildFailedException(
-                    $"[Build][Windows] {WindowsPin.FileName} names {selectedDll} under dist/{pin.DistVersion}/windows, " +
-                    $"which is not there. Existing libraries were left untouched. Looked in: {distWinDir}. " +
-                    $"Available: {available}. Fix the pin or the dist folder; do not let the build pick something else.");
-            }
-
-            copies.Add((source, destName));
+            string available = Directory.Exists(distWinDir)
+                ? string.Join(", ", Directory.GetFiles(distWinDir, "*.dll").Select(Path.GetFileName))
+                : "(dist directory does not exist)";
+            throw new BuildFailedException(
+                $"[Build][Windows] {WindowsPin.FileName} names {selectedDll} under dist/{pin.DistVersion}/windows, " +
+                $"which is not there. Existing libraries were left untouched. Looked in: {distWinDir}. " +
+                $"Available: {available}. Fix the pin or the dist folder; do not let the build pick something else.");
         }
 
         if (!Directory.Exists(destDir))
@@ -574,18 +548,17 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         else
         {
             // Remove every other native-toolkit DLL (preserve third-party DLLs like Bootstrap), now that
-            // the replacements are known to exist. Both naming schemes are matched: the 1.x DLL was installed
+            // the replacement is known to exist. Both naming schemes are matched: the 1.x DLL was installed
             // as unity-windows-native-toolkit*.dll, the 2.0.0 C ABI keeps its dist name
-            // windows-native-toolkit-capi-*.dll. Moving a pin must not leave the old library beside the
-            // new one, or the player ships both; the names the pins place here are the ones kept.
-            // A file being replaced under the same name is overwritten below instead, so its .meta (and
+            // windows-native-toolkit-capi-*.dll. Moving the pin must not leave the old library beside the
+            // new one, or the player ships both.
+            // The file being replaced under the same name is overwritten below instead, so its .meta (and
             // GUID) survives; a file under a different name goes together with its .meta.
             IEnumerable<string> previous = Directory.GetFiles(destDir, "unity-windows-native-toolkit*.dll")
                 .Concat(Directory.GetFiles(destDir, "windows-native-toolkit*.dll"));
             foreach (string dll in previous)
             {
-                string name = Path.GetFileName(dll);
-                if (copies.Any(copy => string.Equals(name, copy.destName, StringComparison.OrdinalIgnoreCase)))
+                if (string.Equals(Path.GetFileName(dll), destName, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 File.Delete(dll);
@@ -596,16 +569,12 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             }
         }
 
-        foreach ((string source, string destName) in copies)
-        {
-            File.Copy(source, Path.Combine(destDir, destName), true);
-            UnityEngine.Debug.Log($"[Build][Windows] Copied {Path.GetFileName(source)} → {destName} to {destDir}");
-        }
+        File.Copy(source, Path.Combine(destDir, destName), true);
+        UnityEngine.Debug.Log($"[Build][Windows] Copied {selectedDll} → {destName} to {destDir}");
 
         AssetDatabase.Refresh();
 
-        foreach (var (_, destName) in copies)
-            ConfigureWindowsPluginImporter($"Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/{destName}");
+        ConfigureWindowsPluginImporter($"Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/{destName}");
 
         UnityEngine.Debug.Log($"[Build][Windows] Copy completed to {destDir}");
     }
