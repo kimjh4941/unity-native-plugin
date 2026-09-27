@@ -7,7 +7,7 @@
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
 - 進捗: **実装中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
-  **Dialog は移行済み**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v1.md`）。
+  **Dialog は移行済み**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v2.md`）。
   Notification（設計 v8）と Clipboard（設計 v12）が残る
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
@@ -362,7 +362,7 @@ native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原�
 
 > **移行済み（2026-09-27）。** 下の違いは Manager が公開 API の形に戻すので、公開 API で見える変化は限られる
 > （キャンセルは `-1` のまま、複数ファイルは 1.x もフルパス、上書き確認は常に出す、ファイル系の title と owner は使わない）。
-> 公開 API で変わった振る舞いは、Dialog 設計 v6 の 5.3 と実装結果 v1 の「既知の差分」にある。
+> 公開 API で変わった振る舞いは、Dialog 設計 v6 の 5.3 と実装結果 v2 の「既知の差分」にある。
 
 | 旧 | 新 | 変わること |
 |---|---|---|
