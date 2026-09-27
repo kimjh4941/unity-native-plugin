@@ -6,7 +6,8 @@
 - 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に、
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
-- 進捗: **企画中。** 47 本の対応は確定（5 章）。設計書は未着手
+- 進捗: **設計中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。設計書に着手（2026-09-27）
+- **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
 
 - 対象: `Runtime/Clipboard/Windows*.cs`、`Runtime/Notification/Windows*.cs`、`Runtime/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
@@ -363,11 +364,11 @@ native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原�
 | Q-1 | 関数の数 | **解決（2026-09-23）。** 105。`.def` が 105 行で、これがリンカの export。114 は typedef 9 本を含めた数 |
 | Q-2 | JSON 依存層の廃止範囲 | **解決（2026-09-23）。** 5 ファイルすべて廃止。base64 ヘルパーと truncation 処理も道連れ。残る JSON は `raw_arguments` のみ（2.2） |
 | Q-3 | 47 本の対応と未使用 5 本 | **解決（2026-09-23）。** 5 章。未使用 5 本は E-6 で廃止、移植不要 |
-| Q-4 | サンプルシーンの作り直しが要るか。要るなら `design-sample-scene` へ別途切り出す | 未決 |
-| Q-5 | NuGet の `NativeToolkit.CApi 2.0.0` を使うか、DLL を直接同梱するか | 未決 |
-| Q-6 | チケット番号（`UNT-13` 以降）を採番する | 未決 |
+| Q-4 | サンプルシーンの作り直しが要るか。要るなら `design-sample-scene` へ別途切り出す | **解決（2026-09-27）。作り直さない。** Manager の公開 API を保ち、中の P/Invoke 層だけを 2.0.0 に置き換える。サンプルの UI 自動テストがそのまま移行の検証になる。2.0.0 で意味が変わる戻り値（ダイアログのキャンセルなど）を公開 API にどう出すかは、設計書で 1 つずつ決める |
+| Q-5 | NuGet の `NativeToolkit.CApi 2.0.0` を使うか、DLL を直接同梱するか | **解決（2026-09-27）。DLL を直接同梱する。** Unity は NuGet をそのまま使えない。今と同じく PreBuildProcessor が dist からコピーし、`windows-native-toolkit-capi-2.0.0.dll` を dist の名前のまま使う（`Plugins/Windows/VERSION.txt` のコメント） |
+| Q-6 | チケット番号（`UNT-13` 以降）を採番する | **解決（2026-09-27）。新しく採番しない。** UI 自動化と同じ `feature/UNT-12` で続ける。PR は大きくなるが、コミットは内容ごとに分かれている |
 
-**残る 3 件はこちら側で決めること。** native-toolkit への確認は無い。
+6 件とも解決。
 
 ## 7. 参照
 
