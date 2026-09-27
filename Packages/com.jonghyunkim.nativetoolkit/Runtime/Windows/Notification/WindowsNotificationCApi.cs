@@ -624,6 +624,406 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             value = member.Elements;
             return true;
         }
+
+        // ── Native calls ─────────────────────────────────────────────────────────
+        // Compiled only into a Windows player. The manager keeps its calls inside the same #if and
+        // does nothing in the Editor (design v8 J-4), so there is nothing to stub here. Each wrapper
+        // returns ntk_notification_error; where a failure is worth logging, the system code is read
+        // right after the failing call, before any other native call.
+
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        /// <summary><c>ntk_notification_invoked_fn</c>. The activation is valid only during the call.</summary>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate void InvokedCallback(IntPtr userData, IntPtr activation);
+
+        /// <summary>
+        /// <c>GetCurrentPackageFullName</c> with a zero length and no buffer: 15700 without package
+        /// identity, 122 with it (<see cref="ClassifyPackage"/>).
+        /// </summary>
+        internal static int QueryPackageIdentity()
+        {
+            uint length = 0;
+            return GetCurrentPackageFullName(ref length, IntPtr.Zero);
+        }
+
+        internal static int InitializeRuntime(out IntPtr runtime, out uint systemCode)
+        {
+            runtime = IntPtr.Zero;
+            systemCode = 0;
+            int error = ntk_notification_runtime_initialize(RuntimeVersion, out runtime);
+            if (error != ErrorNone) systemCode = WindowsNativeToolkitCApi.ntk_last_system_code();
+            return error;
+        }
+
+        internal static int CreateManager(IntPtr onInvoked, bool isPackaged, string? displayName, string? iconUri,
+            out IntPtr manager, out uint systemCode)
+        {
+            manager = IntPtr.Zero;
+            systemCode = 0;
+            var allocated = new List<IntPtr>();
+            try
+            {
+                ManagerOptions options = BuildManagerOptions(onInvoked, isPackaged,
+                    WindowsNativeToolkitCApi.AllocUtf8(displayName, allocated),
+                    WindowsNativeToolkitCApi.AllocUtf8(iconUri, allocated));
+                int error = ntk_notification_manager_create(ref options, out manager);
+                if (error != ErrorNone) systemCode = WindowsNativeToolkitCApi.ntk_last_system_code();
+                return error;
+            }
+            finally
+            {
+                WindowsNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
+
+        /// <summary>Closes and frees the manager. Does nothing for <see cref="IntPtr.Zero"/>.</summary>
+        internal static void FreeManager(IntPtr manager)
+        {
+            if (manager != IntPtr.Zero) ntk_notification_manager_free(manager);
+        }
+
+        /// <summary>Releases the runtime; it unloads once no manager is open. Does nothing for <see cref="IntPtr.Zero"/>.</summary>
+        internal static void FreeRuntime(IntPtr runtime)
+        {
+            if (runtime != IntPtr.Zero) ntk_notification_runtime_free(runtime);
+        }
+
+        internal static int GetSetting(IntPtr manager, out int setting)
+        {
+            setting = -1;
+            return ntk_notification_get_setting(manager, out setting);
+        }
+
+        /// <summary>Builds the content from the steps and shows it.</summary>
+        internal static int Show(IntPtr manager, IReadOnlyList<ContentStep> steps, out uint systemCode) =>
+            WithContent(steps, content => ntk_notification_show(manager, content), out systemCode);
+
+        /// <summary>Builds the content from the steps and schedules it at <paramref name="unixMs"/>.</summary>
+        internal static int Schedule(IntPtr manager, IReadOnlyList<ContentStep> steps, long unixMs, out uint systemCode) =>
+            WithContent(steps, content => ntk_notification_schedule(manager, content, unixMs), out systemCode);
+
+        internal static int CancelScheduled(IntPtr manager, string? tag, string? group) =>
+            WithTagAndGroup(tag, group, (t, g) => ntk_notification_cancel_scheduled(manager, t, g));
+
+        internal static int RemoveByTag(IntPtr manager, string? tag, string? group) =>
+            WithTagAndGroup(tag, group, (t, g) => ntk_notification_remove_by_tag(manager, t, g));
+
+        internal static int UpdateProgress(IntPtr manager, string? tag, string? group, double value, string? valueString,
+            string? status, uint sequenceNumber)
+        {
+            var allocated = new List<IntPtr>();
+            try
+            {
+                ProgressUpdate update = BuildProgressUpdate(
+                    WindowsNativeToolkitCApi.AllocUtf8(tag, allocated),
+                    WindowsNativeToolkitCApi.AllocUtf8(group, allocated),
+                    value,
+                    WindowsNativeToolkitCApi.AllocUtf8(valueString, allocated),
+                    WindowsNativeToolkitCApi.AllocUtf8(status, allocated),
+                    sequenceNumber);
+                return ntk_notification_update_progress(manager, ref update);
+            }
+            finally
+            {
+                WindowsNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
+
+        internal static int SetBadge(IntPtr manager, int value) => ntk_notification_set_badge(manager, value);
+
+        internal static int RemoveById(IntPtr manager, uint id) => ntk_notification_remove_by_id(manager, id);
+
+        internal static int RemoveAll(IntPtr manager) => ntk_notification_remove_all(manager);
+
+        internal static int OpenSettings(IntPtr manager) => ntk_notification_open_settings(manager);
+
+        /// <summary>Lists the app's notifications; the list handle is read and freed here.</summary>
+        internal static int GetAll(IntPtr manager, out List<ListedNotification>? notifications, out uint systemCode)
+        {
+            notifications = null;
+            systemCode = 0;
+            IntPtr list = IntPtr.Zero;
+            try
+            {
+                int error = ntk_notification_get_all(manager, out list);
+                if (error != ErrorNone)
+                {
+                    systemCode = WindowsNativeToolkitCApi.ntk_last_system_code();
+                    return error;
+                }
+
+                ulong count = ntk_notification_list_count(list).ToUInt64();
+                var read = new List<ListedNotification>();
+                for (ulong i = 0; i < count; i++)
+                {
+                    var index = new UIntPtr(i);
+                    IntPtr tag = ntk_notification_list_tag_at(list, index, out UIntPtr tagSize);
+                    IntPtr group = ntk_notification_list_group_at(list, index, out UIntPtr groupSize);
+                    read.Add(new ListedNotification(
+                        ntk_notification_list_id_at(list, index),
+                        WindowsNativeToolkitCApi.ReadUtf8(tag, WindowsNativeToolkitCApi.ToByteCount(tagSize)),
+                        WindowsNativeToolkitCApi.ReadUtf8(group, WindowsNativeToolkitCApi.ToByteCount(groupSize))));
+                }
+                notifications = read;
+                return ErrorNone;
+            }
+            finally
+            {
+                if (list != IntPtr.Zero) ntk_notification_list_free(list);
+            }
+        }
+
+        /// <summary>
+        /// The activation's arguments as the JSON text 1.x passed (<c>raw_arguments</c>), copied out
+        /// at once: the activation lives only during the callback.
+        /// </summary>
+        internal static string ReadActivationArguments(IntPtr activation)
+        {
+            IntPtr data = ntk_notification_activation_raw_arguments(activation, out UIntPtr size);
+            return WindowsNativeToolkitCApi.ReadUtf8(data, WindowsNativeToolkitCApi.ToByteCount(size));
+        }
+
+        private static int WithTagAndGroup(string? tag, string? group, Func<IntPtr, IntPtr, int> call)
+        {
+            var allocated = new List<IntPtr>();
+            try
+            {
+                return call(WindowsNativeToolkitCApi.AllocUtf8(tag, allocated), WindowsNativeToolkitCApi.AllocUtf8(group, allocated));
+            }
+            finally
+            {
+                WindowsNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
+
+        /// <summary>
+        /// Creates the content, applies the steps in order, and hands it to <paramref name="deliver"/>.
+        /// The first step that fails stops it with its error. The content and every UTF-8 copy are
+        /// freed whatever happens, the copies even when freeing the content throws.
+        /// </summary>
+        private static int WithContent(IReadOnlyList<ContentStep> steps, Func<IntPtr, int> deliver, out uint systemCode)
+        {
+            systemCode = 0;
+            var allocated = new List<IntPtr>();
+            IntPtr content = IntPtr.Zero;
+            try
+            {
+                int error = ntk_notification_content_create(out content);
+                for (int i = 0; error == ErrorNone && i < steps.Count; i++)
+                {
+                    error = Apply(content, steps[i], allocated);
+                    if (error != ErrorNone)
+                        Debug.LogWarning($"[{LogTag}][{nameof(WithContent)}] {steps[i].Call} failed with error {error}");
+                }
+                if (error == ErrorNone) error = deliver(content);
+                if (error != ErrorNone) systemCode = WindowsNativeToolkitCApi.ntk_last_system_code();
+                return error;
+            }
+            finally
+            {
+                try
+                {
+                    if (content != IntPtr.Zero) ntk_notification_content_free(content);
+                }
+                finally
+                {
+                    WindowsNativeToolkitCApi.FreeAll(allocated);
+                }
+            }
+        }
+
+        /// <summary>One builder call. The strings are copied as UTF-8 into <paramref name="allocated"/>.</summary>
+        private static int Apply(IntPtr content, ContentStep step, List<IntPtr> allocated)
+        {
+            IntPtr Text(int at) => WindowsNativeToolkitCApi.AllocUtf8(step.Text(at), allocated);
+            UIntPtr Index(int at) => new UIntPtr((uint)step.Int(at));
+
+            switch (step.Call)
+            {
+                case ContentCall.SetTitle: return ntk_notification_content_set_title(content, Text(0));
+                case ContentCall.SetBody: return ntk_notification_content_set_body(content, Text(0));
+                case ContentCall.SetTag: return ntk_notification_content_set_tag(content, Text(0));
+                case ContentCall.SetGroup: return ntk_notification_content_set_group(content, Text(0));
+                case ContentCall.SetScenario: return ntk_notification_content_set_scenario(content, step.Int(0));
+                case ContentCall.SetDuration: return ntk_notification_content_set_duration(content, step.Int(0));
+                case ContentCall.AddButton:
+                {
+                    int error = ntk_notification_content_add_button(content, Text(0), Text(1), step.Int(2), out UIntPtr index);
+                    return error == ErrorNone ? ExpectIndex(step, index, 3) : error;
+                }
+                case ContentCall.AddButtonArgument:
+                    return ntk_notification_content_add_button_argument(content, Index(0), Text(1), Text(2));
+                case ContentCall.AddTextInput: return ntk_notification_content_add_text_input(content, Text(0), Text(1), Text(2));
+                case ContentCall.AddCombo:
+                {
+                    int error = ntk_notification_content_add_combo(content, Text(0), Text(1), Text(2), out UIntPtr index);
+                    return error == ErrorNone ? ExpectIndex(step, index, 3) : error;
+                }
+                case ContentCall.AddComboItem: return ntk_notification_content_add_combo_item(content, Index(0), Text(1), Text(2));
+                case ContentCall.SetAppLogo: return ntk_notification_content_set_app_logo(content, Text(0), step.Int(1));
+                case ContentCall.SetHeroImage: return ntk_notification_content_set_hero_image(content, Text(0));
+                case ContentCall.SetInlineImage: return ntk_notification_content_set_inline_image(content, Text(0));
+                case ContentCall.SetAudio: return ntk_notification_content_set_audio(content, step.Int(0), Text(1), Text(2), step.Int(3));
+                case ContentCall.SetProgress: return ntk_notification_content_set_progress(content, Text(0), step.Double(1), Text(2), Text(3));
+                case ContentCall.SetAttribution: return ntk_notification_content_set_attribution(content, Text(0));
+                case ContentCall.SetTimestamp: return ntk_notification_content_set_timestamp(content, step.Long(0));
+                case ContentCall.SetExpiration: return ntk_notification_content_set_expiration(content, step.Long(0));
+                case ContentCall.SetExpiresOnReboot: return ntk_notification_content_set_expires_on_reboot(content, step.Int(0));
+                default: return ErrorHresultFailure;
+            }
+        }
+
+        /// <summary>
+        /// The index a button or combo got must be the one the plan gave its arguments and items;
+        /// otherwise they would land on another element. It cannot differ while every add succeeds.
+        /// </summary>
+        private static int ExpectIndex(ContentStep step, UIntPtr actual, int at)
+        {
+            if (actual.ToUInt64() == (ulong)step.Int(at)) return ErrorNone;
+            Debug.LogWarning($"[{LogTag}][{nameof(ExpectIndex)}] {step.Call} got index {actual.ToUInt64()}, not {step.Int(at)}");
+            return ErrorHresultFailure;
+        }
+
+        [DllImport("kernel32.dll")]
+        private static extern int GetCurrentPackageFullName(ref uint packageFullNameLength, IntPtr packageFullName);
+
+        // Runtime and manager
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_runtime_initialize(uint majorMinor, out IntPtr runtime);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void ntk_notification_runtime_free(IntPtr runtime);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_manager_create(ref ManagerOptions options, out IntPtr manager);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void ntk_notification_manager_close(IntPtr manager);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void ntk_notification_manager_free(IntPtr manager);
+
+        // Content builder
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_create(out IntPtr content);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void ntk_notification_content_free(IntPtr content);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_title(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_body(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_tag(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_group(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_scenario(IntPtr content, int value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_hero_image(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_inline_image(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_app_logo(IntPtr content, IntPtr uri, int crop);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_attribution(IntPtr content, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_duration(IntPtr content, int value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_audio(IntPtr content, int kind, IntPtr eventName, IntPtr uri, int loop);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_add_button(IntPtr content, IntPtr label, IntPtr invokeUri, int withArguments, out UIntPtr index);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_add_button_argument(IntPtr content, UIntPtr buttonIndex, IntPtr key, IntPtr value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_add_text_input(IntPtr content, IntPtr id, IntPtr placeholder, IntPtr title);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_add_combo(IntPtr content, IntPtr id, IntPtr title, IntPtr defaultSelection, out UIntPtr index);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_add_combo_item(IntPtr content, UIntPtr comboIndex, IntPtr id, IntPtr label);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_progress(IntPtr content, IntPtr title, double value, IntPtr valueString, IntPtr status);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_timestamp(IntPtr content, long unixMs);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_expiration(IntPtr content, long seconds);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_content_set_expires_on_reboot(IntPtr content, int value);
+
+        // Operations
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_show(IntPtr manager, IntPtr content);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_schedule(IntPtr manager, IntPtr content, long unixMs);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_cancel_scheduled(IntPtr manager, IntPtr tag, IntPtr group);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_update_progress(IntPtr manager, ref ProgressUpdate update);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_set_badge(IntPtr manager, int value);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_remove_by_id(IntPtr manager, uint id);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_remove_by_tag(IntPtr manager, IntPtr tag, IntPtr group);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_remove_all(IntPtr manager);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_get_all(IntPtr manager, out IntPtr list);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_get_setting(IntPtr manager, out int setting);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int ntk_notification_open_settings(IntPtr manager);
+
+        // List
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern UIntPtr ntk_notification_list_count(IntPtr list);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern uint ntk_notification_list_id_at(IntPtr list, UIntPtr index);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr ntk_notification_list_tag_at(IntPtr list, UIntPtr index, out UIntPtr size);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr ntk_notification_list_group_at(IntPtr list, UIntPtr index, out UIntPtr size);
+
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void ntk_notification_list_free(IntPtr list);
+
+        // Activation
+        [DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr ntk_notification_activation_raw_arguments(IntPtr activation, out UIntPtr size);
+#endif
     }
 }
 #endif
