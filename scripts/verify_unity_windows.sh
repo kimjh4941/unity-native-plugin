@@ -239,6 +239,12 @@ else
   stop_test_players >/dev/null
   report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))
 
+  # The test player's own log: what it wrote off the main thread (COM activations, for one) is
+  # there and not in the result file. Kept now, as the quit run below writes over it.
+  main_player_log="$(ls -t "$USERPROFILE"/AppData/LocalLow/*/*/Player.log 2>/dev/null \
+    | while read -r f; do head -3 "$f" | grep -q NativeToolkitTestPlayer && { echo "$f"; break; }; done)"
+  [ -n "$main_player_log" ] && cp "$main_player_log" "$OUT_DIR/Player-main.log"
+
   # Block C turns clipboard history off and puts it back in its teardown. A player that died in
   # between would leave the developer's history off, so the setting read before the run is put
   # back here too, and a run that needed it counts as failed.
