@@ -28,8 +28,8 @@
 # - main pin (2.0.0 C ABI): WindowsNativeToolkitCApi.DllName in
 #   Runtime/Windows/Common, with ".dll". The name contains '.', so it is written
 #   out in full rather than left for the loader to complete.
-# - extra pin (1.x): DLL_NAME in the managers still on 1.x (Runtime/Windows/
-#   Clipboard, Notification and Dialog until each moves), without ".dll".
+# - extra pin (1.x): DLL_NAME in the managers still on 1.x, without ".dll".
+#   Dialog and Notification have moved; only Runtime/Windows/Clipboard loads it now.
 
 # Main pin: the 2.0.0 C ABI, under its own dist name for both builds.
 dist_version: 1.12.0

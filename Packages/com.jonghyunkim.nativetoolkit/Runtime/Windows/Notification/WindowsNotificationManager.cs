@@ -4,25 +4,37 @@
 namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
 {
     using System;
+    using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using AOT;
     using JonghyunKim.NativeToolkit.Runtime.Common;
+    using JonghyunKim.NativeToolkit.Runtime.Windows.Common;
     using UnityEngine;
 
     /// <summary>
-    /// Singleton manager for Windows native notification operations.
-    /// Wraps the native WindowsNotificationManager DLL via P/Invoke.
-    /// All callbacks are dispatched to the Unity main thread via <see cref="UnityMainThreadDispatcher"/>.
+    /// Singleton manager for Windows native notification operations, over native-toolkit's C ABI 2.0.0.
+    /// Every operation is synchronous: its result reaches the per-call callback and then the event
+    /// within the call. Only <see cref="NotificationInvoked"/> arrives later, on the Unity main thread
+    /// via <see cref="UnityMainThreadDispatcher"/>.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// In the Unity Editor nothing reaches the native library: no call reports anything, and
+    /// <see cref="GetNotificationSetting"/> is <see cref="WindowsNotificationSetting.Unknown"/>.
+    /// </para>
+    /// <para>
+    /// Changes from native-toolkit 1.x: a clicked button now reaches a running unpackaged app;
+    /// a payload key that is missing where required, of another type, or <c>null</c> is 7 (was 5);
+    /// a number a double cannot hold, nesting deeper than 512, or a <c>null</c> payload is 3; a
+    /// <c>timestamp</c>, <c>expiration</c> or scheduled time out of range is 7; <c>GetAllNotifications</c>
+    /// no longer cuts a long list short; <c>UpdateNotificationProgress</c> sets a null
+    /// <c>valueStr</c> or <c>status</c> to empty; a missing or mismatched native library is -4 from
+    /// <see cref="Initialize"/> instead of an exception; other C# exceptions are 5.
+    /// </para>
+    /// </remarks>
     public class WindowsNotificationManager : MonoBehaviour
     {
         private const string LogTag = "WindowsNotificationManager";
-
-#if DEVELOPMENT_BUILD
-        private const string DLL_NAME = "unity-windows-native-toolkit-debug";
-#else
-        private const string DLL_NAME = "unity-windows-native-toolkit";
-#endif
 
         // ── Operation constants ──────────────────────────────────────────────────
 
@@ -70,10 +82,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         // ── Events ───────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Raised when any pError-based operation completes (show, schedule, badge, remove, etc.).
+        /// Raised when any operation completes (show, schedule, badge, remove, etc.), after its
+        /// per-call callback. Not raised by GetAllNotifications or GetNotificationSetting.
         /// </summary>
         public event Action<WindowsNotificationResult>? NotificationOperationCompleted;
 
+        // In the Editor these two are never raised (nothing reaches the native library, design v8
+        // J-4), which the compiler reports as CS0067.
+#pragma warning disable CS0067
         /// <summary>
         /// Raised when the user interacts with a notification.
         /// The argsJson string contains the merged action arguments and user input as JSON.
@@ -86,101 +102,26 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         /// The first argument is the JSON array string on success; null on failure.
         /// </summary>
         public event Action<string?, WindowsNotificationResult>? GetAllNotificationsCompleted;
+#pragma warning restore CS0067
 
-        // ── Delegate types (IL2CPP / AOT safe) ──────────────────────────────────
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        // ── Native state (Windows player only) ──────────────────────────────────
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void NotificationInvokedCallback(
-            [MarshalAs(UnmanagedType.LPWStr)] string argsJson);
+        /// <summary>The activation handler, kept alive for the whole process: an activation may still arrive after close.</summary>
+        private static readonly WindowsNotificationCApi.InvokedCallback s_invokedCallback = OnNotificationInvoked;
 
-        // ── DllImport declarations ───────────────────────────────────────────────
+        /// <summary>
+        /// Taken on the main thread in Awake, so the native thread never touches
+        /// <see cref="UnityMainThreadDispatcher.Instance"/>, whose getter would create a GameObject there.
+        /// </summary>
+        private static UnityMainThreadDispatcher? s_dispatcher;
 
-        [DllImport(DLL_NAME)]
-        private static extern void initWinAppSdk(uint majorMinorVersion, out int pError);
+        /// <summary>The Windows App SDK runtime, kept until OnDestroy even when creating the manager fails (design v8 J-9).</summary>
+        private IntPtr _runtime;
 
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void initNotificationManager(
-            NotificationInvokedCallback callback,
-            [MarshalAs(UnmanagedType.Bool)] bool isPackaged,
-            [MarshalAs(UnmanagedType.LPWStr)] string? displayName,
-            [MarshalAs(UnmanagedType.LPWStr)] string? iconUri,
-            out int pError);
-
-        [DllImport(DLL_NAME)]
-        private static extern void uninitNotificationManager();
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void showNotification(
-            [MarshalAs(UnmanagedType.LPWStr)] string jsonPayload, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void scheduleNotification(
-            [MarshalAs(UnmanagedType.LPWStr)] string jsonPayload,
-            long scheduledTimeUnixMs, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void cancelScheduledNotification(
-            [MarshalAs(UnmanagedType.LPWStr)] string tag,
-            [MarshalAs(UnmanagedType.LPWStr)] string group, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void updateNotificationProgress(
-            [MarshalAs(UnmanagedType.LPWStr)] string tag,
-            [MarshalAs(UnmanagedType.LPWStr)] string group,
-            double value,
-            [MarshalAs(UnmanagedType.LPWStr)] string valueStr,
-            [MarshalAs(UnmanagedType.LPWStr)] string status,
-            uint sequenceNumber, out int pError);
-
-        [DllImport(DLL_NAME)]
-        private static extern void setBadge(int value, out int pError);
-
-        [DllImport(DLL_NAME)]
-        private static extern void removeNotificationById(uint notificationId, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void removeNotificationsByTag(
-            [MarshalAs(UnmanagedType.LPWStr)] string tag,
-            [MarshalAs(UnmanagedType.LPWStr)] string group, out int pError);
-
-        [DllImport(DLL_NAME)]
-        private static extern void removeAllNotifications(out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern void getAllNotifications(
-            IntPtr outJson, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME)]
-        private static extern int getNotificationSetting();
-
-        [DllImport(DLL_NAME)]
-        private static extern void openNotificationSettings(out int pError);
-
-        // ── Static delegate storage (GC prevention) ──────────────────────────────
-
-        private static readonly NotificationInvokedCallback s_persistentInvokedDelegate = OnNotificationInvoked;
-
-        // Per-call user callbacks
-        private static Action<WindowsNotificationResult>? s_onInitialize;
-        private static Action<WindowsNotificationResult>? s_onShow;
-        private static Action<WindowsNotificationResult>? s_onSchedule;
-        private static Action<WindowsNotificationResult>? s_onCancelScheduled;
-        private static Action<WindowsNotificationResult>? s_onUpdateProgress;
-        private static Action<WindowsNotificationResult>? s_onSetBadge;
-        private static Action<WindowsNotificationResult>? s_onRemoveById;
-        private static Action<WindowsNotificationResult>? s_onRemoveByTag;
-        private static Action<WindowsNotificationResult>? s_onRemoveAll;
-        private static Action<string?, WindowsNotificationResult>? s_onGetAll;
-        private static Action<WindowsNotificationResult>? s_onOpenSettings;
-
-        // ── Buffer constants ─────────────────────────────────────────────────────
-
-        private const uint DefaultBufferSize = 4096;
-        private const uint MaxBufferSize     = 65536;
-
-        // ── State ────────────────────────────────────────────────────────────────
-
-        private bool _initialized;
+        /// <summary>The native manager. Zero until Initialize succeeds; every operation is 1 without it.</summary>
+        private IntPtr _manager;
+#endif
 
         // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -197,18 +138,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
                 Destroy(gameObject);
                 return;
             }
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            s_dispatcher = UnityMainThreadDispatcher.Instance;
+#else
             _ = UnityMainThreadDispatcher.Instance;
+#endif
         }
 
         private void OnDestroy()
         {
             Debug.Log($"[{LogTag}][{nameof(OnDestroy)}]");
             if (_instance != this) return;
-            if (_initialized)
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            // The manager before the runtime: the runtime unloads once no manager is open.
+            try
             {
-                uninitNotificationManager();
-                _initialized = false;
+                WindowsNotificationCApi.FreeManager(_manager);
+                WindowsNotificationCApi.FreeRuntime(_runtime);
             }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[{LogTag}][{nameof(OnDestroy)}] {ex.GetType().Name}: {ex.Message}");
+            }
+            _manager = IntPtr.Zero;
+            _runtime = IntPtr.Zero;
+#endif
             _instance = null;
         }
 
@@ -216,29 +170,46 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
 
         /// <summary>
         /// Initializes the native notification manager and registers the invoked callback.
+        /// A second call while initialized succeeds without doing anything; its arguments are ignored.
         /// </summary>
         /// <param name="isPackaged">True if the app is packaged (MSIX). False for standalone Unity builds.</param>
-        /// <param name="displayName">Display name shown in notifications. Required for unpackaged apps; ignored when isPackaged is true.</param>
-        /// <param name="iconUri">Icon URI shown in notifications, e.g. "file:///C:/path/app.ico". Optional for unpackaged apps; ignored when isPackaged is true.</param>
+        /// <param name="displayName">
+        /// Display name shown in notifications. Required for unpackaged apps; ignored when isPackaged is true.
+        /// It is the app's identity for Windows: two apps with the same name take each other's button clicks.
+        /// </param>
+        /// <param name="iconUri">Icon URI shown in notifications, e.g. "file:///C:/path/app.ico". Required for unpackaged apps; ignored when isPackaged is true.</param>
         /// <param name="onResult">Per-call result callback. Also fires <see cref="NotificationOperationCompleted"/>.</param>
+        /// <remarks>
+        /// Error 7 when an unpackaged app has no name or icon; -4 when the native library is missing,
+        /// incomplete, or of another major version. Whether the Windows App SDK runtime is loaded
+        /// follows the process's package identity, not <paramref name="isPackaged"/>; the packaged
+        /// path has not been tested on a device.
+        /// </remarks>
         public void Initialize(bool isPackaged = false, string? displayName = null, string? iconUri = null,
             Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(Initialize)}] isPackaged: {isPackaged}, displayName: {displayName}, iconUri: {iconUri}, onResult: {onResult != null}");
-            s_onInitialize = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            initWinAppSdk(0x00010007, out int bootstrapError);
-            if (bootstrapError != 0)
+            if (_manager != IntPtr.Zero)
             {
-                Debug.LogError($"[{LogTag}][{nameof(Initialize)}] initWinAppSdk failed. error: {bootstrapError}");
-                FireResult(OperationInitialize, bootstrapError, s_onInitialize);
-                s_onInitialize = null;
+                FireResult(OperationInitialize, WindowsNotificationCApi.ErrorNone, onResult);
                 return;
             }
-            initNotificationManager(s_persistentInvokedDelegate, isPackaged, displayName, iconUri, out int pError);
-            if (pError == 0) _initialized = true;
-            FireResult(OperationInitialize, pError, s_onInitialize);
-            s_onInitialize = null;
+
+            int code;
+            try
+            {
+                code = WindowsNativeToolkitCApi.EnsureNativeAvailable() == WindowsNativeToolkitCApi.NativeState.Available
+                    ? InitializeNative(isPackaged, displayName, iconUri)
+                    : WindowsNotificationCApi.NativeUnavailable;
+            }
+            catch (Exception ex)
+            {
+                code = Caught(nameof(Initialize), ex);
+            }
+            FireResult(OperationInitialize, code, onResult);
+#endif
         }
 
         /// <summary>
@@ -246,31 +217,34 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         /// </summary>
         /// <param name="jsonPayload">JSON string built by <see cref="WindowsNotificationJsonBuilder.BuildNotificationPayload"/>.</param>
         /// <param name="onResult">Per-call result callback.</param>
+        /// <remarks>Checked in this order: 1 not initialized, 2 notifications off, 3 not a JSON object, 7 invalid payload.</remarks>
         public void ShowNotification(string jsonPayload, Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(ShowNotification)}] jsonPayload: {jsonPayload}, onResult: {onResult != null}");
-            s_onShow = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            showNotification(jsonPayload, out int pError);
-            FireResult(OperationShow, pError, s_onShow);
-            s_onShow = null;
+            FireResult(OperationShow, Deliver(nameof(ShowNotification), jsonPayload,
+                (List<WindowsNotificationCApi.ContentStep> steps, out uint systemCode) => WindowsNotificationCApi.Show(_manager, steps, out systemCode)),
+                onResult);
+#endif
         }
 
         /// <summary>
         /// Schedules a notification for delivery at the specified Unix epoch time.
         /// </summary>
         /// <param name="jsonPayload">JSON string built by <see cref="WindowsNotificationJsonBuilder.BuildNotificationPayload"/>.</param>
-        /// <param name="scheduledTimeUnixMs">Delivery time as Unix epoch milliseconds.</param>
+        /// <param name="scheduledTimeUnixMs">Delivery time as Unix epoch milliseconds. Beyond about 29,000 years either side is error 7.</param>
         /// <param name="onResult">Per-call result callback.</param>
         public void ScheduleNotification(string jsonPayload, long scheduledTimeUnixMs,
             Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(ScheduleNotification)}] jsonPayload: {jsonPayload}, scheduledTimeUnixMs: {scheduledTimeUnixMs}, onResult: {onResult != null}");
-            s_onSchedule = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            scheduleNotification(jsonPayload, scheduledTimeUnixMs, out int pError);
-            FireResult(OperationSchedule, pError, s_onSchedule);
-            s_onSchedule = null;
+            FireResult(OperationSchedule, Deliver(nameof(ScheduleNotification), jsonPayload,
+                (List<WindowsNotificationCApi.ContentStep> steps, out uint systemCode) => WindowsNotificationCApi.Schedule(_manager, steps, scheduledTimeUnixMs, out systemCode)),
+                onResult);
+#endif
         }
 
         /// <summary>
@@ -283,11 +257,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(CancelScheduledNotification)}] tag: {tag}, group: {group}, onResult: {onResult != null}");
-            s_onCancelScheduled = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            cancelScheduledNotification(tag, group, out int pError);
-            FireResult(OperationCancelScheduled, pError, s_onCancelScheduled);
-            s_onCancelScheduled = null;
+            Run(OperationCancelScheduled, nameof(CancelScheduledNotification), onResult,
+                manager => WindowsNotificationCApi.CancelScheduled(manager, tag, group));
+#endif
         }
 
         /// <summary>
@@ -296,49 +270,57 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         /// <param name="tag">The notification tag.</param>
         /// <param name="group">The notification group.</param>
         /// <param name="value">Progress value between 0.0 and 1.0.</param>
-        /// <param name="valueStr">Human-readable progress string (e.g., "50%").</param>
-        /// <param name="status">Status label text.</param>
+        /// <param name="valueStr">Human-readable progress string (e.g., "50%"). Null sets it empty.</param>
+        /// <param name="status">Status label text. Null sets it empty.</param>
         /// <param name="sequenceNumber">Must be greater than the previous sequence number.</param>
         /// <param name="onResult">Per-call result callback.</param>
         public void UpdateNotificationProgress(string tag, string group, double value, string valueStr,
             string status, uint sequenceNumber, Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(UpdateNotificationProgress)}] tag: {tag}, group: {group}, value: {value}, valueStr: {valueStr}, status: {status}, sequenceNumber: {sequenceNumber}, onResult: {onResult != null}");
-            s_onUpdateProgress = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            updateNotificationProgress(tag, group, value, valueStr, status, sequenceNumber, out int pError);
-            FireResult(OperationUpdateProgress, pError, s_onUpdateProgress);
-            s_onUpdateProgress = null;
+            Run(OperationUpdateProgress, nameof(UpdateNotificationProgress), onResult,
+                manager => WindowsNotificationCApi.UpdateProgress(manager, tag, group, value, valueStr, status, sequenceNumber));
+#endif
         }
 
         /// <summary>
         /// Sets the taskbar badge. Pass a positive integer for a numeric badge, or use <see cref="WindowsBadgeValue"/> for glyphs.
+        /// Not supported for unpackaged apps (error 8).
         /// </summary>
         /// <param name="value">Badge value. Positive = numeric, 0 = clear, negative = glyph (see <see cref="WindowsBadgeValue"/>).</param>
         /// <param name="onResult">Per-call result callback.</param>
         public void SetBadge(int value, Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(SetBadge)}] value: {value}, onResult: {onResult != null}");
-            s_onSetBadge = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            setBadge(value, out int pError);
-            FireResult(OperationSetBadge, pError, s_onSetBadge);
-            s_onSetBadge = null;
+            // Below the lowest glyph is 7 before anything else, as in 1.x.
+            int invalid = WindowsNotificationCApi.CheckBadgeValue(value);
+            if (invalid != WindowsNotificationCApi.ErrorNone)
+            {
+                Debug.LogWarning($"[{LogTag}][{nameof(SetBadge)}] {value} is below the lowest glyph ({WindowsNotificationCApi.LowestBadgeValue})");
+                FireResult(OperationSetBadge, invalid, onResult);
+                return;
+            }
+            Run(OperationSetBadge, nameof(SetBadge), onResult, manager => WindowsNotificationCApi.SetBadge(manager, value));
+#endif
         }
 
         /// <summary>
-        /// Removes a specific notification by its ID.
+        /// Removes a specific notification by its ID. Not supported for unpackaged apps (error 8).
         /// </summary>
         /// <param name="notificationId">The notification ID to remove.</param>
         /// <param name="onResult">Per-call result callback.</param>
         public void RemoveNotificationById(uint notificationId, Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(RemoveNotificationById)}] notificationId: {notificationId}, onResult: {onResult != null}");
-            s_onRemoveById = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            removeNotificationById(notificationId, out int pError);
-            FireResult(OperationRemoveById, pError, s_onRemoveById);
-            s_onRemoveById = null;
+            Run(OperationRemoveById, nameof(RemoveNotificationById), onResult,
+                manager => WindowsNotificationCApi.RemoveById(manager, notificationId));
+#endif
         }
 
         /// <summary>
@@ -351,11 +333,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(RemoveNotificationsByTag)}] tag: {tag}, group: {group}, onResult: {onResult != null}");
-            s_onRemoveByTag = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            removeNotificationsByTag(tag, group, out int pError);
-            FireResult(OperationRemoveByTag, pError, s_onRemoveByTag);
-            s_onRemoveByTag = null;
+            Run(OperationRemoveByTag, nameof(RemoveNotificationsByTag), onResult,
+                manager => WindowsNotificationCApi.RemoveByTag(manager, tag, group));
+#endif
         }
 
         /// <summary>
@@ -365,31 +347,47 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         public void RemoveAllNotifications(Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(RemoveAllNotifications)}] onResult: {onResult != null}");
-            s_onRemoveAll = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            removeAllNotifications(out int pError);
-            FireResult(OperationRemoveAll, pError, s_onRemoveAll);
-            s_onRemoveAll = null;
+            Run(OperationRemoveAll, nameof(RemoveAllNotifications), onResult, WindowsNotificationCApi.RemoveAll);
+#endif
         }
 
         /// <summary>
-        /// Retrieves all current notifications as a JSON array string.
-        /// Automatically retries with a larger buffer if the initial buffer is insufficient.
+        /// Retrieves all current notifications as a JSON array string,
+        /// <c>[{"id":N,"tag":"…","group":"…"}]</c>. Not supported for unpackaged apps (error 8).
         /// </summary>
         /// <param name="onResult">
         /// Per-call result callback. The first argument is the JSON array string on success; null on failure.
-        /// Also fires <see cref="GetAllNotificationsCompleted"/>.
+        /// Also fires <see cref="GetAllNotificationsCompleted"/>, not <see cref="NotificationOperationCompleted"/>.
         /// </param>
         public void GetAllNotifications(Action<string?, WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(GetAllNotifications)}] onResult: {onResult != null}");
-            s_onGetAll = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
 
-            string? json = GetAllNotificationsInternal(out int pError);
-            var result = pError == 0
-                ? WindowsNotificationResult.Success(OperationGetAll)
-                : WindowsNotificationResult.Failure(OperationGetAll, pError);
+            string? json = null;
+            int code;
+            try
+            {
+                if (_manager == IntPtr.Zero)
+                {
+                    code = WindowsNotificationCApi.ErrorNotInitialized;
+                }
+                else
+                {
+                    code = WindowsNotificationCApi.GetAll(_manager, out List<WindowsNotificationCApi.ListedNotification>? notifications, out uint systemCode);
+                    if (code == WindowsNotificationCApi.ErrorNone) json = WindowsNotificationCApi.BuildGetAllJson(notifications!);
+                    else Debug.LogWarning($"[{LogTag}][{nameof(GetAllNotifications)}] error {code}, system code 0x{systemCode:X8}");
+                }
+            }
+            catch (Exception ex)
+            {
+                code = Caught(nameof(GetAllNotifications), ex);
+            }
+
+            var result = WindowsNotificationCApi.ToResult(OperationGetAll, code);
             try
             {
                 onResult?.Invoke(json, result);
@@ -399,23 +397,33 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             {
                 Debug.LogError($"[{LogTag}][{nameof(GetAllNotifications)}] {ex.Message}");
             }
-            s_onGetAll = null;
+#endif
         }
 
         /// <summary>
         /// Returns the current notification permission setting as a <see cref="WindowsNotificationSetting"/> enum.
         /// This is a synchronous special API that does not use the result/event contract.
         /// </summary>
-        /// <returns>The current notification setting, or <see cref="WindowsNotificationSetting.Unknown"/> on error.</returns>
+        /// <returns>The current notification setting, or <see cref="WindowsNotificationSetting.Unknown"/> before Initialize, on error, and in the Editor.</returns>
         public WindowsNotificationSetting GetNotificationSetting()
         {
             Debug.Log($"[{LogTag}][{nameof(GetNotificationSetting)}]");
-            if (Application.platform != RuntimePlatform.WindowsPlayer)
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            if (Application.platform != RuntimePlatform.WindowsPlayer || _manager == IntPtr.Zero)
                 return WindowsNotificationSetting.Unknown;
-            int raw = getNotificationSetting();
-            return Enum.IsDefined(typeof(WindowsNotificationSetting), raw)
-                ? (WindowsNotificationSetting)raw
-                : WindowsNotificationSetting.Unknown;
+            try
+            {
+                int error = WindowsNotificationCApi.GetSetting(_manager, out int raw);
+                return WindowsNotificationCApi.SettingFrom(error, raw);
+            }
+            catch (Exception ex)
+            {
+                Caught(nameof(GetNotificationSetting), ex);
+                return WindowsNotificationSetting.Unknown;
+            }
+#else
+            return WindowsNotificationSetting.Unknown;
+#endif
         }
 
         /// <summary>
@@ -425,48 +433,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         public void OpenNotificationSettings(Action<WindowsNotificationResult>? onResult = null)
         {
             Debug.Log($"[{LogTag}][{nameof(OpenNotificationSettings)}] onResult: {onResult != null}");
-            s_onOpenSettings = onResult;
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             if (Application.platform != RuntimePlatform.WindowsPlayer) return;
-            openNotificationSettings(out int pError);
-            FireResult(OperationOpenSettings, pError, s_onOpenSettings);
-            s_onOpenSettings = null;
+            Run(OperationOpenSettings, nameof(OpenNotificationSettings), onResult, WindowsNotificationCApi.OpenSettings);
+#endif
         }
 
         // ── Internal helpers ─────────────────────────────────────────────────────
 
-        private string? GetAllNotificationsInternal(out int pError)
+        /// <summary>
+        /// Reports a result as 1.x did: the per-call callback, then the event, in one try. A callback
+        /// that throws is logged, and the event does not come.
+        /// </summary>
+        private void FireResult(string operation, int code, Action<WindowsNotificationResult>? perCallCallback)
         {
-            uint bufferSize = DefaultBufferSize;
-            while (bufferSize <= MaxBufferSize)
-            {
-                // bufferSize is in wchar_t units; AllocHGlobal requires bytes (* 2)
-                IntPtr buf = Marshal.AllocHGlobal((int)bufferSize * 2);
-                try
-                {
-                    getAllNotifications(buf, bufferSize, out pError);
-                    if (pError == 0)
-                        return Marshal.PtrToStringUni(buf);
-                    if (pError == 5) // NOTIFICATION_ERROR_HRESULT_FAILURE: possible buffer overflow
-                    {
-                        bufferSize *= 2;
-                        continue;
-                    }
-                    return null;
-                }
-                finally
-                {
-                    Marshal.FreeHGlobal(buf);
-                }
-            }
-            pError = 5;
-            return null;
-        }
-
-        private void FireResult(string operation, int pError, Action<WindowsNotificationResult>? perCallCallback)
-        {
-            var result = pError == 0
-                ? WindowsNotificationResult.Success(operation)
-                : WindowsNotificationResult.Failure(operation, pError);
+            var result = WindowsNotificationCApi.ToResult(operation, code);
             try
             {
                 perCallCallback?.Invoke(result);
@@ -478,30 +459,141 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             }
         }
 
-        // ── Static AOT callbacks ──────────────────────────────────────────────────
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        /// <summary>
+        /// The runtime (when this process has no package identity and none is loaded yet), then the
+        /// manager. A runtime that loaded is kept even when the manager fails (design v8 J-9).
+        /// </summary>
+        private int InitializeNative(bool isPackaged, string? displayName, string? iconUri)
+        {
+            if (_runtime == IntPtr.Zero)
+            {
+                int identity = WindowsNotificationCApi.QueryPackageIdentity();
+                switch (WindowsNotificationCApi.ClassifyPackage(identity))
+                {
+                    case WindowsNotificationCApi.PackageIdentity.Unknown:
+                        Debug.LogWarning($"[{LogTag}][{nameof(Initialize)}] GetCurrentPackageFullName returned {identity}; cannot tell whether to load the Windows App SDK runtime");
+                        return WindowsNotificationCApi.ErrorHresultFailure;
+                    case WindowsNotificationCApi.PackageIdentity.Unpackaged:
+                        int bootstrap = WindowsNotificationCApi.InitializeRuntime(out IntPtr runtime, out uint bootstrapCode);
+                        if (bootstrap != WindowsNotificationCApi.ErrorNone)
+                        {
+                            // As in 1.x, the one failure logged as an error.
+                            Debug.LogError($"[{LogTag}][{nameof(Initialize)}] runtime initialize failed. error: {bootstrap}, system code: 0x{bootstrapCode:X8}");
+                            return bootstrap;
+                        }
+                        _runtime = runtime;
+                        break;
+                }
+            }
 
-        [MonoPInvokeCallback(typeof(NotificationInvokedCallback))]
-        private static void OnNotificationInvoked(string argsJson)
+            int created = WindowsNotificationCApi.CreateManager(
+                Marshal.GetFunctionPointerForDelegate(s_invokedCallback), isPackaged, displayName, iconUri,
+                out IntPtr manager, out uint systemCode);
+            if (created != WindowsNotificationCApi.ErrorNone)
+            {
+                Debug.LogWarning($"[{LogTag}][{nameof(Initialize)}] manager create failed. error: {created}, system code: 0x{systemCode:X8}");
+                return created;
+            }
+            _manager = manager;
+            return WindowsNotificationCApi.ErrorNone;
+        }
+
+        /// <summary>
+        /// Show and Schedule: 1 without a manager, 2 when notifications are off (both before the JSON,
+        /// as in 1.x, design v8 J-11), 3 or 7 for the payload, then the native call.
+        /// </summary>
+        private int Deliver(string method, string jsonPayload, ContentDelivery deliver)
         {
             try
             {
-                UnityMainThreadDispatcher.Instance.Enqueue(() =>
+                bool hasManager = _manager != IntPtr.Zero;
+                int settingError = WindowsNotificationCApi.ErrorNone;
+                int setting = 0;
+                if (hasManager) settingError = WindowsNotificationCApi.GetSetting(_manager, out setting);
+                int gate = WindowsNotificationCApi.ShowGate(hasManager, settingError, setting);
+                if (gate != WindowsNotificationCApi.ErrorNone)
                 {
-                    try
-                    {
-                        _instance?.NotificationInvoked?.Invoke(argsJson);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"[{LogTag}][{nameof(OnNotificationInvoked)}] {ex.Message}");
-                    }
-                });
+                    Debug.LogWarning($"[{LogTag}][{method}] error {gate} (setting error {settingError}, setting {setting})");
+                    return gate;
+                }
+
+                int planned = WindowsNotificationCApi.PlanContent(jsonPayload, out List<WindowsNotificationCApi.ContentStep> steps);
+                if (planned != WindowsNotificationCApi.ErrorNone)
+                {
+                    Debug.LogWarning($"[{LogTag}][{method}] the payload is refused with {planned} ({(planned == WindowsNotificationCApi.ErrorInvalidPayload ? "not a JSON object" : "a key missing, of another type, or null")})");
+                    return planned;
+                }
+
+                int error = deliver(steps, out uint systemCode);
+                if (error != WindowsNotificationCApi.ErrorNone)
+                    Debug.LogWarning($"[{LogTag}][{method}] error {error}, system code 0x{systemCode:X8}");
+                return error;
+            }
+            catch (Exception ex)
+            {
+                return Caught(method, ex);
+            }
+        }
+
+        /// <summary>The native show or schedule of built content.</summary>
+        private delegate int ContentDelivery(List<WindowsNotificationCApi.ContentStep> steps, out uint systemCode);
+
+        /// <summary>An operation on the manager: 1 without one, else the native result.</summary>
+        private void Run(string operation, string method, Action<WindowsNotificationResult>? onResult, Func<IntPtr, int> call)
+        {
+            int code;
+            try
+            {
+                code = _manager == IntPtr.Zero ? WindowsNotificationCApi.ErrorNotInitialized : call(_manager);
+                if (code != WindowsNotificationCApi.ErrorNone)
+                    Debug.LogWarning($"[{LogTag}][{method}] error {code}");
+            }
+            catch (Exception ex)
+            {
+                code = Caught(method, ex);
+            }
+            FireResult(operation, code, onResult);
+        }
+
+        /// <summary>The code for an exception from the native side: -4 when the library could not be used, else 5.</summary>
+        private static int Caught(string method, Exception ex)
+        {
+            int code = WindowsNotificationCApi.FromException(ex);
+            Debug.LogWarning($"[{LogTag}][{method}] {ex.GetType().Name}: {ex.Message} (error {code})");
+            return code;
+        }
+
+        // ── Static AOT callbacks ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Runs on a thread the OS picks. Copies the arguments while the activation is alive and
+        /// queues the event for the main thread; never lets an exception back into the native
+        /// library, and never closes or waits on the manager from here.
+        /// </summary>
+        [MonoPInvokeCallback(typeof(WindowsNotificationCApi.InvokedCallback))]
+        private static void OnNotificationInvoked(IntPtr userData, IntPtr activation)
+        {
+            try
+            {
+                string arguments = WindowsNotificationCApi.ReadActivationArguments(activation);
+                UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+                // Unity's == reads whether the dispatcher was destroyed; for a MonoBehaviour that is
+                // a field read, safe on this thread.
+                if (dispatcher == null)
+                {
+                    Debug.LogWarning($"[{LogTag}][{nameof(OnNotificationInvoked)}] no dispatcher; the activation is dropped");
+                    return;
+                }
+                dispatcher.Enqueue(() =>
+                    WindowsNotificationCApi.DeliverInvoked(_instance != null ? _instance.NotificationInvoked : null, arguments));
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(OnNotificationInvoked)}] {ex.Message}");
             }
         }
+#endif
     }
 }
 #endif
