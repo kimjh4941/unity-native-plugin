@@ -14,7 +14,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         /// <summary>Gets whether the operation succeeded.</summary>
         public bool IsSuccess { get; }
 
-        /// <summary>Gets the native error code (NOTIFICATION_ERROR_* constant). Zero on success.</summary>
+        /// <summary>
+        /// Gets the error code. Zero on success; 1 to 8 are the native library's error values
+        /// (1 not initialized, 2 disabled, 3 invalid JSON, 4 progress not found, 5 WinRT failure,
+        /// 6 badge failed, 7 invalid parameter, 8 not supported for this app type); -4 is reported
+        /// by <c>Initialize</c> when the native library cannot be used (missing, incomplete, not a
+        /// loadable image, or another major version).
+        /// </summary>
         public int ErrorCode { get; }
 
         /// <summary>Gets the human-readable error message. Null on success.</summary>
@@ -49,6 +55,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
             6 => "Badge operation failed",
             7 => "Invalid parameter",
             8 => "This operation is not supported for the current app type",
+            -4 => "Native library unavailable",
             _ => $"Unknown error ({code})"
         };
     }

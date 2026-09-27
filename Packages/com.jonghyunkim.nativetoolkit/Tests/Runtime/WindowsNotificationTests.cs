@@ -71,6 +71,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void Failure_ErrorCode8_ReturnsNotSupported()
+        {
+            var result = WindowsNotificationResult.Failure("setBadge", 8);
+            Assert.AreEqual("This operation is not supported for the current app type", result.ErrorMessage);
+        }
+
+        [Test]
+        public void Failure_ErrorCodeMinus4_ReturnsNativeLibraryUnavailable()
+        {
+            var result = WindowsNotificationResult.Failure("initialize", -4);
+            Assert.AreEqual("Native library unavailable", result.ErrorMessage);
+        }
+
+        [Test]
         public void Failure_UnknownErrorCode_ReturnsUnknownErrorString()
         {
             var result = WindowsNotificationResult.Failure("showNotification", 99);

@@ -82,7 +82,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
     /// </summary>
     public sealed class WindowsNotificationAudioPayload
     {
-        /// <summary>Gets or sets the audio source URI (e.g., "ms-winsoundevent:Notification.Default").</summary>
+        /// <summary>
+        /// Gets or sets the audio source URI (e.g., "ms-winsoundevent:Notification.Default").
+        /// Written to the JSON as <c>src</c>, which the native library does not read: the
+        /// notification plays the default sound whatever this holds.
+        /// </summary>
         public string? Src { get; set; }
 
         /// <summary>Gets or sets whether to loop the audio. Requires <see cref="WindowsNotificationPayload.Duration"/> = "long".</summary>
@@ -128,13 +132,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
         /// <summary>Gets or sets the duration ("long" required when audio loop is true).</summary>
         public string? Duration { get; set; }
 
-        /// <summary>Gets or sets the expiration time in seconds.</summary>
+        /// <summary>Gets or sets how long the notification stays in the action center, in seconds after it is delivered.</summary>
         public int? Expiration { get; set; }
 
         /// <summary>Gets or sets whether the notification expires on reboot.</summary>
         public bool? ExpiresOnReboot { get; set; }
 
-        /// <summary>Gets or sets the Unix timestamp to display in the notification.</summary>
+        /// <summary>
+        /// Gets or sets the time the notification shows, in Unix seconds (not milliseconds).
+        /// Beyond 922,337,203,685 seconds either side the notification is refused with error 7.
+        /// </summary>
         public long? Timestamp { get; set; }
 
         /// <summary>Gets or sets the attribution text shown below the notification.</summary>
