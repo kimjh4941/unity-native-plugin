@@ -64,6 +64,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const int OpenFileNameBox = 1148;
         private const int SaveFileNameBox = 1001;
         private const int FolderNameBox = 1152;
+        /// <summary>The file dialogs' file type list (cmb1).</summary>
+        private const int FileTypeBox = 0x470;
 
         /// <summary>What 1.x reports for a cancelled file or folder dialog.</summary>
         private const int Cancelled = -1;
@@ -222,6 +224,61 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ShowDialogAndPress(IdOk);
         }
 
+        // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
+        // artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 5.6 step 1: these
+        // call the manager directly and pin down what 1.x does, so the migration can compare.
+
+        /// <remarks>
+        /// An empty default extension with a *.txt filter. 1.x hands the empty string on as
+        /// lpstrDefExt, where 2.0.0 hands on NULL; this records whether Windows appends the chosen
+        /// filter's extension for the empty one (design v6, 5.3).
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ShowSaveFileDialog_EmptyDefaultExtension_ReportsTheTypedNameWithTheFilterExtension()
+        {
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.SaveFileDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowSaveFileDialog(1024, "Text\0*.txt\0\0", ""),
+                    $"text {SaveFileNameBox} {In("new")};press {IdOk}");
+            }
+            finally
+            {
+                manager.SaveFileDialogResult -= OnResult;
+            }
+            reports.AssertOne(In("new.txt"), false, true, null);
+            AssertFolderUnchanged();
+        }
+
+        /// <remarks>
+        /// A filter string with a second list after the first double NUL. 1.x hands the string to
+        /// the OS as is, which reads pairs up to the first empty name; the design (v6, 4.2) reads it
+        /// the same way. The dialog is asked how many file types it lists, then cancelled.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ShowFileDialog_FilterEndsAtTheFirstEmptyName()
+        {
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.FileDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowFileDialog(1024, "A\0*.a\0\0B\0*.b\0\0"),
+                    $"expect-count {FileTypeBox} 1;press {IdCancel}");
+            }
+            finally
+            {
+                manager.FileDialogResult -= OnResult;
+            }
+            reports.AssertOne(null, true, true, Cancelled);
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private string In(string name) => Path.Combine(_folder, name);
@@ -283,14 +340,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <summary>Starts the closer with the steps, presses the button, and waits for the closer to finish.</summary>
-        private IEnumerator Answer(string button, string steps)
+        private IEnumerator Answer(string button, string steps) => AnswerCall(() => Press(FindButton(button)!), steps);
+
+        /// <summary>
+        /// Starts the closer with the steps, makes the call that opens the dialog, and waits for the
+        /// closer to finish.
+        /// </summary>
+        private IEnumerator AnswerCall(Action openDialog, string steps)
         {
             bool ready = false;
             yield return StartCloser(steps, ok => ready = ok);
             Assert.IsTrue(ready, $"the dialog closer did not start within {CloserReadySeconds}s: {CloserLog()}");
 
             // Blocks until the closer has answered the dialog.
-            Press(FindButton(button)!);
+            openDialog();
             yield return null;
 
             yield return Eventually(() => _closer!.HasExited, _ => { }, CloserExitSeconds);
@@ -458,6 +521,13 @@ public static class NtkDialogWindows {
     }
     // A task dialog (the save dialog's overwrite prompt) takes a button press as TDM_CLICK_BUTTON.
     public static void ClickTaskButton(IntPtr dialog, int id) { SendMessage(dialog, TDM_CLICK_BUTTON, new IntPtr(id), IntPtr.Zero); }
+    const uint CB_GETCOUNT = 0x0146;
+    // How many items a combo box lists (the file dialogs' type list); -1 when there is none with the ID.
+    public static int Count(IntPtr dialog, int id) {
+        IntPtr combo = FindControl(dialog, id, ""ComboBox"");
+        if (combo == IntPtr.Zero) return -1;
+        return SendMessage(combo, CB_GETCOUNT, IntPtr.Zero, IntPtr.Zero).ToInt32();
+    }
 }
 '@
 <# Selecting items in a file dialog's view: its items are DirectUI elements, which answer UI #>
@@ -490,7 +560,7 @@ function WaitFor([IntPtr]$except) {
 Say 'ready'
 $dialog = WaitFor ([IntPtr]::Zero)
 if ($dialog -eq [IntPtr]::Zero) { Say 'no dialog'; exit 2 }
-<# Steps, separated by ';':  text <id> <value> | press <id> | select <item name> | confirm <id> #>
+<# Steps, separated by ';':  text <id> <value> | press <id> | select <item name> | confirm <id> | expect-count <id> <n> #>
 foreach ($step in $Steps.Split(';')) {
     $parts = $step.Trim().Split(' ', 3)
     $problem = $null
@@ -502,6 +572,18 @@ foreach ($step in $Steps.Split(';')) {
             $prompt = WaitFor $dialog
             if ($prompt -eq [IntPtr]::Zero) { $problem = 'no confirmation dialog' }
             else { [NtkDialogWindows]::ClickTaskButton($prompt, [int]$parts[1]) }
+        }
+        'expect-count' {
+            <# The list may still be filling when the dialog first shows; wait for it to settle. #>
+            $expected = [int]$parts[2]
+            $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+            do {
+                $count = [NtkDialogWindows]::Count($dialog, [int]$parts[1])
+                if ($count -eq $expected) { break }
+                Start-Sleep -Milliseconds 200
+            } while ((Get-Date) -lt $deadline)
+            Say ('count ' + $parts[1] + ' = ' + $count)
+            if ($count -ne $expected) { $problem = 'combo ' + $parts[1] + ' lists ' + $count + ' items, expected ' + $expected }
         }
         default   { $problem = 'unknown step ' + $step }
     }
