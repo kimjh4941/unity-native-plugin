@@ -6,7 +6,9 @@
 - 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に、
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
-- 進捗: **設計中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。設計書に着手（2026-09-27）
+- 進捗: **実装中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
+  **Dialog は移行済み**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v1.md`）。
+  Notification（設計 v8）と Clipboard（設計 v12）が残る
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
 
@@ -72,14 +74,16 @@ ABI から JSON が消えるため、JSON を前提に作った層が丸ごと�
 | `Plugins/Windows/unity-windows-native-toolkit.dll` | `Plugins/Windows/windows-native-toolkit-capi-2.0.0.dll`（**dist の名前のまま置く**。DLL 自身の名前は `NativeToolkitC.dll`） |
 | `Plugins/Windows/Microsoft.WindowsAppRuntime.Bootstrap.dll` | **変更なし。** 隣に置く要件も同じ |
 
-x64 のみ。`ntk_version()` が `NTK_VERSION`（`0x020000`）と一致することを起動時に 1 回確かめる。
+x64 のみ。最初のネイティブ呼び出しの前に、`ntk_version()` の major（`>> 16`）が 2 であることを 1 回確かめる
+（完全一致ではなく major。2.0.1 などの互換な更新で止めないため。`Runtime/Windows/Common/WindowsNativeToolkitCApi.cs`、2026-09-27 に Dialog で実装）。
 
 **配置名は dist の名前のままにする**（2026-09-26 決定）。C# からは P/Invoke でしか読まないので、
-DLL 自身の名前（`NativeToolkitC.dll`）に合わせる必要はない。3 つの Manager の `DLL_NAME` は
-`"windows-native-toolkit-capi-2.0.0"` になり、今の `#if DEVELOPMENT_BUILD` による 2 つの名前の
-切り替えはなくなる（置くファイルが 1 本になるため）。
+DLL 自身の名前（`NativeToolkitC.dll`）に合わせる必要はない。DLL の名前は、Windows の全機能の共通部
+`WindowsNativeToolkitCApi.DllName` の 1 か所に `"windows-native-toolkit-capi-2.0.0.dll"` と置く
+（名前に `.` を含むので、ローダーに拡張子を補わせず `.dll` まで書く）。`#if DEVELOPMENT_BUILD` による
+2 つの名前の切り替えはなくなる。
 
-名前に版が入るので、**2.0.1 に上げるたびに `DLL_NAME` 3 箇所の書き換えが要る**。
+名前に版が入るので、**2.0.1 に上げるたびに `DllName` の書き換えが要る**（1 か所）。
 その代わり、C# と DLL の版がずれたときは起動時に `DllNotFoundException` で止まり、
 別の版が黙って読み込まれることはない（2.5 で起きたのはまさにそれだった）。
 
@@ -200,11 +204,14 @@ D は今日すぐビルドを回す必要があるときの応急手当てとし
 
 #### 移行時にやること
 
-1. VERSION.txt の有効なキーを、ファイル末尾のコメントにある 1.12.0 のブロックに書き換える
-   （`install_as` と `install_as_debug` は空）
-2. 3 つの Manager の `DLL_NAME` を `"windows-native-toolkit-capi-2.0.0"` にし、
-   `#if DEVELOPMENT_BUILD` による切り替えをやめる
-3. 1 と 2 は**同じコミット**で行う。ずれると、ビルドは通っても起動時に `DllNotFoundException` になる
+**1 本で一括に切り替えず、移行の間は 2 本置く**（Dialog 設計 v6 の J-6。2026-09-27、`3cf4b1b`）。
+3 機能を 1 つずつ移すため、移していない機能は 1.x の DLL を読み続ける。
+
+1. 済み: VERSION.txt の主のピンを 1.12.0（`windows-native-toolkit-capi-2.0.0.dll`、`install_as` は空）にし、
+   1.x を追加のピン（`extra_dist_version` / `extra_dll` / `extra_install_as` / `extra_install_as_debug`）に移した。
+   PreBuildProcessor は両方のコピー元を削除より前に解決し、両方の名前を削除から除き、両方に importer を当てる
+2. 機能ごとに: Manager を `WindowsNativeToolkitCApi` と機能の Bridge 経由に書き換える（Dialog は済み）
+3. 3 機能を移し終えたら: 追加のピンのキーと PreBuildProcessor の処理を消し、VERSION.txt のコメントを直す
 
 #### 併せて壊れているもの
 
@@ -218,6 +225,8 @@ C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\Win
 **このパスは現在解決しない。** 名前も 1.x のもの（`WindowsLibrary-Debug.pdb`）で、
 stage 5 の構成変更より前の前提。ビルドは止まらず `LogError` が出るだけだが、
 移行時に一緒に直す対象。
+
+**対応済み（2026-09-27、`3cf4b1b`）。** dist 1.12.0 に PDB は無いので、コピーの処理を消した（Dialog 設計 v6 の J-11）。
 
 ## 3. 宣言の置換では済まないもの
 
@@ -244,7 +253,10 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 - **登録ごとに `GCHandle` を 1 つ**作り、`release` で `Free` する。同じ `user_data` の値で登録し直すときも別の所有権を渡す。`release` は登録が失敗したときも必ず 1 回呼ばれる（呼び出しスレッドで、戻る前に）
 - コールバックは `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]`（`NTK_CALL` は `__cdecl`）
 - 構造体は 0 で埋め、`struct_size` に **`Marshal.SizeOf<T>()`**（`sizeof` ではない）。`reserved` は 0 のまま
-- ハンドルは `SafeHandle` に包み、対応する `_free` で解放する
+- ハンドルは `IntPtr.Zero` で初期化した変数に受け、`finally` で `!= IntPtr.Zero` のときだけ対応する `_free` に渡す。
+  **同期で受け取ってその場で解放するハンドルは `SafeHandle` にしない**（2026-09-27 に見直し。
+  `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows」）。寿命が呼び出しをまたぐもの
+  （Clipboard のセッション、Notification のマネージャー）の扱いは、それぞれの設計書で決める
 
 ### 3.4 意味が反転する引数
 
@@ -347,6 +359,10 @@ native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原�
 **1.x には修正版を出さない**（2026-09-27 決定）。移行までは、同梱の 1.x でこの不具合が残る
 
 ### 5.4 Dialog・振る舞いが変わる（6）
+
+> **移行済み（2026-09-27）。** 下の違いは Manager が公開 API の形に戻すので、公開 API で見える変化は限られる
+> （キャンセルは `-1` のまま、複数ファイルは 1.x もフルパス、上書き確認は常に出す、ファイル系の title と owner は使わない）。
+> 公開 API で変わった振る舞いは、Dialog 設計 v6 の 5.3 と実装結果 v1 の「既知の差分」にある。
 
 | 旧 | 新 | 変わること |
 |---|---|---|
