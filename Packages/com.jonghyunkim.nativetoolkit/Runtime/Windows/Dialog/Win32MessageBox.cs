@@ -6,6 +6,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
     /// Static class containing Win32 MessageBox constants for comprehensive native dialog configuration.
     /// Provides constants for button types, icon styles, default button selection, and modal behavior.
     /// Used by WindowsDialogManager for native Win32 API MessageBox calls.
+    /// <para>
+    /// <c>WindowsDialogManager.ShowDialog</c> ORs its four flag arguments together, so a flag
+    /// works whichever argument carries it. Since native-toolkit 2.0.0 it accepts only what the C ABI
+    /// has a field for: the buttons, the icon, the default button, <see cref="MB_APPLMODAL"/>,
+    /// <see cref="MB_TOPMOST"/>, and MB_HELP (0x4000). Anything else, including
+    /// <see cref="MB_SYSTEMMODAL"/>, <see cref="MB_TASKMODAL"/>, <see cref="MB_RIGHT"/> and
+    /// <see cref="MB_RTLREADING"/>, shows no dialog and reports
+    /// <c>WindowsDialogErrorCodes.InvalidArgument</c>.
+    /// </para>
     /// </summary>
     public static class Win32MessageBox
     {
@@ -34,10 +43,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
 
         // Modal behavior and display options
         public const uint MB_APPLMODAL = 0x00000000;
+        /// <summary>Not supported since native-toolkit 2.0.0: <c>WindowsDialogManager.ShowDialog</c> shows no dialog and reports <c>WindowsDialogErrorCodes.InvalidArgument</c>.</summary>
         public const uint MB_SYSTEMMODAL = 0x00001000;
+        /// <summary>Not supported since native-toolkit 2.0.0: <c>WindowsDialogManager.ShowDialog</c> shows no dialog and reports <c>WindowsDialogErrorCodes.InvalidArgument</c>.</summary>
         public const uint MB_TASKMODAL = 0x00002000;
         public const uint MB_TOPMOST = 0x00040000;
+        /// <summary>Not supported since native-toolkit 2.0.0: <c>WindowsDialogManager.ShowDialog</c> shows no dialog and reports <c>WindowsDialogErrorCodes.InvalidArgument</c>.</summary>
         public const uint MB_RIGHT = 0x00080000;
+        /// <summary>Not supported since native-toolkit 2.0.0: <c>WindowsDialogManager.ShowDialog</c> shows no dialog and reports <c>WindowsDialogErrorCodes.InvalidArgument</c>.</summary>
         public const uint MB_RTLREADING = 0x00100000;
     }
 }

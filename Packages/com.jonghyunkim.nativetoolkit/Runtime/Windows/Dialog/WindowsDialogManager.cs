@@ -1,27 +1,44 @@
 #nullable enable
 
-#if UNITY_STANDALONE_WIN
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
 namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
 {
-    using UnityEngine;
-    using System.Runtime.InteropServices;
     using System;
-    using System.Text;
     using System.Collections;
+    using System.Collections.Generic;
+    using System.Runtime.InteropServices;
+    using UnityEngine;
 
     /// <summary>
-    /// Singleton manager for Windows native dialog operations using Unity's native plugin interface.
-    /// Provides a Unity-friendly API for showing various types of Windows native dialogs including
-    /// alert dialogs, file selection dialogs, folder selection dialogs, and save dialogs.
-    /// Uses P/Invoke to communicate with Win32 native code and event-driven callbacks for results.
+    /// Singleton manager for Windows native dialogs: alerts, file open and save, and folder selection.
+    /// Calls native-toolkit's C ABI 2.0.0 and reports each result through an event.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every call is synchronous: it blocks the calling thread (normally the main thread) until the
+    /// dialog closes, then raises its event exactly once on that thread before returning. An exception
+    /// thrown by a subscriber reaches the caller.
+    /// </para>
+    /// <para>
+    /// Failures never throw; they arrive as the event's <c>errorCode</c>. The values
+    /// <see cref="WindowsDialogManager"/> reserves are in <see cref="WindowsDialogErrorCodes"/>; every
+    /// other value is the operating system's own code, and an <c>HRESULT</c> reads as negative.
+    /// </para>
+    /// <para>
+    /// The class also compiles in the Unity Editor, where no dialog is shown: every call reports
+    /// <see cref="WindowsDialogErrorCodes.PlatformUnavailable"/>.
+    /// </para>
+    /// <para>
+    /// Changes from native-toolkit 1.x: <c>buffer_size</c> is ignored; an empty title or message,
+    /// a <see cref="Win32MessageBox"/> flag the C ABI cannot express, and a filter name without a
+    /// pattern are refused with <see cref="WindowsDialogErrorCodes.InvalidArgument"/> before any
+    /// dialog is shown; a filter string with no pairs shows every file; empty entries inside a
+    /// pattern (<c>"*.txt;;*.log"</c>) are dropped; an unpaired surrogate becomes U+FFFD.
+    /// </para>
+    /// </remarks>
     public class WindowsDialogManager : MonoBehaviour
     {
-#if DEVELOPMENT_BUILD
-        private const string DLL_NAME = "unity-windows-native-toolkit-debug";
-#else
-        private const string DLL_NAME = "unity-windows-native-toolkit";
-#endif
+        private const string LogTag = nameof(WindowsDialogManager);
 
         private static WindowsDialogManager? _instance;
 
@@ -35,7 +52,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
             {
                 if (_instance == null)
                 {
-                    Debug.Log("Creating new instance of WindowsDialogManager");
+                    Debug.Log($"[{LogTag}] Creating new instance of WindowsDialogManager");
                     GameObject singletonObject = new GameObject("WindowsDialogManager");
                     _instance = singletonObject.AddComponent<WindowsDialogManager>();
                     DontDestroyOnLoad(singletonObject);
@@ -44,58 +61,60 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
             }
         }
 
-        // Event handlers (all invoke on the Unity main thread because they're called synchronously here, but
-        // keep usage consistent across platforms in case of future async refactors).
         /// <summary>
         /// Raised after an alert dialog completes.
         /// </summary>
         /// <remarks>
-        /// Parameters: result = pressed button identifier (Win32 MessageBox return), isSuccess = native call succeeded,
-        /// errorCode = Win32/GetLastError style error code (null if success).
+        /// Parameters: result = the pressed button as a Win32 MessageBox return value (IDOK = 1 ...
+        /// IDCONTINUE = 11), isSuccess = the dialog was shown and closed, errorCode = null on success.
+        /// On failure, result is 0 when the native library failed, and null when no dialog was
+        /// attempted (an argument was refused, the library is unavailable, or in the Editor).
         /// </remarks>
-        public event Action<int?, bool, int?>? AlertDialogResult;                    
+        public event Action<int?, bool, int?>? AlertDialogResult;
 
         /// <summary>
         /// Raised after a single-file open dialog completes.
         /// </summary>
         /// <remarks>
-        /// filePath = selected path (null if cancelled or error), isCancelled = user cancelled, isSuccess = native call executed,
-        /// errorCode = error code (null if success). When isCancelled is true, isSuccess remains true to distinguish user intent from failure.
+        /// filePath = selected path (null if cancelled or error), isCancelled = user cancelled, isSuccess = the dialog ran,
+        /// errorCode = error code (null if success). When isCancelled is true, isSuccess remains true and errorCode is
+        /// <see cref="WindowsDialogErrorCodes.Cancelled"/> to distinguish user intent from failure.
         /// </remarks>
-        public event Action<string?, bool, bool, int?>? FileDialogResult;            
+        public event Action<string?, bool, bool, int?>? FileDialogResult;
 
         /// <summary>
         /// Raised after a multi-file open dialog completes.
         /// </summary>
         /// <remarks>
         /// filePaths = collection of fully qualified file paths, isCancelled = user cancelled selection,
-        /// isSuccess = native call executed, errorCode = error code (null if success). ArrayList is used for compatibility with existing code; consider migrating to List&lt;string&gt;.
+        /// isSuccess = the dialog ran, errorCode = error code (null if success). A success with no selection
+        /// reports an empty list. ArrayList is used for compatibility with existing code; consider migrating to List&lt;string&gt;.
         /// </remarks>
-        public event Action<ArrayList?, bool, bool, int?>? MultiFileDialogResult;    
+        public event Action<ArrayList?, bool, bool, int?>? MultiFileDialogResult;
 
         /// <summary>
         /// Raised after a save file dialog completes.
         /// </summary>
-        /// <remarks>filePath = saved target path (null on cancel/error), isCancelled = user cancelled, isSuccess = native call executed, errorCode = error code.</remarks>
-        public event Action<string?, bool, bool, int?>? SaveFileDialogResult;        
+        /// <remarks>filePath = saved target path (null on cancel/error), isCancelled = user cancelled, isSuccess = the dialog ran, errorCode = error code.</remarks>
+        public event Action<string?, bool, bool, int?>? SaveFileDialogResult;
 
         /// <summary>
         /// Raised after a single-folder selection dialog completes.
         /// </summary>
-        public event Action<string?, bool, bool, int?>? FolderDialogResult;          
+        public event Action<string?, bool, bool, int?>? FolderDialogResult;
 
         /// <summary>
         /// Raised after a multi-folder selection dialog completes.
         /// </summary>
         /// <remarks>folderPaths = selected folder paths; semantics mirror <see cref="MultiFileDialogResult"/>.</remarks>
-        public event Action<ArrayList?, bool, bool, int?>? MultiFolderDialogResult;  
+        public event Action<ArrayList?, bool, bool, int?>? MultiFolderDialogResult;
 
         /// <summary>
         /// Initialize the singleton instance and ensure persistence across scene changes.
         /// </summary>
         private void Awake()
         {
-            Debug.Log("Awake");
+            Debug.Log($"[{LogTag}][{nameof(Awake)}]");
             if (_instance == null)
             {
                 _instance = this;
@@ -108,103 +127,20 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
         }
 
         /// <summary>
-        /// Native P/Invoke for displaying a Windows message box (alert dialog).
-        /// </summary>
-        /// <param name="title">Caption text of the dialog window.</param>
-        /// <param name="message">Body text displayed in the dialog.</param>
-        /// <param name="buttons">Bitmask / flags indicating which buttons to show (maps to Win32 style flags).</param>
-        /// <param name="icon">Icon style flags (e.g., information, warning).</param>
-        /// <param name="defbutton">Default button flag determining initial focus.</param>
-        /// <param name="options">Additional option flags (top-most, etc.).</param>
-        /// <param name="pError">Outputs 0 on success, -1 on cancel (if defined by implementation), or another error code.</param>
-        /// <returns>Win32 MessageBox style result indicating which button was pressed.</returns>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern int showAlertDialog(
-            [MarshalAs(UnmanagedType.LPWStr)] string title,
-            [MarshalAs(UnmanagedType.LPWStr)] string message,
-            uint buttons,
-            uint icon,
-            uint defbutton,
-            uint options,
-            out int pError
-        );
-
-        /// <summary>
-        /// Native P/Invoke for single file selection using Windows common dialog (OPENFILENAME or similar implementation).
-        /// </summary>
-        /// <param name="buffer">Receives the selected file path (UTF-16).</param>
-        /// <param name="buffer_size">Buffer size in WCHAR units (NOT bytes).</param>
-        /// <param name="filter">Filter string in Win32 format: "Description\0Pattern\0...\0\0".</param>
-        /// <param name="pError">0 success, -1 cancelled, other value = failure.</param>
-        /// <returns>true if the native dialog executed (even if cancelled), false on internal failure.</returns>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern bool showFileDialog(
-            [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
-            uint buffer_size,
-            [MarshalAs(UnmanagedType.LPWStr)] string filter,
-            out int pError
-        );
-
-        /// <summary>
-        /// Native P/Invoke for multi-file selection. Caller provides unmanaged buffer for performance and manual parsing.
-        /// </summary>
-        /// <param name="buffer">Unmanaged memory receiving a double-null terminated list. First segment may be directory path.</param>
-        /// <param name="buffer_size">Size of the buffer in WCHAR units.</param>
-        /// <param name="filter">Filter string (see <see cref="showFileDialog"/>).</param>
-        /// <param name="pError">0 success, -1 cancelled, other value = failure.</param>
-        /// <returns>Number of selected items; interpretation depends on implementation (first element may be folder).</returns>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern int showMultiFileDialog(
-            IntPtr buffer,
-            uint buffer_size,
-            [MarshalAs(UnmanagedType.LPWStr)] string filter,
-            out int pError
-        );
-
-        /// <summary>
-        /// Native P/Invoke for save file dialog.
-        /// </summary>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern bool showSaveFileDialog(
-            [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
-            uint buffer_size,
-            [MarshalAs(UnmanagedType.LPWStr)] string filter,
-            [MarshalAs(UnmanagedType.LPWStr)] string def_ext,
-            out int pError
-        );
-
-        /// <summary>
-        /// Native P/Invoke for single folder selection dialog.
-        /// </summary>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern bool showFolderDialog(
-            [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buffer,
-            uint buffer_size,
-            [MarshalAs(UnmanagedType.LPWStr)] string title,
-            out int pError
-        );
-
-        /// <summary>
-        /// Native P/Invoke for multi-folder selection dialog.
-        /// </summary>
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode)]
-        private static extern int showMultiFolderDialog(
-            IntPtr buffer,
-            uint buffer_size,
-            [MarshalAs(UnmanagedType.LPWStr)] string title,
-            out int pError
-        );
-
-        /// <summary>
         /// Shows a Windows native message box style alert dialog.
         /// </summary>
-        /// <param name="title">Dialog caption text.</param>
-        /// <param name="message">Message body.</param>
+        /// <param name="title">Dialog caption text. Must not be empty.</param>
+        /// <param name="message">Message body. Must not be empty.</param>
         /// <param name="buttons">Flags determining which buttons to show.</param>
         /// <param name="icon">Icon style flags.</param>
         /// <param name="defbutton">Default button flag.</param>
-        /// <param name="options">Additional option flags (e.g., modality, top-most).</param>
-        /// <remarks>Result is raised via <see cref="AlertDialogResult"/>; errors provide non-null error codes.</remarks>
+        /// <param name="options">Additional option flags (<see cref="Win32MessageBox.MB_TOPMOST"/>, MB_HELP).</param>
+        /// <remarks>
+        /// The four flag arguments are ORed together, so a flag works whichever argument carries it; a
+        /// null argument takes its default. Result is raised via <see cref="AlertDialogResult"/>. An empty
+        /// title or message, or a flag the C ABI cannot express (see <see cref="Win32MessageBox"/>),
+        /// shows nothing and reports <see cref="WindowsDialogErrorCodes.InvalidArgument"/>.
+        /// </remarks>
         public void ShowDialog(
             string title,
             string message,
@@ -214,354 +150,314 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
             uint? options = Win32MessageBox.MB_APPLMODAL
         )
         {
-        Debug.Log("ShowDialog called with title: " + title + ", message: " + message + ", buttons: " + buttons + ", icon: " + icon + ", defbutton: " + defbutton + ", options: " + options);
-            if (string.IsNullOrEmpty(title))
+            Debug.Log($"[{LogTag}][{nameof(ShowDialog)}] title: {title}, message: {message}, buttons: {buttons}, icon: {icon}, defbutton: {defbutton}, options: {options}");
+
+            if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(message))
             {
-                Debug.LogError("Title cannot be null or empty.");
-                AlertDialogResult?.Invoke(null, false, null);
+                Debug.LogWarning($"[{LogTag}][{nameof(ShowDialog)}] the title and the message must not be empty; no dialog is shown");
+                AlertDialogResult?.Invoke(null, false, WindowsDialogErrorCodes.InvalidArgument);
+                return;
             }
 
-            if (string.IsNullOrEmpty(message))
+            uint style = WindowsDialogCApi.CombineAlertStyle(buttons, icon, defbutton, options);
+            if (!WindowsDialogCApi.TryMapAlertStyle(style, out WindowsDialogCApi.AlertFlags flags))
             {
-                Debug.LogError("Message cannot be null or empty.");
-                AlertDialogResult?.Invoke(null, false, null);
+                Debug.LogWarning($"[{LogTag}][{nameof(ShowDialog)}] style 0x{style:X8} has a flag native-toolkit 2.0.0 cannot express " +
+                    "(system or task modal, right-aligned or right-to-left text, or an undefined value); no dialog is shown");
+                AlertDialogResult?.Invoke(null, false, WindowsDialogErrorCodes.InvalidArgument);
+                return;
             }
 
-            uint actualButtons = buttons ?? Win32MessageBox.MB_OK;
-            uint actualIcon = icon ?? Win32MessageBox.MB_ICONINFORMATION;
-            uint actualDefbutton = defbutton ?? Win32MessageBox.MB_DEFBUTTON1;
-            uint actualOptions = options ?? Win32MessageBox.MB_APPLMODAL;
+            int? result;
+            int? errorCode;
+            try
+            {
+                int code = WindowsDialogCApi.ShowAlert(title, message, flags, out int alertResult, out uint systemCode);
+                (result, errorCode) = AlertOutcome(code, alertResult, systemCode);
+            }
+            catch (Exception e)
+            {
+                result = null;
+                errorCode = FromException(nameof(ShowDialog), e);
+            }
 
-            int result = showAlertDialog(
-                title,
-                message,
-                actualButtons,
-                actualIcon,
-                actualDefbutton,
-                actualOptions,
-                out int errorCode
-            );
-            Debug.Log($"ShowDialog returned result: {result}, error code: 0x{errorCode:X8}");
-            if (errorCode == 0)
-            {
-                Debug.Log($"ShowDialog succeeded with result: {result}, error code: 0x{errorCode:X8}");
-                AlertDialogResult?.Invoke(result, true, null);
-            }
-            else
-            {
-                Debug.LogError($"ShowDialog failed with result: {result}, error code: 0x{errorCode:X8}");
-                AlertDialogResult?.Invoke(result, false, errorCode);
-            }
+            Debug.Log($"[{LogTag}][{nameof(ShowDialog)}] result: {result}, errorCode: {errorCode}");
+            AlertDialogResult?.Invoke(result, errorCode == null, errorCode);
         }
 
         /// <summary>
         /// Shows a Windows native single file open dialog.
         /// </summary>
-        /// <param name="buffer_size">Size of the internal selection buffer in WCHAR units (recommend >= 260 for typical paths).</param>
-        /// <param name="filter">Filter specification string ("Description\0Pattern\0...\0\0").</param>
+        /// <param name="buffer_size">Ignored since native-toolkit 2.0.0; kept for compatibility. A path is limited to 1023 characters.</param>
+        /// <param name="filter">Filter specification string ("Description\0Pattern\0...\0\0"), read up to the first empty description.</param>
         /// <remarks>
-        /// Emits <see cref="FileDialogResult"/>. On cancel errorCode is -1 but isSuccess remains true to indicate no failure.
+        /// Emits <see cref="FileDialogResult"/>. On cancel errorCode is <see cref="WindowsDialogErrorCodes.Cancelled"/> but isSuccess remains true to indicate no failure.
         /// </remarks>
         public void ShowFileDialog(
             uint? buffer_size = 1024,
             string? filter = "All Files\0*.*\0\0"
         )
         {
-            Debug.Log("ShowFileDialog called with " +
-                "buffer size: " + buffer_size +
-                ", filter: " + filter
-            );
+            Debug.Log($"[{LogTag}][{nameof(ShowFileDialog)}] buffer_size: {buffer_size}, filter: {Printable(filter)}");
 
-            uint actualBufferSize = buffer_size ?? 1024;
-            string actualFilter = filter ?? "All Files\0*.*\0\0";
+            string? path = null;
+            if (!TryFilters(nameof(ShowFileDialog), filter, out List<KeyValuePair<string, string>> filters))
+            {
+                FileDialogResult?.Invoke(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+                return;
+            }
 
-            var buffer = new StringBuilder((int)actualBufferSize * 2);
-            // Single file selection
-            bool result = showFileDialog(
-                buffer,
-                actualBufferSize,
-                actualFilter,
-                out int errorCode);
-            Debug.Log($"ShowFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
-            if (errorCode == 0)
+            bool isCancelled;
+            int? errorCode;
+            try
             {
-                Debug.Log($"ShowFileDialog selected file: {buffer}, error code: 0x{errorCode:X8}");
-                FileDialogResult?.Invoke(buffer.ToString(), false, true, null);
+                int code = WindowsDialogCApi.OpenFile(filters, out path, out uint systemCode);
+                (isCancelled, errorCode) = FileOutcome(nameof(ShowFileDialog), "ntk_dialog_show_open_file", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.FileRequest>());
             }
-            else if (errorCode == -1)
+            catch (Exception e)
             {
-                Debug.Log($"ShowFileDialog selection cancelled. error code: 0x{errorCode:X8}");
-                FileDialogResult?.Invoke(null, true, true, errorCode);
+                path = null;
+                isCancelled = false;
+                errorCode = FromException(nameof(ShowFileDialog), e);
             }
-            else
-            {
-                Debug.LogError($"ShowFileDialog error occurred. error code: 0x{errorCode:X8}");
-                FileDialogResult?.Invoke(null, false, false, errorCode);
-            }
+
+            Debug.Log($"[{LogTag}][{nameof(ShowFileDialog)}] filePath: {path}, isCancelled: {isCancelled}, errorCode: {errorCode}");
+            FileDialogResult?.Invoke(path, isCancelled, IsSuccess(isCancelled, errorCode), errorCode);
         }
 
         /// <summary>
         /// Shows a Windows native multi-file open dialog.
         /// </summary>
-        /// <param name="buffer_size">Size of unmanaged buffer in WCHAR units used to receive selection list (double-null terminated).</param>
-        /// <param name="filter">Filter specification string.</param>
+        /// <param name="buffer_size">Ignored since native-toolkit 2.0.0; kept for compatibility. The list is limited to 32768 characters in total.</param>
+        /// <param name="filter">Filter specification string (see <see cref="ShowFileDialog"/>).</param>
         /// <remarks>
-        /// The buffer is manually parsed: when multiple files are chosen, first entry is the directory; subsequent entries are file names.
-        /// Emits <see cref="MultiFileDialogResult"/>. Memory is always freed via try/finally.
+        /// Emits <see cref="MultiFileDialogResult"/> with each selected file as a fully qualified path.
         /// </remarks>
         public void ShowMultiFileDialog(
             uint? buffer_size = 4096,
             string? filter = "All Files\0*.*\0\0"
         )
         {
-            Debug.Log("ShowMultiFileDialog called with " +
-                "buffer size: " + buffer_size +
-                ", filter: " + filter
-            );
+            Debug.Log($"[{LogTag}][{nameof(ShowMultiFileDialog)}] buffer_size: {buffer_size}, filter: {Printable(filter)}");
 
-            uint actualBufferSize = buffer_size ?? 4096;
-            string actualFilter = filter ?? "All Files\0*.*\0\0";
+            if (!TryFilters(nameof(ShowMultiFileDialog), filter, out List<KeyValuePair<string, string>> filters))
+            {
+                MultiFileDialogResult?.Invoke(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+                return;
+            }
 
-            // Allocate unmanaged buffer sized in WCHAR units * 2 bytes per char
-            IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)actualBufferSize * 2);
+            ArrayList? selectedFiles;
+            bool isCancelled;
+            int? errorCode;
             try
             {
-                // Perform multi-file selection
-                int count = showMultiFileDialog(
-                    unmanagedBuffer,
-                    actualBufferSize,
-                    actualFilter,
-                    out int errorCode
-                );
-                Debug.Log($"ShowMultiFileDialog returned count: {count}, error code: 0x{errorCode:X8}");
-                if (errorCode == 0)
-                {
-                    // Copy unmanaged buffer into managed byte[]
-                    byte[] raw = new byte[actualBufferSize * 2];
-                    Marshal.Copy(unmanagedBuffer, raw, 0, raw.Length);
-
-                    // Decode as UTF-16 (Unicode) string containing null separators
-                    string all = System.Text.Encoding.Unicode.GetString(raw);
-                    string[] parts = all.Split('\0');
-                    Debug.Log("ShowMultiFileDialog Raw buffer bytes: " + BitConverter.ToString(raw));
-                    Debug.Log($"ShowMultiFileDialog buffer string: {all}");
-
-                    Debug.Log("ShowMultiFileDialog parts.Length: " + parts.Length);
-                    for (int i = 0; i < parts.Length; i++)
-                    {
-                        Debug.Log($"ShowMultiFileDialog parts[{i}]: {parts[i]}");
-                    }
-
-                    if (count == 1)
-                    {
-                        Debug.Log("ShowMultiFileDialog selected file: " + parts[0]);
-                        ArrayList selectedFiles = new ArrayList { parts[0] };
-                        MultiFileDialogResult?.Invoke(selectedFiles, false, true, null);
-                    }
-                    else
-                    {
-                        string folder = parts[0];
-                        Debug.Log("ShowMultiFileDialog selected files folder (0): " + parts[0]);
-                        ArrayList selectedFiles = new ArrayList();
-                        for (int i = 1; i < count; i++)
-                        {
-                            Debug.Log($"ShowMultiFileDialog selected file({i}): {folder}\\{parts[i]}");
-                            selectedFiles.Add(folder + "\\" + parts[i]);
-                        }
-                        MultiFileDialogResult?.Invoke(selectedFiles, false, true, null);
-                    }
-                }
-                else if (errorCode == -1)
-                {
-                    Debug.Log($"ShowMultiFileDialog selection cancelled. error code: 0x{errorCode:X8}");
-                    MultiFileDialogResult?.Invoke(null, true, true, errorCode);
-                }
-                else
-                {
-                    Debug.LogError($"ShowMultiFileDialog error occurred. error code: 0x{errorCode:X8}");
-                    MultiFileDialogResult?.Invoke(null, false, false, errorCode);
-                }
+                int code = WindowsDialogCApi.OpenFiles(filters, out List<string>? paths, out uint systemCode);
+                (isCancelled, errorCode) = FileOutcome(nameof(ShowMultiFileDialog), "ntk_dialog_show_open_files", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.FileRequest>());
+                selectedFiles = paths == null ? null : new ArrayList(paths);
             }
-            finally
+            catch (Exception e)
             {
-                Marshal.FreeHGlobal(unmanagedBuffer);
+                selectedFiles = null;
+                isCancelled = false;
+                errorCode = FromException(nameof(ShowMultiFileDialog), e);
             }
+
+            Debug.Log($"[{LogTag}][{nameof(ShowMultiFileDialog)}] count: {selectedFiles?.Count}, isCancelled: {isCancelled}, errorCode: {errorCode}");
+            MultiFileDialogResult?.Invoke(selectedFiles, isCancelled, IsSuccess(isCancelled, errorCode), errorCode);
         }
 
         /// <summary>
         /// Shows a Windows native folder selection dialog.
         /// </summary>
-        /// <param name="buffer_size">Buffer size in WCHAR units for the resulting path.</param>
-        /// <param name="title">Dialog title text.</param>
+        /// <param name="buffer_size">Ignored since native-toolkit 2.0.0; kept for compatibility. A path is limited to 1023 characters.</param>
+        /// <param name="title">Dialog title text. An empty string shows the system's own title.</param>
         /// <remarks>Emits <see cref="FolderDialogResult"/>.</remarks>
         public void ShowFolderDialog(
             uint? buffer_size = 1024,
             string? title = "Select Folder"
         )
         {
-            Debug.Log("ShowFolderDialog called with " +
-                "buffer size: " + buffer_size +
-                ", title: " + title
-            );
+            Debug.Log($"[{LogTag}][{nameof(ShowFolderDialog)}] buffer_size: {buffer_size}, title: {title}");
 
-            uint actualBufferSize = buffer_size ?? 1024;
-            string actualTitle = title ?? "Select Folder";
+            string? path;
+            bool isCancelled;
+            int? errorCode;
+            try
+            {
+                int code = WindowsDialogCApi.PickFolder(title ?? WindowsDialogCApi.DefaultFolderTitle, out path, out uint systemCode);
+                (isCancelled, errorCode) = FileOutcome(nameof(ShowFolderDialog), "ntk_dialog_show_pick_folder", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.FolderRequest>());
+            }
+            catch (Exception e)
+            {
+                path = null;
+                isCancelled = false;
+                errorCode = FromException(nameof(ShowFolderDialog), e);
+            }
 
-            var buffer = new StringBuilder((int)actualBufferSize * 2);
-            // Folder selection
-            bool result = showFolderDialog(
-                buffer,
-                actualBufferSize,
-                actualTitle,
-                out int errorCode
-            );
-            Debug.Log($"ShowFolderDialog returned result: {result}, error code: 0x{errorCode:X8}");
-            if (errorCode == 0)
-            {
-                Debug.Log($"ShowFolderDialog selected folder: {buffer}, error code: 0x{errorCode:X8}");
-                FolderDialogResult?.Invoke(buffer.ToString(), false, true, null);
-            }
-            else if (errorCode == -1)
-            {
-                Debug.Log($"ShowFolderDialog selection cancelled. error code: 0x{errorCode:X8}");
-                FolderDialogResult?.Invoke(null, true, true, errorCode);
-            }
-            else
-            {
-                Debug.LogError($"ShowFolderDialog error occurred. error code: 0x{errorCode:X8}");
-                FolderDialogResult?.Invoke(null, false, false, errorCode);
-            }
+            Debug.Log($"[{LogTag}][{nameof(ShowFolderDialog)}] folderPath: {path}, isCancelled: {isCancelled}, errorCode: {errorCode}");
+            FolderDialogResult?.Invoke(path, isCancelled, IsSuccess(isCancelled, errorCode), errorCode);
         }
 
         /// <summary>
         /// Shows a Windows native multi-folder selection dialog.
         /// </summary>
-        /// <param name="buffer_size">Unmanaged buffer size in WCHAR units.</param>
-        /// <param name="title">Dialog title text.</param>
-        /// <remarks>
-        /// Parses a double-null terminated UTF-16 list. Each element is a folder path. Emits <see cref="MultiFolderDialogResult"/>.
-        /// </remarks>
+        /// <param name="buffer_size">Ignored since native-toolkit 2.0.0; kept for compatibility. The list is limited to 32768 characters in total.</param>
+        /// <param name="title">Dialog title text. An empty string shows the system's own title.</param>
+        /// <remarks>Emits <see cref="MultiFolderDialogResult"/>.</remarks>
         public void ShowMultiFolderDialog(
             uint? buffer_size = 4096,
             string? title = "Select Folders"
         )
         {
-            Debug.Log("ShowMultiFolderDialog called with " +
-                "buffer size: " + buffer_size +
-                ", title: " + title
-            );
+            Debug.Log($"[{LogTag}][{nameof(ShowMultiFolderDialog)}] buffer_size: {buffer_size}, title: {title}");
 
-            uint actualBufferSize = buffer_size ?? 4096;
-            string actualTitle = title ?? "Select Folders";
-
-            // Allocate unmanaged buffer sized in WCHAR units * 2 bytes per char
-            IntPtr unmanagedBuffer = Marshal.AllocHGlobal((int)actualBufferSize * 2);
+            ArrayList? selectedFolders;
+            bool isCancelled;
+            int? errorCode;
             try
             {
-                // Perform multi-folder selection
-                int count = showMultiFolderDialog(
-                    unmanagedBuffer,
-                    actualBufferSize,
-                    actualTitle,
-                    out int errorCode
-                );
-                Debug.Log($"ShowMultiFolderDialog returned count: {count}, error code: 0x{errorCode:X8}");
-                if (errorCode == 0)
-                {
-                    // Copy unmanaged buffer into managed byte[]
-                    byte[] raw = new byte[actualBufferSize * 2];
-                    Marshal.Copy(unmanagedBuffer, raw, 0, raw.Length);
-
-                    // Decode as UTF-16 (Unicode) string containing null separators
-                    string all = System.Text.Encoding.Unicode.GetString(raw);
-                    string[] parts = all.Split('\0');
-                    Debug.Log("ShowMultiFolderDialog Raw buffer bytes: " + BitConverter.ToString(raw));
-                    Debug.Log($"ShowMultiFolderDialog buffer string: {all}");
-
-                    Debug.Log("ShowMultiFolderDialog parts.Length: " + parts.Length);
-                    for (int i = 0; i < parts.Length; i++)
-                    {
-                        Debug.Log($"ShowMultiFolderDialog parts[{i}]: {parts[i]}");
-                    }
-
-                    // Build folder path list
-                    ArrayList selectedFolders = new ArrayList();
-                    for (int i = 0; i < count; i++)
-                    {
-                        if (!string.IsNullOrEmpty(parts[i]))
-                        {
-                            Debug.Log($"ShowMultiFolderDialog selected folder({i}): {parts[i]}");
-                            selectedFolders.Add(parts[i]);
-                        }
-                    }
-                    MultiFolderDialogResult?.Invoke(selectedFolders, false, true, null);
-                }
-                else if (errorCode == -1)
-                {
-                    Debug.Log($"ShowMultiFolderDialog selection cancelled. error code: 0x{errorCode:X8}");
-                    MultiFolderDialogResult?.Invoke(null, true, true, errorCode);
-                }
-                else
-                {
-                    Debug.LogError($"ShowMultiFolderDialog error occurred. error code: 0x{errorCode:X8}");
-                    MultiFolderDialogResult?.Invoke(null, false, false, errorCode);
-                }
+                int code = WindowsDialogCApi.PickFolders(title ?? WindowsDialogCApi.DefaultMultiFolderTitle, out List<string>? paths, out uint systemCode);
+                (isCancelled, errorCode) = FileOutcome(nameof(ShowMultiFolderDialog), "ntk_dialog_show_pick_folders", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.FolderRequest>());
+                selectedFolders = paths == null ? null : new ArrayList(paths);
             }
-            finally
+            catch (Exception e)
             {
-                Marshal.FreeHGlobal(unmanagedBuffer);
+                selectedFolders = null;
+                isCancelled = false;
+                errorCode = FromException(nameof(ShowMultiFolderDialog), e);
             }
+
+            Debug.Log($"[{LogTag}][{nameof(ShowMultiFolderDialog)}] count: {selectedFolders?.Count}, isCancelled: {isCancelled}, errorCode: {errorCode}");
+            MultiFolderDialogResult?.Invoke(selectedFolders, isCancelled, IsSuccess(isCancelled, errorCode), errorCode);
         }
-        
+
         /// <summary>
         /// Shows a Windows native save file dialog.
         /// </summary>
-        /// <param name="buffer_size">Buffer size in WCHAR units for the resulting path.</param>
-        /// <param name="filter">Filter specification string.</param>
+        /// <param name="buffer_size">Ignored since native-toolkit 2.0.0; kept for compatibility. A path is limited to 1023 characters.</param>
+        /// <param name="filter">Filter specification string (see <see cref="ShowFileDialog"/>).</param>
         /// <param name="def_ext">Default extension (without leading dot).</param>
-        /// <remarks>Emits <see cref="SaveFileDialogResult"/>.</remarks>
+        /// <remarks>Emits <see cref="SaveFileDialogResult"/>. The dialog always asks before overwriting an existing file.</remarks>
         public void ShowSaveFileDialog(
             uint? buffer_size = 1024,
             string? filter = "All Files\0*.*\0\0",
             string? def_ext = "txt"
         )
         {
-            Debug.Log("ShowSaveFileDialog called with " +
-                "buffer size: " + buffer_size +
-                ", filter: " + filter +
-                ", default extension: " + def_ext
-            );
-            
-            uint actualBufferSize = buffer_size ?? 1024;
-            string actualFilter = filter ?? "All Files\0*.*\0\0";
-            string actualDefExt = def_ext ?? "txt";
+            Debug.Log($"[{LogTag}][{nameof(ShowSaveFileDialog)}] buffer_size: {buffer_size}, filter: {Printable(filter)}, def_ext: {def_ext}");
 
-            var buffer = new StringBuilder((int)actualBufferSize * 2);
-            // Save file selection
-            bool result = showSaveFileDialog(
-                buffer,
-                actualBufferSize,
-                actualFilter,
-                actualDefExt,
-                out int errorCode
-            );
-            Debug.Log($"ShowSaveFileDialog returned result: {result}, error code: 0x{errorCode:X8}");
-            if (errorCode == 0)
+            if (!TryFilters(nameof(ShowSaveFileDialog), filter, out List<KeyValuePair<string, string>> filters))
             {
-                Debug.Log($"ShowSaveFileDialog saved file: {buffer}, error code: 0x{errorCode:X8}");
-                SaveFileDialogResult?.Invoke(buffer.ToString(), false, true, null);
+                SaveFileDialogResult?.Invoke(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+                return;
             }
-            else if (errorCode == -1)
+
+            string? path;
+            bool isCancelled;
+            int? errorCode;
+            try
             {
-                Debug.Log($"ShowSaveFileDialog selection cancelled. error code: 0x{errorCode:X8}");
-                SaveFileDialogResult?.Invoke(null, true, true, errorCode);
+                int code = WindowsDialogCApi.SaveFile(filters, def_ext ?? WindowsDialogCApi.DefaultSaveExtension, out path, out uint systemCode);
+                (isCancelled, errorCode) = FileOutcome(nameof(ShowSaveFileDialog), "ntk_dialog_show_save_file", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.SaveFileRequest>());
             }
-            else
+            catch (Exception e)
             {
-                Debug.LogError($"ShowSaveFileDialog error occurred. error code: 0x{errorCode:X8}");
-                SaveFileDialogResult?.Invoke(null, false, false, errorCode);
+                path = null;
+                isCancelled = false;
+                errorCode = FromException(nameof(ShowSaveFileDialog), e);
             }
+
+            Debug.Log($"[{LogTag}][{nameof(ShowSaveFileDialog)}] filePath: {path}, isCancelled: {isCancelled}, errorCode: {errorCode}");
+            SaveFileDialogResult?.Invoke(path, isCancelled, IsSuccess(isCancelled, errorCode), errorCode);
         }
+
+        // ── Results ─────────────────────────────────────────────────────────────
+
+        private static bool IsSuccess(bool isCancelled, int? errorCode) => isCancelled || errorCode == null;
+
+        private static bool TryFilters(string method, string? filter, out List<KeyValuePair<string, string>> filters)
+        {
+            if (WindowsDialogCApi.TryParseFilter(filter ?? WindowsDialogCApi.DefaultFilter, out filters)) return true;
+
+            Debug.LogWarning($"[{LogTag}][{method}] filter \"{Printable(filter)}\" has a description with no pattern; no dialog is shown");
+            return false;
+        }
+
+        /// <summary>The alert's (result, errorCode) for what <see cref="WindowsDialogCApi.ShowAlert"/> returned.</summary>
+        private static (int? result, int? errorCode) AlertOutcome(int code, int alertResult, uint systemCode)
+        {
+            if (code < 0)
+                return (null, Unavailable(nameof(ShowDialog), code));
+
+            if (code != WindowsDialogCApi.ErrorNone)
+                return (0, NativeFailure(nameof(ShowDialog), "ntk_dialog_show_alert", code, systemCode, Marshal.SizeOf<WindowsDialogCApi.AlertRequest>()));
+
+            if (WindowsDialogCApi.TryToWin32Result(alertResult, out int win32Id))
+                return (win32Id, null);
+
+            Debug.LogWarning($"[{LogTag}][{nameof(ShowDialog)}] ntk_dialog_show_alert reported an undefined result {alertResult}");
+            return (0, WindowsDialogErrorCodes.Unknown);
+        }
+
+        /// <summary>A file or folder dialog's (isCancelled, errorCode) for what the bridge returned.</summary>
+        private static (bool isCancelled, int? errorCode) FileOutcome(string method, string function, int code, uint systemCode, int requestSize)
+        {
+            if (code == WindowsDialogCApi.ErrorNone)
+                return (false, null);
+
+            if (code == WindowsDialogCApi.ErrorCanceled)
+            {
+                Debug.Log($"[{LogTag}][{method}] cancelled");
+                return (true, WindowsDialogErrorCodes.Cancelled);
+            }
+
+            if (code < 0)
+                return (false, Unavailable(method, code));
+
+            return (false, NativeFailure(method, function, code, systemCode, requestSize));
+        }
+
+        /// <summary>Logs a code the bridge returned without calling a dialog (-4 or -5) and passes it on.</summary>
+        private static int Unavailable(string method, int code)
+        {
+            if (code == WindowsDialogErrorCodes.PlatformUnavailable)
+                Debug.LogWarning($"[{LogTag}][{method}] not running in a Windows player; no dialog is shown");
+            else
+                Debug.LogWarning($"[{LogTag}][{method}] the native library is not available (errorCode {code}); no dialog is shown");
+            return code;
+        }
+
+        /// <summary>Logs a failure the native library reported and returns its errorCode.</summary>
+        private static int NativeFailure(string method, string function, int error, uint systemCode, int requestSize)
+        {
+            switch (error)
+            {
+                case WindowsDialogCApi.ErrorInvalidParameter:
+                    Debug.LogWarning($"[{LogTag}][{method}] {function} rejected the request (struct_size {requestSize}); the C# structure may not match the C ABI");
+                    break;
+                case WindowsDialogCApi.ErrorCanceled:
+                    Debug.LogWarning($"[{LogTag}][{method}] {function} reported an unexpected CANCELED");
+                    break;
+                default:
+                    Debug.LogWarning($"[{LogTag}][{method}] {function} failed with error {error}, system code 0x{systemCode:X8}");
+                    break;
+            }
+            return WindowsDialogCApi.FailureCode(error, systemCode);
+        }
+
+        /// <summary>Logs an exception thrown while calling the native library and returns its errorCode.</summary>
+        private static int FromException(string method, Exception exception)
+        {
+            int code = WindowsDialogCApi.FromException(exception);
+            if (code == WindowsDialogErrorCodes.NativeUnavailable)
+                Debug.LogWarning($"[{LogTag}][{method}] the native library could not be used: {exception.GetType().Name}: {exception.Message}");
+            else
+                Debug.LogError($"[{LogTag}][{method}] {exception.GetType().Name}: {exception.Message}");
+            return code;
+        }
+
+        /// <summary>A filter string with its NULs shown as \0, for the log.</summary>
+        private static string? Printable(string? filter) => filter?.Replace("\0", "\\0");
     }
 }
 #endif
