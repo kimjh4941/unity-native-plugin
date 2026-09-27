@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Common;
 using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 using NUnit.Framework;
 using UnityEngine;
@@ -21,8 +22,10 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Drives the Windows Dialog sample on a player, with the native dialogs answered from outside:
-    /// D-01 to D-14 of artifact/features/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v1.md,
-    /// after native-toolkit's UI tests, expected as the 1.x DLL behaves.
+    /// D-01 to D-14 of artifact/features/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v2.md,
+    /// after native-toolkit's UI tests. The expectations were taken from the 1.x DLL and did not
+    /// change with the move to the 2.0.0 C ABI; that they still pass is what checks the move. The
+    /// tests after them call the manager directly (design v6, 7.3).
     /// <para>
     /// Every dialog call blocks the Unity main thread until the dialog closes (WindowsDialogManager
     /// calls the native library synchronously from the button's click). A press made here therefore
@@ -67,8 +70,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>The file dialogs' file type list (cmb1).</summary>
         private const int FileTypeBox = 0x470;
 
-        /// <summary>What 1.x reports for a cancelled file or folder dialog.</summary>
-        private const int Cancelled = -1;
+        /// <summary>The MessageBox's message text (a Static control).</summary>
+        private const int MessageText = 0xFFFF;
+
+        /// <summary>What a cancelled file or folder dialog reports.</summary>
+        private const int Cancelled = WindowsDialogErrorCodes.Cancelled;
 
         private const float CloserReadySeconds = 30f;
         private const float CloserExitSeconds = 45f;
@@ -152,7 +158,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             ListDialog(ShowMultiFileDialogButton, $"press {IdCancel}", null, true, Cancelled);
 
         /// <remarks>
-        /// 1.x hands back the folder and then the names; the Manager joins them into full paths.
+        /// The event carries full paths: 1.x handed back the folder and then the names, which the
+        /// Manager joined; 2.0.0 hands back the full paths itself.
         /// </remarks>
         [UnityTest]
         public IEnumerator ShowMultiFileDialog_PickTwo_ReportsBothPaths() =>
@@ -178,7 +185,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertFolderUnchanged();
         }
 
-        /// <remarks>1.x always asks before an existing file is named; 2.0.0 can skip it.</remarks>
+        /// <remarks>
+        /// The Manager always asks before an existing file is named, as 1.x did (it leaves the C
+        /// ABI's skip_overwrite_prompt at 0).
+        /// </remarks>
         [UnityTest]
         public IEnumerator ShowSaveFileDialog_ExistingName_AsksAndReportsThePathOnYes()
         {
@@ -226,15 +236,16 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
         // artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 5.6 step 1: these
-        // call the manager directly and pin down what 1.x does, so the migration can compare.
+        // call the manager directly and pinned down what 1.x did, so the migration could compare.
 
         /// <remarks>
-        /// An empty default extension with a *.txt filter. 1.x hands the empty string on as
-        /// lpstrDefExt, where 2.0.0 hands on NULL; this records whether Windows appends the chosen
-        /// filter's extension for the empty one (design v6, 5.3).
+        /// An empty default extension with a *.txt filter. 1.x handed the empty string on as
+        /// lpstrDefExt, and Windows appended the chosen filter's extension ("new.txt"). 2.0.0 hands
+        /// on NULL, and the name comes back as typed. An accepted difference (design v6, 5.3); the
+        /// implementation result records it for the manual.
         /// </remarks>
         [UnityTest]
-        public IEnumerator ShowSaveFileDialog_EmptyDefaultExtension_ReportsTheTypedNameWithTheFilterExtension()
+        public IEnumerator ShowSaveFileDialog_EmptyDefaultExtension_ReportsTheTypedNameAsIs()
         {
             var reports = new Reports<string?>();
             void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
@@ -250,7 +261,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 manager.SaveFileDialogResult -= OnResult;
             }
-            reports.AssertOne(In("new.txt"), false, true, null);
+            reports.AssertOne(In("new"), false, true, null);
             AssertFolderUnchanged();
         }
 
@@ -279,7 +290,227 @@ namespace JonghyunKim.NativeToolkit.Tests
             reports.AssertOne(null, true, true, Cancelled);
         }
 
+        // ── Added with the 2.0.0 C ABI (design v6, 7.3) ─────────────────────────
+
+        /// <remarks>
+        /// The version check passes on the player, and ntk_last_system_code, which the dialogs read
+        /// only after a failure they cannot be made to have, binds. Every other entry point is called
+        /// by D-01 to D-14.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator TheCApi_IsAvailable_AndLastSystemCodeBinds()
+        {
+            Assert.AreEqual(WindowsNativeToolkitCApi.NativeState.Available, WindowsNativeToolkitCApi.EnsureNativeAvailable());
+            Assert.DoesNotThrow(() => WindowsNativeToolkitCApi.ntk_last_system_code());
+            yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator ShowDialog_EmptyTitle_ShowsNothing_AndReportsInvalidArgument()
+        {
+            var reports = new Reports<int?>();
+            void OnResult(int? result, bool isSuccess, int? errorCode) => reports.Add(result, false, isSuccess, errorCode);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.AlertDialogResult += OnResult;
+            try
+            {
+                yield return AnswerNoDialog(() => manager.ShowDialog("", "message"));
+            }
+            finally
+            {
+                manager.AlertDialogResult -= OnResult;
+            }
+            reports.AssertOne(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+        }
+
+        [UnityTest]
+        public IEnumerator ShowDialog_SystemModal_ShowsNothing_AndReportsInvalidArgument()
+        {
+            var reports = new Reports<int?>();
+            void OnResult(int? result, bool isSuccess, int? errorCode) => reports.Add(result, false, isSuccess, errorCode);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.AlertDialogResult += OnResult;
+            try
+            {
+                yield return AnswerNoDialog(() => manager.ShowDialog("title", "message", options: Win32MessageBox.MB_SYSTEMMODAL));
+            }
+            finally
+            {
+                manager.AlertDialogResult -= OnResult;
+            }
+            reports.AssertOne(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+        }
+
+        [UnityTest]
+        public IEnumerator ShowFileDialog_AFilterWithoutAPattern_ShowsNothing_AndReportsInvalidArgument()
+        {
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.FileDialogResult += OnResult;
+            try
+            {
+                yield return AnswerNoDialog(() => manager.ShowFileDialog(1024, "Text\0\0"));
+            }
+            finally
+            {
+                manager.FileDialogResult -= OnResult;
+            }
+            reports.AssertOne(null, false, false, WindowsDialogErrorCodes.InvalidArgument);
+        }
+
+        /// <remarks>
+        /// The title and the message reach the MessageBox as UTF-8, surrogate pairs included. OK and
+        /// Cancel, because a MessageBox with OK alone gives its button the ID IDCANCEL.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ShowDialog_NonAsciiTitleAndMessage_AreShown()
+        {
+            var reports = new Reports<int?>();
+            void OnResult(int? result, bool isSuccess, int? errorCode) => reports.Add(result, false, isSuccess, errorCode);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.AlertDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowDialog(NonAsciiTitle, NonAsciiMessage, Win32MessageBox.MB_OKCANCEL),
+                    $"expect-title {NonAsciiTitle};expect-text {MessageText} {NonAsciiMessage};press {IdOk}");
+            }
+            finally
+            {
+                manager.AlertDialogResult -= OnResult;
+            }
+            reports.AssertOne(IdOk, false, true, null);
+        }
+
+        [UnityTest]
+        public IEnumerator ShowFolderDialog_NonAsciiTitle_IsShown()
+        {
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.FolderDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowFolderDialog(1024, NonAsciiTitle),
+                    $"expect-title {NonAsciiTitle};press {IdCancel}");
+            }
+            finally
+            {
+                manager.FolderDialogResult -= OnResult;
+            }
+            reports.AssertOne(null, true, true, Cancelled);
+        }
+
+        /// <remarks>
+        /// Paths with Japanese and a surrogate pair make the round trip both ways (D-04, D-10 and
+        /// D-12 with such names). They are made here, not in the set-up, where D-07, D-08 and D-14
+        /// would see them in the folder.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator ShowFileDialog_NonAsciiPath_RoundTrips()
+        {
+            string file = In(NonAsciiName + ".txt");
+            File.WriteAllText(file, "x");
+
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.FileDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowFileDialog(), $"text {OpenFileNameBox} {file};press {IdOk}");
+            }
+            finally
+            {
+                manager.FileDialogResult -= OnResult;
+            }
+            reports.AssertOne(file, false, true, null);
+            Assert.IsTrue(File.Exists(file));
+        }
+
+        [UnityTest]
+        public IEnumerator ShowFolderDialog_NonAsciiPath_RoundTrips()
+        {
+            string folder = In(NonAsciiName);
+            Directory.CreateDirectory(folder);
+
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.FolderDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowFolderDialog(),
+                    $"text {FolderNameBox} {folder};press {IdOk};text {FolderNameBox} ;press {IdOk}");
+            }
+            finally
+            {
+                manager.FolderDialogResult -= OnResult;
+            }
+            reports.AssertOne(folder, false, true, null);
+            Assert.IsTrue(Directory.Exists(folder));
+        }
+
+        [UnityTest]
+        public IEnumerator ShowMultiFolderDialog_NonAsciiPaths_RoundTrip()
+        {
+            string first = In(NonAsciiName);
+            string second = In(NonAsciiName + "-2");
+            Directory.CreateDirectory(first);
+            Directory.CreateDirectory(second);
+
+            var reports = new Reports<string[]?>();
+            void OnResult(ArrayList? list, bool isCancelled, bool isSuccess, int? error) =>
+                reports.Add(list?.Cast<string>().ToArray(), isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.MultiFolderDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowMultiFolderDialog(),
+                    $"text {FolderNameBox} {_folder};press {IdOk};select {NonAsciiName};select {NonAsciiName}-2;press {IdOk}");
+            }
+            finally
+            {
+                manager.MultiFolderDialogResult -= OnResult;
+            }
+            reports.AssertOne(new[] { first, second }, false, true, null);
+            Assert.IsTrue(Directory.Exists(first) && Directory.Exists(second));
+        }
+
+        /// <remarks>The default extension, "txt", is added to a name typed without one.</remarks>
+        [UnityTest]
+        public IEnumerator ShowSaveFileDialog_DefaultExtension_IsAddedToTheTypedName()
+        {
+            var reports = new Reports<string?>();
+            void OnResult(string? p, bool isCancelled, bool isSuccess, int? error) => reports.Add(p, isCancelled, isSuccess, error);
+
+            WindowsDialogManager manager = WindowsDialogManager.Instance;
+            manager.SaveFileDialogResult += OnResult;
+            try
+            {
+                yield return AnswerCall(() => manager.ShowSaveFileDialog(), $"text {SaveFileNameBox} {In("new")};press {IdOk}");
+            }
+            finally
+            {
+                manager.SaveFileDialogResult -= OnResult;
+            }
+            reports.AssertOne(In("new.txt"), false, true, null);
+            AssertFolderUnchanged();
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
+
+        private const string NonAsciiName = "ダイアログ-𠮷";
+        private const string NonAsciiTitle = "タイトル 𠮷";
+        private const string NonAsciiMessage = "本文です 𠮷";
 
         private string In(string name) => Path.Combine(_folder, name);
 
@@ -361,6 +592,26 @@ namespace JonghyunKim.NativeToolkit.Tests
             _closer.WaitForExit(); // lets the asynchronous readers finish
             TestContext.WriteLine($"closer: {CloserLog()}");
             Assert.AreEqual(0, _closer.ExitCode, $"the dialog closer failed: {CloserLog()}");
+        }
+
+        /// <summary>
+        /// Starts the closer, makes a call that must not show a dialog, and checks that the closer
+        /// found none. Should one appear, the closer's press of Cancel (or its WM_CLOSE) closes it.
+        /// </summary>
+        private IEnumerator AnswerNoDialog(Action call)
+        {
+            bool ready = false;
+            yield return StartCloser($"press {IdCancel}", ok => ready = ok);
+            Assert.IsTrue(ready, $"the dialog closer did not start within {CloserReadySeconds}s: {CloserLog()}");
+
+            call();
+            yield return null;
+
+            yield return Eventually(() => _closer!.HasExited, _ => { }, CloserExitSeconds);
+            if (!_closer!.HasExited) Assert.Fail($"the dialog closer was still running {CloserExitSeconds}s later: {CloserLog()}");
+            _closer.WaitForExit();
+            TestContext.WriteLine($"closer: {CloserLog()}");
+            Assert.AreEqual(2, _closer.ExitCode, $"a dialog was shown: {CloserLog()}");
         }
 
         private static IEnumerator OpenDialogScreen()
@@ -528,6 +779,25 @@ public static class NtkDialogWindows {
         if (combo == IntPtr.Zero) return -1;
         return SendMessage(combo, CB_GETCOUNT, IntPtr.Zero, IntPtr.Zero).ToInt32();
     }
+    [DllImport(""user32.dll"", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int capacity);
+    [DllImport(""user32.dll"")] static extern int GetWindowTextLength(IntPtr window);
+    [DllImport(""user32.dll"", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr w, StringBuilder l);
+    const uint WM_GETTEXT = 0x000D, WM_GETTEXTLENGTH = 0x000E;
+    // The dialog's own title.
+    public static string Title(IntPtr dialog) {
+        var text = new StringBuilder(GetWindowTextLength(dialog) + 1);
+        GetWindowText(dialog, text, text.Capacity);
+        return text.ToString();
+    }
+    // A control's text, asked with WM_GETTEXT: GetWindowText does not read another process's controls.
+    // Null when there is no visible control with the ID.
+    public static string Text(IntPtr dialog, int id) {
+        IntPtr control = FindControl(dialog, id, null);
+        if (control == IntPtr.Zero) return null;
+        var text = new StringBuilder(SendMessage(control, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero).ToInt32() + 1);
+        SendMessage(control, WM_GETTEXT, new IntPtr(text.Capacity), text);
+        return text.ToString();
+    }
 }
 '@
 <# Selecting items in a file dialog's view: its items are DirectUI elements, which answer UI #>
@@ -561,6 +831,7 @@ Say 'ready'
 $dialog = WaitFor ([IntPtr]::Zero)
 if ($dialog -eq [IntPtr]::Zero) { Say 'no dialog'; exit 2 }
 <# Steps, separated by ';':  text <id> <value> | press <id> | select <item name> | confirm <id> | expect-count <id> <n> #>
+<#   | expect-title <text> | expect-text <id> <text>. An expected text is the rest of the step, spaces included. #>
 foreach ($step in $Steps.Split(';')) {
     $parts = $step.Trim().Split(' ', 3)
     $problem = $null
@@ -584,6 +855,19 @@ foreach ($step in $Steps.Split(';')) {
             } while ((Get-Date) -lt $deadline)
             Say ('count ' + $parts[1] + ' = ' + $count)
             if ($count -ne $expected) { $problem = 'combo ' + $parts[1] + ' lists ' + $count + ' items, expected ' + $expected }
+        }
+        'expect-title' {
+            $expected = $step.Trim().Substring(13)
+            $actual = [NtkDialogWindows]::Title($dialog)
+            if ($actual -cne $expected) { $problem = 'the title is [' + $actual + ']' }
+        }
+        'expect-text' {
+            $rest = $step.Trim().Substring(12)
+            $space = $rest.IndexOf(' ')
+            $expected = $rest.Substring($space + 1)
+            $actual = [NtkDialogWindows]::Text($dialog, [int]$rest.Substring(0, $space))
+            if ($actual -eq $null) { $problem = 'no control with ID ' + $rest.Substring(0, $space) }
+            elseif ($actual -cne $expected) { $problem = 'the text is [' + $actual + ']' }
         }
         default   { $problem = 'unknown step ' + $step }
     }
