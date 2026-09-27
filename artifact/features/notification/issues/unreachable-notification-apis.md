@@ -6,7 +6,8 @@
   通知サンプル計画 v2 が挙げるボタン名が擬似コードにしか無いと報告された。
   追ったところ、ボタン自体が実装後に取り外されていた
 - 対応方針: **別タスク。** 判断に実機確認が要るため、記録だけ先に残す
-- 進捗: 未着手
+- 進捗: **対応済み（2026-09-27）。** 案 1 を行った。3 API は非パッケージのアプリで `8`（NOT_SUPPORTED）を返す。
+  1.x と 2.0.0 の両方で、Player テストで確かめた（下の「確かめた結果」）。XML コメントに非対応と書いた。サンプルには戻さない
 
 ---
 
@@ -58,6 +59,21 @@
 
 **1 を先に。** 非対応が確定すれば 3 の文面が「非対応」に変わり、
 対応していれば 2 でサンプルに戻す判断になる。どちらに転んでも 1 が要る。
+
+## 確かめた結果（2026-09-27）
+
+C ABI 2.0.0 への移行（`artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md` 7.3）で、
+Manager を直接呼ぶ Player テスト `BadgeRemoveByIdAndGetAll_AreNotSupportedUnpackaged`（`Tests/PlayMode/WindowsNotificationSamplePlayerTests.cs`）を足した。
+
+| API | 1.x（dist 1.11.0） | 2.0.0（dist 1.12.0） |
+|---|---|---|
+| `SetBadge(1)` | 8 | 8 |
+| `RemoveNotificationById(1)` | 8 | 8 |
+| `GetAllNotifications` | 8。`GetAllNotificationsCompleted` が 1 回、`NotificationOperationCompleted` は出ない | 同じ |
+
+- 非対応は「確かめた事実」になったので、`WindowsNotificationManager` の 3 つの XML コメントに「Not supported for unpackaged apps (error 8)」と書いた（案 3 の文面を「非対応」で）
+- **サンプルには戻さない（案 2 は採らない）。** Unity の Windows スタンドアロンは非パッケージなので、ボタンを戻しても失敗を見せるだけになる
+- パッケージ（MSIX）のアプリでの動作は確かめていない。テストの Player は非パッケージで、MSIX の検証手順が無い（設計 v8 の 8.1）
 
 ## 参照
 

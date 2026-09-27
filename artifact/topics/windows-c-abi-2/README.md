@@ -8,7 +8,8 @@
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
 - 進捗: **実装中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
   **Dialog は移行済み**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v2.md`）。
-  Notification（設計 v8）と Clipboard（設計 v12）が残る
+  **Notification も移行済み**（2026-09-27。結果は `artifact/features/notification/results/2026-09-27-windows-notification-implementation-feature-result-v1.md`）。
+  Clipboard（設計 v12）が残る
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
 
@@ -238,7 +239,9 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 
 - `AssemblyReloadEvents.beforeAssemblyReload`、`EditorApplication.playModeStateChanged`（`ExitingPlayMode`）、`Application.quitting` で後始末する
 - Clipboard: **オーナースレッドから** `ntk_clipboard_session_close` → `ntk_clipboard_session_free`。`BUSY` なら他スレッドの読み書きを終わらせて再試行
-- Notification: `ntk_notification_manager_close` → `_free` の後、**すべての登録の `release` を期限付きで待つ**
+- Notification: `ntk_notification_manager_close` → `_free` の後、**すべての登録の `release` を期限付きで待つ**。
+  **ただし移行した Notification（設計 v8）は Editor でネイティブを読まない**（J-4。DLL は importer で Editor 無効、Manager の呼び出しは `!UNITY_EDITOR`）ので、
+  ドメインリロードの後片付けは要らない。`release` も使わない（`NULL`。受け口は static で、登録ごとの状態を持たない）
 - **close が成功しないまま `_free` すると、その Editor では以後セッションを作れない**（放棄）
 - 活性化コールバックは受け取ったものをキューに積むだけにする。メインスレッドへ同期で戻ると、close を待つメインスレッドと相互に待って止まる
 
@@ -357,6 +360,11 @@ native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原�
 **移行したら、`WindowsNotificationSamplePlayerTests` の W-04（`ShowNotification_OpenInTheCenter_ComesBackAsInvoked`）の `[Ignore]` を外し、W-11 を書く。**
 移行の確認はこの 2 本が通ることを含める。表示名（Unity では `Application.productName`）が同じアプリどうしは、クリックを奪い合う。
 **1.x には修正版を出さない**（2026-09-27 決定）。移行までは、同梱の 1.x でこの不具合が残る
+
+> **移行済み（2026-09-27）。** W-04 の `[Ignore]` を外し、W-11 を書いた。どちらも 2.0.0 で通った（UI テスト計画 v2）。
+> 上の表の違いのうち、公開 API では変わらないもの: **2 回目の `Initialize` は、Manager があればネイティブを呼ばずに成功**（J-3。S-3 は公開 API に出ない）、
+> **公開の JSON の `timestamp` は秒のまま**（J-2。C# で 1000 倍する。S-1 は公開 API に出ない）、GetNotificationSetting の失敗は今までどおり `Unknown`。
+> 公開 API で変わった振る舞いは、Notification 設計 v8 の 5.4 と実装結果 v1 の「既知の差分」にある
 
 ### 5.4 Dialog・振る舞いが変わる（6）
 

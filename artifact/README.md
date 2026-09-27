@@ -34,7 +34,8 @@
 
 | 課題 | 機能 | 進捗 |
 |---|---|---|
-| [unreachable-notification-apis](features/notification/issues/unreachable-notification-apis.md) | notification | 未着手。通知の 3 API がサンプルから到達できず、非対応の根拠が未検証 |
+| [unreachable-notification-apis](features/notification/issues/unreachable-notification-apis.md) | notification | 対応済み（2026-09-27）。3 API は非パッケージで 8 を返すことを 1.x と 2.0.0 の実機で確かめ、XML コメントに書いた |
+| [audio-src-is-ignored](features/notification/issues/audio-src-is-ignored.md) | notification | 未着手。通知の `Audio.Src` は JSON に出るが、ネイティブが読まない（1.x から） |
 
 ---
 
