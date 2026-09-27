@@ -12,6 +12,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     using System.Threading;
     using AOT;
     using JonghyunKim.NativeToolkit.Runtime.Common;
+    using JonghyunKim.NativeToolkit.Runtime.Windows.Common;
     using UnityEngine;
 
     /// <summary>
@@ -63,39 +64,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 
         /// <summary>An operation that only reports success or failure.</summary>
         Status
-    }
-
-    /// <summary>
-    /// What the first call of a two-call read should lead to.
-    /// </summary>
-    internal enum WindowsClipboardReadDecision
-    {
-        /// <summary>The clipboard holds nothing for this format. A success, not a failure.</summary>
-        EmptySuccess,
-
-        /// <summary>Allocate the reported size and call again.</summary>
-        NeedsBuffer,
-
-        /// <summary>Report the error. Never normalize this to an empty clipboard.</summary>
-        Failure
-    }
-
-    /// <summary>
-    /// What the second call of a two-call read should lead to.
-    /// </summary>
-    internal enum WindowsClipboardSecondReadDecision
-    {
-        /// <summary>The buffer holds the payload and may be read.</summary>
-        Read,
-
-        /// <summary>The clipboard was emptied between the two calls.</summary>
-        EmptySuccess,
-
-        /// <summary>The content grew between the two calls; allocate again.</summary>
-        Retry,
-
-        /// <summary>Report the error without touching the buffer.</summary>
-        Failure
     }
 
     /// <summary>
@@ -162,14 +130,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     public class WindowsClipboardManager : MonoBehaviour
     {
         private const string LogTag = "WindowsClipboardManager";
-
-        // The package's PreBuildProcessor copies the DLL out of native-toolkit/dist and renames it
-        // per build configuration, so a development build only ever holds the "-debug" name.
-#if DEVELOPMENT_BUILD
-        private const string DLL_NAME = "unity-windows-native-toolkit-debug";
-#else
-        private const string DLL_NAME = "unity-windows-native-toolkit";
-#endif
 
         // ── Operation constants ──────────────────────────────────────────────────
 
@@ -376,9 +336,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             internal string? InFlightKey;
             internal CancellationTokenRegistration Registration;
 
-            // Filled in when the outcome is known, before delivery is queued.
+            // Filled in when the outcome is known, before delivery is queued. The values are
+            // copied out of the native handle inside the completion, which is the only time the
+            // handle is valid.
             internal WindowsClipboardErrorCode Code = WindowsClipboardErrorCode.None;
-            internal string? Json;
+            internal IReadOnlyList<WindowsClipboardHistoryItem>? Items;
+            internal bool HistoryEnabled;
+            internal bool RoamingEnabled;
+
+            // Why a request was refused before it reached the native side ("itemId was null or
+            // blank"), for the failure message.
+            internal string? Detail;
 
             internal Action<WindowsClipboardHistoryResult>? OnHistory;
             internal Action<WindowsClipboardAvailabilityResult>? OnAvailability;
@@ -398,7 +366,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         // too. A caller's Func stays referenced until a later reservation succeeds or shutdown
         // completes.
         private static Dictionary<string, Func<byte[]>> s_renderProviders = new();
-        private static readonly Dictionary<string, byte[]> s_renderCache = new();
 
         // Published only while a reservation call is in flight: the native side swaps its renderer
         // table before it finishes placing the formats, so a render request arriving inside that
@@ -653,10 +620,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// <summary>Format names whose providers are currently live.</summary>
         internal static IReadOnlyCollection<string> RenderProviderNamesForTests => s_renderProviders.Keys;
 
-        /// <summary>Runs the two-phase render callback without the native side.</summary>
-        internal static uint RenderForTests(
-            string formatName, IntPtr buffer, uint bufferSize, out uint requiredSize) =>
-            RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
+        /// <summary>
+        /// Runs the render callback without the native side; <paramref name="setTarget"/> stands in
+        /// for <c>ntk_clipboard_render_target_set</c>.
+        /// </summary>
+        internal static WindowsClipboardErrorCode RenderForTests(
+            string formatName, Func<byte[], WindowsClipboardErrorCode> setTarget) =>
+            RenderDeferredFormat(formatName, setTarget);
 
         /// <summary>Applies a reservation outcome without the native side.</summary>
         internal static void ApplyReservationOutcomeForTests(
@@ -664,21 +634,29 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             ApplyReservationOutcome(code, next);
 
         /// <summary>Installs a live provider generation without a reservation call.</summary>
-        internal static void SetRenderProvidersForTests(Dictionary<string, Func<byte[]>> providers)
-        {
-            // The cache goes with it. Every path that installs a generation for real clears the
-            // cache too, so leaving it would let a test build a state the manager cannot reach:
-            // last generation's bytes answering this generation's second phase.
+        internal static void SetRenderProvidersForTests(Dictionary<string, Func<byte[]>> providers) =>
             s_renderProviders = providers;
-            s_renderCache.Clear();
-        }
 
-        /// <summary>Format names whose rendered bytes are currently cached.</summary>
-        internal static IReadOnlyCollection<string> RenderCacheNamesForTests => s_renderCache.Keys;
+        /// <summary>
+        /// Drives a history or status completion without the native side, with the history items
+        /// the completion would have copied out of its handle (none by default).
+        /// </summary>
+        internal static void InjectCompletionForTests(
+            uint requestId, int error, IReadOnlyList<WindowsClipboardHistoryItem>? items = null) =>
+            CompleteRequest(requestId, (WindowsClipboardErrorCode)error,
+                () => new CompletionValues(items ?? Array.Empty<WindowsClipboardHistoryItem>(), false, false));
 
-        /// <summary>Drives the native completion callback without the native side.</summary>
-        internal static void InjectCompletionForTests(uint requestId, int error, string? json) =>
-            OnRequestCompletedNative(requestId, error, json);
+        /// <summary>Drives an availability completion without the native side.</summary>
+        internal static void InjectAvailabilityForTests(
+            uint requestId, int error, bool historyEnabled, bool roamingEnabled) =>
+            CompleteRequest(requestId, (WindowsClipboardErrorCode)error,
+                () => new CompletionValues(null, historyEnabled, roamingEnabled));
+
+        /// <summary>
+        /// Stands in for the copy a completion makes out of its native handle, so a copy that
+        /// throws (design v12 E-20) can be reached.
+        /// </summary>
+        internal static Func<CompletionValues>? HistoryConversionForTests;
 
         /// <summary>Runs the teardown drain on its own, without a shutdown.</summary>
         internal static void DrainForTests() => DrainRequestRegistry();
@@ -834,24 +812,34 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             int pError;
             try
             {
-                initClipboardManager(enableChangeEvents ? s_changedDelegate : null, out pError);
+                // The version first (design v12 J-6): a library of another major version is not
+                // called at all, and reads as a missing bridge.
+                WindowsClipboardErrorCode status =
+                    WindowsClipboardCApi.StatusFor(WindowsNativeToolkitCApi.EnsureNativeAvailable());
+                if (status != WindowsClipboardErrorCode.None)
+                {
+                    pError = (int)status;
+                }
+                else
+                {
+                    pError = WindowsClipboardCApi.CreateSession(
+                        enableChangeEvents ? Marshal.GetFunctionPointerForDelegate(s_changedDelegate) : IntPtr.Zero,
+                        out IntPtr session);
+                    if (pError == 0) s_session = session;
+                }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(Initialize)}] {ex.GetType().Name}: {ex.Message}");
 
-                // Every exception, not only the two that name a missing bridge. The native side
+                // Every exception, not only the ones that name a missing bridge. The native side
                 // holds nothing when the call did not complete, so the COM reference this layer
                 // took is safe to give back right away - and it is the only chance to: the state
                 // is still Uninitialized, which TryShutdown answers as an idempotent success
                 // without ever reaching the release.
                 ReleaseOwnedComReference();
                 return Deliver(
-                    WindowsClipboardResult.Failure(
-                        OperationInitialize,
-                        ex is DllNotFoundException || ex is EntryPointNotFoundException
-                            ? WindowsClipboardErrorCode.BridgeUnavailable
-                            : WindowsClipboardErrorCode.Unknown),
+                    WindowsClipboardResult.Failure(OperationInitialize, WindowsClipboardCApi.FromLifecycleException(ex)),
                     onResult);
             }
 
@@ -980,13 +968,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             try
             {
-                bool canDestroy = canDestroyClipboardManager(out int pError);
-                WindowsClipboardFlagResult result = pError == 0
-                    ? WindowsClipboardFlagResult.Success(OperationCanShutdown, canDestroy)
-                    : WindowsClipboardFlagResult.Failure(OperationCanShutdown, (WindowsClipboardErrorCode)pError);
-                return DeliverFlag(result, onResult);
+                // Without a session there is nothing to close, as 1.x answered. With one, a session
+                // already closed once is safe to ask as well.
+                bool canClose = WindowsClipboardCApi.ShouldSkipNativeClose(s_session) ||
+                                WindowsClipboardCApi.CanClose(s_session);
+                return DeliverFlag(WindowsClipboardFlagResult.Success(OperationCanShutdown, canClose), onResult);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex) when (WindowsClipboardCApi.IsBridgeFailure(ex))
             {
                 Debug.LogError($"[{LogTag}][{nameof(CanShutdownNow)}] {ex.GetType().Name}: {ex.Message}");
                 return DeliverFlag(
@@ -1001,64 +989,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         }
 
         // ── Read classification ──────────────────────────────────────────────────
-
-        /// <summary>
-        /// Classifies the sizing call of a two-call read.
-        /// <para>
-        /// The error code decides, never the returned size. The native read APIs return zero for a
-        /// lease failure and for an internal read failure as well, so treating a zero size as "the
-        /// clipboard is empty" would turn NotInitialized, Busy or InvalidData into a silent empty
-        /// success that the caller cannot tell from a genuinely empty clipboard.
-        /// </para>
-        /// </summary>
-        /// <param name="code">The error code the sizing call reported.</param>
-        /// <param name="requiredSize">The size it returned, in wchar_t or bytes.</param>
-        /// <param name="isByteApi">True for PasteImage and PasteCustomFormat.</param>
-        /// <returns>Whether the read is empty, needs a buffer, or failed.</returns>
-        internal static WindowsClipboardReadDecision ClassifyFirstRead(
-            WindowsClipboardErrorCode code, uint requiredSize, bool isByteApi)
-        {
-            switch (code)
-            {
-                case WindowsClipboardErrorCode.Empty:
-                case WindowsClipboardErrorCode.FormatUnavailable:
-                    return WindowsClipboardReadDecision.EmptySuccess;
-
-                case WindowsClipboardErrorCode.None:
-                    return requiredSize == 0
-                        ? WindowsClipboardReadDecision.EmptySuccess
-                        : WindowsClipboardReadDecision.NeedsBuffer;
-
-                case WindowsClipboardErrorCode.BufferTooSmall:
-                    if (requiredSize > 0) return WindowsClipboardReadDecision.NeedsBuffer;
-                    // Zero bytes is a real payload for the byte APIs. A string API always needs at
-                    // least the terminator, so a zero there means something went wrong.
-                    return isByteApi
-                        ? WindowsClipboardReadDecision.EmptySuccess
-                        : WindowsClipboardReadDecision.Failure;
-
-                default:
-                    return WindowsClipboardReadDecision.Failure;
-            }
-        }
-
-        /// <summary>
-        /// Classifies the filling call of a two-call read, before the buffer is touched.
-        /// </summary>
-        /// <param name="code">The error code the filling call reported.</param>
-        /// <returns>Whether to read the buffer, report empty, retry, or fail.</returns>
-        internal static WindowsClipboardSecondReadDecision ClassifySecondRead(WindowsClipboardErrorCode code)
-        {
-            return code switch
-            {
-                WindowsClipboardErrorCode.None => WindowsClipboardSecondReadDecision.Read,
-                // The clipboard can change between the two calls; neither outcome is an error.
-                WindowsClipboardErrorCode.Empty => WindowsClipboardSecondReadDecision.EmptySuccess,
-                WindowsClipboardErrorCode.FormatUnavailable => WindowsClipboardSecondReadDecision.EmptySuccess,
-                WindowsClipboardErrorCode.BufferTooSmall => WindowsClipboardSecondReadDecision.Retry,
-                _ => WindowsClipboardSecondReadDecision.Failure
-            };
-        }
 
         // ── Operation guard ──────────────────────────────────────────────────────
 
@@ -1219,9 +1149,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 }
             }
 
-            string json = WindowsClipboardJsonBuilder.BuildPathsJson(paths);
             return Deliver(InvokeWrite(OperationCopyFiles,
-                pError => CopyFilesNative(json, (uint)options, out pError)), onResult);
+                pError => CopyFilesNative(paths, (uint)options, out pError)), onResult);
         }
 
         /// <summary>
@@ -1331,9 +1260,26 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 }
             }
 
-            string json = WindowsClipboardJsonBuilder.BuildMultiFormatItemsJson(items);
+            // Every base64 entry is decoded before any native call, by 1.x's rules (design v12
+            // J-3): a malformed one is InvalidParameter, as 1.x's native decoder answered.
+            var entries = new List<WindowsClipboardCApi.MultipleItem>(items.Count);
+            foreach (WindowsClipboardFormatPayload item in items)
+            {
+                if (item.Kind != WindowsClipboardPayloadKind.Base64)
+                {
+                    entries.Add(new WindowsClipboardCApi.MultipleItem(item.Kind, item.Format, item.Value, null));
+                    continue;
+                }
+                if (!WindowsClipboardCApi.TryDecodeBase64(item.Value, out byte[] bytes))
+                {
+                    return Deliver(WindowsClipboardResult.Failure(
+                        OperationCopyMultipleFormats, WindowsClipboardErrorCode.InvalidParameter), onResult);
+                }
+                entries.Add(new WindowsClipboardCApi.MultipleItem(item.Kind, item.Format, null, bytes));
+            }
+
             return Deliver(InvokeWrite(OperationCopyMultipleFormats,
-                pError => CopyMultipleFormatsNative(json, (uint)options, out pError)), onResult);
+                pError => CopyMultipleFormatsNative(entries, (uint)options, out pError)), onResult);
         }
 
         /// <summary>
@@ -1397,8 +1343,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// </summary>
         /// <param name="onResult">Per-call callback. <see cref="StringListReadCompleted"/> fires as well.</param>
         /// <returns>
-        /// The result. An empty clipboard reports no values rather than the native Empty code,
-        /// because the native API answers with an empty array.
+        /// The result. An empty clipboard reports a success with no values rather than the native
+        /// Empty code, because the native API answers with an empty list.
         /// </returns>
         public WindowsClipboardStringListResult GetFormats(
             Action<WindowsClipboardStringListResult>? onResult = null)
@@ -1443,8 +1389,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 
             return DeliverBytes(
                 ReadBytes(OperationPasteCustomFormat,
-                    (IntPtr buffer, uint size, out int pError) =>
-                        PasteCustomFormatNative(formatName, buffer, size, out pError),
+                    (out byte[]? data) => PasteCustomFormatNative(formatName, out data),
                     skipGuard: true),
                 onResult);
         }
@@ -1494,14 +1439,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             try
             {
-                bool has = hasClipboardFormat(formatName, out int pError);
+                int pError = HasFormatNative(formatName, out bool has);
                 WindowsClipboardFormatPresenceResult result = pError == 0
                     ? WindowsClipboardFormatPresenceResult.Success(OperationHasFormat, has)
                     : WindowsClipboardFormatPresenceResult.Failure(
                         OperationHasFormat, (WindowsClipboardErrorCode)pError);
                 return DeliverPresence(result, onResult);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex) when (WindowsClipboardCApi.IsBridgeFailure(ex))
             {
                 Debug.LogError($"[{LogTag}][{nameof(HasFormat)}] {ex.GetType().Name}: {ex.Message}");
                 return DeliverPresence(WindowsClipboardFormatPresenceResult.Failure(
@@ -1515,183 +1460,109 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 
         // ── Read helpers ─────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// One call of the native two-call read protocol.
-        /// </summary>
-        private delegate uint NativeSizedRead(IntPtr buffer, uint bufferSize, out int pError);
+        // One native call each: the C ABI hands back a handle, which the wrapper copies out and
+        // frees. The code decides the result (WindowsClipboardCApi.ClassifyRead), never whether
+        // a value came back.
+        private delegate int NativeTextRead(out string? text);
+        private delegate int NativeListRead(out List<string>? values);
+        private delegate int NativeBytesRead(out byte[]? data);
 
-        private const int SizeChangedRetryBudget = 2;
-
-        private static WindowsClipboardTextResult ReadText(string operation, NativeSizedRead call)
+        private static WindowsClipboardTextResult ReadText(string operation, NativeTextRead call)
         {
             if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
             {
                 return WindowsClipboardTextResult.Failure(operation, rejected);
             }
 
-            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: false);
-            if (!outcome.IsSuccess) return WindowsClipboardTextResult.Failure(operation, outcome.Code);
-            if (outcome.IsEmpty) return WindowsClipboardTextResult.Empty(operation);
-
-            string text = outcome.Text ?? string.Empty;
-
-            // Only here. GetPreferredFormat answers with an empty string when nothing matches its
-            // candidates and never reports the native Empty code, so the empty string is its way
-            // of saying nothing was found. For the paste operations an empty string is a value:
-            // text that was copied and can be pasted back, which is not the same as an empty
-            // clipboard, and folding the two together loses a distinction the caller can act on.
-            if (operation == OperationGetPreferredFormat && text.Length == 0)
+            if (!TryRead(operation, (out object? value) =>
+                {
+                    int code = call(out string? text);
+                    value = text;
+                    return code;
+                }, out WindowsClipboardErrorCode code, out object? read))
             {
-                return WindowsClipboardTextResult.Empty(operation);
+                return WindowsClipboardTextResult.Failure(operation, code);
             }
 
-            return WindowsClipboardTextResult.Success(operation, text);
+            // GetPreferredFormat answers with an empty string when nothing matches its candidates
+            // and never reports the native Empty code, so the empty string is its way of saying
+            // nothing was found. For the paste operations an empty string is a value: text that was
+            // copied and can be pasted back, which is not the same as an empty clipboard.
+            return WindowsClipboardCApi.ToTextResult(
+                operation, code, (string?)read, emptyTextIsEmpty: operation == OperationGetPreferredFormat);
         }
 
-        private WindowsClipboardStringListResult ReadStringList(string operation, NativeSizedRead call)
+        private WindowsClipboardStringListResult ReadStringList(string operation, NativeListRead call)
         {
             if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
             {
                 return WindowsClipboardStringListResult.Failure(operation, rejected);
             }
 
-            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: false);
-            if (!outcome.IsSuccess) return WindowsClipboardStringListResult.Failure(operation, outcome.Code);
-            if (outcome.IsEmpty) return WindowsClipboardStringListResult.Empty(operation);
-
-            if (!WindowsClipboardJsonParser.TryParseStringArray(outcome.Text, out IReadOnlyList<string> values))
+            if (!TryRead(operation, (out object? value) =>
+                {
+                    int code = call(out List<string>? values);
+                    value = values;
+                    return code;
+                }, out WindowsClipboardErrorCode code, out object? read))
             {
-                return WindowsClipboardStringListResult.Failure(
-                    operation, WindowsClipboardErrorCode.ResultParseFailed);
+                return WindowsClipboardStringListResult.Failure(operation, code);
             }
-            return WindowsClipboardStringListResult.Success(operation, values);
+            return WindowsClipboardCApi.ToListResult(operation, code, (List<string>?)read);
         }
 
         private WindowsClipboardBytesResult ReadBytes(
-            string operation, NativeSizedRead call, bool skipGuard = false)
+            string operation, NativeBytesRead call, bool skipGuard = false)
         {
             if (!skipGuard && !CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
             {
                 return WindowsClipboardBytesResult.Failure(operation, rejected);
             }
 
-            ReadOutcome outcome = ReadRaw(operation, call, isByteApi: true);
-            if (!outcome.IsSuccess) return WindowsClipboardBytesResult.Failure(operation, outcome.Code);
-            if (outcome.IsEmpty) return WindowsClipboardBytesResult.Empty(operation);
-            return WindowsClipboardBytesResult.Success(operation, outcome.Data ?? Array.Empty<byte>());
-        }
-
-        private readonly struct ReadOutcome
-        {
-            internal bool IsSuccess { get; }
-            internal bool IsEmpty { get; }
-            internal string? Text { get; }
-            internal byte[]? Data { get; }
-            internal WindowsClipboardErrorCode Code { get; }
-
-            internal static ReadOutcome Empty() => new(true, true, null, null, WindowsClipboardErrorCode.None);
-            internal static ReadOutcome FromText(string text) =>
-                new(true, false, text, null, WindowsClipboardErrorCode.None);
-            internal static ReadOutcome FromData(byte[] data) =>
-                new(true, false, null, data, WindowsClipboardErrorCode.None);
-            internal static ReadOutcome Failed(WindowsClipboardErrorCode code) =>
-                new(false, false, null, null, code);
-
-            private ReadOutcome(bool isSuccess, bool isEmpty, string? text, byte[]? data,
-                WindowsClipboardErrorCode code)
+            if (!TryRead(operation, (out object? value) =>
+                {
+                    int code = call(out byte[]? data);
+                    value = data;
+                    return code;
+                }, out WindowsClipboardErrorCode code, out object? read))
             {
-                IsSuccess = isSuccess;
-                IsEmpty = isEmpty;
-                Text = text;
-                Data = data;
-                Code = code;
+                return WindowsClipboardBytesResult.Failure(operation, code);
             }
+            return WindowsClipboardCApi.ToBytesResult(operation, code, (byte[]?)read);
         }
+
+        private delegate int NativeRead(out object? value);
 
         /// <summary>
-        /// Runs the native two-call read protocol: ask for the size, allocate, then fill.
-        /// The error code is classified before the buffer is ever read, on both calls.
+        /// Makes one read call and logs a failure, as 1.x did. False only for the exceptions the
+        /// read catches; a native failure code is returned in <paramref name="code"/> with true.
         /// </summary>
-        private static ReadOutcome ReadRaw(string operation, NativeSizedRead call, bool isByteApi)
+        private static bool TryRead(string operation, NativeRead call,
+            out WindowsClipboardErrorCode code, out object? value)
         {
-            // Deliberately outside the native guard. Nothing here names an import: the two calls go
-            // through the delegate the caller supplies, and Marshal is available everywhere. Behind
-            // the guard the retry, the budget and the size arithmetic could not be reached by any
-            // test, and the editor's answer came from the guard rather than from this protocol.
+            value = null;
             try
             {
-                for (int attempt = 0; attempt <= SizeChangedRetryBudget; attempt++)
-                {
-                    uint required = call(IntPtr.Zero, 0, out int sizeError);
-                    var sizeCode = (WindowsClipboardErrorCode)sizeError;
-
-                    switch (ClassifyFirstRead(sizeCode, required, isByteApi))
-                    {
-                        case WindowsClipboardReadDecision.EmptySuccess:
-                            return ReadOutcome.Empty();
-                        case WindowsClipboardReadDecision.Failure:
-                            Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} sizing failed: {sizeCode}");
-                            return ReadOutcome.Failed(sizeCode);
-                    }
-
-                    // A string size counts wchar_t including the terminator, a byte size counts
-                    // bytes. The multiplication is checked: an unchecked cast turns a size past two
-                    // gigabytes into a negative byte count, and the allocation that follows is then
-                    // smaller than what the second call is told it may write into.
-                    long byteCount = isByteApi ? required : (long)required * 2;
-                    if (byteCount > int.MaxValue)
-                    {
-                        Debug.LogError(
-                            $"[{LogTag}][{nameof(ReadRaw)}] {operation} wants {byteCount} bytes; too large to allocate.");
-                        return ReadOutcome.Failed(WindowsClipboardErrorCode.OutOfMemory);
-                    }
-                    IntPtr buffer = Marshal.AllocHGlobal((int)byteCount);
-                    try
-                    {
-                        uint written = call(buffer, required, out int readError);
-                        var readCode = (WindowsClipboardErrorCode)readError;
-
-                        switch (ClassifySecondRead(readCode))
-                        {
-                            case WindowsClipboardSecondReadDecision.EmptySuccess:
-                                return ReadOutcome.Empty();
-                            case WindowsClipboardSecondReadDecision.Retry:
-                                // The clipboard grew between the two calls; size it again.
-                                continue;
-                            case WindowsClipboardSecondReadDecision.Failure:
-                                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} read failed: {readCode}");
-                                return ReadOutcome.Failed(readCode);
-                        }
-
-                        if (isByteApi)
-                        {
-                            var data = new byte[written];
-                            if (written > 0) Marshal.Copy(buffer, data, 0, (int)written);
-                            return ReadOutcome.FromData(data);
-                        }
-
-                        string? text = Marshal.PtrToStringUni(buffer);
-                        return text == null ? ReadOutcome.Empty() : ReadOutcome.FromText(text);
-                    }
-                    finally
-                    {
-                        Marshal.FreeHGlobal(buffer);
-                    }
-                }
-
-                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} kept resizing; giving up.");
-                return ReadOutcome.Failed(WindowsClipboardErrorCode.BufferTooSmall);
+                code = (WindowsClipboardErrorCode)call(out value);
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex) when (WindowsClipboardCApi.IsBridgeFailure(ex))
             {
-                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {ex.GetType().Name}: {ex.Message}");
-                return ReadOutcome.Failed(WindowsClipboardErrorCode.BridgeUnavailable);
+                Debug.LogError($"[{LogTag}][{nameof(TryRead)}] {ex.GetType().Name}: {ex.Message}");
+                code = WindowsClipboardErrorCode.BridgeUnavailable;
+                return false;
             }
             catch (OutOfMemoryException)
             {
-                Debug.LogError($"[{LogTag}][{nameof(ReadRaw)}] {operation} could not allocate its buffer.");
-                return ReadOutcome.Failed(WindowsClipboardErrorCode.OutOfMemory);
+                Debug.LogError($"[{LogTag}][{nameof(TryRead)}] {operation} could not allocate what it read.");
+                code = WindowsClipboardErrorCode.OutOfMemory;
+                return false;
             }
+
+            if (WindowsClipboardCApi.ClassifyRead(code) == WindowsClipboardCApi.ReadClass.Failure)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(TryRead)}] {operation} read failed: {code}");
+            }
+            return true;
         }
 
 #if UNITY_EDITOR
@@ -1700,43 +1571,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// that decides what an empty string means can be covered.
         /// </summary>
         internal static WindowsClipboardTextResult ReadTextForTests(
-            string operation, Func<IntPtr, uint, (uint written, WindowsClipboardErrorCode code)> fake)
+            string operation, Func<(WindowsClipboardErrorCode code, string? text)> fake)
         {
-            return ReadText(operation, (IntPtr buffer, uint bufferSize, out int pError) =>
+            return ReadText(operation, (out string? text) =>
             {
-                (uint written, WindowsClipboardErrorCode code) = fake(buffer, bufferSize);
-                pError = (int)code;
-                return written;
+                (WindowsClipboardErrorCode code, string? value) = fake();
+                text = value;
+                return (int)code;
             });
-        }
-
-        /// <summary>
-        /// Runs the two-call read protocol against a stand-in for the native side.
-        /// <para>
-        /// The outcome is flattened into a tuple so the protocol can be covered without making the
-        /// internal read types part of the package's surface.
-        /// </para>
-        /// </summary>
-        /// <param name="isByteApi">Whether sizes count bytes rather than wchar_t.</param>
-        /// <param name="fake">Answers one call: what to write, how much, and with which code.</param>
-        /// <returns>The outcome, plus how many times the stand-in was called.</returns>
-        internal static (bool isSuccess, bool isEmpty, string? text, byte[]? data,
-            WindowsClipboardErrorCode code, int calls) ReadRawForTests(
-            bool isByteApi, Func<IntPtr, uint, (uint written, WindowsClipboardErrorCode code)> fake)
-        {
-            int calls = 0;
-            ReadOutcome outcome = ReadRaw(
-                "test",
-                (IntPtr buffer, uint bufferSize, out int pError) =>
-                {
-                    calls++;
-                    (uint written, WindowsClipboardErrorCode code) = fake(buffer, bufferSize);
-                    pError = (int)code;
-                    return written;
-                },
-                isByteApi);
-            return (outcome.IsSuccess, outcome.IsEmpty, outcome.Text, outcome.Data,
-                outcome.Code, calls);
         }
 #endif
 
@@ -1750,7 +1592,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             {
                 return WindowsClipboardResult.FromNative(operation, call(0));
             }
-            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
+            catch (Exception ex) when (WindowsClipboardCApi.IsBridgeFailure(ex))
             {
                 Debug.LogError($"[{LogTag}][{nameof(InvokeWrite)}] {ex.GetType().Name}: {ex.Message}");
                 return WindowsClipboardResult.Failure(operation, WindowsClipboardErrorCode.BridgeUnavailable);
@@ -1805,7 +1647,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             return StartRequest(
                 OperationGetHistory, WindowsClipboardRequestKind.History, inFlightKey: null,
                 onHistory: onResult, onAvailability: null, onStatus: null,
-                call: cb => GetHistoryNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+                call: () => { uint id = GetHistoryNative(out int e); return (id, e); });
         }
 
         /// <summary>
@@ -1821,7 +1663,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             return StartRequest(
                 OperationGetHistoryAvailability, WindowsClipboardRequestKind.Availability, inFlightKey: null,
                 onHistory: null, onAvailability: onResult, onStatus: null,
-                call: cb => GetHistoryAvailabilityNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+                call: () => { uint id = GetHistoryAvailabilityNative(out int e); return (id, e); });
         }
 
         /// <summary>
@@ -1843,7 +1685,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 OperationRestoreHistoryItem, WindowsClipboardRequestKind.Status,
                 inFlightKey: OperationRestoreHistoryItem,
                 onHistory: null, onAvailability: null, onStatus: onResult,
-                call: cb => RestoreHistoryItemNative(itemId, cb, out int e) is var id ? (id, e) : (0u, 0));
+                call: () => { uint id = RestoreHistoryItemNative(itemId, out int e); return (id, e); });
         }
 
         /// <summary>
@@ -1861,7 +1703,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 OperationDeleteHistoryItem, WindowsClipboardRequestKind.Status,
                 inFlightKey: OperationDeleteHistoryItem,
                 onHistory: null, onAvailability: null, onStatus: onResult,
-                call: cb => DeleteHistoryItemNative(itemId, cb, out int e) is var id ? (id, e) : (0u, 0));
+                call: () => { uint id = DeleteHistoryItemNative(itemId, out int e); return (id, e); });
         }
 
         /// <summary>
@@ -1876,7 +1718,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 OperationClearUnpinnedHistory, WindowsClipboardRequestKind.Status,
                 inFlightKey: OperationClearUnpinnedHistory,
                 onHistory: null, onAvailability: null, onStatus: onResult,
-                call: cb => ClearUnpinnedHistoryNative(cb, out int e) is var id ? (id, e) : (0u, 0));
+                call: () => { uint id = ClearUnpinnedHistoryNative(out int e); return (id, e); });
         }
 
         /// <summary>
@@ -1933,11 +1775,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             }
 
             WindowsClipboardResult result = InvokeWrite(OperationSetHistoryEvents, pError =>
-                SetHistoryCallbacksNative(
-                    enabled ? s_historyChangedDelegate : null,
-                    enabled ? s_historyEnabledDelegate : null,
-                    enabled ? s_roamingEnabledDelegate : null,
-                    out pError));
+                SetHistoryCallbacksNative(enabled, out pError));
 
             return Deliver(result, onResult);
         }
@@ -2007,7 +1845,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 next[entry.Key] = entry.Value;
             }
 
-            string json = WindowsClipboardJsonBuilder.BuildFormatNamesJson(new List<string>(next.Keys));
+            var formatNames = new List<string>(next.Keys);
 
             // Publish both generations for the duration of the call, so a render request that
             // arrives while the native side is swapping its table still resolves.
@@ -2016,7 +1854,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             try
             {
                 result = InvokeWrite(OperationReserveDeferredFormats,
-                    pError => ReserveDeferredFormatsNative(json, s_renderDelegate, IntPtr.Zero, out pError));
+                    pError => ReserveDeferredFormatsNative(formatNames, out pError));
             }
             finally
             {
@@ -2046,7 +1884,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                     WindowsClipboardResult.Failure(OperationRecoverDeferredState, rejected), onResult);
             }
 
-            // Deliberately does not touch the providers or the cache: a success here can mean
+            // Deliberately does not touch the providers: a success here can mean
             // "recovered", "there was nothing partial", or "the reservation is already gone", and
             // dropping the providers on the strength of that code would strand a live renderer.
             return Deliver(InvokeWrite(OperationRecoverDeferredState,
@@ -2202,18 +2040,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             {
                 case WindowsClipboardErrorCode.None:
                     s_renderProviders = next;
-                    s_renderCache.Clear();
                     break;
 
                 case WindowsClipboardErrorCode.PartialState:
                     // The native side kept the new table, so it wins; the previous formats it does
                     // not name may still be asked for.
                     s_renderProviders = Merge(s_renderProviders, next);
-                    s_renderCache.Clear();
                     break;
 
                 default:
-                    // The previous generation stays exactly as it was, and so does its cache.
+                    // The previous generation stays exactly as it was.
                     break;
             }
         }
@@ -2234,66 +2070,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         }
 
         /// <summary>
-        /// Produces the bytes of one reserved format, in the two phases the native side asks for.
-        /// <para>
-        /// The size the first phase reports and the size the second phase writes have to match
-        /// exactly: the native layer drops a format whose second answer differs, without an error.
-        /// The bytes are therefore produced once and cached, never regenerated.
-        /// </para>
+        /// Produces the bytes of one reserved format and hands them to the native target, in the
+        /// one step the C ABI asks for (design v12 J-8). The provider runs once per render, as it
+        /// did in 1.x, and the target's own failure is returned as it is.
         /// </summary>
-        internal static uint RenderDeferredFormat(
-            string formatName, IntPtr buffer, uint bufferSize, out uint requiredSize)
+        internal static WindowsClipboardErrorCode RenderDeferredFormat(
+            string formatName, Func<byte[], WindowsClipboardErrorCode> setTarget)
         {
-            requiredSize = 0;
-            try
+            TryResolveProvider(formatName, out Func<byte[]>? provider);
+            WindowsClipboardErrorCode code = WindowsClipboardCApi.Render(provider, setTarget, out string? failure);
+            if (failure != null)
             {
-                if (buffer == IntPtr.Zero)
-                {
-                    if (!TryResolveProvider(formatName, out Func<byte[]>? provider) || provider == null)
-                    {
-                        Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] no provider for {formatName}");
-                        return (uint)WindowsClipboardErrorCode.InvalidParameter;
-                    }
-
-                    byte[] produced = provider() ?? Array.Empty<byte>();
-                    if (produced.Length == 0)
-                    {
-                        // A zero-length payload cannot be placed, and answering zero would make the
-                        // native side drop the format without saying why.
-                        Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] {formatName} produced no bytes");
-                        return (uint)WindowsClipboardErrorCode.InvalidData;
-                    }
-
-                    s_renderCache[formatName] = produced;
-                    requiredSize = (uint)produced.Length;
-                    return (uint)WindowsClipboardErrorCode.BufferTooSmall;
-                }
-
-                if (!s_renderCache.TryGetValue(formatName, out byte[]? cached))
-                {
-                    // Regenerating here could yield a different length than the first phase
-                    // promised, which the native side discards silently. Failing loudly is better.
-                    Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] no cached payload for {formatName}");
-                    return (uint)WindowsClipboardErrorCode.Unknown;
-                }
-
-                requiredSize = (uint)cached.Length;
-                if (bufferSize < cached.Length)
-                {
-                    return (uint)WindowsClipboardErrorCode.BufferTooSmall;
-                }
-
-                Marshal.Copy(cached, 0, buffer, cached.Length);
-                return (uint)WindowsClipboardErrorCode.None;
+                // The format name is not content, so it is safe to log.
+                Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] {formatName}: {failure}");
             }
-            catch (Exception ex)
-            {
-                // out parameters are not written back when an exception leaves the method, so the
-                // size is reset explicitly before reporting the failure.
-                requiredSize = 0;
-                Debug.LogError($"[{LogTag}][{nameof(RenderDeferredFormat)}] {formatName}: {ex.GetType().Name}");
-                return (uint)WindowsClipboardErrorCode.Unknown;
-            }
+            return code;
         }
 
         // ── Request plumbing ─────────────────────────────────────────────────────
@@ -2321,7 +2112,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             Action<WindowsClipboardHistoryResult>? onHistory,
             Action<WindowsClipboardAvailabilityResult>? onAvailability,
             Action<WindowsClipboardResult>? onStatus,
-            Func<ClipboardRequestCallback, (uint requestId, int pError)> call)
+            Func<(uint requestId, int pError)> call)
         {
             if (!CanRunOperation(operation, out WindowsClipboardErrorCode rejected))
             {
@@ -2380,7 +2171,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                         throw forcedFailure;
                     }
 #endif
-                    (requestId, pError) = call(s_requestDelegate);
+                    (requestId, pError) = call();
                 }
                 catch (Exception ex)
                 {
@@ -2389,12 +2180,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                     // in-flight marker as well as the caller: the teardown drain has nothing to
                     // find, and the operation would report Busy for the rest of the session.
                     Debug.LogError($"[{LogTag}][{nameof(StartRequest)}] {ex.GetType().Name}: {ex.Message}");
-                    ResolveAndQueue(
-                        ticket,
-                        ex is DllNotFoundException || ex is EntryPointNotFoundException
-                            ? WindowsClipboardErrorCode.BridgeUnavailable
-                            : WindowsClipboardErrorCode.Unknown,
-                        null);
+                    ResolveAndQueue(ticket, WindowsClipboardCApi.FromLifecycleException(ex));
                     return 0;
                 }
             }
@@ -2405,7 +2191,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 // owns the single delivery.
                 var code = (WindowsClipboardErrorCode)pError;
                 if (code == WindowsClipboardErrorCode.None) code = WindowsClipboardErrorCode.RequestRejected;
-                ResolveAndQueue(ticket, code, null);
+                ResolveAndQueue(ticket, code);
                 return 0;
             }
 
@@ -2433,7 +2219,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 Operation = operation,
                 Kind = kind,
                 Code = code,
-                Json = detail,
+                Detail = detail,
                 OnHistory = onHistory,
                 OnAvailability = onAvailability,
                 OnStatus = onStatus
@@ -2442,12 +2228,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             QueueDelivery(ticket);
         }
 
-        private static void ResolveAndQueue(uint ticket, WindowsClipboardErrorCode code, string? json)
+        private static void ResolveAndQueue(uint ticket, WindowsClipboardErrorCode code)
         {
             if (s_pending.TryGetValue(ticket, out PendingRequest? pending))
             {
                 pending.Code = code;
-                pending.Json = json;
             }
             s_registry.RegisterUndelivered(ticket);
             QueueDelivery(ticket);
@@ -2537,43 +2322,20 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             {
                 case WindowsClipboardRequestKind.History:
                 {
-                    WindowsClipboardHistoryResult result;
-                    if (code != WindowsClipboardErrorCode.None)
-                    {
-                        result = WindowsClipboardHistoryResult.Failure(pending.Operation, code, pending.Json);
-                    }
-                    else if (WindowsClipboardJsonParser.TryParseHistoryItems(
-                                 pending.Json, out IReadOnlyList<WindowsClipboardHistoryItem> items))
-                    {
-                        result = WindowsClipboardHistoryResult.Success(pending.Operation, items);
-                    }
-                    else
-                    {
-                        result = WindowsClipboardHistoryResult.Failure(
-                            pending.Operation, WindowsClipboardErrorCode.ResultParseFailed);
-                    }
+                    WindowsClipboardHistoryResult result = code != WindowsClipboardErrorCode.None
+                        ? WindowsClipboardHistoryResult.Failure(pending.Operation, code, pending.Detail)
+                        : WindowsClipboardHistoryResult.Success(
+                            pending.Operation, pending.Items ?? Array.Empty<WindowsClipboardHistoryItem>());
                     InvokeInOrder(result, _instance?.HistoryReadCompleted, pending.OnHistory);
                     break;
                 }
 
                 case WindowsClipboardRequestKind.Availability:
                 {
-                    WindowsClipboardAvailabilityResult result;
-                    if (code != WindowsClipboardErrorCode.None)
-                    {
-                        result = WindowsClipboardAvailabilityResult.Failure(pending.Operation, code, pending.Json);
-                    }
-                    else if (WindowsClipboardJsonParser.TryParseAvailability(
-                                 pending.Json, out bool historyEnabled, out bool roamingEnabled))
-                    {
-                        result = WindowsClipboardAvailabilityResult.Success(
-                            pending.Operation, historyEnabled, roamingEnabled);
-                    }
-                    else
-                    {
-                        result = WindowsClipboardAvailabilityResult.Failure(
-                            pending.Operation, WindowsClipboardErrorCode.ResultParseFailed);
-                    }
+                    WindowsClipboardAvailabilityResult result = code != WindowsClipboardErrorCode.None
+                        ? WindowsClipboardAvailabilityResult.Failure(pending.Operation, code, pending.Detail)
+                        : WindowsClipboardAvailabilityResult.Success(
+                            pending.Operation, pending.HistoryEnabled, pending.RoamingEnabled);
                     InvokeInOrder(result, _instance?.HistoryAvailabilityChecked, pending.OnAvailability);
                     break;
                 }
@@ -2582,19 +2344,35 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 {
                     WindowsClipboardResult result = code == WindowsClipboardErrorCode.None
                         ? WindowsClipboardResult.Success(pending.Operation)
-                        : WindowsClipboardResult.Failure(pending.Operation, code, pending.Json);
+                        : WindowsClipboardResult.Failure(pending.Operation, code, pending.Detail);
                     InvokeInOrder(result, _instance?.ClipboardOperationCompleted, pending.OnStatus);
                     break;
                 }
             }
         }
 
+        /// <summary>What a completion copied out of its native handle.</summary>
+        internal readonly struct CompletionValues
+        {
+            internal CompletionValues(IReadOnlyList<WindowsClipboardHistoryItem>? items, bool historyEnabled, bool roamingEnabled)
+            {
+                Items = items;
+                HistoryEnabled = historyEnabled;
+                RoamingEnabled = roamingEnabled;
+            }
+
+            internal IReadOnlyList<WindowsClipboardHistoryItem>? Items { get; }
+            internal bool HistoryEnabled { get; }
+            internal bool RoamingEnabled { get; }
+        }
+
         /// <summary>
-        /// The native completion callback. Runs on the owner UI thread, exactly once per accepted
-        /// request.
+        /// Where every completion ends, exactly once per accepted request, on the owner thread
+        /// (inside a close as well, for the requests it cancels). The values are copied out of the
+        /// handle here, while it is alive; a copy that throws still delivers once, as OutOfMemory
+        /// or Unknown (design v12 4.6), so the in-flight marker comes off.
         /// </summary>
-        [MonoPInvokeCallback(typeof(ClipboardRequestCallback))]
-        private static void OnRequestCompletedNative(uint requestId, int error, string? json)
+        private static void CompleteRequest(uint requestId, WindowsClipboardErrorCode code, Func<CompletionValues> copy)
         {
             try
             {
@@ -2602,14 +2380,34 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 {
                     // An id this layer no longer tracks: already delivered, or drained by a
                     // teardown. Dropping it is the correct outcome, not an error.
-                    Debug.LogWarning($"[{LogTag}][{nameof(OnRequestCompletedNative)}] unknown request id {requestId}");
+                    Debug.LogWarning($"[{LogTag}][{nameof(CompleteRequest)}] unknown request id {requestId}");
                     return;
                 }
 
                 if (s_pending.TryGetValue(ticket, out PendingRequest? pending))
                 {
-                    pending.Code = (WindowsClipboardErrorCode)error;
-                    pending.Json = json;
+                    pending.Code = code;
+                    if (code == WindowsClipboardErrorCode.None)
+                    {
+                        try
+                        {
+#if UNITY_EDITOR
+                            CompletionValues values = (HistoryConversionForTests ?? copy)();
+#else
+                            CompletionValues values = copy();
+#endif
+                            pending.Items = values.Items;
+                            pending.HistoryEnabled = values.HistoryEnabled;
+                            pending.RoamingEnabled = values.RoamingEnabled;
+                        }
+                        catch (Exception ex)
+                        {
+                            pending.Code = ex is OutOfMemoryException
+                                ? WindowsClipboardErrorCode.OutOfMemory
+                                : WindowsClipboardErrorCode.Unknown;
+                            Debug.LogWarning($"[{LogTag}][{nameof(CompleteRequest)}] copying request {requestId}: {ex.GetType().Name}");
+                        }
+                    }
                 }
                 // Move to Undelivered rather than removing: a teardown before the queued delivery
                 // runs still has to find this result.
@@ -2619,7 +2417,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             catch (Exception ex)
             {
                 // Nothing may cross the C ABI boundary.
-                Debug.LogError($"[{LogTag}][{nameof(OnRequestCompletedNative)}] {ex.Message}");
+                Debug.LogError($"[{LogTag}][{nameof(CompleteRequest)}] {ex.Message}");
             }
         }
 
@@ -2695,9 +2493,26 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             }
 
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            // Nothing to close: no session was made, or the last one was closed and freed. 1.x
+            // answered such an uninit with success (design v12 J-5). OnDestroy and the quit handler
+            // reach here whatever the state.
+            if (WindowsClipboardCApi.ShouldSkipNativeClose(s_session))
+            {
+                completed = true;
+                return WindowsClipboardResult.Success(OperationShutdown);
+            }
+
             try
             {
-                completed = uninitClipboardManager(out int pError);
+                int pError = WindowsClipboardCApi.Close(s_session);
+                completed = pError == 0;
+                if (completed)
+                {
+                    // Only after a close that succeeded: freeing an open session abandons it, and
+                    // the process could not make another.
+                    WindowsClipboardCApi.Free(s_session);
+                    s_session = IntPtr.Zero;
+                }
                 return WindowsClipboardResult.FromNative(OperationShutdown, pError);
             }
             catch (Exception ex)
@@ -2707,11 +2522,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                 // an unhandled exception during teardown and skip the rest of it.
                 Debug.LogError($"[{LogTag}][{nameof(InvokeNativeShutdown)}] {ex.GetType().Name}: {ex.Message}");
                 completed = false;
-                return WindowsClipboardResult.Failure(
-                    OperationShutdown,
-                    ex is DllNotFoundException || ex is EntryPointNotFoundException
-                        ? WindowsClipboardErrorCode.BridgeUnavailable
-                        : WindowsClipboardErrorCode.Unknown);
+                return WindowsClipboardResult.Failure(OperationShutdown, WindowsClipboardCApi.FromLifecycleException(ex));
             }
 #else
 #if UNITY_EDITOR
@@ -2791,7 +2602,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
                     // Only now: an unfinished shutdown means the native side can still send
                     // WM_RENDERALLFORMATS, and dropping the providers first loses those formats.
                     s_renderProviders = new Dictionary<string, Func<byte[]>>();
-                    s_renderCache.Clear();
                     s_state = WindowsClipboardManagerState.ShutDown;
                     break;
                 case WindowsClipboardShutdownProgress.NotYet:
@@ -3300,68 +3110,81 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         }
 
         // ── Native call wrappers ─────────────────────────────────────────────────
+        // Named consistently so the public API reads the same in both compilations. Outside the
+        // Windows player they are never reached: the callers are stopped earlier and answer
+        // PlatformUnavailable. In the player, a call without a session answers NotInitializedByHost
+        // without reaching the native side (design v12 4.4); the shutdown path does not come here.
 
-        private static uint GetHistoryNative(ClipboardRequestCallback cb, out int pError)
+        private static uint GetHistoryNative(out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return getClipboardHistory(cb, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return 0;
+            pError = WindowsClipboardCApi.GetHistory(session, Marshal.GetFunctionPointerForDelegate(s_historyCompletionDelegate), out uint id);
+            return pError == 0 ? id : 0;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
             return 0;
 #endif
         }
 
-        private static uint GetHistoryAvailabilityNative(ClipboardRequestCallback cb, out int pError)
+        private static uint GetHistoryAvailabilityNative(out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return getClipboardHistoryAvailability(cb, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return 0;
+            pError = WindowsClipboardCApi.GetHistoryAvailability(session, Marshal.GetFunctionPointerForDelegate(s_availabilityCompletionDelegate), out uint id);
+            return pError == 0 ? id : 0;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
             return 0;
 #endif
         }
 
-        private static uint RestoreHistoryItemNative(
-            string itemId, ClipboardRequestCallback cb, out int pError)
+        private static uint RestoreHistoryItemNative(string itemId, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return restoreHistoryItem(itemId, cb, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return 0;
+            pError = WindowsClipboardCApi.RestoreHistoryItem(session, itemId, Marshal.GetFunctionPointerForDelegate(s_statusCompletionDelegate), out uint id);
+            return pError == 0 ? id : 0;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
             return 0;
 #endif
         }
 
-        private static uint DeleteHistoryItemNative(
-            string itemId, ClipboardRequestCallback cb, out int pError)
+        private static uint DeleteHistoryItemNative(string itemId, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return deleteHistoryItem(itemId, cb, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return 0;
+            pError = WindowsClipboardCApi.DeleteHistoryItem(session, itemId, Marshal.GetFunctionPointerForDelegate(s_statusCompletionDelegate), out uint id);
+            return pError == 0 ? id : 0;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
             return 0;
 #endif
         }
 
-        private static uint ClearUnpinnedHistoryNative(ClipboardRequestCallback cb, out int pError)
+        private static uint ClearUnpinnedHistoryNative(out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return clearUnpinnedHistory(cb, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return 0;
+            pError = WindowsClipboardCApi.ClearUnpinnedHistory(session, Marshal.GetFunctionPointerForDelegate(s_statusCompletionDelegate), out uint id);
+            return pError == 0 ? id : 0;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
             return 0;
 #endif
         }
 
-        private static int ReserveDeferredFormatsNative(
-            string formatNamesJson, ClipboardRenderCallback provider, IntPtr context, out int pError)
+        private static int ReserveDeferredFormatsNative(IReadOnlyList<string> formatNames, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            reserveDeferredFormats(formatNamesJson, provider, context, out pError);
-#else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.ReserveDeferred(session, formatNames, Marshal.GetFunctionPointerForDelegate(s_renderDelegate));
             return pError;
+#else
+            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
+            return pError;
+#endif
         }
 
         private static int RecoverDeferredStateNative(out int pError)
@@ -3370,285 +3193,221 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             RecoverDeferredCallCountForTests++;
 #endif
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            recoverDeferredState(out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.RecoverDeferredState(session);
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
             return pError;
         }
 
-        private static int SetHistoryCallbacksNative(
-            ClipboardHistoryChangedCallback? onHistoryChanged,
-            ClipboardFlagChangedCallback? onHistoryEnabledChanged,
-            ClipboardFlagChangedCallback? onRoamingEnabledChanged,
-            out int pError)
+        private static int SetHistoryCallbacksNative(bool enabled, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            setClipboardHistoryCallbacks(
-                onHistoryChanged, onHistoryEnabledChanged, onRoamingEnabledChanged, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.SetHistoryHandlers(session, enabled,
+                Marshal.GetFunctionPointerForDelegate(s_historyChangedDelegate),
+                Marshal.GetFunctionPointerForDelegate(s_historyEnabledDelegate),
+                Marshal.GetFunctionPointerForDelegate(s_roamingEnabledDelegate));
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
         private static int CancelRequestNative(uint requestId, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            cancelClipboardRequest(requestId, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CancelRequest(session, requestId);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
-
-        // Named consistently so the public API reads the same in both compilations. Outside the
-        // Windows player they are never reached: the callers return PlatformUnavailable first.
 
         private static int CopyPlainTextNative(string text, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyPlainText(text, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyText(session, text, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
         private static int CopyHtmlNative(string html, string? plainText, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyHtml(html, plainText, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyHtml(session, html, plainText, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
-        private static int CopyFilesNative(string pathsJson, uint options, out int pError)
+        private static int CopyFilesNative(IReadOnlyList<string> paths, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyFiles(pathsJson, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyFiles(session, paths, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
         private static int CopyImageNative(byte[] dib, uint size, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyImage(dib, size, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyDib(session, dib, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
         private static int CopyCustomFormatNative(
             string formatName, byte[] data, uint size, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyCustomFormat(formatName, data, size, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyCustom(session, formatName, data, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
-        private static int CopyMultipleFormatsNative(string itemsJson, uint options, out int pError)
+        private static int CopyMultipleFormatsNative(
+            IReadOnlyList<WindowsClipboardCApi.MultipleItem> items, uint options, out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            copyMultipleFormats(itemsJson, options, out pError);
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.CopyMultiple(session, items, options);
+            return pError;
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
             return pError;
+#endif
         }
 
         private static int ClearNative(out int pError)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            clearClipboard(out pError);
-#else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-#endif
+            if (!TryGetSession(out IntPtr session, out pError)) return pError;
+            pError = WindowsClipboardCApi.Clear(session);
             return pError;
-        }
-
-        private static uint PastePlainTextNative(IntPtr buffer, uint size, out int pError)
-        {
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return pastePlainText(buffer, size, out pError);
 #else
             pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            return pError;
 #endif
         }
 
-        private static uint PasteHtmlNative(IntPtr buffer, uint size, out int pError)
+        private static int PastePlainTextNative(out string? text)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return pasteHtml(buffer, size, out pError);
+            text = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.PasteText(session, out text);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            text = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        private static uint PasteFilesNative(IntPtr buffer, uint size, out int pError)
+        private static int PasteHtmlNative(out string? html)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return pasteFiles(buffer, size, out pError);
+            html = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.PasteHtml(session, out html);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            html = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        private static uint PasteImageNative(IntPtr buffer, uint size, out int pError)
+        private static int PasteFilesNative(out List<string>? paths)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return pasteImage(buffer, size, out pError);
+            paths = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.PasteFiles(session, out paths);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            paths = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        private static uint PasteCustomFormatNative(
-            string formatName, IntPtr buffer, uint size, out int pError)
+        private static int PasteImageNative(out byte[]? dib)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return pasteCustomFormat(formatName, buffer, size, out pError);
+            dib = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.PasteDib(session, out dib);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            dib = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        private static uint GetFormatsNative(IntPtr buffer, uint size, out int pError)
+        private static int PasteCustomFormatNative(string formatName, out byte[]? data)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return getClipboardFormats(buffer, size, out pError);
+            data = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.PasteCustom(session, formatName, out data);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            data = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        private static uint GetPreferredFormatNative(IntPtr buffer, uint size, out int pError)
+        private static int GetFormatsNative(out List<string>? formats)
         {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-            return getPreferredClipboardFormat(buffer, size, out pError);
+            formats = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.GetFormats(session, out formats);
 #else
-            pError = (int)WindowsClipboardErrorCode.PlatformUnavailable;
-            return 0;
+            formats = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
 #endif
         }
 
-        // Declared outside the native guard so the shared request plumbing can name the type in
-        // both compilations; only its use crosses the ABI.
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardRequestCallback(
-            uint requestId, int error, [MarshalAs(UnmanagedType.LPWStr)] string? json);
-
-        // Held for the lifetime of the manager: the native side keeps the pointer until every
-        // accepted request has completed.
-        private static readonly ClipboardRequestCallback s_requestDelegate = OnRequestCompletedNative;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate uint ClipboardRenderCallback(
-            [MarshalAs(UnmanagedType.LPWStr)] string formatName, IntPtr context, IntPtr buffer,
-            uint bufferSize, out uint requiredSize);
-
-        // The native side keeps this pointer for as long as a reservation stands.
-        private static readonly ClipboardRenderCallback s_renderDelegate = OnRenderFormatNative;
-
-        [MonoPInvokeCallback(typeof(ClipboardRenderCallback))]
-        private static uint OnRenderFormatNative(
-            string formatName, IntPtr context, IntPtr buffer, uint bufferSize, out uint requiredSize)
+        private static int GetPreferredFormatNative(out string? format)
         {
-            // Runs synchronously inside WM_RENDERFORMAT on the owner UI thread. The dispatcher
-            // cannot be used here: its queue only drains from Update, which cannot run until this
-            // returns.
-            try
-            {
-                return RenderDeferredFormat(formatName, buffer, bufferSize, out requiredSize);
-            }
-            catch (Exception ex)
-            {
-                // The layer below contains provider failures already, but this runs while Unity is
-                // tearing down and the reporting it does there can throw in turn. Nothing may
-                // cross the C ABI boundary, and requiredSize has to carry a value either way: an
-                // unwritten out parameter leaves the native side reading whatever the stack held
-                // and comparing it against the size promised in the first phase.
-                requiredSize = 0;
-                try
-                {
-                    Debug.LogError($"[{LogTag}][{nameof(OnRenderFormatNative)}] {ex.GetType().Name}");
-                }
-                catch
-                {
-                    // Reporting is best effort here; failing to log must not escape either.
-                }
-                return (uint)WindowsClipboardErrorCode.Unknown;
-            }
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            format = null;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.GetPreferredFormat(session, out format);
+#else
+            format = null;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
         }
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardHistoryChangedCallback();
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardFlagChangedCallback([MarshalAs(UnmanagedType.Bool)] bool enabled);
-
-        // The native side keeps these pointers until they are replaced or until shutdown reports
-        // completion, so they have to outlive every call that hands them over.
-        private static readonly ClipboardHistoryChangedCallback s_historyChangedDelegate =
-            OnHistoryChangedNative;
-        private static readonly ClipboardFlagChangedCallback s_historyEnabledDelegate =
-            OnHistoryEnabledChangedNative;
-        private static readonly ClipboardFlagChangedCallback s_roamingEnabledDelegate =
-            OnRoamingEnabledChangedNative;
-
-        [MonoPInvokeCallback(typeof(ClipboardHistoryChangedCallback))]
-        private static void OnHistoryChangedNative()
+        private static int HasFormatNative(string formatName, out bool present)
         {
-            try
-            {
-                RaiseHistoryChanged();
-            }
-            catch (Exception ex)
-            {
-                // Nothing may cross the C ABI boundary.
-                Debug.LogError($"[{LogTag}][{nameof(OnHistoryChangedNative)}] {ex.Message}");
-            }
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardFlagChangedCallback))]
-        private static void OnHistoryEnabledChangedNative(bool enabled)
-        {
-            try
-            {
-                RaiseHistoryEnabledChanged(enabled);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(OnHistoryEnabledChangedNative)}] {ex.Message}");
-            }
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardFlagChangedCallback))]
-        private static void OnRoamingEnabledChangedNative(bool enabled)
-        {
-            try
-            {
-                RaiseRoamingEnabledChanged(enabled);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(OnRoamingEnabledChangedNative)}] {ex.Message}");
-            }
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+            present = false;
+            if (!TryGetSession(out IntPtr session, out int rejected)) return rejected;
+            return WindowsClipboardCApi.HasFormat(session, formatName, out present);
+#else
+            present = false;
+            return (int)WindowsClipboardErrorCode.PlatformUnavailable;
+#endif
         }
 
         /// <summary>Hands a history addition to the subscribers through the dispatcher.</summary>
@@ -3771,7 +3530,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             s_state = WindowsClipboardManagerState.Uninitialized;
             s_comOwnership = WindowsClipboardComOwnership.None;
             s_renderProviders = new Dictionary<string, Func<byte[]>>();
-            s_renderCache.Clear();
             s_renderStaging = null;
             s_drain = null;
             s_quitState = WindowsClipboardQuitState.None;
@@ -3786,6 +3544,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             NativeShutdownForTests = null;
             RecoverDeferredCallCountForTests = 0;
             RequestExceptionForTests = null;
+            HistoryConversionForTests = null;
             CancellationRegistrationsReleasedForTests = 0;
             SuppressRegistrationDisposalForTests = false;
 #endif
@@ -3825,15 +3584,38 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             MainSta = 3
         }
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardChangedCallback();
+        /// <summary>
+        /// The native session, made by Initialize and freed only after a close that succeeded
+        /// (design v12 J-5). Zero before the first Initialize and after a finished shutdown. It is
+        /// not cleared by the static reset: a session left open by a failed shutdown stays until
+        /// the process ends, and no second one is made (the state rejects Initialize first).
+        /// </summary>
+        private static IntPtr s_session;
 
-        // Held in a static field for the lifetime of the manager: the native side keeps the
-        // pointer until uninit reports completion, and a collected delegate would crash it.
-        private static readonly ClipboardChangedCallback s_changedDelegate = OnClipboardChangedNative;
+        private static bool TryGetSession(out IntPtr session, out int pError)
+        {
+            session = s_session;
+            pError = session == IntPtr.Zero ? (int)WindowsClipboardErrorCode.NotInitializedByHost : 0;
+            return session != IntPtr.Zero;
+        }
 
-        [MonoPInvokeCallback(typeof(ClipboardChangedCallback))]
-        private static void OnClipboardChangedNative()
+        // ── Callbacks from the native side ───────────────────────────────────────
+        // Every delegate is held in a static field for the life of the process: the native side
+        // keeps the pointers while the session lives, and a collected delegate would crash it.
+        // All of them run on the owner thread (the Unity main thread); none lets an exception back
+        // into the native library. user_data is always NULL (design v12 J-7).
+
+        private static readonly WindowsClipboardCApi.ChangedCallback s_changedDelegate = OnClipboardChangedNative;
+        private static readonly WindowsClipboardCApi.ChangedCallback s_historyChangedDelegate = OnHistoryChangedNative;
+        private static readonly WindowsClipboardCApi.FlagChangedCallback s_historyEnabledDelegate = OnHistoryEnabledChangedNative;
+        private static readonly WindowsClipboardCApi.FlagChangedCallback s_roamingEnabledDelegate = OnRoamingEnabledChangedNative;
+        private static readonly WindowsClipboardCApi.RenderCallback s_renderDelegate = OnRenderFormatNative;
+        private static readonly WindowsClipboardCApi.HistoryCallback s_historyCompletionDelegate = OnHistoryCompletedNative;
+        private static readonly WindowsClipboardCApi.CompletionCallback s_statusCompletionDelegate = OnStatusCompletedNative;
+        private static readonly WindowsClipboardCApi.AvailabilityCallback s_availabilityCompletionDelegate = OnAvailabilityCompletedNative;
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.ChangedCallback))]
+        private static void OnClipboardChangedNative(IntPtr userData)
         {
             try
             {
@@ -3841,10 +3623,102 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
             }
             catch (Exception ex)
             {
-                // Nothing may cross the C ABI boundary.
                 Debug.LogError($"[{LogTag}][{nameof(OnClipboardChangedNative)}] {ex.Message}");
             }
         }
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.ChangedCallback))]
+        private static void OnHistoryChangedNative(IntPtr userData)
+        {
+            try
+            {
+                RaiseHistoryChanged();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnHistoryChangedNative)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.FlagChangedCallback))]
+        private static void OnHistoryEnabledChangedNative(IntPtr userData, int enabled)
+        {
+            try
+            {
+                RaiseHistoryEnabledChanged(enabled != 0);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnHistoryEnabledChangedNative)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.FlagChangedCallback))]
+        private static void OnRoamingEnabledChangedNative(IntPtr userData, int enabled)
+        {
+            try
+            {
+                RaiseRoamingEnabledChanged(enabled != 0);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnRoamingEnabledChangedNative)}] {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Runs synchronously inside WM_RENDERFORMAT, or inside a close's WM_RENDERALLFORMATS, on
+        /// the owner thread. The dispatcher cannot be used here: its queue only drains from Update,
+        /// which cannot run until this returns. The target is valid only during the call.
+        /// </summary>
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.RenderCallback))]
+        private static int OnRenderFormatNative(IntPtr userData, IntPtr formatName, IntPtr target)
+        {
+            try
+            {
+                string name = WindowsClipboardCApi.ReadUtf8Z(formatName);
+                return (int)RenderDeferredFormat(name, bytes => WindowsClipboardCApi.RenderTargetSet(target, bytes));
+            }
+            catch (Exception ex)
+            {
+                // This can run while Unity is tearing down, and the reporting it does there can
+                // throw in turn. Nothing may cross the C ABI boundary.
+                try
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(OnRenderFormatNative)}] {ex.GetType().Name}");
+                }
+                catch
+                {
+                    // Reporting is best effort here; failing to log must not escape either.
+                }
+                return (int)WindowsClipboardErrorCode.Unknown;
+            }
+        }
+
+        /// <summary>A GetHistory completion: the items are copied out here, while the handle lives.</summary>
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.HistoryCallback))]
+        private static void OnHistoryCompletedNative(IntPtr userData, uint requestId, int error, uint systemCode, IntPtr history) =>
+            CompleteRequest(requestId, (WindowsClipboardErrorCode)error, () =>
+            {
+                List<WindowsClipboardHistoryItem> items = WindowsClipboardCApi.ReadHistory(history, out int dropped);
+                if (dropped > 0)
+                {
+                    // An entry without an id cannot be restored or deleted, so it is useless to a
+                    // caller; 1.x dropped it too.
+                    Debug.LogWarning($"[{LogTag}][{nameof(OnHistoryCompletedNative)}] dropped {dropped} entries without an id");
+                }
+                return new CompletionValues(items, false, false);
+            });
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.CompletionCallback))]
+        private static void OnStatusCompletedNative(IntPtr userData, uint requestId, int error, uint systemCode) =>
+            CompleteRequest(requestId, (WindowsClipboardErrorCode)error, () => new CompletionValues(null, false, false));
+
+        [MonoPInvokeCallback(typeof(WindowsClipboardCApi.AvailabilityCallback))]
+        private static void OnAvailabilityCompletedNative(IntPtr userData, uint requestId, int error, uint systemCode,
+            int historyEnabled, int roamingEnabled) =>
+            CompleteRequest(requestId, (WindowsClipboardErrorCode)error,
+                () => new CompletionValues(null, historyEnabled != 0, roamingEnabled != 0));
 
         [DllImport("ole32.dll")]
         private static extern int CoGetApartmentType(out ApartmentType pAptType, out int pAptQualifier);
@@ -3854,130 +3728,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 
         [DllImport("ole32.dll")]
         private static extern void CoUninitialize();
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void initClipboardManager(ClipboardChangedCallback? onChanged, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool uninitClipboardManager(out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool canDestroyClipboardManager(out int pError);
-
-        // Clipboard operations. The wrappers below exist so the public API can pass a delegate
-        // without the extern signatures leaking out of this guarded region.
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void copyPlainText(
-            [MarshalAs(UnmanagedType.LPWStr)] string text, uint options, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void copyHtml(
-            [MarshalAs(UnmanagedType.LPWStr)] string htmlFragment,
-            [MarshalAs(UnmanagedType.LPWStr)] string? plainText, uint options, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void copyFiles(
-            [MarshalAs(UnmanagedType.LPWStr)] string pathsJson, uint options, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern void copyImage(byte[] dib, uint dibSize, uint options, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void copyCustomFormat(
-            [MarshalAs(UnmanagedType.LPWStr)] string formatName, byte[] data, uint size, uint options,
-            out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void copyMultipleFormats(
-            [MarshalAs(UnmanagedType.LPWStr)] string itemsJson, uint options, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern void clearClipboard(out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint pastePlainText(IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint pasteHtml(IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint pasteFiles(IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern uint pasteImage(IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint pasteCustomFormat(
-            [MarshalAs(UnmanagedType.LPWStr)] string formatName, IntPtr buffer, uint bufferSize,
-            out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool hasClipboardFormat(
-            [MarshalAs(UnmanagedType.LPWStr)] string formatName, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint getClipboardFormats(IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint getPreferredClipboardFormat(
-            IntPtr buffer, uint bufferSize, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern uint getClipboardHistory(ClipboardRequestCallback cb, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint restoreHistoryItem(
-            [MarshalAs(UnmanagedType.LPWStr)] string itemId, ClipboardRequestCallback cb, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern uint deleteHistoryItem(
-            [MarshalAs(UnmanagedType.LPWStr)] string itemId, ClipboardRequestCallback cb, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern uint clearUnpinnedHistory(ClipboardRequestCallback cb, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern uint getClipboardHistoryAvailability(
-            ClipboardRequestCallback cb, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool cancelClipboardRequest(uint requestId, out int pError);
-
-        [DllImport(DLL_NAME, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl,
-            ExactSpelling = true)]
-        private static extern void reserveDeferredFormats(
-            [MarshalAs(UnmanagedType.LPWStr)] string formatNamesJson, ClipboardRenderCallback provider,
-            IntPtr context, out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern void recoverDeferredState(out int pError);
-
-        [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        private static extern void setClipboardHistoryCallbacks(
-            ClipboardHistoryChangedCallback? onHistoryChanged,
-            ClipboardFlagChangedCallback? onHistoryEnabledChanged,
-            ClipboardFlagChangedCallback? onRoamingEnabledChanged,
-            out int pError);
 #endif
     }
 }

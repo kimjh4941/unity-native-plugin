@@ -7,8 +7,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     using System.Text;
 
     /// <summary>
-    /// Builds the JSON strings the native Windows clipboard APIs take: the file list of CopyFiles,
-    /// the item array of CopyMultipleFormats, and the format-name array of ReserveDeferredFormats.
+    /// Builds the JSON strings the native Windows clipboard APIs of native-toolkit 1.x took: the
+    /// file list of CopyFiles, the item array of CopyMultipleFormats, and the format-name array of
+    /// ReserveDeferredFormats.
+    /// <para>
+    /// Not used by this package since native-toolkit 2.0.0, whose C ABI takes arrays and a builder
+    /// instead of JSON. Kept because it is public.
+    /// </para>
     /// <para>
     /// Hand-written rather than JsonUtility, matching AndroidClipboardJsonBuilder: the native side
     /// parses these with the WinRT JSON parser, which rejects a trailing comma or an unescaped

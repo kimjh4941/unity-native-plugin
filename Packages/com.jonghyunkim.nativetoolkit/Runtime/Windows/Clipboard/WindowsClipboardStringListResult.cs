@@ -9,8 +9,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     /// <summary>
     /// Result of a clipboard read that yields a list of strings: PasteFiles and GetFormats.
     /// <para>
-    /// GetFormats never reports the native Empty code: an empty clipboard returns an empty JSON
-    /// array, so emptiness is decided by the parsed element count.
+    /// GetFormats never reports the native Empty code: an empty clipboard returns an empty list,
+    /// so emptiness is decided by the element count.
     /// </para>
     /// </summary>
     public readonly struct WindowsClipboardStringListResult

@@ -20,15 +20,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         public string? Text { get; }
 
         /// <summary>
-        /// Formats the item offers, taken verbatim from the native payload.
-        /// Never null; empty when the payload omitted the key.
+        /// Formats the item offers, as the native side reports them.
+        /// Never null; empty when the item reports none.
         /// </summary>
         public IReadOnlyList<string> ContentTypes { get; }
 
         /// <summary>
-        /// Capture time in 100ns FILETIME ticks since 1601, as sent by the native layer.
-        /// The payload carries it as a decimal string because a JSON number cannot hold the
-        /// full int64 range without loss.
+        /// Capture time in 100ns FILETIME ticks since 1601, 0 when unknown. Since native-toolkit
+        /// 2.0.0 the native side reports milliseconds, so the last four digits are always 0.
         /// </summary>
         public long Timestamp { get; }
 

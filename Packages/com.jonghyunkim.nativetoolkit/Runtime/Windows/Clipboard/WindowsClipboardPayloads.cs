@@ -83,7 +83,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
 
         /// <summary>Creates a raw-bytes entry.</summary>
         /// <param name="format">Clipboard format name.</param>
-        /// <param name="base64">The payload, already base64 encoded.</param>
+        /// <param name="base64">
+        /// The payload, already base64 encoded. CopyMultipleFormats checks it by the rules native-toolkit
+        /// 1.x used: only CR, LF, space and tab are skipped, padding only at the end, and the standard
+        /// alphabet only; anything else, or no bytes at all, is InvalidParameter.
+        /// </param>
         /// <returns>A base64 payload entry.</returns>
         public static WindowsClipboardFormatPayload Base64(string format, string base64) =>
             new(format, WindowsClipboardPayloadKind.Base64, base64);

@@ -6,8 +6,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     /// <summary>
     /// Error codes reported by the Windows clipboard APIs.
     /// <para>
-    /// Values 0-19 mirror the native <c>CLIPBOARD_ERROR_*</c> constants exported by
-    /// WindowsLibrary.dll and are returned through the native <c>pError</c> out parameter.
+    /// Values 0-19 mirror native-toolkit's C ABI <c>ntk_clipboard_error</c> (the same names and
+    /// numbers), which the native functions return.
     /// Values from 1000 up are produced by this C# layer alone and never come from the native
     /// side, so a caller can always tell which layer rejected a call.
     /// </para>
@@ -17,7 +17,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// <summary>The operation succeeded.</summary>
         None = 0,
 
-        /// <summary>A native argument was null, zero-sized, or failed JSON validation.</summary>
+        /// <summary>
+        /// A native argument was null, zero-sized, or malformed (a base64 payload included), or a
+        /// write flag was unknown.
+        /// </summary>
         InvalidParameter = 1,
 
         /// <summary>The native manager was not initialized, or was already shut down.</summary>
@@ -35,7 +38,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// <summary>Clipboard data failed the native boundary validation.</summary>
         InvalidData = 6,
 
-        /// <summary>The output buffer was absent or too small; the required size was returned.</summary>
+        /// <summary>
+        /// The output buffer was absent or too small. Kept for compatibility: since native-toolkit
+        /// 2.0.0 a read takes its result in one call, and no API reports this.
+        /// </summary>
         BufferTooSmall = 7,
 
         /// <summary>An allocation failed on the native side.</summary>
@@ -95,7 +101,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
         /// <summary>The shutdown drain exceeded its retry budget.</summary>
         ShutdownTimeout = 1006,
 
-        /// <summary>A payload returned by the native side could not be parsed.</summary>
+        /// <summary>
+        /// A payload returned by the native side could not be parsed. Kept for compatibility: since
+        /// native-toolkit 2.0.0 nothing comes back as JSON, and no API reports this. A history
+        /// that cannot be copied is OutOfMemory or Unknown instead.
+        /// </summary>
         ResultParseFailed = 1007,
 
         /// <summary>A request was rejected without a native error code. Defensive only.</summary>

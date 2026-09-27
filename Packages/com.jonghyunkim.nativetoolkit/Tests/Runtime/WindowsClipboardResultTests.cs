@@ -263,9 +263,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static WindowsClipboardHistoryResult ParseSingleHistoryItem()
         {
-            WindowsClipboardJsonParser.TryParseHistoryItems(
-                "[{\"id\":\"a\",\"timestamp\":\"1\"}]",
-                out System.Collections.Generic.IReadOnlyList<WindowsClipboardHistoryItem> items);
+            var items = new[] { new WindowsClipboardHistoryItem("a", null, null, 1) };
             return WindowsClipboardHistoryResult.Success("getClipboardHistory", items);
         }
 
