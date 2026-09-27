@@ -59,6 +59,7 @@
    **プラットフォーム独立性**（`common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」）
    - **P1**: 追加したファイル名と型名すべてに OS 接頭辞が付いているか。**`Tests/Runtime/` / `Tests/PlayMode/` のテストファイル名・クラス名も対象**。機能ディレクトリに接頭辞なしのファイルを作っていないか
    - **P1b**: 1 つのテストファイルが複数プラットフォームの型を扱っていないか。テストのコンパイルガードが対象型と一致しているか
+   - **P1c**: 追加・移動したファイルの置き場所と、`namespace` 宣言が `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 どおりか（Windows は `Runtime/Windows/<Feature>/` と `JonghyunKim.NativeToolkit.Runtime.Windows.<Feature>`）。移動は `.meta` ごと行い、GUID が変わっていないか
    - **P2**: **他プラットフォームの既存ファイルを変更していないか。** `git diff --name-only <base>` の差分に、対象プラットフォーム以外の `Android*` / `Ios*` / `Mac*` / `Windows*` が含まれていないかを機械的に確認する
    - **P3**: 既存型を再利用した箇所で、**ガードの有無ではなく実際の利用箇所**を確認して単一専用か共有かを判定しているか
    - **P4**: `Runtime/Common/` への追加が横断インフラに限られているか

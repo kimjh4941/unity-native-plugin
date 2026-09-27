@@ -10,7 +10,7 @@
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
 
-- 対象: `Runtime/Clipboard/Windows*.cs`、`Runtime/Notification/Windows*.cs`、`Runtime/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
+- 対象: `Runtime/Windows/Clipboard/Windows*.cs`、`Runtime/Windows/Notification/Windows*.cs`、`Runtime/Windows/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
 - チケット: 未採番
 - 相手側: native-toolkit `artifact/topics/windows-architecture/`（分類: 横断課題（アーキテクチャ））
 
@@ -38,9 +38,9 @@
 
 | ファイル | P/Invoke | 行数 | 内訳 |
 |---|---|---|---|
-| `Runtime/Clipboard/WindowsClipboardManager.cs` | 27 | 3,984 | リネームのみ 4 / 振る舞い変化 23 |
-| `Runtime/Notification/WindowsNotificationManager.cs` | 14 | 507 | リネームのみ 6 / 振る舞い変化 8 |
-| `Runtime/Dialog/WindowsDialogManager.cs` | 6 | 567 | リネームのみ 0 / 振る舞い変化 6 |
+| `Runtime/Windows/Clipboard/WindowsClipboardManager.cs` | 27 | 3,984 | リネームのみ 4 / 振る舞い変化 23 |
+| `Runtime/Windows/Notification/WindowsNotificationManager.cs` | 14 | 507 | リネームのみ 6 / 振る舞い変化 8 |
+| `Runtime/Windows/Dialog/WindowsDialogManager.cs` | 6 | 567 | リネームのみ 0 / 振る舞い変化 6 |
 
 **47 本のうち 37 本で振る舞いが変わる。** 対応は 4 章。
 
@@ -52,9 +52,9 @@ ABI から JSON が消えるため、JSON を前提に作った層が丸ごと�
 
 | ファイル | 置き換わる先 |
 |---|---|
-| `Runtime/Clipboard/WindowsClipboardJsonParser.cs` | 履歴はハンドル + index（`ntk_clipboard_history_count` / `_item_id` / `_item_text` / `_item_content_type_count` / `_item_content_type_at` / `_item_timestamp_unix_ms`）。書式一覧と `pasteFiles` は `ntk_string_list`。履歴の可用性は `int32` フラグ 2 つ |
-| `Runtime/Clipboard/WindowsClipboardJsonBuilder.cs` | `copyFiles` は `const char* const*` + 個数。`copyMultipleFormats` はビルダー（`ntk_clipboard_items_create` / `_add_text` / `_add_html` / `_add_bytes` / `_free`） |
-| `Runtime/Notification/WindowsNotificationJsonBuilder.cs` | `ntk_notification_content_create` + セッター 22 本 + `_free` |
+| `Runtime/Windows/Clipboard/WindowsClipboardJsonParser.cs` | 履歴はハンドル + index（`ntk_clipboard_history_count` / `_item_id` / `_item_text` / `_item_content_type_count` / `_item_content_type_at` / `_item_timestamp_unix_ms`）。書式一覧と `pasteFiles` は `ntk_string_list`。履歴の可用性は `int32` フラグ 2 つ |
+| `Runtime/Windows/Clipboard/WindowsClipboardJsonBuilder.cs` | `copyFiles` は `const char* const*` + 個数。`copyMultipleFormats` はビルダー（`ntk_clipboard_items_create` / `_add_text` / `_add_html` / `_add_bytes` / `_free`） |
+| `Runtime/Windows/Notification/WindowsNotificationJsonBuilder.cs` | `ntk_notification_content_create` + セッター 22 本 + `_free` |
 | `Tests/Runtime/WindowsClipboardJsonParserTests.cs` | 対象が消えるので削除 |
 | `Tests/Runtime/WindowsClipboardJsonBuilderTests.cs` | 同上 |
 
@@ -91,7 +91,7 @@ DLL 自身の名前（`NativeToolkitC.dll`）に合わせる必要はない。3 
 - `Runtime/UI/Windows/Dialog/`、`Runtime/UI/Windows/Notification/` の ExampleController
 - `Tests/PlayMode/WindowsClipboardManagerIntegrationTests.cs`
 - `Tests/Runtime/WindowsClipboard*Tests.cs`（7 本）、`Tests/Runtime/WindowsNotificationTests.cs`
-- `Runtime/Dialog/Win32MessageBox.cs`、`Editor/UI/NativeToolkitEditorWindow.cs`
+- `Runtime/Windows/Dialog/Win32MessageBox.cs`、`Editor/UI/NativeToolkitEditorWindow.cs`
 
 ### 2.5 着手前にすでに壊れていた（対応済み）
 

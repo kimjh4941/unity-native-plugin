@@ -16,7 +16,7 @@
 #                   then the dist file name
 #
 # The name placed here must match DLL_NAME in the three Windows managers
-# (Runtime/Clipboard, Runtime/Notification, Runtime/Dialog), without ".dll".
+# (Runtime/Windows/Clipboard, Runtime/Windows/Notification, Runtime/Windows/Dialog), without ".dll".
 
 dist_version: 1.11.0
 release_dll: windows-native-toolkit-1.2.0.dll

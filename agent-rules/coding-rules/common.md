@@ -213,7 +213,7 @@ private void Awake()
 - 型（Manager・Bridge・結果型・エラーコード）は `#if <PLATFORM> || UNITY_EDITOR` で囲む。Editor でも型が見え、層 1 / 2a でテストできる
 - `DllImport` / `AndroidJavaObject` と、ネイティブを実際に呼ぶ箇所は `#if <PLATFORM> && !UNITY_EDITOR` で囲む。
   `#else` の側は「このプラットフォームでは使えない」結果を返すか、何もせずに戻る（機能ごとの既存の契約に合わせる）
-- 前例: `Runtime/Clipboard/WindowsClipboardManager.cs`
+- 前例: `Runtime/Windows/Clipboard/WindowsClipboardManager.cs`
 - 片方だけのガード（`#if UNITY_ANDROID` だけ、など）の既存の型は `testing.md`「3. Manager ごとのコンパイルガード差異」の B 群を参照。新しく真似しない
 
 ### 公開 API 方式（同期・非同期の判断）

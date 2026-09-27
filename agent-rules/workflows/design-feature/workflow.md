@@ -49,8 +49,11 @@
    | ディレクトリ | 確認内容 |
    | ----------- | ------- |
    | `Common/`       | `UnityMainThreadDispatcher`、`IconConfiguration` などの共通ユーティリティ |
-   | `Dialog/`       | 各プラットフォームの Manager 実装（Singleton・イベント・Bridge 呼び出しパターン） |
-   | `Notification/` | 各プラットフォームの Manager・Payload・JsonBuilder 実装 |
+   | `Windows/<Feature>/`、`Windows/Common/` | Windows の Manager・Bridge と、Windows の全機能の共通部（移行済みの形） |
+   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | Android / iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
+
+   置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う。正しい形は `Runtime/<Platform>/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>`）。
+   Windows は移行済み、Android / iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
 
    - 既存の Singleton パターン・イベントシグネチャ・namespace を把握する
    - すでに実装済みのクラス・メソッドを重複追加しない
@@ -69,6 +72,7 @@
      - C# 側の `[DllImport]` / `AndroidJavaObject` 呼び出し方針
    - **変更ファイル一覧**
      - 新規作成 / 既存変更 / 非変更を分類して列挙する（`Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下）
+     - **新規ファイルの置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う**（Windows なら `Runtime/Windows/<Feature>/` と `JonghyunKim.NativeToolkit.Runtime.Windows.<Feature>`）。計画のパスはこの形で書く
      - テストファイル（`Tests/Runtime/` 配下）も変更一覧に含める
      - `.meta` ファイルは Unity が自動生成するため記載しない
      - **ファイル名は `agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」に従う。** 機能ディレクトリの新規ファイルは必ず `Android` / `Ios` / `Mac` / `Windows` の接頭辞を付ける。**他プラットフォームの既存実装を共有化する案は採らない。** 同じロジックが必要なら、そのプラットフォーム用に複製して持たせる（`Runtime/Common/` の横断インフラのみが例外）

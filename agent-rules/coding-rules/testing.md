@@ -311,7 +311,7 @@ Appium の実装方式、Apple の pasteboard privacy、Windows の UI automatio
 | Manager のコンパイルガード A / B 群分類 | 3 節 | 全 12 Manager の `#if` を確認 | 2026-07-26 | 不要 |
 | `UIElements.Button` は GameObject ではない | 4 節 | サンプルの UI 実装を確認 | 2026-07-26 | 不要 |
 | 層 1 の機能別カバレッジ | 7 節 | `Tests/` 配下の実ファイルを確認 | 2026-07-26 | 都度更新 |
-| Dialog に層 1 対象の純粋ロジックが無い | 7 節 | `Runtime/Dialog/` の構成を確認 | 2026-07-26 | 都度更新 |
+| Dialog に層 1 対象の純粋ロジックが無い | 7 節 | `Runtime/Dialog/` と `Runtime/Windows/Dialog/` の構成を確認 | 2026-07-26 | 都度更新 |
 
 #### 外部一次資料で確認したもの
 
@@ -403,7 +403,7 @@ Editor 専用のテストフックの扱い）は `artifact/topics/cross-platfor
 | **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
 | **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
 
-- **Dialog は全プラットフォームで N/A。** `Runtime/Dialog/` は各 Manager と `Win32MessageBox`
+- **Dialog は全プラットフォームで N/A。** `Runtime/Dialog/`（Android / iOS / macOS）と `Runtime/Windows/Dialog/` は各 Manager と `Win32MessageBox`
   （Win32 MessageBox の定数定義のみを持つ static class。`DllImport` は `WindowsDialogManager` 側にある）で
   構成されており、**層 1 で検証すべき振る舞いを持つ純粋ロジックが無い**（JsonBuilder・結果型・
   `internal static` のいずれも存在しない）。定数の値を単体テストで複製しても OS 仕様との整合は保証されないため、

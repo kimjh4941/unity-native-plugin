@@ -187,7 +187,7 @@ error CS0117: 'WindowsClipboardManager' does not contain a definition for 'Injec
 397 件が Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardManagerIntegrationTests.cs
 ```
 
-原因は `Runtime/Clipboard/WindowsClipboardManager.cs:466` の `#if UNITY_EDITOR`。
+原因は `Runtime/Windows/Clipboard/WindowsClipboardManager.cs:466` の `#if UNITY_EDITOR`。
 **69 個の `*ForTests` フックがすべて Editor 限定**で、Player ビルドでは存在しない。
 それを使う 65 本の PlayMode 統合テストがコンパイルできない。
 
