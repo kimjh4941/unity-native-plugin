@@ -151,11 +151,20 @@ BLOCKS = {
                                        "copyPlainText NG NotInitializedByHost"]),
         ("Initialize", None, ["initClipboardManager OK"]),
         # Retried once a frame up to three times; the frames before the drain starts succeed.
+        # Since the C ABI 2.0.0 the close delivers the waiting GetHistory as Canceled inside the
+        # call and can finish on its first attempt, so there may be no frame in which the drain
+        # runs: ShuttingDown is then never seen and every retry succeeds (design v12 J-12). The
+        # sample's note "expected ShuttingDown while the drain runs" is wrong on that path. The
+        # ShuttingDown refusal during a drain stays covered by the layer 2a tests.
         ("ForceInitializeWhileDraining", None, ["?initClipboardManager OK",
                                                "getClipboardHistory NG Canceled",
-                                               "initClipboardManager NG ShuttingDown",
+                                               "?initClipboardManager NG ShuttingDown",
                                                "uninitClipboardManager OK"]),
-        ("Initialize", None, ["initClipboardManager OK"]),
+        # The third retry (frame=3) can land after this press started, since the dispatcher and
+        # the manager's Update run in no fixed order (J-12). The optional pattern names no frame:
+        # the checker spends required patterns first, so a frame=3 line coming before this
+        # press's own would otherwise leave the own line unmatched.
+        ("Initialize", None, ["initClipboardManager OK", "?initClipboardManager OK"]),
         ("CopyFromWorkerThread", "S-7", ["copyPlainText NG MainThreadRequired callbackOnMainThread=True"]),
         ("GetHistoryFromWorkerThread", "S-7", ["getClipboardHistory NG MainThreadRequired callbackOnMainThread=True"]),
         ("CopyPlainTextEmpty", None, ["copyPlainText OK length=0"]),

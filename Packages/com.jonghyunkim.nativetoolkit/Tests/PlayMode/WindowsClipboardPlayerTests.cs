@@ -453,11 +453,12 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         /// <remarks>
         /// A well-formed base64 that is not a DIB, then a malformed one. 1.x looked at the entries one
-        /// by one and stopped at the first: the DIB check. After the move every base64 is decoded
-        /// first, so the answer becomes InvalidParameter (design v12, 5.4).
+        /// by one and stopped at the first: the DIB check, InvalidData (recorded on 1.x). Since the
+        /// move every base64 is decoded first, so the malformed one answers: InvalidParameter
+        /// (design v12, 5.4).
         /// </remarks>
         [Test]
-        public void CopyMultipleFormats_ABadDibBeforeABadBase64_ReportsTheFirstInOrder()
+        public void CopyMultipleFormats_ABadDibBeforeABadBase64_ReportsTheBadBase64()
         {
             WindowsClipboardResult result = Running().CopyMultipleFormats(new[]
             {
@@ -465,7 +466,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 WindowsClipboardFormatPayload.Base64(TestBytesFormat, "@@@@"),
             });
             AssertRejected(result.IsSuccess, result.ErrorCode, result.ErrorMessage,
-                WindowsClipboardErrorCode.InvalidData, null);
+                WindowsClipboardErrorCode.InvalidParameter, null);
         }
 
         [UnityTest]
@@ -497,9 +498,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             });
             Assert.AreNotEqual(0u, requestId, "the request was accepted");
 
+            // 1.x: completed=False (Canceled). Since the move either may come (design v12, 5.4).
             WindowsClipboardResult attempt = manager.TryShutdown(out bool completed);
             TestContext.WriteLine($"first TryShutdown: completed={completed}, {attempt.ErrorCode}");
-            Assert.IsFalse(completed, "1.x: the first attempt does not finish while a request waits");
 
             yield return ShutDown(manager);
             yield return WaitFor(() => delivered > 0, "the waiting request's callback");
@@ -521,6 +522,34 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardTextResult pasted = manager.PastePlainText();
             Assert.IsTrue(pasted.IsSuccess, $"PastePlainText: {pasted.ErrorCode} {pasted.ErrorMessage}");
             Assert.AreEqual(marker, pasted.Text);
+        }
+
+        // ── After the move to the 2.0.0 C ABI only ──────────────────────────────
+
+        /// <remarks>
+        /// Every extern that takes NULL safely, called with it once, so a wrong name or signature
+        /// shows here (design v12, 7.3). The others are called by the tests above and by the
+        /// sample run with --include-destructive.
+        /// </remarks>
+        [Test]
+        public void TheExternsThatTakeNull_Bind()
+        {
+            Assert.AreEqual(1, WindowsClipboardCApi.ntk_clipboard_session_can_close(IntPtr.Zero), "can_close(NULL) is true");
+            Assert.DoesNotThrow(() => WindowsClipboardCApi.ntk_clipboard_session_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => WindowsClipboardCApi.ntk_clipboard_items_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => Runtime.Windows.Common.WindowsNativeToolkitCApi.ntk_string_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => Runtime.Windows.Common.WindowsNativeToolkitCApi.ntk_bytes_free(IntPtr.Zero));
+            Assert.DoesNotThrow(() => Runtime.Windows.Common.WindowsNativeToolkitCApi.ntk_string_list_free(IntPtr.Zero));
+            Assert.AreEqual(UIntPtr.Zero, WindowsClipboardCApi.ntk_clipboard_history_count(IntPtr.Zero));
+            Assert.AreEqual(IntPtr.Zero, WindowsClipboardCApi.ntk_clipboard_history_item_id(IntPtr.Zero, UIntPtr.Zero, out _));
+            Assert.AreEqual(IntPtr.Zero, WindowsClipboardCApi.ntk_clipboard_history_item_text(IntPtr.Zero, UIntPtr.Zero, out _));
+            Assert.AreEqual(UIntPtr.Zero, WindowsClipboardCApi.ntk_clipboard_history_item_content_type_count(IntPtr.Zero, UIntPtr.Zero));
+            Assert.AreEqual(IntPtr.Zero, WindowsClipboardCApi.ntk_clipboard_history_item_content_type_at(IntPtr.Zero, UIntPtr.Zero, UIntPtr.Zero, out _));
+            Assert.AreEqual(0L, WindowsClipboardCApi.ntk_clipboard_history_item_timestamp_unix_ms(IntPtr.Zero, UIntPtr.Zero));
+            Assert.AreEqual((int)WindowsClipboardErrorCode.InvalidParameter,
+                WindowsClipboardCApi.ntk_clipboard_render_target_set(IntPtr.Zero, new byte[] { 1 }, new UIntPtr(1u)));
+            Assert.AreEqual((int)WindowsClipboardErrorCode.InvalidParameter,
+                WindowsClipboardCApi.ntk_clipboard_cancel_request(IntPtr.Zero, 1));
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
