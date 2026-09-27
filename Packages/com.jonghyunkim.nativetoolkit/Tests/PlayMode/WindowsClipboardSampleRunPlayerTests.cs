@@ -201,9 +201,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             _historyBefore = ReadHistorySetting();
             _historyTurnedOff = true;
-            WriteHistorySetting(0);
-            Note("test.historyOff", $"before={(_historyBefore?.ToString() ?? "absent")}");
-            yield return null;
+            string settled = "";
+            yield return TurnHistoryOffAndSettle(s => settled = s);
+            Note("test.historyOff", $"before={(_historyBefore?.ToString() ?? "absent")} {settled}");
         }
 
         /// <summary>

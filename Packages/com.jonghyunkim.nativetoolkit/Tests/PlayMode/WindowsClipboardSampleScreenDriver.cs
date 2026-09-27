@@ -265,6 +265,32 @@ namespace JonghyunKim.NativeToolkit.Tests
             return status == 0 ? data : null;
         }
 
+        /// <summary>
+        /// Turns clipboard history off and waits for the clipboard to settle, reporting what it saw.
+        /// <para>
+        /// A few seconds after the switch flips, Windows' clipboard service empties the clipboard,
+        /// once, at no fixed moment. In block C that landed on a different press in every run
+        /// (2026-09-27): before the copy (harmless), between the copy and its paste (the paste read
+        /// nothing), between the sample's paste and another application's (that one read nothing).
+        /// The manual run toggled history in Settings and took seconds to come back, so it never
+        /// met it. This waits for that change, seen as the clipboard sequence number moving.
+        /// </para>
+        /// </summary>
+        internal static IEnumerator TurnHistoryOffAndSettle(Action<string> report, float timeoutSeconds = 10f)
+        {
+            uint before = GetClipboardSequenceNumber();
+            float from = Time.realtimeSinceStartup;
+            WriteHistorySetting(0);
+            bool changed = false;
+            yield return Eventually(() => GetClipboardSequenceNumber() != before, ok => changed = ok, timeoutSeconds);
+            report(changed
+                ? $"clipboardChangedAfter={Time.realtimeSinceStartup - from:0.0}s"
+                : $"clipboardUnchangedFor={timeoutSeconds:0}s");
+        }
+
+        [DllImport("user32.dll")]
+        private static extern uint GetClipboardSequenceNumber();
+
         /// <summary>Writes the switch, or removes the value when <paramref name="value"/> is null.</summary>
         internal static void WriteHistorySetting(uint? value)
         {

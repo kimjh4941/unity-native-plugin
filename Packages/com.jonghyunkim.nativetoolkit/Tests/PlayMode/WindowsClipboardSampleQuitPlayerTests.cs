@@ -44,8 +44,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator ReserveThenQuit_TheReservationStillPastes()
         {
-            WriteHistorySetting(0);
-            Debug.Log("[SampleRun] #0 [local] test.historyOff for M-19");
+            // Before the reservation, or the clipboard service's own clear could discard it.
+            string settled = "";
+            yield return TurnHistoryOffAndSettle(s => settled = s);
+            Debug.Log($"[SampleRun] #0 [local] test.historyOff for M-19 {settled}");
 
             foreach (string press in Presses)
             {
