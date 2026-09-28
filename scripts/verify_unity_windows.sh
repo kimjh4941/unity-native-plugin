@@ -26,8 +26,15 @@
 # (Clear Unpinned wipes every unpinned item), so they are left out unless --include-destructive is
 # given. Use it on a machine whose clipboard history nobody needs.
 #
+# --il2cpp builds the test players with IL2CPP instead of Mono, where marshalling and native
+# callbacks can differ (the MonoPInvokeCallback receivers, the delegates handed to the C ABI). It
+# covers the player tests (both runs, --include-destructive included) and the sample run checker,
+# and writes its own result files (*-il2cpp.xml / .log). M-19 and the layer 3 clipboard read are
+# Mono only and are skipped. It needs the Windows IL2CPP module and the Visual Studio C++ tools.
+# The layer 0 player build stays Mono; pair it with --skip-build when that has already passed.
+#
 # Usage:
-#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests] [--include-destructive] [--keep-changes]
+#   scripts/verify_unity_windows.sh [--skip-build] [--skip-player-tests] [--include-destructive] [--il2cpp] [--keep-changes]
 #
 # Environment:
 #   UNITY_EXE   Path to Unity.exe. Defaults to the 6000.4.2f1 install used by this project.
@@ -42,12 +49,14 @@ SKIP_BUILD=0
 SKIP_PLAYER_TESTS=0
 KEEP_CHANGES=0
 INCLUDE_DESTRUCTIVE=0
+IL2CPP=0
 
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
     --skip-player-tests) SKIP_PLAYER_TESTS=1 ;;
     --include-destructive) INCLUDE_DESTRUCTIVE=1 ;;
+    --il2cpp) IL2CPP=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -154,9 +163,23 @@ echo
 if [ "$SKIP_PLAYER_TESTS" -eq 1 ]; then
   echo "-- player tests: skipped --"
 else
-  echo "-- player tests (layer 2b) and system clipboard (layer 3) --"
-  PT_XML="$OUT_DIR/StandaloneWindows64.xml"
-  PT_LOG="$OUT_DIR/StandaloneWindows64.log"
+  # IL2CPP builds the test players through the Test Framework's settings file, which switches the
+  # Standalone scripting backend for the run (ProjectSettings is cleaned up below either way).
+  PT_SUFFIX=""
+  PT_LABEL="StandaloneWindows64"
+  pt_settings_args=()
+  if [ "$IL2CPP" -eq 1 ]; then
+    PT_SUFFIX="-il2cpp"
+    PT_LABEL="StandaloneWindows64 (IL2CPP)"
+    PT_SETTINGS="$OUT_DIR/il2cpp-test-settings.json"
+    printf '{\n  "scriptingBackend": "IL2CPP"\n}\n' > "$PT_SETTINGS"
+    pt_settings_args=(-testSettingsFile "$PT_SETTINGS")
+    echo "-- player tests (layer 2b, IL2CPP) --"
+  else
+    echo "-- player tests (layer 2b) and system clipboard (layer 3) --"
+  fi
+  PT_XML="$OUT_DIR/StandaloneWindows64$PT_SUFFIX.xml"
+  PT_LOG="$OUT_DIR/StandaloneWindows64$PT_SUFFIX.log"
   PT_SOURCE="$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/WindowsClipboardPlayerTests.cs"
   rm -f "$PT_XML" "$PT_LOG"
 
@@ -238,13 +261,13 @@ else
   if [ ${#category_args[@]} -gt 0 ]; then
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
       -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
-      "${category_args[@]}" \
+      "${category_args[@]}" ${pt_settings_args[@]+"${pt_settings_args[@]}"} \
       -testResults "$PT_XML" -logFile "$PT_LOG" >/dev/null 2>&1
   fi
   pt_code=$?
   # The editor has the results by the time it exits, so this player has nothing left to do.
   stop_test_players >/dev/null
-  report_tests "StandaloneWindows64" "$PT_XML" "$pt_code" || failures=$((failures + 1))
+  report_tests "$PT_LABEL" "$PT_XML" "$pt_code" || failures=$((failures + 1))
 
   # The test player's own log: what it wrote off the main thread (COM activations, for one) is
   # there and not in the result file. Kept now, as the quit run below writes over it.
@@ -271,7 +294,7 @@ else
   # dropped out of the build, which is exactly what this step exists to notice.
   pt_total="$(grep -o 'total="[0-9]*"' "$PT_XML" 2>/dev/null | head -1 | tr -dc '0-9')"
   if [ -f "$PT_XML" ] && [ "${pt_total:-0}" -eq 0 ]; then
-    echo "  StandaloneWindows64: NO TESTS RAN"
+    echo "  $PT_LABEL: NO TESTS RAN"
     failures=$((failures + 1))
   fi
 
@@ -282,7 +305,9 @@ else
   # script (topics/cross-platform-testing).
   actual="$(powershell.exe -NoProfile -Command "Get-Clipboard -Raw" 2>/dev/null)"
   actual="${actual%$'\r'}"
-  if [ -z "$expected" ]; then
+  if [ "$IL2CPP" -eq 1 ]; then
+    echo "  system clipboard: skipped (--il2cpp; layer 3 is checked on the Mono run)"
+  elif [ -z "$expected" ]; then
     echo "  system clipboard: CANNOT CHECK (no SampleText in $PT_SOURCE)"
     failures=$((failures + 1))
   elif [ "$actual" = "$expected" ]; then
@@ -299,18 +324,18 @@ else
   # returns its results like any other run, so it runs in the foreground and is judged the same
   # way, into files of its own: the main run's XML is read again by the sample run log below.
   if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ -n "$recreates" ]; then
-    RECREATE_XML="$OUT_DIR/Recreate.xml"
-    rm -f "$RECREATE_XML" "$OUT_DIR/Recreate.log"
+    RECREATE_XML="$OUT_DIR/Recreate$PT_SUFFIX.xml"
+    rm -f "$RECREATE_XML" "$OUT_DIR/Recreate$PT_SUFFIX.log"
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" \
       -runTests -testPlatform StandaloneWindows64 -buildPlayerPath "$PT_PLAYER_DIR" \
-      -testCategory "$recreates" \
-      -testResults "$RECREATE_XML" -logFile "$OUT_DIR/Recreate.log" >/dev/null 2>&1
+      -testCategory "$recreates" ${pt_settings_args[@]+"${pt_settings_args[@]}"} \
+      -testResults "$RECREATE_XML" -logFile "$OUT_DIR/Recreate$PT_SUFFIX.log" >/dev/null 2>&1
     recreate_code=$?
     stop_test_players >/dev/null
-    report_tests "Recreate (StandaloneWindows64)" "$RECREATE_XML" "$recreate_code" || failures=$((failures + 1))
+    report_tests "Recreate ($PT_LABEL)" "$RECREATE_XML" "$recreate_code" || failures=$((failures + 1))
     recreate_total="$(grep -o 'total="[0-9]*"' "$RECREATE_XML" 2>/dev/null | head -1 | tr -dc '0-9')"
     if [ -f "$RECREATE_XML" ] && [ "${recreate_total:-0}" -eq 0 ]; then
-      echo "  Recreate (StandaloneWindows64): NO TESTS RAN"
+      echo "  Recreate ($PT_LABEL): NO TESTS RAN"
       failures=$((failures + 1))
     fi
   fi
@@ -328,7 +353,9 @@ else
   # shows the timeout. Stopped like that, it leaves the Test Framework's scene in Assets
   # (InitTestScene<guid>.unity); those newer than the run's start are removed.
   QUIT_PLAYER_LOG=""
-  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ -n "$quits" ]; then
+  if [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ "$IL2CPP" -eq 1 ]; then
+    echo "  M-19 quit with a reservation: skipped (--il2cpp; it is checked on the Mono run)"
+  elif [ "$INCLUDE_DESTRUCTIVE" -eq 1 ] && [ -n "$quits" ]; then
     prefix="$(sed -n 's/.*const string PlainTextPrefix = "\([^"]*\)".*/\1/p' \
       "$PROJECT_DIR/Packages/com.jonghyunkim.nativetoolkit/Runtime/UI/Windows/Clipboard/WindowsClipboardSampleFixtures.cs" | head -1)"
     powershell.exe -NoProfile -Command "Set-Clipboard -Value '$sentinel'" >/dev/null 2>&1
