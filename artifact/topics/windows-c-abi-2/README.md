@@ -6,9 +6,9 @@
 - 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に、
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
-- 進捗: **3 機能とも移行済み。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
-  **Dialog**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v2.md`）、
-  **Notification**（2026-09-27。結果は `artifact/features/notification/results/2026-09-27-windows-notification-implementation-feature-result-v1.md`）、
+- 進捗: **完了（2026-09-29）。3 機能とも移行済み。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
+  **Dialog**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-29-windows-dialog-implementation-feature-result-v3.md`）、
+  **Notification**（2026-09-27。結果は `artifact/features/notification/results/2026-09-29-windows-notification-implementation-feature-result-v2.md`）、
   **Clipboard**（2026-09-27〜29、`afee02c`〜`722ec41`。結果は `artifact/features/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md`）。
   1.x の DLL は同梱物から消えた。3 機能の Player テストは Mono と IL2CPP の両方で通る（2026-09-29、本体 93 / 93、作り直し 1 / 1）
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
