@@ -15,7 +15,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// EditMode tests for the Windows clipboard bridge's conversions to and from native-toolkit's C
-    /// ABI (artifact/features/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md, 7.1).
+    /// ABI (artifact/windows/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md, 7.1).
     /// </summary>
     public sealed class WindowsClipboardCApiTests
     {

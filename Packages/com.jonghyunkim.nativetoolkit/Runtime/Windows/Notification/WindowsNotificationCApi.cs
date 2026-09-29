@@ -20,7 +20,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Notification
     /// out. The conversions are pure functions compiled everywhere, so EditMode tests reach them:
     /// the JSON payload to the builder calls, the list to the JSON <c>GetAllNotifications</c>
     /// reports, the order of the checks, and the codes. The <c>DllImport</c>s are compiled only
-    /// into a Windows player. Design: artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md.
+    /// into a Windows player. Design: artifact/windows/notification/designs/2026-09-27-windows-notification-design-v8.md.
     /// </remarks>
     internal static class WindowsNotificationCApi
     {

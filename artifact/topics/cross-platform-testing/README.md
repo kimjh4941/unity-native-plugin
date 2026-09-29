@@ -116,7 +116,7 @@ UI Toolkit の要素と同期させ続ける実装が要る。そのコードは
 ### 自動化の対象は既存の手動確認項目
 
 **新規に観点を作らない。** 正本は
-`artifact/features/clipboard/results/2026-09-09-windows-clipboard-verify-manual-result-v1.md`。
+`artifact/windows/clipboard/results/2026-09-09-windows-clipboard-verify-manual-result-v1.md`。
 
 | ブロック | 項目数 | 要る層 |
 |---|---|---|
@@ -447,7 +447,7 @@ S-1 / S-5 / S-6 のテストと共有する。
 コピーのボタンは 1 回の実行で 15 件ほど履歴に足し（履歴は 25 件まで）、Clear Unpinned や Restore / Delete は履歴にある物を相手にするため、
 開発者の履歴が押し出される。履歴が消えて困らない PC でだけ回す。この PC はそれでよいとして回している。
 
-**押す順番は手動確認の記録そのもの。** 計画書の手順ではなく、`artifact/features/clipboard/results/logs/` の
+**押す順番は手動確認の記録そのもの。** 計画書の手順ではなく、`artifact/windows/clipboard/results/logs/` の
 session1 の 1〜55 回目（ブロック A）と、session2 の 10〜40 回目（ブロック D と追加の S 観点）を、ログから機械的に取り出した。
 ブロック B（非フォアグラウンド）と C（履歴オフ）は OS の状態を変える必要があり、まだ移していない。
 そこでしか押さないボタン 7 個はテストの `NotYetAutomated` に書き、チェッカーは合格ではなく **PART（60 / 67 個）** と報告する。

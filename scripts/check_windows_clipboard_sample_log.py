@@ -41,7 +41,7 @@ from a Test Framework result file. Each run is saved beside that file as
 windows-clipboard-sample-run-NAME.log and checked with any logs given.
 
 With no log and no --test-results it reads
-artifact/features/clipboard/results/logs/*.log.
+artifact/windows/clipboard/results/logs/*.log.
 
 On Windows `python3` may resolve to a Microsoft Store app execution alias,
 which runs nothing and exits 49 - the checks then look like they passed when
@@ -69,7 +69,7 @@ UXML = (PACKAGE / "Runtime" / "Resources" / "UI" / "Windows" / "Clipboard"
         / "WindowsClipboardManagerExample.uxml")
 CONTROLLER = UI / "WindowsClipboardManagerExampleController.cs"
 FIXTURES = UI / "WindowsClipboardSampleFixtures.cs"
-LOGS = REPO / "artifact" / "features" / "clipboard" / "results" / "logs"
+LOGS = REPO / "artifact" / "windows" / "clipboard" / "results" / "logs"
 
 CLICK = re.compile(r"\]\[(On[A-Za-z]+Clicked)\]\s*$")
 ENTRY = re.compile(r"#(\d+) \[(call|accept|done|local)\] (\S+)")

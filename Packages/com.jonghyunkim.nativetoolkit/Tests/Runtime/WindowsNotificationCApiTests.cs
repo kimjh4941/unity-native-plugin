@@ -16,7 +16,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// EditMode tests for the JSON reader the Windows notification payloads go through
-    /// (artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md, 4.2 and 7.1).
+    /// (artifact/windows/notification/designs/2026-09-27-windows-notification-design-v8.md, 4.2 and 7.1).
     /// </summary>
     public sealed class WindowsNotificationJsonReaderTests
     {

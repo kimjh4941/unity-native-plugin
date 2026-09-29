@@ -100,7 +100,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         /// </summary>
         /// <remarks>
         /// While the Windows features moved to the 2.0.0 C ABI one at a time, a second pin placed the
-        /// 1.x DLL beside this one (artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md,
+        /// 1.x DLL beside this one (artifact/windows/dialog/designs/2026-09-27-windows-dialog-design-v6.md,
         /// J-6). It was removed with the last feature's move; an extra_* key left in the file is ignored.
         /// </remarks>
         internal static WindowsPin Read(string path)

@@ -229,6 +229,6 @@ done
 - 規則の正本: `agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」
 - 設計段階での強制: `agent-rules/workflows/design-feature/workflow.md` ステップ 6
 - レビューでの強制: `review-document` / `review-implementation-feature` / `review-implementation-sample-scene` の各ステップ 6「プラットフォーム独立性」
-- 誤読が発生した設計書: `artifact/features/clipboard/designs/2026-09-03-macos-clipboard-design-v1.md` 〜 `v6.md` の 2.4 / 4.2 / D-1
-- 誤読を「成立する」と確認したレビュー: `artifact/features/clipboard/reviews/2026-09-03-macos-clipboard-design-review-v2.md`
+- 誤読が発生した設計書: `artifact/macos/clipboard/designs/2026-09-03-macos-clipboard-design-v1.md` 〜 `v6.md` の 2.4 / 4.2 / D-1
+- 誤読を「成立する」と確認したレビュー: `artifact/macos/clipboard/reviews/2026-09-03-macos-clipboard-design-review-v2.md`
 - ディレクトリ構成の議論: `Runtime/` は接頭辞で分け、`UI/` だけ `UI/<Platform>/<Feature>/` で分ける（`common.md` に記載）

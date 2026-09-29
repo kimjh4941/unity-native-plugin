@@ -14,7 +14,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// EditMode tests for the Windows Dialog bridge's conversions to and from native-toolkit's C ABI
-    /// (artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 4 and 7.1).
+    /// (artifact/windows/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 4 and 7.1).
     /// </summary>
     public sealed class WindowsDialogCApiTests
     {

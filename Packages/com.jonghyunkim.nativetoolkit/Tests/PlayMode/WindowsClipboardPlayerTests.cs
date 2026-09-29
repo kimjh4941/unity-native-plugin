@@ -28,7 +28,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// </para>
     /// <para>
     /// The cases follow the manual checks in
-    /// artifact/features/clipboard/results/2026-09-09-windows-clipboard-verify-manual-result-v1.md
+    /// artifact/windows/clipboard/results/2026-09-09-windows-clipboard-verify-manual-result-v1.md
     /// rather than inventing new ones, and reuse the sample's values where the sample has them.
     /// On the 1.x ABI they are the baseline the 2.0.0 migration is compared against
     /// (artifact/topics/windows-c-abi-2).
@@ -409,7 +409,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
-        // artifact/features/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md, 5.6 step 1
+        // artifact/windows/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md, 5.6 step 1
         // and 7.3: these pin down what 1.x does, so the migration can compare.
 
         /// <summary>A registered format name for the raw-bytes cases; nothing else uses it.</summary>

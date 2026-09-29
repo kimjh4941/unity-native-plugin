@@ -3,7 +3,7 @@
 The runs are WindowsClipboardSampleRunPlayerTests' blocks A, B, C and D: presses 1-64 of
 the manual session 1 and 1-40 of session 2, in the same order, without Quit (press 65).
 Lines the test itself adds (test.*) are in the sample's [local] form. The expectations are
-the manual verification's (artifact/features/clipboard/results/
+the manual verification's (artifact/windows/clipboard/results/
 2026-09-09-windows-clipboard-verify-manual-result-v1.md, section 1), written per press so
 that check_windows_clipboard_sample_log.py can say which M item a run broke.
 

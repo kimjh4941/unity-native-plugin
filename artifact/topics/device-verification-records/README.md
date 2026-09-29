@@ -84,7 +84,7 @@ Example_AndroidClipboardManager_GetDescription.png
 ## 5. dialog に結果文書が無い（別問題）
 
 4 プラットフォームすべてに dialog のスクリーンショットがある
-（android 7 / ios 8 / mac 8 / windows 8）が、`artifact/features/<feature>/results/` に
+（android 7 / ios 8 / mac 8 / windows 8）が、`artifact/<os>/<feature>/results/` に
 dialog の結果文書が**1 本も無い**。実装が artifact ワークフローより前だった可能性が高い。
 **本課題とは別に扱う。**
 

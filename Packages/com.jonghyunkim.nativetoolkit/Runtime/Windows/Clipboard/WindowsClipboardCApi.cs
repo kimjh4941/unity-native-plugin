@@ -18,7 +18,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     /// the base64 decoder 1.x used, the history timestamp, how a read's code and value become a
     /// result, the history item rules, the deferred render, and the exceptions. The
     /// <c>DllImport</c>s are compiled only into a Windows player.
-    /// Design: artifact/features/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md.
+    /// Design: artifact/windows/clipboard/designs/2026-09-27-windows-clipboard-design-v12.md.
     /// <para>
     /// No logs here: the values are clipboard content, which this feature never writes to the log
     /// (design v8). The manager logs what it did with them.

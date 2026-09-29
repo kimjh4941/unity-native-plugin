@@ -17,7 +17,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// PlayMode tests for <c>WindowsDialogManager</c> in the Editor
-    /// (artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 7.2): the paths
+    /// (artifact/windows/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 7.2): the paths
     /// that end before the native library, and the one-event contract.
     /// </summary>
     public sealed class WindowsDialogManagerEditorTests

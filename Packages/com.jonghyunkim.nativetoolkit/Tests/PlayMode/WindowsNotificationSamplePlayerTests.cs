@@ -22,7 +22,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Drives the Windows Notification sample on a player and checks its toasts in the notification
-    /// center: W-01 to W-11 of artifact/features/notification/designs/2026-09-27-windows-notification-ui-test-plan-v2.md.
+    /// center: W-01 to W-11 of artifact/windows/notification/designs/2026-09-27-windows-notification-ui-test-plan-v2.md.
     /// <para>
     /// The notification center is worked from a PowerShell process through UI Automation. It is
     /// ShellExperienceHost's CoreWindow, which neither EnumWindows nor UI Automation's top-level
@@ -298,7 +298,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
-        // artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md, 5.6
+        // artifact/windows/notification/designs/2026-09-27-windows-notification-design-v8.md, 5.6
         // step 1 and 7.3: these call the manager directly and pin down what 1.x does, so the
         // migration can compare. The payloads are the fixtures of the UI test plan v2.
 

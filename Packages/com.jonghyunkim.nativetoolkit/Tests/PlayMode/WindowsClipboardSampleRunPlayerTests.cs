@@ -22,7 +22,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// by scripts/check_windows_clipboard_sample_log.py, the same checker the manual run used.
     /// <para>
     /// The orders are the recorded manual sessions, not a plan: presses 1-55 of
-    /// artifact/features/clipboard/results/logs/2026-09-09-windows-clipboard-verify-manual-session1.log
+    /// artifact/windows/clipboard/results/logs/2026-09-09-windows-clipboard-verify-manual-session1.log
     /// are block A of the sample-scene design (history on, foreground), and presses 10-40 of
     /// session2.log are block D (the errors, last) followed by the extra S checks. They were pulled
     /// from those logs mechanically. Block B is press 56 of session 1, made with another window in

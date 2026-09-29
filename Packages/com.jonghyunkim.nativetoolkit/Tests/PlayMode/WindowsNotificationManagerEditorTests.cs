@@ -16,7 +16,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// PlayMode tests for <c>WindowsNotificationManager</c> in the Editor
-    /// (artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md, 7.2):
+    /// (artifact/windows/notification/designs/2026-09-27-windows-notification-design-v8.md, 7.2):
     /// nothing reaches the native library, and nothing is reported.
     /// </summary>
     public sealed class WindowsNotificationManagerEditorTests

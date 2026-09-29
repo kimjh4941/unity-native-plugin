@@ -18,7 +18,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Dialog
     /// functions compiled everywhere, so EditMode tests reach them. The <c>DllImport</c>s and the
     /// calls that marshal through them are compiled only into a Windows player; in the Editor the
     /// calls report <see cref="WindowsDialogErrorCodes.PlatformUnavailable"/> without touching the
-    /// DLL. Design: artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md.
+    /// DLL. Design: artifact/windows/dialog/designs/2026-09-27-windows-dialog-design-v6.md.
     /// </remarks>
     internal static class WindowsDialogCApi
     {

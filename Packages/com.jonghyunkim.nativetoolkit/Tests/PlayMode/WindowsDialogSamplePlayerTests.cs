@@ -22,7 +22,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Drives the Windows Dialog sample on a player, with the native dialogs answered from outside:
-    /// D-01 to D-14 of artifact/features/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v2.md,
+    /// D-01 to D-14 of artifact/windows/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v2.md,
     /// after native-toolkit's UI tests. The expectations were taken from the 1.x DLL and did not
     /// change with the move to the 2.0.0 C ABI; that they still pass is what checks the move. The
     /// tests after them call the manager directly (design v6, 7.3).
@@ -235,7 +235,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         // ── Recorded on 1.x before the move to the 2.0.0 C ABI ──────────────────
-        // artifact/features/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 5.6 step 1: these
+        // artifact/windows/dialog/designs/2026-09-27-windows-dialog-design-v6.md, 5.6 step 1: these
         // call the manager directly and pinned down what 1.x did, so the migration could compare.
 
         /// <remarks>

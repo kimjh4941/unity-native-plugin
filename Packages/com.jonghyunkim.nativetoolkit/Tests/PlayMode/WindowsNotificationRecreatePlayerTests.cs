@@ -13,7 +13,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// The notification manager destroyed and made again in the same process
-    /// (artifact/features/notification/designs/2026-09-27-windows-notification-design-v8.md, 7.3):
+    /// (artifact/windows/notification/designs/2026-09-27-windows-notification-design-v8.md, 7.3):
     /// a new manager starts uninitialized (E-1), an unpackaged Initialize without a name or icon is
     /// refused (E-2), and the next Initialize is a first one again (J-3), after which toasts show.
     /// <para>

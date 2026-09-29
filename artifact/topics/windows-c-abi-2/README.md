@@ -7,9 +7,9 @@
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
 - 進捗: **完了（2026-09-29）。3 機能とも移行済み。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
-  **Dialog**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-29-windows-dialog-implementation-feature-result-v3.md`）、
-  **Notification**（2026-09-27。結果は `artifact/features/notification/results/2026-09-29-windows-notification-implementation-feature-result-v2.md`）、
-  **Clipboard**（2026-09-27〜29、`afee02c`〜`722ec41`。結果は `artifact/features/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md`）。
+  **Dialog**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/windows/dialog/results/2026-09-29-windows-dialog-implementation-feature-result-v3.md`）、
+  **Notification**（2026-09-27。結果は `artifact/windows/notification/results/2026-09-29-windows-notification-implementation-feature-result-v2.md`）、
+  **Clipboard**（2026-09-27〜29、`afee02c`〜`722ec41`。結果は `artifact/windows/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md`）。
   1.x の DLL は同梱物から消えた。3 機能の Player テストは Mono と IL2CPP の両方で通る（2026-09-29、本体 93 / 93、作り直し 1 / 1）
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。VERSION.txt のピンは移行の中で書き換えた（2.5「移行時にやること」）
@@ -365,7 +365,7 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 
 **通知のボタンが、パッケージ化しないアプリに届くようになる（2026-09-27 追記）。** 1.x も 2.0.0 も、
 `HKCU\Software\Classes\AppUserModelId\<AUMID>\CustomActivator` を書いていなかった。Windows 11 はこの値が無いと、動いているアプリにクリックを届けない。
-native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原因と確かめ方は `artifact/features/notification/designs/2026-09-27-windows-notification-ui-test-plan-v1.md` 2 章）。
+native-toolkit が `c9f4071b` で直し、dist 1.12.0 に入っている（原因と確かめ方は `artifact/windows/notification/designs/2026-09-27-windows-notification-ui-test-plan-v1.md` 2 章）。
 **移行したら、`WindowsNotificationSamplePlayerTests` の W-04（`ShowNotification_OpenInTheCenter_ComesBackAsInvoked`）の `[Ignore]` を外し、W-11 を書く。**
 移行の確認はこの 2 本が通ることを含める。表示名（Unity では `Application.productName`）が同じアプリどうしは、クリックを奪い合う。
 **1.x には修正版を出さない**（2026-09-27 決定）。移行までは、同梱の 1.x でこの不具合が残る
