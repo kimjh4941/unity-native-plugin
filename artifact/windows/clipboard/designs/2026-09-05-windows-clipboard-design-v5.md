@@ -9,7 +9,7 @@
 - レビュー: `artifact/windows/clipboard/reviews/2026-09-05-windows-clipboard-design-review-v2.md`（high 3 / medium 4 / low 1 / 不足 3 を v3 で反映）
 - **実機検証**: `artifact/windows/clipboard/results/2026-09-05-windows-clipboard-spike-verification-result-v1.md`（V-1 / V-2 合格、F-1〜F-3 を v4 で反映）
 - **最新ルール**: `agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」（feature/UNT-10 で追加、develop 取り込み済み）。P1〜P5 の自己点検は 6.5
-- **ネイティブ側の実機検証**: `native-toolkit/artifact/features/clipboard/results/2026-08-20-windows-clipboard-implement-sample-app-result-v1.md`（F1〜F3 / O1 / O2 / 未検証 9.1〜9.9 を本版で反映）
+- **ネイティブ側の実機検証**: `native-toolkit/artifact/windows/clipboard/results/2026-08-20-windows-clipboard-implement-sample-app-result-v1.md`（F1〜F3 / O1 / O2 / 未検証 9.1〜9.9 を本版で反映）
 - 対象外: サンプルアプリ（ExampleController / UXML / USS / サンプルシーン）。`design-sample-scene` で別途設計する
 
 ## v4 からの主な変更（新ルール適合とネイティブ検証結果の反映）
@@ -105,7 +105,7 @@ native-toolkit の `WindowsLibrary.dll` はすでに Clipboard の `extern "C"` 
 参照: `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibrary`
 （`WindowsClipboardManager.h` / `.cpp`、`WindowsClipboardHistoryCoordinator.h` / `.cpp`、`WindowsClipboardHistoryWinRt.cpp`、
 `WindowsClipboardCore.cpp`、`WindowsClipboardDeferredProvider.cpp`、`WindowsClipboardWindow.cpp`、`WindowsLibrary.def`）
-補助資料: `native-toolkit/artifact/features/clipboard/designs/2026-07-28-windows-clipboard-design-v2.md`
+補助資料: `native-toolkit/artifact/windows/clipboard/designs/2026-07-28-windows-clipboard-design-v2.md`
 
 ### 2.1 公開関数一覧（`WindowsLibrary.def` の EXPORTS: 27 関数）
 

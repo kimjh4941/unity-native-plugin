@@ -9,7 +9,7 @@
 2. インタラクティブ入力で対象を確定する（必須）
    - ダイアログで「対象機能の実装結果ファイルを指定してください」と促す
    - 実装結果ファイルの入力がない場合は次を候補として提示する:
-     - `artifact/<os>/<feature>/results/` 配下の `*-implementation-feature-result*.md`
+     - `artifact/*/<feature>/results/` 配下の `*-implementation-feature-result*.md`
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 3. 前提情報を抽出する（必須）

@@ -65,7 +65,7 @@ native-toolkit の `WindowsLibrary.dll` はすでに Clipboard の `extern "C"` 
 参照: `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibrary`
 （`WindowsClipboardManager.h` / `.cpp`、`WindowsClipboardHistoryCoordinator.h` / `.cpp`、`WindowsClipboardHistoryWinRt.cpp`、
 `WindowsClipboardCore.cpp`、`WindowsClipboardDeferredProvider.cpp`、`WindowsClipboardWindow.cpp`、`WindowsLibrary.def`）
-補助資料: `native-toolkit/artifact/features/clipboard/designs/2026-07-28-windows-clipboard-design-v2.md`
+補助資料: `native-toolkit/artifact/windows/clipboard/designs/2026-07-28-windows-clipboard-design-v2.md`
 
 ### 2.1 公開関数一覧（`WindowsLibrary.def` の EXPORTS: 27 関数）
 

@@ -29,7 +29,8 @@
 
 **OS ごとにディレクトリを分ける**（2026-09-29 から。それまでは `features/<feature>/` の下に全 OS を置き、OS はファイル名で区別していた）。コードの `Runtime/<Platform>/<Feature>` と同じ並びにし、文書が「機能 × OS × 版」で増えても 1 つのディレクトリが 1 つの OS の 1 つの機能に収まるようにした。
 `<os>` は小文字（android / ios / macos / windows）。**ファイル名にも OS を残す**（名前だけで引用されたときにも分かるように）。
-native-toolkit の artifact も同じ形に揃える予定。それまで、この repo の文書が引用する native-toolkit のパス（`artifact/features/...`）はそのまま残す
+native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `089d8325` / `c7a1b54e`）。違いは、native-toolkit では `plans/` が現役の種類として残ること。この repo の文書が引用する native-toolkit のパスも新しい形に直した。
+ワークフローの手順のうち、**候補を探す手順は OS を選ぶ前に走るので `artifact/*/<feature>/<種類>/`（全 OS）を探し、保存する手順は `artifact/<os>/<feature>/<種類>/` に書く**
 
 ### 機能ごとの未対応課題
 

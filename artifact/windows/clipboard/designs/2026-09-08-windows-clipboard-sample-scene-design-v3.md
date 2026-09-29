@@ -10,7 +10,7 @@
 - レビュー: v1（Claude サブエージェント 4 名。A1 13 / A2 2 / B 20 / C 8）→
   v2（Codex `gpt-5.5` high。**A1 0** / B 4 / C 1）
 - **ネイティブ側の実機確認結果**:
-  `native-toolkit/artifact/features/clipboard/results/2026-08-20-windows-clipboard-implement-sample-app-result-v1.md`
+  `native-toolkit/artifact/windows/clipboard/results/2026-08-20-windows-clipboard-implement-sample-app-result-v1.md`
   （2026-09-05 完了。OK 24 / NG 1 / 未実施 1、49 ボタン中 48 確認。**v3 で突き合わせた。1.3 節**）
 
 **章番号は v2 から変えていない。** 既存の相互参照を壊さないため、
