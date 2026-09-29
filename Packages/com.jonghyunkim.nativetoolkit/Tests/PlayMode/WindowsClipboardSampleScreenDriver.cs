@@ -184,15 +184,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static string ProcessName(uint pid)
         {
-            try
-            {
-                using Process process = Process.GetProcessById((int)pid);
-                return process.ProcessName;
-            }
-            catch (Exception e) when (e is ArgumentException or InvalidOperationException or NotSupportedException)
-            {
-                return "unknown";
-            }
+            string? path = WindowsTestProcess.ImagePath(pid);
+            return path != null ? System.IO.Path.GetFileNameWithoutExtension(path) : "unknown";
         }
 
         private static string WindowTitle(IntPtr window)
@@ -332,22 +325,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// </summary>
         internal static IEnumerator ReadClipboardFromAnotherProcess(Action<string?> text, float timeoutSeconds = 15f)
         {
-            var info = new ProcessStartInfo(
+            using WindowsTestProcess process = WindowsTestProcess.Start(
                 "powershell.exe",
-                "-NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw\"")
-            {
-                UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-            };
-            using Process? process = Process.Start(info);
-            if (process == null)
-            {
-                text(null);
-                yield break;
-            }
-            System.Threading.Tasks.Task<string> output = process.StandardOutput.ReadToEndAsync();
-            yield return Eventually(() => output.IsCompleted, _ => { }, timeoutSeconds);
-            text(output.IsCompleted ? output.Result.TrimEnd('\r', '\n') : null);
+                "-NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw\"");
+            yield return Eventually(() => process.OutputComplete, _ => { }, timeoutSeconds);
+            bool complete = process.OutputComplete;
+            if (!complete) process.Kill();
+            text(complete ? process.StandardOutput.TrimEnd('\r', '\n') : null);
         }
 
         // ── What the screen shows ────────────────────────────────────────────────

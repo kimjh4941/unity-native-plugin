@@ -437,9 +437,17 @@ else
       echo "  sample run log: MISSING (no run from WindowsClipboardSampleRunPlayerTests in the results)"
       failures=$((failures + 1))
     else
+      # An --il2cpp run skips M-19, so the quit block and the Quit button it alone presses are
+      # reported as not run rather than as failures.
+      without_quit=()
+      if [ "$IL2CPP" -eq 1 ]; then
+        not_automated="${not_automated:+$not_automated,}Quit"
+        without_quit=(--without-block quit)
+      fi
       echo "  sample run log (S-2 / S-4 / S-8 / outcomes):"
       python "$PROJECT_DIR/scripts/check_windows_clipboard_sample_log.py" \
-        --not-automated "$not_automated" --test-results "$PT_XML" ${QUIT_PLAYER_LOG:+--player-log "quit=$QUIT_PLAYER_LOG"} 2>&1 | sed 's/^/    /'
+        --not-automated "$not_automated" ${without_quit[@]+"${without_quit[@]}"} \
+        --test-results "$PT_XML" ${QUIT_PLAYER_LOG:+--player-log "quit=$QUIT_PLAYER_LOG"} 2>&1 | sed 's/^/    /'
       [ "${PIPESTATUS[0]}" -eq 0 ] || failures=$((failures + 1))
     fi
   fi

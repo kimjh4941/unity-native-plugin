@@ -18,11 +18,16 @@ than reporting a pass.
 
 Usage:
     python3 scripts/check_windows_clipboard_sample_log.py [--not-automated A,B,...]
-        [--test-results RESULTS.xml] [--player-log NAME=PATH] [log ...]
+        [--without-block NAME] [--test-results RESULTS.xml] [--player-log NAME=PATH] [log ...]
 
 --not-automated names buttons a partial automated run is known not to press
 (WindowsClipboardSampleRunPlayerTests.NotYetAutomated). S-2 then reports PART
 for them instead of passing, and fails if any of them was pressed after all.
+
+--without-block NAME says a block of windows_clipboard_sample_expected.BLOCKS was
+not run this time (the quit block on an --il2cpp run, which skips M-19). Its
+outcomes are then reported as skipped instead of failing for want of a log;
+the buttons only it presses still have to be named in --not-automated.
 
 --player-log NAME=PATH reads a run from a test player's own Player.log, for a
 run that reports nothing to the editor (WindowsClipboardSampleQuitPlayerTests
@@ -383,11 +388,18 @@ def describe(line, keys):
     return " ".join(parts)
 
 
-def check_outcomes(paths, rep):
+def expected_blocks():
+    sys.dont_write_bytecode = True  # no __pycache__ left in scripts/
+    import windows_clipboard_sample_expected as expected
+    return list(expected.BLOCKS)
+
+
+def check_outcomes(paths, rep, without_blocks=()):
     """Each press of an automated run reports what the manual verification expects.
 
     Only the automated run logs are judged (windows-clipboard-sample-run-<block>.log); the
     manual logs predate two sample fixes and are the record the expectations came from.
+    Blocks in without_blocks were not run and are reported as skipped.
     """
     sys.dont_write_bytecode = True  # no __pycache__ left in scripts/
     import windows_clipboard_sample_expected as expected
@@ -400,6 +412,9 @@ def check_outcomes(paths, rep):
 
     for block, table in expected.BLOCKS.items():
         name = "outcomes %s" % block
+        if block in without_blocks and block not in runs:
+            rep.skip(name, "not run this time (--without-block)")
+            continue
         if block not in runs:
             rep.check(False, name, fail_detail="no run log for this block")
             continue
@@ -456,6 +471,15 @@ def main(argv):
         not_automated = tuple(name for name in args[at + 1].split(",") if name)
         del args[at:at + 2]
 
+    without_blocks = []
+    while "--without-block" in args:
+        at = args.index("--without-block")
+        if at + 1 >= len(args) or args[at + 1] not in expected_blocks():
+            print("error: --without-block needs one of %s" % ", ".join(expected_blocks()), file=sys.stderr)
+            return 2
+        without_blocks.append(args[at + 1])
+        del args[at:at + 2]
+
     extracted = []
     if "--test-results" in args:
         at = args.index("--test-results")
@@ -492,7 +516,7 @@ def main(argv):
     check_s2(paths, rep, not_automated)
     check_s4(paths, rep)
     check_s8(paths, rep)
-    check_outcomes(paths, rep)
+    check_outcomes(paths, rep, tuple(without_blocks))
     print("")
     print("failures: %d" % len(rep.failures)
           + (" (%s)" % ", ".join(rep.failures) if rep.failures else ""))

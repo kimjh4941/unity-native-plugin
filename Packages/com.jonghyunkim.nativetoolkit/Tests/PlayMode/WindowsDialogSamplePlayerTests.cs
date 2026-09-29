@@ -79,7 +79,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const float CloserReadySeconds = 30f;
         private const float CloserExitSeconds = 45f;
 
-        private Process? _closer;
+        private WindowsTestProcess? _closer;
         private readonly ConcurrentQueue<string> _closerOutput = new();
         private string _folder = "";
         private string _currentDirectory = "";
@@ -589,7 +589,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             yield return Eventually(() => _closer!.HasExited, _ => { }, CloserExitSeconds);
             if (!_closer!.HasExited) Assert.Fail($"the dialog closer was still running {CloserExitSeconds}s later: {CloserLog()}");
-            _closer.WaitForExit(); // lets the asynchronous readers finish
+            _closer.WaitForExit(); // lets the readers finish
             TestContext.WriteLine($"closer: {CloserLog()}");
             Assert.AreEqual(0, _closer.ExitCode, $"the dialog closer failed: {CloserLog()}");
         }
@@ -637,18 +637,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             // Base64: Windows PowerShell drops the quotes inside a native argument, and a multiple
             // selection is written as quoted names.
             string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(steps));
-            var info = new ProcessStartInfo(
+            _closer = WindowsTestProcess.Start(
                 "powershell.exe",
-                $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -ProcessId {Process.GetCurrentProcess().Id} -StepsBase64 {encoded}")
-            {
-                UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true,
-            };
-            _closer = Process.Start(info);
-            Assert.IsNotNull(_closer, "powershell.exe did not start");
-            _closer!.OutputDataReceived += (_, e) => { if (e.Data != null) _closerOutput.Enqueue(e.Data); };
-            _closer.ErrorDataReceived += (_, e) => { if (e.Data != null) _closerOutput.Enqueue("stderr: " + e.Data); };
-            _closer.BeginOutputReadLine();
-            _closer.BeginErrorReadLine();
+                $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -ProcessId {Process.GetCurrentProcess().Id} -StepsBase64 {encoded}",
+                line => _closerOutput.Enqueue(line),
+                line => _closerOutput.Enqueue("stderr: " + line));
 
             yield return Eventually(() => _closerOutput.Contains("ready") || _closer.HasExited, _ => { }, CloserReadySeconds);
             ready(_closerOutput.Contains("ready") && !_closer.HasExited);
@@ -713,6 +706,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 <# a multiple selection is written as quoted names. #>
 $Steps = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($StepsBase64))
 $ErrorActionPreference = 'Stop'
+<# UTF-8, which the tests read it as; titles may be non-ASCII. #>
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 function Say([string]$line) { [Console]::Out.WriteLine($line); [Console]::Out.Flush() }
 Add-Type -TypeDefinition @'
 using System;

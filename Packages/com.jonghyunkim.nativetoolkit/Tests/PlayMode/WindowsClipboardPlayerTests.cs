@@ -601,18 +601,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// </summary>
         private static string? ReadClipboardFromAnotherProcess()
         {
-            var info = new System.Diagnostics.ProcessStartInfo(
+            using var process = WindowsTestProcess.Start(
                 "powershell.exe",
-                "-NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw\"")
-            {
-                UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8,
-            };
-            using var process = System.Diagnostics.Process.Start(info);
-            if (process == null) return null;
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit(5000);
-            return output.TrimEnd('\r', '\n');
+                "-NoProfile -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw\"");
+            if (process.WaitForExit(15000)) return process.StandardOutput.TrimEnd('\r', '\n');
+            process.Kill();
+            return null;
         }
 
         /// <summary>A value no earlier run wrote, so the item found in history is this test's own.</summary>

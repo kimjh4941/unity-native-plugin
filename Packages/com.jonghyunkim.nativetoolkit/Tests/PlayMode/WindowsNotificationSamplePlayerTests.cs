@@ -7,7 +7,6 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -169,7 +168,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 $"HKCU\\Software\\Classes\\AppUserModelId\\{App} has no CustomActivator, so Windows routes no click to this player " +
                 "(plan, chapter 2).");
             string? server = ReadCurrentUserString($@"Software\Classes\CLSID\{activator}\LocalServer32", "");
-            string exe = Process.GetCurrentProcess().MainModule!.FileName;
+            string exe = WindowsTestProcess.CurrentExecutablePath();
             Assert.IsTrue(server != null && server.Trim('"').StartsWith(exe, StringComparison.OrdinalIgnoreCase),
                 $"CustomActivator {activator} is served by [{server}], not by this player ({exe}), so the click goes there (plan, chapter 2).");
 
@@ -189,7 +188,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             float waitedFrom = Time.realtimeSinceStartup;
             yield return Eventually(() =>
             {
-                int count = Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName).Length;
+                int count = WindowsTestProcess.CountRunningCopiesOfThisPlayer();
                 string mark = $"{Time.realtimeSinceStartup - waitedFrom:0}s:{count}";
                 if (!players.EndsWith(":" + count)) players += (players.Length > 0 ? " " : "") + mark;
                 return ResultText()?.StartsWith("NotificationInvoked: ") == true;
@@ -203,7 +202,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             // Had this player not taken the activation, Windows would have started the registered
             // exe - this one - again, which would begin running the tests too.
-            Assert.AreEqual(1, Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName).Length,
+            Assert.AreEqual(1, WindowsTestProcess.CountRunningCopiesOfThisPlayer(),
                 "another test player was started to take the click");
         }
 
@@ -595,7 +594,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>How long the helper waits for a toast to appear, by default.</summary>
         internal const int DefaultWaitMilliseconds = 15000;
 
-        private Process? _center;
+        private WindowsTestProcess? _center;
         private readonly ConcurrentQueue<string> _output = new();
 
         /// <summary>Runs the center helper with the steps and waits for it; fails if a step failed.</summary>
@@ -607,18 +606,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             string script = Path.Combine(Application.temporaryCachePath, "ntk-notification-center.ps1");
             File.WriteAllText(script, CenterScript);
             string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(steps));
-            var info = new ProcessStartInfo(
+            _center = WindowsTestProcess.Start(
                 "powershell.exe",
-                $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -App \"{Application.productName}\" -StepsBase64 {encoded} -TimeoutMs {waitMilliseconds}")
-            {
-                UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true,
-            };
-            _center = Process.Start(info);
-            Assert.IsNotNull(_center, "powershell.exe did not start");
-            _center!.OutputDataReceived += (_, e) => { if (e.Data != null) _output.Enqueue(e.Data); };
-            _center.ErrorDataReceived += (_, e) => { if (e.Data != null) _output.Enqueue("stderr: " + e.Data); };
-            _center.BeginOutputReadLine();
-            _center.BeginErrorReadLine();
+                $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -App \"{Application.productName}\" -StepsBase64 {encoded} -TimeoutMs {waitMilliseconds}",
+                line => _output.Enqueue(line),
+                line => _output.Enqueue("stderr: " + line));
 
             // Opening and closing the center takes a few seconds on top of the wait for a toast.
             float exitSeconds = waitMilliseconds / 1000f + 45f;
@@ -649,6 +641,8 @@ $ErrorActionPreference = 'Stop'
 <# Steps arrive as base64 UTF-8, separated by ';':
    find <title> | absent <title> | open <title>|<button> | progress <title> #>
 $Steps = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($StepsBase64))
+<# UTF-8, which the tests read it as; titles may be non-ASCII. #>
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 function Say([string]$line) { [Console]::Out.WriteLine($line); [Console]::Out.Flush() }
 Add-Type -TypeDefinition @'
 using System;
