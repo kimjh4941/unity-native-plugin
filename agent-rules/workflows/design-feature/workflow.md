@@ -109,7 +109,7 @@
        （実行のたびに出るファイアウォールのダイアログ、Player に入らない Editor 専用のテストフック）。
        設計の段階で書いておけば、実装と同時に準備できる。詳細は `artifact/topics/cross-platform-testing/README.md`
 
-   保存先: `artifact/features/<feature>/designs/`
+   保存先: `artifact/<os>/<feature>/designs/`
    ファイル名: `YYYY-MM-DD-<os>-<feature>-design-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
 

@@ -9,8 +9,8 @@
 2. インタラクティブ入力でパラメータを確定する（必須）
    - ダイアログで「レビュー対象のファイルを指定してください」と促す
    - 入力がない場合は以下の候補を提示:
-     - `artifact/features/<feature>/designs/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
-     - `artifact/features/<feature>/designs/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
+     - `artifact/<os>/<feature>/designs/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
+     - `artifact/<os>/<feature>/designs/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
    - バージョンサフィックスがないファイルは `v1` とみなし、`vN` が存在する場合は `vN` を優先する
    - ユーザーが選択したファイルパスを確定する
 
@@ -76,12 +76,12 @@
    - 総合評価を表示する
 
 7. レビュー結果をファイルに保存する（必須）
-   - 保存先: `artifact/features/<feature>/reviews/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
-     - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）
+   - 保存先: `artifact/<os>/<feature>/reviews/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
+     - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）。対象ファイルのパス（`artifact/<os>/<feature>/...`）から自動抽出
      - `<feature>`: 対象ファイルのパスから自動抽出（例: `notification`）
      - `<document-type>`: ファイル種別に応じて `design` / `implementation-feature` / `sample-scene-design` など
      - `vN`: レビュー結果のバージョン。**必ずバージョンを付与し、既存ファイルは上書きしない**
-     - 例: `artifact/features/notification/reviews/2026-05-16-macos-notification-implementation-feature-review-v1.md`
+     - 例: `artifact/windows/dialog/reviews/2026-09-27-windows-dialog-design-review-v4.md`
    - **バージョン採番ルール（必須）:**
      - 保存先ディレクトリ内で、同じ `YYYY-MM-DD-<os>-<feature>-<document-type>-review` プレフィックスを持つ
        既存ファイルを探索する

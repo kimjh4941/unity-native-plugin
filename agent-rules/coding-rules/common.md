@@ -71,7 +71,7 @@ private static void OnDialogCallback(string? buttonText, bool isSuccess, string?
 
 Windows は native-toolkit の C ABI（ヘッダーは `native-toolkit/dist/<版>/windows/include/NativeToolkitC/`、
 DLL は dist の `windows-native-toolkit-capi-<版>.dll`）を P/Invoke で呼ぶ。
-以下は Dialog / Notification / Clipboard を 2.0.0 に移す設計（`artifact/features/{dialog,notification,clipboard}/designs/`
+以下は Dialog / Notification / Clipboard を 2.0.0 に移す設計（`artifact/windows/{dialog,notification,clipboard}/designs/`
 の 2026-09-27 版）で決めた約束ごとで、新しい Windows の機能も従う。
 3 機能とも 2026-09-27 に移行を終え、1.x の C ABI（`unity-windows-native-toolkit.dll`、UTF-16 のバッファと JSON）を呼ぶコードは残っていない。
 
@@ -441,7 +441,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 > 実例: Windows Clipboard のサンプルシーン計画 v1 が、Android / iOS の計画に明記されていた
 > 「入力欄は設けない」を理由なく破って入力欄を 2 つ置いた。計画レビュー 2 巡・実装レビュー 2 巡の
-> いずれも検出できなかった（`artifact/features/<feature>/designs/` の先行計画を参照に含めていなかったため）。
+> いずれも検出できなかった（`artifact/<os>/<feature>/designs/` の先行計画を参照に含めていなかったため）。
 > **方針をこのファイルに置いたのはそのため。**
 
 ---

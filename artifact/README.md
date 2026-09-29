@@ -4,22 +4,21 @@
 
 | ディレクトリ | 対象 | 作り方 |
 |---|---|---|
-| `features/<feature>/` | OS 機能の開発（clipboard / notification / share） | `agent-rules/workflows/` のワークフローが出力する |
+| `<os>/<feature>/` | OS 機能の開発（`<os>` は android / ios / macos / windows、`<feature>` は clipboard / dialog / notification / share） | `agent-rules/workflows/` のワークフローが出力する |
 | `topics/<topic>/` | 機能単位でない課題（横断・移行・検証債務など） | 手動で作成する。ワークフローは使わない |
 
 **どちらか迷ったら、影響が 1 機能に閉じるかで決める。**
-閉じるなら `features/`、複数機能や全プラットフォームにまたがるなら `topics/`。
+閉じるなら `<os>/<feature>/`、複数機能や全プラットフォームにまたがるなら `topics/`。
 
 ---
 
-## features/
+## <os>/<feature>/
 
 ワークフローが出力する文書の置き場。
 
 | ディレクトリ | 中身 | 命名 |
 |---|---|---|
-| `designs/` | 機能設計・サンプルシーン計画。`design-feature` / `design-sample-scene` が出力 | `YYYY-MM-DD-<os>-<feature>[-sample-scene]-design-vN.md` |
-| `plans/` | 旧形式の実装計画（macOS Notification のみ） | `YYYY-MM-DD-<os>-<feature>-...-plan-vN.md` |
+| `designs/` | 機能設計・サンプルシーン計画。`design-feature` / `design-sample-scene` が出力。旧形式の実装計画（macOS Notification のみ、元は `plans/`）もここに置く | `YYYY-MM-DD-<os>-<feature>[-sample-scene]-design-vN.md`（旧形式は `...-plan-vN.md`） |
 | `results/` | 実装結果・実機確認結果。`implement-*` / 手動確認が出力 | `YYYY-MM-DD-<os>-<feature>-<工程>-result-vN.md` |
 | `reviews/` | 設計・実装のレビュー記録。`review-*` が出力 | `YYYY-MM-DD-<os>-<feature>-<対象>-review-vN.md` |
 | `results/logs/` | 実機確認の生ログ。結果文書の主張の裏付け | `YYYY-MM-DD-<os>-<feature>-verify-manual-sessionN.log` |
@@ -28,14 +27,16 @@
 **`vN` は上書きしない。** 同名があれば増やす。
 古い版を消さないのは、レビューで何が指摘されて何が変わったかを追うため。
 
-**OS ごとにディレクトリを分けない。** `<feature>` は機能名のみで、OS はファイル名で区別する。
+**OS ごとにディレクトリを分ける**（2026-09-29 から。それまでは `features/<feature>/` の下に全 OS を置き、OS はファイル名で区別していた）。コードの `Runtime/<Platform>/<Feature>` と同じ並びにし、文書が「機能 × OS × 版」で増えても 1 つのディレクトリが 1 つの OS の 1 つの機能に収まるようにした。
+`<os>` は小文字（android / ios / macos / windows）。**ファイル名にも OS を残す**（名前だけで引用されたときにも分かるように）。
+native-toolkit の artifact も同じ形に揃える予定。それまで、この repo の文書が引用する native-toolkit のパス（`artifact/features/...`）はそのまま残す
 
 ### 機能ごとの未対応課題
 
 | 課題 | 機能 | 進捗 |
 |---|---|---|
-| [unreachable-notification-apis](features/notification/issues/unreachable-notification-apis.md) | notification | 対応済み（2026-09-27）。3 API は非パッケージで 8 を返すことを 1.x と 2.0.0 の実機で確かめ、XML コメントに書いた |
-| [audio-src-is-ignored](features/notification/issues/audio-src-is-ignored.md) | notification | 未着手。通知の `Audio.Src` は JSON に出るが、ネイティブが読まない（1.x から） |
+| [unreachable-notification-apis](windows/notification/issues/unreachable-notification-apis.md) | windows / notification | 対応済み（2026-09-27）。3 API は非パッケージで 8 を返すことを 1.x と 2.0.0 の実機で確かめ、XML コメントに書いた |
+| [audio-src-is-ignored](windows/notification/issues/audio-src-is-ignored.md) | windows / notification | 未着手。通知の `Audio.Src` は JSON に出るが、ネイティブが読まない（1.x から） |
 
 ---
 
@@ -67,7 +68,7 @@
 
 ### 課題文書の体裁
 
-`topics/<topic>/README.md` と `features/<feature>/issues/<slug>.md` に共通:
+`topics/<topic>/README.md` と `<os>/<feature>/issues/<slug>.md` に共通:
 
 ```
 # <一行で問題そのもの>
@@ -83,7 +84,7 @@
 
 | 書かないもの | 書く場所 |
 |---|---|
-| 機能開発のタスク | `features/` の設計書とチケット |
+| 機能開発のタスク | `<os>/<feature>/` の設計書とチケット |
 | 作業ごとの進捗 | 各トピックの README、または `results/` |
 | 件数・診断数などの実測値 | 各トピックの README（生成ファイルがあればそちら） |
 

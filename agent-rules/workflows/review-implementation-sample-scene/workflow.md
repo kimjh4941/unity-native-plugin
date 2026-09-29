@@ -16,10 +16,10 @@
 3. インタラクティブ入力で参照ファイルを確定する（必須）
    - ダイアログで「レビュー対象のサンプルシーン計画ファイルを指定してください」と促す
    - 入力がない場合は次を候補として提示する
-     - `artifact/features/<feature>/designs/` 配下の `*-sample-scene-design*.md`（改訂版がある場合は最新バージョンのみ）
+     - `artifact/<os>/<feature>/designs/` 配下の `*-sample-scene-design*.md`（改訂版がある場合は最新バージョンのみ）
    - ダイアログで「レビュー対象のサンプルシーン実装結果ファイルを指定してください」と促す
    - 入力がない場合は次を候補として提示する
-     - `artifact/features/<feature>/results/` 配下の `*-sample-scene-result*.md`（改訂版がある場合は最新バージョンのみ）
+     - `artifact/<os>/<feature>/results/` 配下の `*-sample-scene-result*.md`（改訂版がある場合は最新バージョンのみ）
    - ダイアログで「対象プラットフォームを選択してください」と促す（ラジオボタン: Android / iOS / macOS / Windows）
 
 4. プロジェクトルールを読み込む（必須）
@@ -126,7 +126,7 @@
    - LGTM / 要修正（軽微） / 要修正（重大） のいずれかで示す
 
 8. レビュー結果ファイルを保存する（必須）
-   - 保存先: `artifact/features/<feature>/reviews/`
+   - 保存先: `artifact/<os>/<feature>/reviews/`
    - ファイル名: `YYYY-MM-DD-<os>-<feature>-implement-sample-scene-review-vN.md`
    - 同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない
    - 最低限、次を含める:

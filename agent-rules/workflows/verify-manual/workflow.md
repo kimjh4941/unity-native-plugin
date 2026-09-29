@@ -41,7 +41,7 @@
      - 修正する: 該当箇所を修正し、ステップ3 へ戻る
      - 別途対応にする: 軽量な md として記録し、終了する。置き場は課題の広がりで決める:
        横断なら `artifact/topics/<topic>/README.md`、特定機能に閉じるなら
-       `artifact/features/<feature>/issues/<slug>.md`。`artifact/README.md` の一覧に 1 行足す
+       `artifact/<os>/<feature>/issues/<slug>.md`。`artifact/README.md` の一覧に 1 行足す
      - 無視して続行: そのまま終了する（リリース時に再度検出される）
 
 ## 検査の限界（提示時に必ず添えること）
