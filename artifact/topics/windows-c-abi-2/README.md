@@ -6,12 +6,13 @@
 - 対応方針: **native-toolkit が develop にマージされ 1.12.0 が出るまで、実装は始めない。** 待つ間に、
   設計と**検証手段**を用意する。検証手段は層 2b / 層 3 の自動テストで、
   [cross-platform-testing](../cross-platform-testing/README.md) 側で先に立てる（下記）
-- 進捗: **実装中。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
-  **Dialog は移行済み**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v2.md`）。
-  **Notification も移行済み**（2026-09-27。結果は `artifact/features/notification/results/2026-09-27-windows-notification-implementation-feature-result-v1.md`）。
-  Clipboard（設計 v12）が残る
+- 進捗: **3 機能とも移行済み。** 47 本の対応は確定（5 章）。未決（6 章）はすべて解決。
+  **Dialog**（2026-09-27、`3cf4b1b`〜`1b9a9ee`。結果は `artifact/features/dialog/results/2026-09-27-windows-dialog-implementation-feature-result-v2.md`）、
+  **Notification**（2026-09-27。結果は `artifact/features/notification/results/2026-09-27-windows-notification-implementation-feature-result-v1.md`）、
+  **Clipboard**（2026-09-27〜29、`afee02c`〜`722ec41`。結果は `artifact/features/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md`）。
+  1.x の DLL は同梱物から消えた。3 機能の Player テストは Mono と IL2CPP の両方で通る（2026-09-29、本体 93 / 93、作り直し 1 / 1）
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
-- 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。移行時は VERSION.txt のピンを書き換える
+- 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。VERSION.txt のピンは移行の中で書き換えた（2.5「移行時にやること」）
 
 - 対象: `Runtime/Windows/Clipboard/Windows*.cs`、`Runtime/Windows/Notification/Windows*.cs`、`Runtime/Windows/Dialog/WindowsDialogManager.cs`、`Plugins/Windows/`、対応するテストとサンプル
 - チケット: 未採番
@@ -34,6 +35,7 @@
 ヘッダーの宣言は 114 あるが、うち 9 本は関数ではなく**コールバックの typedef**（`ntk_release_fn`、`ntk_notification_invoked_fn`、Clipboard の 7 本）。`105 + 9 = 114`。
 
 **この repo は今のところ壊れていない。** 1.x の DLL を同梱して 1.11.0 として動いているので、急ぐ理由は無い。
+（2026-09-23 時点の記述。2026-09-29 に 3 機能とも 2.0.0 に移り、1.x の DLL は同梱物から消えた）
 
 ## 2. 影響範囲
 
@@ -41,11 +43,13 @@
 
 | ファイル | P/Invoke | 行数 | 内訳 |
 |---|---|---|---|
-| `Runtime/Windows/Clipboard/WindowsClipboardManager.cs` | 27 | 3,984 | リネームのみ 4 / 振る舞い変化 23 |
+| `Runtime/Windows/Clipboard/WindowsClipboardManager.cs` | 27 | 3,984 | リネームのみ 3 / 振る舞い変化 24 |
 | `Runtime/Windows/Notification/WindowsNotificationManager.cs` | 14 | 507 | リネームのみ 6 / 振る舞い変化 8 |
 | `Runtime/Windows/Dialog/WindowsDialogManager.cs` | 6 | 567 | リネームのみ 0 / 振る舞い変化 6 |
 
-**47 本のうち 37 本で振る舞いが変わる。** 対応は 4 章。
+**47 本のうち 38 本で振る舞いが変わる。** 対応は 4 章。
+
+**訂正（2026-09-29）:** 初めは「リネームのみ 4 / 振る舞い変化 23」「37 本」と書いていた（native-toolkit の設計 8.3 の分け方）。`getPreferredClipboardFormat` は呼び出し側のバッファから `ntk_string` のハンドルに変わるので、リネームだけではない（Clipboard 設計 v12 の 1.1 の OP-20）。5 章もこれに合わせた
 
 旧 52 関数のうち呼んでいなかった 5 本は `DLog` / `DFLog` / `DFLLog` / `ToWString` / `ConcatWStrings` の Common ヘルパーで、決定 E-6 により対応先なく廃止された。**移植するものは無い。**
 
@@ -211,8 +215,10 @@ D は今日すぐビルドを回す必要があるときの応急手当てとし
 1. 済み: VERSION.txt の主のピンを 1.12.0（`windows-native-toolkit-capi-2.0.0.dll`、`install_as` は空）にし、
    1.x を追加のピン（`extra_dist_version` / `extra_dll` / `extra_install_as` / `extra_install_as_debug`）に移した。
    PreBuildProcessor は両方のコピー元を削除より前に解決し、両方の名前を削除から除き、両方に importer を当てる
-2. 機能ごとに: Manager を `WindowsNativeToolkitCApi` と機能の Bridge 経由に書き換える（Dialog は済み）
+2. 済み（2026-09-27〜29）: 機能ごとに、Manager を `WindowsNativeToolkitCApi` と機能の Bridge 経由に書き換えた（Dialog、Notification、Clipboard の順）
 3. 済み（2026-09-27、Clipboard の手順 6）: 追加のピンのキーと PreBuildProcessor の処理を消し、1.x の DLL を削除し、VERSION.txt のコメントを直した
+
+これで 2 本置きの期間は終わった。VERSION.txt のピンは `windows-native-toolkit-capi-2.0.0.dll` の 1 本だけで、Player に入る DLL もそれだけ（md5 が dist と一致）
 
 #### 併せて壊れているもの
 
@@ -238,7 +244,7 @@ stage 5 の構成変更より前の前提。ビルドは止まらず `LogError` 
 Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッションとマネージャーはドメインリロードとプレイモードの出入りを越えて生き残る一方、C# の static に置いたハンドルは消え、登録した関数ポインタは下ろされたドメインを指す。
 
 - `AssemblyReloadEvents.beforeAssemblyReload`、`EditorApplication.playModeStateChanged`（`ExitingPlayMode`）、`Application.quitting` で後始末する
-- Clipboard: **オーナースレッドから** `ntk_clipboard_session_close` → `ntk_clipboard_session_free`。`BUSY` なら他スレッドの読み書きを終わらせて再試行
+- Clipboard: **オーナースレッドから** `ntk_clipboard_session_close` → `ntk_clipboard_session_free`。`BUSY` なら原因が終わるのを待って再試行する。`BUSY` になるのは、ほかのスレッドの同期の読み書きだけでなく、**実行中の履歴の要求**と、回復の最中にクリップボードを握られているとき（2026-09-29 訂正。Clipboard 設計 v12 の 1.4。S-2 の `ForceInitializeWhileDraining` では、履歴の取得が走っている間の close が実際に `BUSY` を返した）。**ただし移行した Clipboard（設計 v12）も Editor でネイティブを読まない**（J-4）ので、ドメインリロードの後片付けは要らない
 - Notification: `ntk_notification_manager_close` → `_free` の後、**すべての登録の `release` を期限付きで待つ**。
   **ただし移行した Notification（設計 v8）は Editor でネイティブを読まない**（J-4。DLL は importer で Editor 無効、Manager の呼び出しは `!UNITY_EDITOR`）ので、
   ドメインリロードの後片付けは要らない。`release` も使わない（`NULL`。受け口は static で、登録ごとの状態を持たない）
@@ -247,13 +253,16 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 
 ### 3.2 STA / MTA の分離
 
-`ntk_notification_manager_create` は**呼び出しスレッドを MTA にする**。クリップボードのオーナーは STA でメッセージループを回し続ける必要があるため、**同じスレッドを両方のオーナーにできない。** スレッドを分けるか、先に STA で初期化する。
+`ntk_notification_manager_create` は**呼び出しスレッドを MTA にしようとする**。クリップボードのオーナーは STA でメッセージループを回し続ける必要がある。
+
+**訂正（2026-09-29）:** 初めは「同じスレッドを両方のオーナーにできない」と書いていたが、**先に STA で初期化すれば兼ねられる。**MTA にする試みは `RPC_E_CHANGED_MODE` で失敗し、スレッドは STA のままで、`manager_create` はそれを受け入れる。Unity のメインスレッドは既に STA（MAINSTA、実測）なので、移行後は Clipboard と Notification をどちらもメインスレッドで使っている（Clipboard 設計 v12 の J-11、Notification 設計 v8 の 1.5）。3 機能の Player テストを同じ Player で流して確かめた
 
 ### 3.3 マーシャリングの落とし穴
 
 - **文字列を返す関数に `[return: MarshalAs(UnmanagedType.LPUTF8Str)]` を付けない。** マーシャラーが戻りポインタを `CoTaskMemFree` で解放してヒープを壊す。`IntPtr` で受けて自分で複製する。引数側の `LPUTF8Str` は可
 - 借りたポインタ（`ntk_string_data` など）はそのハンドルを `_free` するまで有効。コールバックが受け取ったハンドルは**そのコールバックから戻るまで**
-- **登録ごとに `GCHandle` を 1 つ**作り、`release` で `Free` する。同じ `user_data` の値で登録し直すときも別の所有権を渡す。`release` は登録が失敗したときも必ず 1 回呼ばれる（呼び出しスレッドで、戻る前に）
+- **登録ごとに `GCHandle` を 1 つ**作り、`release` で `Free` する。同じ `user_data` の値で登録し直すときも別の所有権を渡す。`release` は登録が失敗したときも必ず 1 回呼ばれる（呼び出しスレッドで、戻る前に）。
+  **訂正（2026-09-29、Clipboard 設計 v12 の 1.5）:** Clipboard の予約（`reserve_deferred`）の失敗のうち `PARTIAL_STATE` では登録が残るので、そのときは呼ばれない。予約の `release` はその後、次の予約・このセッションの書き込み・ほかのプロセスの消去・recover の成功・close の成功・free のどれかで 1 回呼ばれ、書き込みが契機のときは呼び出しスレッドではなくオーナーで呼ばれうる。なお移行した 3 機能は `user_data` / `release` を使っていない（`NULL`。受け口は static で、登録ごとの状態を持たない）
 - コールバックは `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]`（`NTK_CALL` は `__cdecl`）
 - 構造体は 0 で埋め、`struct_size` に **`Marshal.SizeOf<T>()`**（`sizeof` ではない）。`reserved` は 0 のまま
 - ハンドルは `IntPtr.Zero` で初期化した変数に受け、`finally` で `!= IntPtr.Zero` のときだけ対応する `_free` に渡す。
@@ -277,7 +286,7 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 | S-1 | 通知のタイムスタンプが **Unix 秒 → Unix ミリ秒** | 値は通るが時刻が 1000 倍ずれる |
 | S-2 | 履歴のタイムスタンプが **WinRT ticks の十進文字列 → `int64` Unix ミリ秒**（E-14） | 文字列パースを残すと壊れ、型を合わせても基準が違う |
 | S-3 | **2 回目の `init` が成功ではなく `NOT_SUPPORTED`** | リロード時に再 init する実装がすべて破綻する。ハンドラ差し替えは `ntk_notification_manager_set_invoked_handler` を使う |
-| S-4 | `reserveDeferredFormats` の `release` が `user_data` の解放を持つ | **エラー戻り時に自分で解放すると二重解放。** 失敗しても `release` は必ず呼ばれる |
+| S-4 | `reserveDeferredFormats` の `release` が `user_data` の解放を持つ | **エラー戻り時に自分で解放すると二重解放。** 失敗しても `release` は必ず呼ばれる（`PARTIAL_STATE` は除く。登録が残り、後で 1 回呼ばれる。3.3 の訂正） |
 
 ### 手動確認では捕まらない
 
@@ -296,15 +305,14 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 
 ## 5. 47 本の対応
 
-設計 8.3 より。**リネームのみ 10 本、振る舞いが変わる 37 本。**
+設計 8.3 より。**リネームのみ 9 本、振る舞いが変わる 38 本**（2026-09-29 訂正。`getPreferredClipboardFormat` を 5.1 から 5.2 に移した。2.1 の訂正）。
 
-### 5.1 リネームのみ（10）
+### 5.1 リネームのみ（9）
 
 | 旧 | 新 |
 |---|---|
 | `canDestroyClipboardManager` | `ntk_clipboard_session_can_close` |
 | `clearClipboard` | `ntk_clipboard_clear` |
-| `getPreferredClipboardFormat` | `ntk_clipboard_get_preferred_format` |
 | `recoverDeferredState` | `ntk_clipboard_recover_deferred_state` |
 | `cancelScheduledNotification` | `ntk_notification_cancel_scheduled` |
 | `removeNotificationById` | `ntk_notification_remove_by_id` |
@@ -313,12 +321,12 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 | `openNotificationSettings` | `ntk_notification_open_settings` |
 | `setBadge` | `ntk_notification_set_badge` |
 
-### 5.2 Clipboard・振る舞いが変わる（23）
+### 5.2 Clipboard・振る舞いが変わる（24）
 
 | 旧 | 新 | 変わること |
 |---|---|---|
 | `initClipboardManager` | `ntk_clipboard_session_create` | 同じスレッドからの 2 回目は成功ではなく `NOT_SUPPORTED`（S-3） |
-| `uninitClipboardManager` | `ntk_clipboard_session_close` | `BOOL` + `pError` ではなくエラーのみ。成功後に `_free`。要求が飛んでいてもポンプせずに閉じる（E-19）。再試行は `BUSY` のときだけ |
+| `uninitClipboardManager` | `ntk_clipboard_session_close` | `BOOL` + `pError` ではなくエラーのみ。成功後に `_free`。要求が飛んでいてもポンプせずに閉じる（E-19）。待っている要求は close の中で `CANCELED` として配送する。移行した Manager は、`BUSY` / `PARTIAL_STATE` / `CANCELED` / `MONITOR_REGISTER_FAILED` をどれも「まだ終わっていない」として drain で再試行する（Clipboard 設計 v12 の 4.7。2026-09-29 訂正: 初めは「再試行は `BUSY` のときだけ」と書いていた）。`BUSY` はほかのスレッドの同期呼び出し、実行中の履歴の要求、回復の最中にクリップボードを握られているとき（3.1） |
 | `copyPlainText` | `ntk_clipboard_copy_text` | 未知のオプションビットは `INVALID_PARAMETER`。`SENSITIVE` は値 3 のまま |
 | `copyHtml` | `ntk_clipboard_copy_html` | 同上 |
 | `copyImage` | `ntk_clipboard_copy_dib` | 運ぶもの（DIB）に合わせて改名。未知ビットの扱いは同上 |
@@ -329,12 +337,13 @@ Unity Editor はネイティブ DLL を下ろさない。DLL の中のセッシ�
 | `pasteHtml` | `ntk_clipboard_paste_html` | 同上 |
 | `pasteImage` | `ntk_clipboard_paste_dib` | 同上 |
 | `pasteFiles` | `ntk_clipboard_paste_files` | リストハンドル。JSON ではない |
-| `pasteCustomFormat` | `ntk_clipboard_paste_custom` | 同上（採寸パスなし） |
+| `pasteCustomFormat` | `ntk_clipboard_paste_custom` | `ntk_bytes` のハンドル（採寸パスなし）。2026-09-29 訂正: 初めは上の行と「同上」（リストハンドル）と書いていた |
 | `hasClipboardFormat` | `ntk_clipboard_has_format` | 結果は戻り値ではなく出力引数 |
 | `getClipboardFormats` | `ntk_clipboard_get_formats` | リストハンドル。JSON ではない |
+| `getPreferredClipboardFormat` | `ntk_clipboard_get_preferred_format` | 呼び出し側のバッファではなく `ntk_string` のハンドル（2026-09-29 に 5.1 から移した） |
 | `getClipboardHistory` | `ntk_clipboard_get_history` | 完了が履歴ハンドルを運ぶ（**そのコールバックの間だけ有効**）。**タイムスタンプが変わる（S-2）。** `NULL` コールバックは `INVALID_PARAMETER` |
 | `getClipboardHistoryAvailability` | `ntk_clipboard_get_history_availability` | 完了が bool 2 つを運ぶ。JSON ではない |
-| `deleteHistoryItem` | `ntk_clipboard_delete_history_item` | 同上 |
+| `deleteHistoryItem` | `ntk_clipboard_delete_history_item` | 完了がエラーとシステムコードを運ぶ（`restoreHistoryItem` と同じ `ntk_clipboard_completion_fn`）。2026-09-29 訂正: 初めは上の行と「同上」（bool 2 つ）と書いていた |
 | `restoreHistoryItem` | `ntk_clipboard_restore_history_item` | 完了がシステムコードを運ぶ |
 | `clearUnpinnedHistory` | `ntk_clipboard_clear_unpinned_history` | 同上 |
 | `setClipboardHistoryCallbacks` | `ntk_clipboard_set_history_handlers` | 3 つのコールバックが 1 構造体 + `user_data` に。解除は `NULL` か 3 つとも `NULL`。**失敗時は古いハンドラが残り、新しい `user_data` は登録されない**（E-20） |
