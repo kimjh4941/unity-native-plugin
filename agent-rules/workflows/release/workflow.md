@@ -37,6 +37,7 @@ squash は使用しない。
 | ブランチ | `git branch --show-current` が `feature/` 系であること |
 | 未コミット変更 | `git status --porcelain` の出力が空であること |
 | Plugins | `Packages/com.jonghyunkim.nativetoolkit/Plugins/` に `Android` `iOS` `macOS` `Windows` ディレクトリが存在すること |
+| Windows DLL の整合 | `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` の `dist_version` を `<dv>`、`release_dll` を `<dll>` として、同梱の `Plugins/Windows/<dll>` の md5 が、native-toolkit のタグ `<dv>` の `dist/<dv>/windows/<dll>` と一致すること（`git -C ../native-toolkit show <dv>:dist/<dv>/windows/<dll> \| md5sum` と `md5sum Plugins/Windows/<dll>` を比べる。`debug_dll` が空でなければそれも）。あわせて `source` がブランチではなくタグ `<dv>` を指していること。タグが無い（native-toolkit が未リリース）なら ❌ |
 | manual | `manual/<version>/` に `*.md` `*.ja.md` `*.ko.md` の各マニュアルが存在すること |
 | docs | `docs/<version>/` が存在すること |
 | manual 整合 | `./scripts/verify_manual.sh <version>` が停止項目 0 件で終了すること（画像リンク切れ・アンカー切れ・バージョン参照の不一致・docs 未同期を検出する。警告項目は ❌ にしない） |
