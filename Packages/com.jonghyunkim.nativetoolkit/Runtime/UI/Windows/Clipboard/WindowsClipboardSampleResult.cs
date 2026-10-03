@@ -3,7 +3,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System.Collections.Generic;
 using System.Globalization;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 
 // Intentional deviation from the "log every internal method" rule in csharp.md: every member here
 // is a pure formatter called once per result line. Logging inside them would duplicate the

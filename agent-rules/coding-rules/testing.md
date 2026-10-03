@@ -14,8 +14,8 @@ Unity プラグインは「Unity 内部の挙動」と「OS 側の実際の状�
 |---|---|---|---|---|
 | **1. EditMode** | ネイティブ非依存の純粋ロジック | Unity Editor | 不要 | あり（多数） |
 | **2a. PlayMode（Editor 内）** | プレイヤーループが必要な経路、非実機フォールバック | Unity Editor | 不要 | あり（iOS / mac Share） |
-| **2b. PlayMode（Player 上）** | UI → Manager → ネイティブ → callback の全経路 | 実機 / エミュレータ | **必要** | なし |
-| **3. OS 境界** | クリップボード実内容、共有シート、ネイティブダイアログ | 実機 + 外部ハーネス | **必要** | なし |
+| **2b. PlayMode（Player 上）** | UI → Manager → ネイティブ → callback の全経路 | 実機 / エミュレータ | **必要** | Windows Clipboard（7 節） |
+| **3. OS 境界** | クリップボード実内容、共有シート、ネイティブダイアログ | 実機 + 外部ハーネス | **必要** | Windows のクリップボードの読み取り（7 節） |
 
 ### 層 0: Player ビルド（コンパイルゲート）
 
@@ -133,6 +133,11 @@ UI Toolkit の `Button.clicked` は `Clickable` マニピュレータがポイ�
 - 共通の UI 操作 helper を 1 つ用意し、全テストがそれを使う（各テストが独自の擬似クリックを実装しない）
 - scene fixture（シーンのロード、`UIDocument` の取得、Navigator 経由の画面遷移）も共通化する
 - 非同期 callback の待機は**固定フレーム待ちにしない**。結果 event の受信または timeout で待つ
+- 手動確認の操作列を再生するときは、**手動確認と同じ順で押し、OS 側の状態が追いつくのを待つ**。
+  結果を待つだけでは足りないことがある。Windows のクリップボード履歴は、すぐ置き換えられた内容をほとんど残さない
+  （経緯と待ち時間の根拠は `artifact/topics/cross-platform-testing/README.md`）
+- **前面を前提とする API は、テストが自分のウィンドウを前面に出してから呼ぶ。** Windows のテスト用 Player は裏で起動され、
+  誰も触らなければ前面にならない。`Application.isFocused` は前面の判定に使えない（前面でなくても `True` になる）
 
 具体的なイベント種別・helper の実装方針は層 2b 着手時に確定する（7 節「未定義事項」）。
 
@@ -153,7 +158,7 @@ Unity プロセスの外側の状態を検証する。ツールはプラット�
 | **Android** | Appium + UiAutomator2、または Espresso / UiAutomator instrumentation | Appium: `mobile: getClipboard` / `setClipboard` | Android 10+ のフォアグラウンド制限。既定 IME の変更を伴う（下記） |
 | **iOS** | XCTest（XCUITest） | `UIPasteboard.general` に**テストプロセスから API 経由でアクセス可能** | 他アプリ由来データの読み取りは pasteboard privacy の影響を受ける（下記） |
 | **macOS** | XCTest、ネイティブダイアログ操作は `osascript`（System Events） | `NSPasteboard.general` に**API 経由でアクセス可能** | macOS 15.4+ は `NSPasteboard.AccessBehavior` による許可状態に依存（下記） |
-| **Windows** | Appium + `appium-windows-driver`（Microsoft の現行推奨）。UI 操作が不要ならツール不要 | PowerShell の `Get-Clipboard` / `Set-Clipboard` | 現状、特筆すべき許可制約は確認していない |
+| **Windows** | Appium + `appium-windows-driver`（Microsoft の現行推奨）。UI 操作が不要ならツール不要。**アプリが出す Win32 のダイアログを操作するだけなら**、PowerShell から Win32 のメッセージを送る（コントロール ID で探し、クリックと同じ `WM_COMMAND`、入力は `WM_SETTEXT`。インストール不要。`artifact/windows/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v1.md` 2 章）。PowerShell の UI Automation（managed クライアント）は Win32 のボタンを押せなかった | PowerShell の `Get-Clipboard` / `Set-Clipboard` | 現状、特筆すべき許可制約は確認していない |
 
 **「API を呼べること」と「無人 CI で常に無操作・無許可で読めること」は別である。**
 以下の制約は、実機 / Simulator、対話セッション / CI セッションで挙動が変わりうる。
@@ -219,6 +224,7 @@ Manager のプラットフォームガードは統一されておらず、`|| UN
 | `IosShareManager` | `#if UNITY_IOS \|\| UNITY_EDITOR` |
 | `MacShareManager` | `#if UNITY_STANDALONE_OSX \|\| UNITY_EDITOR` |
 | `WindowsNotificationManager` | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR` |
+| `WindowsDialogManager` | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR`（C ABI 2.0.0 への移行で B 群から移った。Editor では全呼び出しが `PlatformUnavailable`） |
 
 ### B. `|| UNITY_EDITOR` なし（該当 build target でのみコンパイルされる）
 
@@ -227,10 +233,9 @@ Manager のプラットフォームガードは統一されておらず、`|| UN
 | `AndroidShareManager` / `AndroidClipboardManager` / `AndroidDialogManager` / `AndroidNotificationManager` | `#if UNITY_ANDROID` |
 | `IosDialogManager` / `IosNotificationManager` | `#if UNITY_IOS` |
 | `MacDialogManager` / `MacNotificationManager` | `#if UNITY_STANDALONE_OSX` |
-| `WindowsDialogManager` | `#if UNITY_STANDALONE_WIN` |
 
-**Android 固有の問題ではない。** 12 個中 9 個が B 群であり、iOS / macOS / Windows でも
-Dialog と（Windows を除く）Notification は build target 切り替えが必要になる。
+**Android 固有の問題ではない。** 12 個中 8 個が B 群であり、iOS / macOS でも
+Dialog と Notification は build target 切り替えが必要になる（Windows の 2 つは A 群）。
 
 ### ルール
 
@@ -306,7 +311,7 @@ Appium の実装方式、Apple の pasteboard privacy、Windows の UI automatio
 | Manager のコンパイルガード A / B 群分類 | 3 節 | 全 12 Manager の `#if` を確認 | 2026-07-26 | 不要 |
 | `UIElements.Button` は GameObject ではない | 4 節 | サンプルの UI 実装を確認 | 2026-07-26 | 不要 |
 | 層 1 の機能別カバレッジ | 7 節 | `Tests/` 配下の実ファイルを確認 | 2026-07-26 | 都度更新 |
-| Dialog に層 1 対象の純粋ロジックが無い | 7 節 | `Runtime/Dialog/` の構成を確認 | 2026-07-26 | 都度更新 |
+| Dialog の層 1 対象は Windows の Bridge だけ（Android / iOS / macOS には純粋ロジックが無い） | 7 節 | `Runtime/Dialog/` と `Runtime/Windows/Dialog/` の構成を確認 | 2026-07-26（Windows は 2026-09-27 に更新） | 都度更新 |
 
 #### 外部一次資料で確認したもの
 
@@ -358,7 +363,7 @@ CI 成果物にも残さないこと。
 
 ---
 
-## 7. 適用状況（2026-09-07 時点）
+## 7. 適用状況（2026-09-29 時点）
 
 **この節は現状のロードマップであり、上記の層モデル・ツール選定（1〜6 節）とは性質が異なる。**
 実装が進んだら更新すること。
@@ -367,9 +372,14 @@ CI 成果物にも残さないこと。
 |---|---|
 | **0. Player ビルド** | **Windows のみ**（`scripts/verify_unity_windows.sh`）。Android / iOS / macOS は未整備 |
 | 1. EditMode | **部分的**（下表参照） |
-| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows）と Share（iOS / macOS）|
-| 2b. PlayMode（Player 上） | 未着手 |
-| 3. OS 境界 | 未着手 |
+| 2a. PlayMode（Editor 内） | **部分的**。Clipboard（Android / iOS / macOS / Windows。Windows は `WindowsClipboardManagerIntegrationTests` 66 本）、Share（iOS / macOS）、Dialog（Windows。`WindowsDialogManagerEditorTests` 23 本。引数の拒否、Editor で `-5`、イベント 1 回の契約）、Notification（Windows。`WindowsNotificationManagerEditorTests` 5 本。Editor ではどのメソッドも何も報告しない） |
+| 2b. PlayMode（Player 上） | **Windows のみ、95 本**（既定の実行は 54 本）。`Tests/PlayMode/WindowsClipboardPlayerTests.cs`（往復 1 本、Clipboard の手動確認ブロック D〈異常系〉8 本、9 章〈履歴の Await〉6 本、S-7〈別スレッドからの呼び出し〉1 本、C ABI 2.0.0 への移行を確かめる 11 本〈1.x で記録した 10 本: 不正な base64、空白を含む base64、空のバイト列、DIB と base64 の誤りの順、セッションが無いときの `CanShutdownNow`、要求を待たせた `TryShutdown`、終了後の作り直し。と `extern` の結び付け〉）、サンプル画面を操作する `WindowsClipboardSampleScreenPlayerTests.cs`（S-1、S-5 / S-6 の 2 本）、手動確認と同じ順で全ボタンを押す `WindowsClipboardSampleRunPlayerTests.cs`（S-2 のブロック A / B / C〈2 本〉/ D の 5 本）、予約したまま Quit する `WindowsClipboardSampleQuitPlayerTests.cs`（M-19。Player を終了させるので単独の実行で走らせ、スクリプトが終了後に判定する）、Dialog のサンプルを外からダイアログを閉じて操作する `WindowsDialogSamplePlayerTests.cs`（D-01〜D-14 の 14 本と、Manager を直接呼ぶ 12 本〈フィルタの読み方、`def_ext`、J-1 / J-2 / J-4 でダイアログが出ないこと、非 ASCII の往復と題名・本文、版の確認〉。計画書 `artifact/windows/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v2.md`）、Notification のサンプルを操作して通知センターで確かめる `WindowsNotificationSamplePlayerTests.cs`（W-01〜W-11 の 11 本〈W-04 / W-11 のボタンのクリックは C ABI 2.0.0 で通るようになった〉と、Manager を直接呼ぶ 22 本〈全キーの fixture 4 本、エラーコード、非パッケージで 8 の 3 API、per-call の例外、移行後だけの 7 / 3、`extern` の結び付け〉）、Manager を破棄して作り直す `WindowsNotificationRecreatePlayerTests.cs`（1 本。失敗すると Manager が未初期化で残るので、カテゴリ `RecreatesTheNotificationManager` で本体から除き、スクリプトが別の Player の実行で流す）。計画書 `artifact/windows/notification/designs/2026-09-27-windows-notification-ui-test-plan-v2.md`。9 章の Clear Unpinned、全ボタンの 5 本、Notification の 34 本は `Destructive` カテゴリで、`--include-destructive` のときだけ走る。`scripts/verify_unity_windows.sh` がテスト用 Player で実行する。**`--il2cpp` を付けると、同じ Player テスト（本体と作り直し）と S-2 の照合を IL2CPP の Player で流す**（M-19 と層 3 は Mono だけ）。IL2CPP の Player は `System.Diagnostics.Process` の `Start` / `MainModule` に対応しないので、テストが PowerShell を起動するときや Player の exe を調べるときは `Tests/PlayMode/WindowsTestProcess.cs`（kernel32 を直接呼ぶ）を使う。2026-09-29 に Mono と IL2CPP の両方で本体 93 / 93、作り直し 1 / 1（`artifact/windows/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md` 5 章）。Android / iOS / macOS は未着手 |
+| 3. OS 境界 | **Windows のみ、最小限**。`verify_unity_windows.sh` が Player テストの後に PowerShell の `Get-Clipboard` で OS のクリップボードを読む。テストの中からも別プロセスの `Get-Clipboard` で読む（Restore、M-18、終了後の M-19）。ネイティブダイアログは、テストが PowerShell から Win32 のメッセージを送って操作し、題名・本文・ファイルの種類の数を読む（Dialog の D-01〜D-14 と追加の 12 本）。通知は、テストが PowerShell から通知センターを開き、UI Automation で読んで確かめる（Notification の W-01〜W-11 と全キーの fixture。W-04 / W-11 は通知のボタンを押し、クリックが Player に届くことを確かめる） |
+
+層 2b / 3 の経緯と、無人で回すための前提（ファイアウォールの規則、テスト用 Player の出力先の固定、
+Editor 専用のテストフックの扱い）は `artifact/topics/cross-platform-testing/README.md` にある。
+
+**検証を流している間の決まり（エージェントも同じ）:** 作業ツリーに書かない（バッチモードの Editor が再コンパイルし、Player テストが結果ファイルを残さずに終わる。後片付けは、実行の前に無かった未追跡のファイルを消す）。クリップボード・前面のウィンドウ・通知センターに触らない。並行で動かすサブエージェントや Codex には、ファイルだけでなくクリップボードとデスクトップにも触らないよう、はっきり伝える。前提の一覧と、崩れたときに実際に起きたことは、同じ README の「検証を流すときの前提」にある。
 
 ### 判定の定義
 
@@ -390,20 +400,23 @@ CI 成果物にも残さないこと。
 
 | 機能 | Android | iOS | macOS | Windows |
 |---|---|---|---|---|
-| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（builder / parser / result / payload / request table / dispatch） |
+| **Clipboard** | 実装済み（builder / parser / dispatch / wiring） | 実装済み（builder / parser / reader / dispatch / result / wiring） | 実装済み（builder / parser / reader / dispatch / result） | 実装済み（Bridge の変換 / builder / result / payload / request table / dispatch / sample fixture / sample result / wiring。C ABI 2.0.0 の移行で parser を消し、Bridge の変換〈構造体の位置、base64、Timestamp、読み出しの結果、履歴の項目、描画、例外の変換〉を足した。2026-09-29） |
 | **Share** | 実装済み（builder / wiring） | 実装済み（builder / dispatch） | 実装済み（builder / dispatch / result / wiring） | 対象外 |
-| **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み |
-| **Dialog** | **N/A** | **N/A** | **N/A** | **N/A** |
+| **Notification** | 実装済み（builder） | **未実装**（`IosNotificationJsonBuilder` があるがテストが無い） | 実装済み | 実装済み（result / builder。C ABI 2.0.0 の移行で JSON リーダー、JSON → builder の呼び出し、構造体の位置、判定の順、GetAll の JSON を追加。2026-09-27） |
+| **Dialog** | **N/A** | **N/A** | **N/A** | 実装済み（Bridge の変換 / 構造体の位置 / 共通部の版判定と UTF-8。2026-09-27） |
 
-- **Dialog は全プラットフォームで N/A。** `Runtime/Dialog/` は各 Manager と `Win32MessageBox`
-  （Win32 MessageBox の定数定義のみを持つ static class。`DllImport` は `WindowsDialogManager` 側にある）で
-  構成されており、**層 1 で検証すべき振る舞いを持つ純粋ロジックが無い**（JsonBuilder・結果型・
-  `internal static` のいずれも存在しない）。定数の値を単体テストで複製しても OS 仕様との整合は保証されないため、
-  定数は実装レビューまたは静的確認の対象とする。Dialog の振る舞い検証は層 2a 以降で行う
+- **Dialog は Android / iOS / macOS で N/A。** `Runtime/Dialog/` は各 Manager で構成されており、
+  **層 1 で検証すべき振る舞いを持つ純粋ロジックが無い**（JsonBuilder・結果型・`internal static` のいずれも存在しない）。
+  Dialog の振る舞い検証は層 2a 以降で行う
+- **Windows の Dialog は C ABI 2.0.0 への移行で層 1 ができた**（2026-09-27）。`WindowsDialogCApiTests`（構造体の大きさと全フィールドの位置、
+  MessageBox のフラグの分解、結果の対応、フィルタの読み方、エラーと例外の変換、Editor の stub）と
+  `WindowsNativeToolkitCApiTests`（共通部の版判定、UTF-8 の入出力）。`Win32MessageBox` の定数の値そのものは、
+  単体テストで複製しても OS 仕様との整合は保証されないため、実装レビューまたは静的確認の対象とする
 - **iOS Notification のみが真の欠落。** ここだけは層 1 で埋められる
 - **macOS Clipboard に wiring が無いのは欠落ではない。** サンプルシーンをまだ設計していないため、
   `*SampleSceneWiringTests` の対象が存在しない。`design-sample-scene` の完了時に追加する
-- **Windows Clipboard も同じ理由で wiring が無い。** サンプルシーンは未設計
+- **Windows Clipboard の wiring は 2026-09-08 のサンプルシーンで追加済み**（`WindowsClipboardSampleSceneWiringTests`）
+- **Windows の 3 機能は C ABI 2.0.0 への移行で層 1 が変わった**（2026-09-27〜29）。Clipboard は `WindowsClipboardJsonParserTests` を消し、`WindowsClipboardCApiTests`（81 本）を足した。`WindowsClipboardManagerDispatchTests` は 1.x の 2 回呼び出しと 2 段の描画を見るテストを消して 60 本になった。消したもの・移したものの一覧は Clipboard の実装結果 v7 の 2.4
 - **Windows Clipboard は層 2a を持つ最初の Windows 機能。** `WindowsClipboardManagerIntegrationTests`
   が拒否経路・配送・ライフサイクル・teardown を Editor 内で検証する。Editor は Windows player ではないため、
   ネイティブ境界に届く経路は原理的に検証できない。**そこは層 2b と実機確認の担当**であり、
@@ -417,7 +430,7 @@ CI 成果物にも残さないこと。
 1. **層 2a を埋める**（デバイス不要、前例あり、コストほぼゼロ）
    - 「event を発火しない契約」は Windows Clipboard で初めて検証した（`TryShutdown` が
      共通 event も callback も発火しないこと）。**他機能では依然として未検証**
-   - Dialog は層 1 が N/A のため、**層 2a が最初の自動テストになる**
+   - Dialog（Windows を除く）は層 1 が N/A のため、**層 2a が最初の自動テストになる**
    - B 群 Manager（3 節）が対象の場合は build target 切り替えが要る点に注意
 2. **層 2b を Android に限定して試す**
    - 未解消の要検証項目（JNI の引数 0 個解決、IL2CPP の `AndroidJavaProxy`）はこの層でしか捕まえられない

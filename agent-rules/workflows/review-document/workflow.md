@@ -9,8 +9,8 @@
 2. インタラクティブ入力でパラメータを確定する（必須）
    - ダイアログで「レビュー対象のファイルを指定してください」と促す
    - 入力がない場合は以下の候補を提示:
-     - `artifact/designs/<feature>/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
-     - `artifact/designs/<feature>/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
+     - `artifact/*/<feature>/designs/` 配下の `*-design*.md` を探索し、同一ドキュメントの改訂版（`-v2`, `-v3` など）がある場合は最も大きいバージョンのみ
+     - `artifact/*/<feature>/designs/` 配下の `*-sample-scene-design*.md` を探索し、同一ドキュメントの改訂版がある場合は最も大きいバージョンのみ
    - バージョンサフィックスがないファイルは `v1` とみなし、`vN` が存在する場合は `vN` を優先する
    - ユーザーが選択したファイルパスを確定する
 
@@ -28,15 +28,22 @@
      - エラーケース一覧の網羅性と返却仕様（isSuccess / errorMessage）の整合性
      - スレッド契約・メモリ契約の明示
      - テスト方針の網羅性（EditMode / PlayMode / 手動確認の分担）
+     - **自動化の前提**（`design-feature` 手順 6 の必須項目）が書かれているか
+       - 各操作・各エラーケースに検証の層（1 / 2a / 2b / 3 / 手動・computer use）が割り当てられているか。
+         手動に残す項目に、自動化できない理由があるか
+       - OS が出す画面・許可・前提の OS 設定が列挙され、無人で実行する前に満たす方法があるか。「なし」も明記されているか
+       - 呼び出し側を止める OS の画面の有無が書かれ、ある場合に代わりの検証方法があるか
      - IL2CPP 制約・コンパイルガードへの言及
+     - **Windows の場合**: `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows（native-toolkit の C ABI）」の約束（DLL 名は共通部の定数、`internal static extern`、構造体の大きさと位置の層 1 テスト、UTF-8 とハンドルの解放、try の形、コールバックの受け口、版の確認、ログ、既知の差分）に沿っているか。構造体・`extern` の型はヘッダーと `CApiLayoutTest.cpp` に照らして確かめる
      - **プラットフォーム独立性**（`agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」）
        - **P1**: 新規ファイル名すべてに OS 接頭辞（`Android` / `Ios` / `Mac` / `Windows`）が付いているか。**`Tests/` 配下のテストファイル名・クラス名も対象**。機能ディレクトリに接頭辞なしのファイルを作っていないか
        - **P1b**: 1 つのテストファイルが複数プラットフォームの型を扱っていないか。テストのコンパイルガードが対象型と一致しているか
+       - **P1c**: 新規ファイルの置き場所と名前空間が `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 どおりか（Windows は `Runtime/Windows/<Feature>/` と `...Runtime.Windows.<Feature>`、未移行の OS は `Runtime/<Feature>/` と `...Runtime.<Feature>`）。1 つの OS の中で 2 つの形を混ぜていないか
        - **P2**: 「既存変更」欄に**他プラットフォームのファイルが挙がっていないか**。共有化・改名・リファクタで既存実装に触れる計画になっていないか
        - **P3**: 既存型を再利用・共有と判断した箇所が、**プラットフォームガードの有無ではなく実際の利用箇所**に基づいているか
-       - **P4**: `Runtime/Common/` への新規追加が、機能ロジックではなく横断インフラに限られているか
+       - **P4**: `Runtime/Common/` への新規追加が、機能ロジックではなく横断インフラに限られているか。`Runtime/<Platform>/Common/` への追加は、そのプラットフォームの全機能が使うネイティブライブラリの共通部に限られているか（1 つの機能だけが使うものを置いていないか）
        - **P5**: クラスガード（`#if X \|\| UNITY_EDITOR`）と P/Invoke ガード（`#if X && !UNITY_EDITOR`）の二重構造になっており、Player ビルドに他プラットフォームのコードが入らない設計か
-       - **既知の逸脱 11 件を前例として引用していないか。** `ClipboardOperationResult` などの接頭辞なし型は Android / macOS 専用であり、共有型ではない（`artifact/OS_PREFIX_VIOLATIONS.md`）
+       - **既知の逸脱 11 件を前例として引用していないか。** `ClipboardOperationResult` などの接頭辞なし型は Android / macOS 専用であり、共有型ではない（`artifact/topics/os-prefix-violations/README.md`）
        - P1〜P5 の違反は **A1 区分**として扱う。後から直すと破壊的変更になるため、C（記述整合）に落とさない
    - **サンプルシーン計画書（`*-sample-scene-design*.md`）の場合:**
      - **入力欄（`TextField`）を置く計画になっていないか。** 既定は「設けない」
@@ -69,12 +76,12 @@
    - 総合評価を表示する
 
 7. レビュー結果をファイルに保存する（必須）
-   - 保存先: `artifact/reviews/<feature>/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
-     - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）
+   - 保存先: `artifact/<os>/<feature>/reviews/YYYY-MM-DD-<os>-<feature>-<document-type>-review-vN.md`
+     - `<os>`: 対象 OS（例: `android` / `ios` / `macos` / `windows`）。対象ファイルのパス（`artifact/<os>/<feature>/...`）から自動抽出
      - `<feature>`: 対象ファイルのパスから自動抽出（例: `notification`）
      - `<document-type>`: ファイル種別に応じて `design` / `implementation-feature` / `sample-scene-design` など
      - `vN`: レビュー結果のバージョン。**必ずバージョンを付与し、既存ファイルは上書きしない**
-     - 例: `artifact/reviews/notification/2026-05-16-macos-notification-implementation-feature-review-v1.md`
+     - 例: `artifact/windows/dialog/reviews/2026-09-27-windows-dialog-design-review-v4.md`
    - **バージョン採番ルール（必須）:**
      - 保存先ディレクトリ内で、同じ `YYYY-MM-DD-<os>-<feature>-<document-type>-review` プレフィックスを持つ
        既存ファイルを探索する
@@ -145,6 +152,8 @@
    **A1 が 0 になったら止める。** ただし次を満たすこと。
 
    1. **レビュアーを替えて 1 回通していること**（別モデル・別プラットフォームの観点を 1 回入れる）
+      - サブエージェント（本数はエージェントが作業から決める）と Codex（`codex:codex-rescue`）を並行で使う
+      - Codex が token・使用量の不足で使えないときは、待ったり再試行したりせず、サブエージェントの結果だけでまとめる。レビューのまとめと、ユーザーへの報告に、Codex を使えなかったことを書く
    2. **機械照合が通っていること**: `python3 scripts/check_design_consistency.py <対象ファイル>`
       - Windows で実行する場合、`python3` は Microsoft Store のエイリアスに解決されることがある。これはコードを実行せず終了するため、検査が走らないまま成功に見える。`python3 -c "print(1)"` が `1` を出さない環境では `python` を使う
    3. **直さない残件（A2 / B / C）が、文書自身に理由つきで明記されていること**

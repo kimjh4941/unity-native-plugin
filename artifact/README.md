@@ -1,27 +1,78 @@
 # artifact/ の見取り図
 
-成果物の置き場。**この索引は「直下の課題ファイル」を見つけるためにある。**
-`designs/` や `results/` はワークフローが日付とバージョンで命名するので迷わないが、
-直下のファイルは誰も探しに来ないまま残るため、ここに一覧を置く。
+設計・検討文書の置き場。**機能か、横断かで分ける。**
+
+| ディレクトリ | 対象 | 作り方 |
+|---|---|---|
+| `<os>/<feature>/` | OS 機能の開発（`<os>` は android / ios / macos / windows、`<feature>` は clipboard / dialog / notification / share） | `agent-rules/workflows/` のワークフローが出力する |
+| `topics/<topic>/` | 機能単位でない課題（横断・移行・検証債務など） | 手動で作成する。ワークフローは使わない |
+
+**どちらか迷ったら、影響が 1 機能に閉じるかで決める。**
+閉じるなら `<os>/<feature>/`、複数機能や全プラットフォームにまたがるなら `topics/`。
 
 ---
 
-## 直下: 未対応として切り出した課題
+## <os>/<feature>/
 
-**どれも「今の作業に含めない」と判断したものが残っている。** 着手前に進捗欄を見ること。
+ワークフローが出力する文書の置き場。
 
-| ファイル | 内容 | 進捗 |
+| ディレクトリ | 中身 | 命名 |
 |---|---|---|
-| [OS_PREFIX_VIOLATIONS.md](OS_PREFIX_VIOLATIONS.md) | OS 接頭辞ルールの逸脱 11 件（Runtime）。改名は `public` の破壊的変更 | 案 0 完了。案 1〜3 未着手 |
-| [EVENT_SUBSCRIBER_ISOLATION.md](EVENT_SUBSCRIBER_ISOLATION.md) | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める | **Windows 完了**。Android / iOS / macOS 未着手 |
-| [UNREACHABLE_NOTIFICATION_APIS.md](UNREACHABLE_NOTIFICATION_APIS.md) | 通知の 3 API がサンプルから到達できない。非対応の根拠が未検証 | 未着手 |
-| [DEVICE_VERIFICATION_RECORDS_MISSING.md](DEVICE_VERIFICATION_RECORDS_MISSING.md) | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。要確認 2 件・dialog の記録欠落も併記 | 注記のみ。詳細記録は未作成 |
+| `designs/` | 機能設計・サンプルシーン計画。`design-feature` / `design-sample-scene` が出力。旧形式の実装計画（macOS Notification のみ、元は `plans/`）もここに置く | `YYYY-MM-DD-<os>-<feature>[-sample-scene]-design-vN.md`（旧形式は `...-plan-vN.md`） |
+| `results/` | 実装結果・実機確認結果。`implement-*` / 手動確認が出力 | `YYYY-MM-DD-<os>-<feature>-<工程>-result-vN.md` |
+| `reviews/` | 設計・実装のレビュー記録。`review-*` が出力 | `YYYY-MM-DD-<os>-<feature>-<対象>-review-vN.md` |
+| `results/logs/` | 実機確認の生ログ。結果文書の主張の裏付け | `YYYY-MM-DD-<os>-<feature>-verify-manual-sessionN.log` |
+| `issues/` | **その機能に閉じる未対応課題。** 手動で作成する | `<slug>.md`（kebab-case） |
 
-**課題ファイルを新設したら、この表に 1 行足すこと。**
-既存 2 本は関連する規則や設計書からしか参照されておらず、
-その領域を触る人以外には存在が見えていなかった。
+**`vN` は上書きしない。** 同名があれば増やす。
+古い版を消さないのは、レビューで何が指摘されて何が変わったかを追うため。
 
-課題ファイルの体裁（既存 3 本に共通）:
+**OS ごとにディレクトリを分ける**（2026-09-29 から。それまでは `features/<feature>/` の下に全 OS を置き、OS はファイル名で区別していた）。コードの `Runtime/<Platform>/<Feature>` と同じ並びにし、文書が「機能 × OS × 版」で増えても 1 つのディレクトリが 1 つの OS の 1 つの機能に収まるようにした。
+`<os>` は小文字（android / ios / macos / windows）。**ファイル名にも OS を残す**（名前だけで引用されたときにも分かるように）。
+native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `089d8325` / `c7a1b54e`）。違いは、native-toolkit では `plans/` が現役の種類として残ること。この repo の文書が引用する native-toolkit のパスも新しい形に直した。
+ワークフローの手順のうち、**候補を探す手順は OS を選ぶ前に走るので `artifact/*/<feature>/<種類>/`（全 OS）を探し、保存する手順は `artifact/<os>/<feature>/<種類>/` に書く**
+
+### 機能ごとの未対応課題
+
+| 課題 | 機能 | 進捗 |
+|---|---|---|
+| [unreachable-notification-apis](windows/notification/issues/unreachable-notification-apis.md) | windows / notification | 対応済み（2026-09-27）。3 API は非パッケージで 8 を返すことを 1.x と 2.0.0 の実機で確かめ、XML コメントに書いた |
+| [audio-src-is-ignored](windows/notification/issues/audio-src-is-ignored.md) | windows / notification | 未着手。通知の `Audio.Src` は JSON に出るが、ネイティブが読まない（1.x から） |
+| [shutdown-drain-budget-under-load](windows/clipboard/issues/shutdown-drain-budget-under-load.md) | windows / clipboard | 未着手（マニュアルに記載のみ）。PC が重いと終了が上限を超え、Manager が `ShuttingDown` のまま戻らない。やり直せば戻る |
+
+---
+
+## topics/
+
+機能単位でない課題の置き場。
+
+- 各トピックは `topics/<topic>/README.md` を必ず持つ。課題の内容・状態・対応方針はここに書く
+- `plans/` `designs/` `results/` `reviews/` は必要になったものだけ作る
+- ディレクトリ名は kebab-case
+
+### トピック一覧
+
+1 行 1 トピック。詳細は各 README に書き、ここには要約だけを置く。
+
+| トピック | 分類 | 状態 | 最終更新 | 概要 |
+|---|---|---|---|---|
+| [os-prefix-violations](topics/os-prefix-violations/README.md) | 命名規則 | 一部対応 | 2026-09-03 | OS 接頭辞ルールの逸脱 11 件（Runtime）。改名は `public` の破壊的変更。案 0 完了、案 1〜3 未着手 |
+| [event-subscriber-isolation](topics/event-subscriber-isolation/README.md) | 契約 | 一部対応 | 2026-09-08 | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める。**Windows 完了**、Android / iOS / macOS 未着手 |
+| [device-verification-records](topics/device-verification-records/README.md) | ドキュメント | 一部対応 | 2026-09-10 | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。注記のみ入れた段階 |
+| [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-10-03 | テスト方針（`testing.md`）の策定記録と、Windows の層 2b / 3 の導入の記録（検証を流すときの前提を含む）。Android / iOS / macOS は未導入 |
+| [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-10-03 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
+
+| [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
+
+状態の語彙: 未着手 / 企画中 / 設計済 / 進行中 / 一部対応 / 完了
+
+**トピックを新設したら、この表に 1 行足すこと。**
+かつて課題ファイルが `artifact/` 直下に置かれていた頃は、関連する規則や設計書からしか
+参照されておらず、その領域を触る人以外には存在が見えていなかった。
+
+### 課題文書の体裁
+
+`topics/<topic>/README.md` と `<os>/<feature>/issues/<slug>.md` に共通:
 
 ```
 # <一行で問題そのもの>
@@ -33,20 +84,13 @@
 - 進捗: 未着手 / 一部完了（どこまで）
 ```
 
----
+### ここに書かないもの
 
-## サブディレクトリ
-
-| ディレクトリ | 中身 | 命名 |
-|---|---|---|
-| `designs/` | 機能設計・サンプルシーン計画。`design-feature` / `design-sample-scene` が出力 | `YYYY-MM-DD-<os>-<feature>[-sample-scene]-design-vN.md` |
-| `plans/` | 旧形式の実装計画（macOS Notification のみ） | `YYYY-MM-DD-<os>-<feature>-...-plan-vN.md` |
-| `results/` | 実装結果・実機確認結果。`implement-*` / 手動確認が出力 | `YYYY-MM-DD-<os>-<feature>-<工程>-result-vN.md` |
-| `reviews/` | 設計・実装のレビュー記録。`review-*` が出力 | `YYYY-MM-DD-<os>-<feature>-<対象>-review-vN.md` |
-| `results/*/logs/` | 実機確認の生ログ。結果文書の主張の裏付け | `YYYY-MM-DD-<os>-<feature>-verify-manual-sessionN.log` |
-
-**`vN` は上書きしない。** 同名があれば増やす。
-古い版を消さないのは、レビューで何が指摘されて何が変わったかを追うため。
+| 書かないもの | 書く場所 |
+|---|---|
+| 機能開発のタスク | `<os>/<feature>/` の設計書とチケット |
+| 作業ごとの進捗 | 各トピックの README、または `results/` |
+| 件数・診断数などの実測値 | 各トピックの README（生成ファイルがあればそちら） |
 
 ---
 

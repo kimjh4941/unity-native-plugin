@@ -67,10 +67,102 @@ private static void OnDialogCallback(string? buttonText, bool isSuccess, string?
 }
 ```
 
-### Windows
+### Windows（native-toolkit の C ABI）
 
-- `[DllImport("NativeToolkit")]` でネイティブ DLL 関数をインポートする
-- コールバックパターンは iOS / macOS に準ずる
+Windows は native-toolkit の C ABI（ヘッダーは `native-toolkit/dist/<版>/windows/include/NativeToolkitC/`、
+DLL は dist の `windows-native-toolkit-capi-<版>.dll`）を P/Invoke で呼ぶ。
+以下は Dialog / Notification / Clipboard を 2.0.0 に移す設計（`artifact/windows/{dialog,notification,clipboard}/designs/`
+の 2026-09-27 版）で決めた約束ごとで、新しい Windows の機能も従う。
+3 機能とも 2026-09-27 に移行を終え、1.x の C ABI（`unity-windows-native-toolkit.dll`、UTF-16 のバッファと JSON）を呼ぶコードは残っていない。
+
+**ファイルの置き場所**
+
+| ファイル | 持つもの |
+|---|---|
+| `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs`（1 つだけ。名前空間 `JonghyunKim.NativeToolkit.Runtime.Windows.Common`） | DLL 名の定数、版の確認、`Common.h` の関数（`ntk_version`、`ntk_last_system_code`、`ntk_string_*`、`ntk_bytes_*`、`ntk_string_list_*`）の `extern`、UTF-8 の読み書き。**各機能は DLL 名を自分で書かず、ここの定数を使う**（native-toolkit の版を上げるときの書き換えを 1 か所にするため） |
+| `Runtime/Windows/<Feature>/Windows<Feature>CApi.cs`（Bridge） | その機能の `ntk_<feature>_*` の `extern`、入れ子の構造体、コールバックの delegate と受け口、ネイティブの値と C# の値の変換 |
+| `Runtime/Windows/<Feature>/Windows<Feature>Manager.cs` | 公開 API、状態、イベント（Manager 設計ルール） |
+
+名前空間は `JonghyunKim.NativeToolkit.Runtime.Windows.<Feature>`（「命名」の節）。
+
+層は Bridge と Manager の 2 つだけにする。変換（引数の組み立て、結果とエラーの変換、版の判定）は Bridge の中の
+`internal static` の純粋な関数にし、`DllImport` を囲む `#if` の**外**に置く（Editor でもコンパイルされ、EditMode でテストできる）。
+変換のためだけのファイルや層は作らない。
+
+**`DllImport`**
+
+- `[DllImport(WindowsNativeToolkitCApi.DllName, CallingConvention = CallingConvention.Cdecl)] internal static extern`
+  - DLL 名は `.dll` まで書く（名前に `.` を含むので、拡張子を補ってもらえる前提に立たない）
+  - `DEVELOPMENT_BUILD` で DLL 名を切り替えない
+  - `internal` にする（層 2b のテストが結び付けを直接確かめるため。`private` では `InternalsVisibleTo` でも呼べない）
+- 型: ハンドル・ポインタ・関数ポインタは `IntPtr`、`size_t` は `UIntPtr`、`int32_t`（列挙・真偽を含む）は `int`、
+  `uint32_t` は `uint`、`int64_t` は `long`、エラーの戻り値は `int`。`const uint8_t*` の入力は `byte[]` で渡してよい
+- 構造体は入れ子の `internal struct`、`[StructLayout(LayoutKind.Sequential, Pack = 8)]`。`struct_size = (uint)Marshal.SizeOf<T>()`、
+  `reserved*` は 0。大きさと全フィールドの位置を `Marshal.OffsetOf` で層 1 に固定する（期待値は native-toolkit の `CApiLayoutTest.cpp`）
+
+**文字列とハンドル**
+
+- 入力の文字列は `Encoding.UTF8` の NUL 終端のバイト列を `Marshal.AllocHGlobal` に置く。確保したものは 1 つの一覧で追い、`finally` で全部解放する
+- 出力の文字列は `*_data` と `*_size` でバイト列を写し、UTF-8 で読む。
+  **`[return: MarshalAs(UnmanagedType.LPUTF8Str)]` は使わない**（マーシャラーが戻りのポインタを解放し、ヒープを壊す）
+- 出力のハンドルは、呼ぶ前に `IntPtr.Zero` で初期化した変数に受け、`finally` で `!= IntPtr.Zero` のときだけ対応する `_free` に渡す
+- 借りたポインタ（一覧の要素、コールバックの引数）は、持ち主の寿命のうちに managed の値へ写す。
+  同期で受け取ってその場で解放するハンドルは `SafeHandle` にしない
+
+**try の形**
+
+```csharp
+try
+{
+    try { /* ネイティブ呼び出しと変換 */ }
+    finally { /* 解放 */ }
+}
+catch (Exception e) { code = /* 例外 → エラーコード（純粋な関数） */; }
+// catch の外で、結果を 1 回だけ出す
+```
+
+finally を内側に置くのは、C# の catch が同じ try の finally から出た例外を捕まえないため（解放の失敗も結果にする）。
+購読者の例外を catch の中に入れない（結果のイベントは catch の外で出す）。
+
+**コールバック**
+
+- delegate は `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]`。static readonly のフィールドで保持し、
+  `Marshal.GetFunctionPointerForDelegate` で渡す。受け口は `[MonoPInvokeCallback]` の static メソッド
+- 登録ごとの状態を持たないなら、`user_data` と `release` は `IntPtr.Zero`（ネイティブは `release` が NULL でよい）
+- 受け口は全体を try/catch で囲み、例外をネイティブに返さない
+- OS のスレッドで来るコールバックは、`Awake` でメインスレッドから取っておいた dispatcher に積むだけにする。
+  **ネイティブのスレッドで `UnityMainThreadDispatcher.Instance` の getter に触らない**（無ければメインスレッド以外で GameObject を作る）
+- 受け口の中から、その持ち主（セッション・マネージャー）の close / free を呼ばない
+
+**版の確認**
+
+最初のネイティブ呼び出しの前に、`WindowsNativeToolkitCApi` で `(ntk_version() >> 16)` が C# の想定する major と一致するかを確かめる。
+一致しないとき、または `DllNotFoundException` / `EntryPointNotFoundException` / `BadImageFormatException` のときは、
+「ネイティブが使えない」エラーにする（コードの値は、その機能の既存のエラーコードの体系に合わせる）。
+
+**Editor**
+
+DLL は importer で Editor 無効にしてあり、Editor ではネイティブを呼ばない（「プラットフォームガード」）。
+こうするとドメインリロードで DLL が下ろされないことへの後片付けが要らない。
+Editor でネイティブを呼ぶ機能を作る場合は、close → free → release を待つ後片付けを別に設計する
+（`artifact/topics/windows-c-abi-2/README.md`「ドメインリロード」）。
+
+**ログ**
+
+結果（エラーコード）として呼び出し側に返す失敗は `Debug.Log` か `Debug.LogWarning` で書き、`Debug.LogError` にしない。
+`csharp.md` の「エラーは `Debug.LogError`」は、想定外の失敗（捕まえた例外、壊れた状態）に当てはめる。
+Unity Test Framework は想定していない `LogError` でテストを落とすので、エラーの結果を期待するテストが書けなくなる。
+
+**COM のアパートメント**
+
+Clipboard のセッションは STA のスレッドで作る（Unity のメインスレッドは MAINSTA）。
+Notification の `ntk_notification_manager_create` は呼び出したスレッドで MTA を試みるが、既に STA ならそのまま STA で動く。
+どちらもメインスレッドから使う。
+
+**振る舞いの差分**
+
+1.x から移すとき、または native-toolkit の版を上げるときは、公開 API で変わる振る舞いを設計書に「既知の差分」の表（差分 / 前 / 後）で書き、
+XML コメントと実装結果ファイルを通して次の版のマニュアルへ引き継ぐ。
 
 ### ポインタが必要な配列渡し（共通）
 
@@ -116,8 +208,13 @@ private void Awake()
 
 ### プラットフォームガード
 
-- Manager クラス全体を `#if UNITY_ANDROID` 等で囲む
-- Editor での動作確認は `!UNITY_EDITOR` と組み合わせて制御する
+新しく書くコードは二重のガードにする（`review-document` の P5）。
+
+- 型（Manager・Bridge・結果型・エラーコード）は `#if <PLATFORM> || UNITY_EDITOR` で囲む。Editor でも型が見え、層 1 / 2a でテストできる
+- `DllImport` / `AndroidJavaObject` と、ネイティブを実際に呼ぶ箇所は `#if <PLATFORM> && !UNITY_EDITOR` で囲む。
+  `#else` の側は「このプラットフォームでは使えない」結果を返すか、何もせずに戻る（機能ごとの既存の契約に合わせる）
+- 前例: `Runtime/Windows/Clipboard/WindowsClipboardManager.cs`
+- 片方だけのガード（`#if UNITY_ANDROID` だけ、など）の既存の型は `testing.md`「3. Manager ごとのコンパイルガード差異」の B 群を参照。新しく真似しない
 
 ### 公開 API 方式（同期・非同期の判断）
 
@@ -228,7 +325,20 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 ### 命名: OS 接頭辞と、共通ファイルを作らない方針
 
-**`Runtime/<Feature>/` と `Tests/` 配下は、プラットフォーム単位で管理する。共通ファイルを作らない。**
+**`Runtime/` と `Tests/` 配下は、プラットフォーム単位で管理する。共通ファイルを作らない。**
+
+**Runtime のディレクトリと名前空間（2026-09-27 決定）**
+
+| 対象 | ディレクトリ | 名前空間 |
+|---|---|---|
+| 正しい形 | `Runtime/<Platform>/<Feature>/` | `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>` |
+| そのプラットフォームの全機能が使う共通部 | `Runtime/<Platform>/Common/` | `JonghyunKim.NativeToolkit.Runtime.<Platform>.Common` |
+| プラットフォームをまたぐ共通（下の「例外」） | `Runtime/Common/` | `JonghyunKim.NativeToolkit.Runtime.Common` |
+
+- `<Platform>` のディレクトリ名は `Windows` / `Android` / `iOS` / `macOS`（`UI/<Platform>/` と同じ綴り）
+- **Windows は移行済み**（`Runtime/Windows/Clipboard/` など）。**Android / iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
+- 移すときは `.cs` と `.meta` をいっしょに `git mv` する（GUID を保つ）。名前空間の変更は公開 API の破壊的変更になるので、その版の既知の差分とマニュアルに書く
+- `Tests/Runtime/` と `Tests/PlayMode/` はプラットフォームで分けない（ファイル名の接頭辞で分かる）
 
 ファイル名と、その中の public / internal な型名には、対象プラットフォームを接頭辞で表す。**テストファイルも同じ規則に従う。**
 
@@ -241,7 +351,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - **機能ディレクトリに接頭辞なしのファイルを作らない。** 2 つのプラットフォームが同じロジックを必要とする場合も、**共通化せずそれぞれに持たせる**
 - ファイル名と、そのファイルが定義する主たる型の名前を一致させる
-- ディレクトリではプラットフォームを分けない（`UI/` を除く。後述）
+- ディレクトリの形は上の表（`Runtime/<Platform>/<Feature>/`）と、後述の `UI/<Platform>/<Feature>/`
 - **`Tests/Runtime/` と `Tests/PlayMode/` のファイル名・クラス名にも接頭辞を付ける。** テスト対象のプラットフォームがファイル名から分かることが目的
   - 例: `MacClipboardJsonParserTests.cs` / `IosClipboardManagerDispatchTests.cs`
   - **複数プラットフォームの型を 1 つのテストファイルで扱わない。** 対象ごとにファイルを分ける
@@ -259,9 +369,22 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 新しく `Common/` へ置く場合は、**機能ロジックではなく横断インフラであること**を条件とする。特定プラットフォームの機能に属するものは機能ディレクトリへ置き、接頭辞を付ける。
 
+**例外: `Runtime/<Platform>/Common/`**
+
+そのプラットフォームの**全機能が使うネイティブライブラリの共通部**だけを置ける。ファイル名には接頭辞を付ける。機能の中身は置かない。
+
+| ファイル | 位置づけ |
+|---|---|
+| `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs` | Windows の全機能が使う native-toolkit の C ABI の共通部（DLL 名、版の確認、`Common.h` の関数、UTF-8 の読み書き。「Unity Bridge パターン」の Windows） |
+
+**共通化しない理由との関係:** 共通化を避けるのは、片方のプラットフォームの都合がもう片方に及ぶのを防ぐため（上）。
+同じプラットフォームの機能どうしは**同じネイティブライブラリの同じ版を必ず一緒に使う**ので、この理由が当てはまらない。
+逆に機能ごとに持つと、ライブラリの版を上げるたびに機能の数だけ DLL 名などの書き換えが要り、1 か所でも漏れるとその機能だけ読み込みに失敗する。
+置いてよいのは「そのライブラリを使うどの機能にも同じ形で要るもの」に限る。1 つの機能だけが使うものは、その機能の Bridge に置く。
+
 **`UI/` のディレクトリ構成**
 
-`UI/` だけは `UI/<Platform>/<Feature>/` の構造を採る。ファイル名の接頭辞は同じ規則に従う。
+`UI/` は `UI/<Platform>/<Feature>/` の構造を採る（Runtime の正しい形と同じ順）。ファイル名の接頭辞は同じ規則に従う。
 
 **既知の逸脱（新規実装で真似しない）: Runtime 11 件**
 
@@ -283,7 +406,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - **これらを他プラットフォームから使わないこと**
 - **これらを見て「接頭辞なしは共通の意味」と読まないこと。** `Common/` 配下だけが共通である
-- 改名は破壊的変更（すべて `public`）になるため別課題として扱う。詳細と対応案: `artifact/OS_PREFIX_VIOLATIONS.md`
+- 改名は破壊的変更（すべて `public`）になるため別課題として扱う。詳細と対応案: `artifact/topics/os-prefix-violations/README.md`
 
 ---
 
@@ -318,7 +441,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 > 実例: Windows Clipboard のサンプルシーン計画 v1 が、Android / iOS の計画に明記されていた
 > 「入力欄は設けない」を理由なく破って入力欄を 2 つ置いた。計画レビュー 2 巡・実装レビュー 2 巡の
-> いずれも検出できなかった（`artifact/designs/` の先行計画を参照に含めていなかったため）。
+> いずれも検出できなかった（`artifact/<os>/<feature>/designs/` の先行計画を参照に含めていなかったため）。
 > **方針をこのファイルに置いたのはそのため。**
 
 ---

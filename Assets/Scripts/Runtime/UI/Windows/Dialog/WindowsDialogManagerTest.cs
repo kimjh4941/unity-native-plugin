@@ -2,7 +2,7 @@
 
 using UnityEngine;
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 
 public class WindowsDialogManagerTest : MonoBehaviour

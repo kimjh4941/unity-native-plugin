@@ -3,7 +3,7 @@
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 using NUnit.Framework;
 
 namespace JonghyunKim.NativeToolkit.Tests
@@ -263,9 +263,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static WindowsClipboardHistoryResult ParseSingleHistoryItem()
         {
-            WindowsClipboardJsonParser.TryParseHistoryItems(
-                "[{\"id\":\"a\",\"timestamp\":\"1\"}]",
-                out System.Collections.Generic.IReadOnlyList<WindowsClipboardHistoryItem> items);
+            var items = new[] { new WindowsClipboardHistoryItem("a", null, null, 1) };
             return WindowsClipboardHistoryResult.Success("getClipboardHistory", items);
         }
 
