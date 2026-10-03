@@ -11,6 +11,14 @@
   **Notification**（2026-09-27。結果は `artifact/windows/notification/results/2026-09-29-windows-notification-implementation-feature-result-v2.md`）、
   **Clipboard**（2026-09-27〜29、`afee02c`〜`722ec41`。結果は `artifact/windows/clipboard/results/2026-09-29-windows-clipboard-implementation-feature-result-v7.md`）。
   1.x の DLL は同梱物から消えた。3 機能の Player テストは Mono と IL2CPP の両方で通る（2026-09-29、本体 93 / 93、作り直し 1 / 1）
+- その後（2026-09-30〜10-03）:
+  - native-toolkit が、パッケージ化していないアプリのコールドスタートで `onInvoked` が 2 回（中身の無い 1 回と本物）呼ばれる不具合を直した（`3a9c2c20`）。あわせて、Clipboard の close の説明を直した（`af72b409`。`BUSY` は実行中の履歴の要求でも起き、待つにはオーナーのスレッドでメッセージを処理する。`WRONG_THREAD` 以外の失敗は再試行してよい）。こちらからの指摘が元で、記録は native-toolkit の `artifact/topics/windows-architecture/results/2026-09-30-windows-clipboard-close-busy-finding.md`
+  - 直した DLL（md5 `41ac440bf583e7e209c98a034904e008`）で、2026-10-03 に Mono と IL2CPP の両方で本体 93 / 93、作り直し 1 / 1、M-19 と層 3（Mono）、サンプルの照合が通った。2026-09-30 の 1 回目は PC の負荷とプロジェクトのロックで落ちた（DLL とは無関係。`artifact/windows/clipboard/issues/shutdown-drain-budget-under-load.md`、cross-platform-testing の「検証を流すときの前提」）
+  - native-toolkit 1.12.0 がリリースされ（タグ `1.12.0`、`dd327122`）、同じ DLL を同梱した（`43f03f7`。VERSION.txt の `source` はタグを指す）
+  - マニュアル 1.12.0 を書いて公開した（`38d4414`、`272f0ba`。Windows の 3 機能に「Changes in 1.12.0」の節）
+- 残作業（2026-10-03）:
+  - `/release version=1.12.0`（`package.json` はまだ 1.11.0。リリースの確認で上げる）。feature/UNT-12 から main への PR はこの手順の中で作られる
+  - リポジトリの外: 利用者の個人のスキル `C:\Users\User\.claude\skills\commit-msg`（日本語で作る別物）が、repo の `.claude/skills/commit-msg` より優先して呼ばれる。native-toolkit 側でも同じ。名前を変えるか消すかはユーザーの判断で、2026-10-03 時点では据え置き
 - **移行前の基準: `50fe7bb`**（`feature/UNT-12`）。1.x の同梱 DLL で、Clipboard / Dialog / Notification のサンプルの UI 自動テストが通る最後のコミット。移行のあと「前は通っていたか」を確かめるときは、ここでテストを流す
 - 2.5（Windows Player ビルドが 2.0.0 の DLL を勝手に掴む）は**対応済み**（`0948942`）。VERSION.txt のピンは移行の中で書き換えた（2.5「移行時にやること」）
 

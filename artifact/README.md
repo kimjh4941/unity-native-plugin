@@ -38,6 +38,7 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 |---|---|---|
 | [unreachable-notification-apis](windows/notification/issues/unreachable-notification-apis.md) | windows / notification | 対応済み（2026-09-27）。3 API は非パッケージで 8 を返すことを 1.x と 2.0.0 の実機で確かめ、XML コメントに書いた |
 | [audio-src-is-ignored](windows/notification/issues/audio-src-is-ignored.md) | windows / notification | 未着手。通知の `Audio.Src` は JSON に出るが、ネイティブが読まない（1.x から） |
+| [shutdown-drain-budget-under-load](windows/clipboard/issues/shutdown-drain-budget-under-load.md) | windows / clipboard | 未着手（マニュアルに記載のみ）。PC が重いと終了が上限を超え、Manager が `ShuttingDown` のまま戻らない。やり直せば戻る |
 
 ---
 
@@ -58,8 +59,10 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 | [os-prefix-violations](topics/os-prefix-violations/README.md) | 命名規則 | 一部対応 | 2026-09-03 | OS 接頭辞ルールの逸脱 11 件（Runtime）。改名は `public` の破壊的変更。案 0 完了、案 1〜3 未着手 |
 | [event-subscriber-isolation](topics/event-subscriber-isolation/README.md) | 契約 | 一部対応 | 2026-09-08 | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める。**Windows 完了**、Android / iOS / macOS 未着手 |
 | [device-verification-records](topics/device-verification-records/README.md) | ドキュメント | 一部対応 | 2026-09-10 | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。注記のみ入れた段階 |
-| [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-07-26 | テスト方針（`testing.md`）の策定記録。層 2b / 3 は未導入 |
-| [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-09-29 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
+| [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-10-03 | テスト方針（`testing.md`）の策定記録と、Windows の層 2b / 3 の導入の記録（検証を流すときの前提を含む）。Android / iOS / macOS は未導入 |
+| [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-10-03 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
+
+| [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
 
 状態の語彙: 未着手 / 企画中 / 設計済 / 進行中 / 一部対応 / 完了
 
