@@ -85,6 +85,7 @@
   - [イベントの受信](#イベントの受信-2)
   - [エラーハンドリング](#エラーハンドリング-2)
 - [Windows](#windows)
+  - [1.12.0 での変更](#1120-での変更)
   - [セットアップ](#セットアップ-3)
   - [プレーンテキストのコピー](#プレーンテキストのコピー-3)
   - [HTML テキストのコピー](#html-テキストのコピー-1)
@@ -2204,6 +2205,22 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ## Windows
 
+### 1.12.0 での変更
+
+1.12.0 から、Windows のクリップボードは native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、`Operation*` の値、結果の型、エラーコードの値、`WindowsClipboardJsonBuilder`、ペイロードの型、スレッドの規則は変わりません。1.11.0 との違いは次のとおりです。
+
+- **名前空間。** `WindowsClipboardManager` と、結果・ペイロード・ビルダーの型は `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+
+| 場面 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| 履歴の `Timestamp` | 100 ナノ秒の精度 | ミリ秒の精度（下の桁は 0）。値は今も FILETIME のティック数 |
+| 読み出しの `BufferTooSmall`（7） | 読んでいる間に中身の大きさが変わり続けると返った | 返りません。読み出しは 1 回の呼び出しで終わります |
+| 履歴・形式の一覧・利用可否の `ResultParseFailed`（1007） | ネイティブの返答が壊れていると返った | 返りません。履歴の項目を写す途中の失敗は `OutOfMemory`（8）か `Unknown`（19）で、1 回だけ届きます |
+| 文字列の中の対になっていないサロゲート | UTF-16 のまま渡した | UTF-8 で渡し、読み出した文字列では U+FFFD になる |
+| `CopyMultipleFormats` で誤りが 2 つ以上あるとき | 要素の順で最初の誤りを返した | 先に全部の base64 を確かめ、次にフラグ、それから要素を見ます。違いが見えるのは、前の要素が `InvalidData` のときか、フラグが不正なときだけです。DIB として不正な要素の後ろに不正な base64 があると、`InvalidData` だったものが `InvalidParameter` になります |
+| 要求が待っているときの終了の 1 回目 | すぐには終わらず、続く drain の間の `Initialize` は `ShuttingDown` で断られた | 待っている要求は呼び出しの中で `Canceled` として届き、1 回目で終わることがあります。履歴の要求が既に動いていると、close は `Busy` のままで、これまでどおり drain が続きます |
+| 読み込めないネイティブライブラリ | `Unknown`、または一部の API で例外 | `BridgeUnavailable`（1001） |
+
 ### セットアップ
 
 #### 名前空間のインポート
@@ -2212,7 +2229,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ```csharp
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 #endif
 ```
 
@@ -2277,7 +2294,7 @@ await Task.Run(() =>
 `WindowsClipboardManager.Instance` は初回アクセス時にマネージャーを生成し、シーン遷移を越えて存続します。クリップボードは他プロセスに握られうるため、終了経路が 2 つあります。
 
 ```csharp
-// 実行中の要求が無いときだけ完了します。完了したかは completed が示します。
+// 1 回だけ試す。待っている要求は Canceled として届く。completed は終わったかどうか。
 WindowsClipboardResult immediate = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
 
 // 実行中の要求を取り消し、以降のフレームにまたがって完了します。
@@ -2286,6 +2303,8 @@ WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
 ```
 
 `CanShutdownNow` は同じ問いを、実行せずに尋ねます。ドレイン中の `Initialize` は `ShuttingDown`（1011）で拒否されます。マネージャーが破棄された後は `WindowsClipboardManager.IsTerminated` が `true` になり、すべての API が拒否されます。
+
+上限（60 フレームか 2 秒）を使い切った drain は `ShutdownTimeout`（1006）で終わり、Manager は終了に失敗した状態のまま残ります。`Initialize` は `ShuttingDown` を返し続け、ネイティブのセッションは放棄されずに保持されます。後で `ShutdownWithDrain` か `TryShutdown` をもう一度呼んでください。close が成功すれば、`Initialize` がまた使えます。PC が重いときに履歴の要求が終わらないと起こります。
 
 ---
 
@@ -2705,8 +2724,10 @@ WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear();
 | `Canceled` | 15 | `CancelRequest`、またはキャンセルされた `Awaitable` |
 | `NotForeground` | 17 | 復元にはアプリケーションが前面にある必要がある |
 | `PlatformUnavailable` | 1000 | Editor 実行、または他プラットフォーム |
+| `BridgeUnavailable` | 1001 | ネイティブライブラリが無い、読み込めない、または C ABI 2.x でない（`Initialize`） |
 | `MainThreadRequired` | 1002 | Unity のメインスレッド以外から呼ばれた |
 | `InvalidArgument` | 1005 | null のテキスト、空のリスト、空白の名前、重複フォーマット |
+| `ShutdownTimeout` | 1006 | 終了の drain が上限を使い切った（上の Manager の寿命と終了を参照） |
 | `ShuttingDown` | 1011 | 終了ドレインの実行中 |
 
 **失敗しても例外は投げません。** すべての操作は結果型で報告するため、クリップボードのコードを `try/catch` で囲んでも、クリップボード由来のものは何も捕まりません。

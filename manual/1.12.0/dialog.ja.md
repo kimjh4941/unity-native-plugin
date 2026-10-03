@@ -17,6 +17,7 @@
 - [iOS](#ios)
   - [iOSDialogManager](#iosdialogmanager)
 - [Windows](#windows)
+  - [1.12.0 での変更](#1120-での変更)
   - [WindowsDialogManager](#windowsdialogmanager)
 - [macOS](#macos)
   - [MacDialogManager](#macdialogmanager)
@@ -827,6 +828,38 @@ private void OnLoginDialogResult(
 
 ## Windows
 
+### 1.12.0 での変更
+
+1.12.0 から、Windows のダイアログは native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、その引数は変わりません。1.11.0 との違いは次のとおりです。
+
+- **名前空間。** `WindowsDialogManager`、`Win32MessageBox`、`WindowsDialogErrorCodes` は `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+- **Editor。** Windows の型は Editor でもコンパイルされます。Editor で呼ぶとダイアログは出ず、イベントで `-5` が返ります。
+- **予約されたエラーコード。** `errorCode` には、OS の値のほかに下の値が入ります。OS の `HRESULT` も負の値なので、符号ではなく定数と比べてください。
+
+| 定数（`WindowsDialogErrorCodes`） | 値 | 意味 |
+| --- | --- | --- |
+| `Cancelled` | -1 | ファイル・フォルダのダイアログでユーザーがキャンセルした（`isCancelled = true`、`isSuccess = true`） |
+| `InvalidArgument` | -2 | ダイアログを出す前に拒んだ（空のタイトル・メッセージ、使えないフラグ、パターンの無いフィルタ） |
+| `Unknown` | -3 | 詳しく言えない失敗 |
+| `NativeUnavailable` | -4 | ネイティブライブラリが無い、関数が無い、読み込めない、または C ABI 2.x でない |
+| `PlatformUnavailable` | -5 | Windows の Player でない（Editor など）。ダイアログは出ない |
+
+| 場面 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| `bufferSize` | バッファの大きさとして使い、超えると失敗 | 無視されます。パス 1 本は 1023 文字まで、複数選択は全体で 32768 文字までで、超えると OS のエラーコードが返ります |
+| 空のタイトル・メッセージ | 空のダイアログが出て、イベントが最大 3 回 | ダイアログは出ず、`-2` のイベントが 1 回 |
+| `MB_SYSTEMMODAL`、`MB_TASKMODAL`、`MB_RIGHT`、`MB_RTLREADING` | そのまま Windows に渡した | ダイアログは出ず `-2`。使えるのは、ボタン 7 種、アイコン 4 種、既定ボタン 4 種、`MB_APPLMODAL`、`MB_TOPMOST`、`MB_HELP`（0x4000） |
+| パターンの無いフィルタの組 | そのまま Windows に渡した | `-2` |
+| パターンの中の空の要素（`"*.txt;;*.log"`） | そのまま Windows に渡した | `"*.txt;*.log"` に詰める |
+| 組の無いフィルタ（`""`） | 空のフィルタ | 「すべてのファイル」の 1 組 |
+| `ShowSaveFileDialog` の `defExt = ""` | 選んだフィルタの拡張子を Windows が足した（`new` → `new.txt`） | 入力したままの名前が返ります（`new` → `new`）。拡張子を付けたいときは `defExt` を渡してください（既定値の `"txt"` なら `new.txt`） |
+| `ShowFolderDialog` の `title = ""` | 空のタイトル | システムのタイトル |
+| ドライブ直下で複数のファイルを選ぶ | `C:\\a.txt` | `C:\a.txt` |
+| メッセージボックスが 0 を返し、OS のエラーも無い | `(0, true, null)` | `(0, false, -3)` |
+| ネイティブライブラリが無い・読み込めない | 呼び出しで例外 | 例外は出ず、イベントで `-4` |
+| そのほかの C# 側の例外 | 呼び出し側に例外 | 例外は出ず、イベントで `-3` |
+| 文字列の中の対になっていないサロゲート | そのまま | U+FFFD に置き換わる |
+
 ### WindowsDialogManager
 
 #### ShowDialog - 基本ダイアログ
@@ -836,7 +869,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -901,7 +934,7 @@ private void OnAlertDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -956,7 +989,7 @@ private void OnFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1011,7 +1044,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1066,7 +1099,7 @@ private void OnFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1121,7 +1154,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

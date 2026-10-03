@@ -17,6 +17,7 @@
 - [iOS](#ios)
   - [IosDialogManager](#iosdialogmanager)
 - [Windows](#windows)
+  - [1.12.0 변경 사항](#1120-변경-사항)
   - [WindowsDialogManager](#windowsdialogmanager)
 - [macOS](#macos)
   - [MacDialogManager](#macdialogmanager)
@@ -827,6 +828,38 @@ private void OnLoginDialogResult(
 
 ## Windows
 
+### 1.12.0 변경 사항
+
+1.12.0부터 Windows 대화상자는 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, 인수는 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
+
+- **네임스페이스.** `WindowsDialogManager`, `Win32MessageBox`, `WindowsDialogErrorCodes`는 `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+- **Editor.** Windows 타입은 Editor에서도 컴파일됩니다. Editor에서 호출하면 대화상자는 표시되지 않고, 이벤트로 `-5`가 전달됩니다.
+- **예약된 오류 코드.** `errorCode`에는 OS 값 외에 아래 값이 들어올 수 있습니다. OS의 `HRESULT`도 음수이므로, 부호가 아니라 상수와 비교해 주세요.
+
+| 상수(`WindowsDialogErrorCodes`) | 값 | 의미 |
+| --- | --- | --- |
+| `Cancelled` | -1 | 파일·폴더 대화상자에서 사용자가 취소함(`isCancelled = true`, `isSuccess = true`) |
+| `InvalidArgument` | -2 | 대화상자를 표시하기 전에 거부함(빈 제목·메시지, 사용할 수 없는 플래그, 패턴이 없는 필터) |
+| `Unknown` | -3 | 더 자세히 설명할 수 없는 실패 |
+| `NativeUnavailable` | -4 | 네이티브 라이브러리가 없거나, 함수가 없거나, 불러올 수 없거나, C ABI 2.x가 아님 |
+| `PlatformUnavailable` | -5 | Windows Player가 아님(Editor 등). 대화상자는 표시되지 않음 |
+
+| 상황 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| `bufferSize` | 버퍼 크기로 사용했고, 넘으면 실패 | 무시됩니다. 경로 하나는 1023자까지, 여러 개 선택은 전체 32768자까지이며, 넘으면 OS 오류 코드가 반환됩니다 |
+| 빈 제목·메시지 | 빈 대화상자가 표시되고 이벤트가 최대 3번 | 대화상자는 표시되지 않고 `-2` 이벤트가 1번 |
+| `MB_SYSTEMMODAL`, `MB_TASKMODAL`, `MB_RIGHT`, `MB_RTLREADING` | 그대로 Windows에 전달 | 대화상자는 표시되지 않고 `-2`. 사용할 수 있는 것은 버튼 7종, 아이콘 4종, 기본 버튼 4종, `MB_APPLMODAL`, `MB_TOPMOST`, `MB_HELP`(0x4000) |
+| 패턴이 없는 필터 쌍 | 그대로 Windows에 전달 | `-2` |
+| 패턴 안의 빈 요소(`"*.txt;;*.log"`) | 그대로 Windows에 전달 | `"*.txt;*.log"`로 정리 |
+| 쌍이 없는 필터(`""`) | 빈 필터 | "모든 파일" 한 쌍 |
+| `ShowSaveFileDialog`의 `defExt = ""` | 선택한 필터의 확장자를 Windows가 붙임(`new` → `new.txt`) | 입력한 이름 그대로 반환됩니다(`new` → `new`). 확장자가 필요하면 `defExt`를 전달해 주세요(기본값 `"txt"`이면 `new.txt`) |
+| `ShowFolderDialog`의 `title = ""` | 빈 제목 | 시스템 제목 |
+| 드라이브 루트에서 여러 파일 선택 | `C:\\a.txt` | `C:\a.txt` |
+| 메시지 상자가 0을 반환하고 OS 오류도 없음 | `(0, true, null)` | `(0, false, -3)` |
+| 네이티브 라이브러리가 없거나 불러올 수 없음 | 호출 시 예외 | 예외 없이 이벤트로 `-4` |
+| 그 밖의 C# 쪽 예외 | 호출한 쪽으로 예외 | 예외 없이 이벤트로 `-3` |
+| 문자열 안의 짝이 맞지 않는 서로게이트 | 그대로 | U+FFFD로 바뀜 |
+
 ### WindowsDialogManager
 
 #### ShowDialog - 기본 다이얼로그
@@ -836,7 +869,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -901,7 +934,7 @@ private void OnAlertDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -956,7 +989,7 @@ private void OnFileDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1011,7 +1044,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1066,7 +1099,7 @@ private void OnFolderDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1121,7 +1154,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

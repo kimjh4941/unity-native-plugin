@@ -85,6 +85,7 @@ Language:
   - [Receive Events](#receive-events-2)
   - [Error Handling](#error-handling-2)
 - [Windows](#windows)
+  - [Changes in 1.12.0](#changes-in-1120)
   - [Setup](#setup-3)
   - [Copy Plain Text](#copy-plain-text-3)
   - [Copy HTML Text](#copy-html-text-3)
@@ -2204,6 +2205,22 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ## Windows
 
+### Changes in 1.12.0
+
+Since 1.12.0 the Windows clipboard runs on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the `Operation*` values, the result types, the error code values, `WindowsClipboardJsonBuilder`, the payload types and the threading rules are unchanged. What differs from 1.11.0:
+
+- **Namespace.** `WindowsClipboardManager` and its result, payload and builder types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`. Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` in Windows code. The Android, iOS and macOS types keep their namespace.
+
+| Case | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| History `Timestamp` | 100-nanosecond precision | Millisecond precision (the lower digits are 0). It is still a FILETIME tick count |
+| `BufferTooSmall` (7) from a read | Returned when the content kept changing size during the read | Not returned: a read takes one call |
+| `ResultParseFailed` (1007) from history, format lists and availability | Returned for a malformed native reply | Not returned. A failure while copying out history items is `OutOfMemory` (8) or `Unknown` (19), delivered once |
+| Unpaired surrogates in strings | Passed as UTF-16 | Sent as UTF-8; text read back carries U+FFFD |
+| `CopyMultipleFormats` with two or more mistakes | The first mistake in element order | All base64 is checked first, then the flags, then the elements. Visible only when an earlier element is `InvalidData` or the flags are invalid: an invalid DIB followed by malformed base64 was `InvalidData` and is now `InvalidParameter` |
+| The first shutdown attempt with a request waiting | Never completed at once; a drain followed, during which `Initialize` was refused with `ShuttingDown` | Waiting requests are delivered as `Canceled` inside the call, and the first attempt can complete. A history request that is already running keeps the close `Busy`, and the drain runs as before |
+| A native library that cannot be loaded | `Unknown`, or an exception from some APIs | `BridgeUnavailable` (1001) |
+
 ### Setup
 
 #### Import the namespace
@@ -2212,7 +2229,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ```csharp
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 #endif
 ```
 
@@ -2277,7 +2294,7 @@ await Task.Run(() =>
 `WindowsClipboardManager.Instance` creates the manager on first access and survives scene changes. Two shutdown paths exist because the clipboard can be busy:
 
 ```csharp
-// Finishes only if nothing is in flight. completed says whether it did.
+// Tries once. Requests still waiting are delivered as Canceled; completed says whether it finished.
 WindowsClipboardResult immediate = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
 
 // Cancels outstanding requests and finishes across the following frames.
@@ -2286,6 +2303,8 @@ WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
 ```
 
 `CanShutdownNow` asks the same question without acting on it. While a drain runs, `Initialize` is refused with `ShuttingDown` (1011). Once the manager has been destroyed, `WindowsClipboardManager.IsTerminated` is `true` and every API is rejected.
+
+A drain that runs out of its budget (60 frames or 2 seconds) ends with `ShutdownTimeout` (1006), and the manager stays in a failed shutdown: `Initialize` keeps answering `ShuttingDown`, and the native session is kept rather than abandoned. Call `ShutdownWithDrain` or `TryShutdown` again later; once a close succeeds, `Initialize` works again. This happens when a history request is still running under heavy load.
 
 ---
 
@@ -2705,8 +2724,10 @@ Empties the clipboard for every format at once. A read after this is an empty su
 | `Canceled` | 15 | `CancelRequest`, or a cancelled `Awaitable` |
 | `NotForeground` | 17 | Restore needs the application to be in front |
 | `PlatformUnavailable` | 1000 | Running in the Editor, or on another platform |
+| `BridgeUnavailable` | 1001 | The native library is missing, cannot be loaded, or is not C ABI 2.x (`Initialize`) |
 | `MainThreadRequired` | 1002 | Called from a thread other than Unity's main thread |
 | `InvalidArgument` | 1005 | Null text, an empty list, a blank name, a duplicate format |
+| `ShutdownTimeout` | 1006 | A shutdown drain ran out of its budget; see [Manager lifetime and shutdown](#manager-lifetime-and-shutdown) |
 | `ShuttingDown` | 1011 | A shutdown drain is running |
 
 **A failed call does not throw.** Every operation reports through its result, so a `try/catch` around clipboard code catches nothing the clipboard produces.

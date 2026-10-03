@@ -33,6 +33,7 @@ Language:
     - [Register categories and actions](#register-categories-and-actions)
     - [Receive events](#receive-events)
 - [Windows](#windows)
+  - [Changes in 1.12.0](#changes-in-1120)
   - [Setup](#setup-1)
   - [Initialize](#initialize)
   - [Show notification](#show-notification)
@@ -904,6 +905,34 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 Windows notifications are provided through `WindowsNotificationManager`. The sample scene demonstrates initialization, immediate notifications, scheduled notifications, progress-bar notifications, removing notifications, and querying notification permission — all for unpackaged Win32 apps built with Unity.
 
+### Changes in 1.12.0
+
+Since 1.12.0 Windows notifications run on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the JSON payload and its units are unchanged. What differs from 1.11.0:
+
+- **Namespace.** `WindowsNotificationManager` and its payload, builder and result types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`. Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` in Windows code. The Android, iOS and macOS types keep their namespace.
+- **Clicks now arrive.** In an unpackaged app (every Unity Windows standalone build), clicking a notification or one of its buttons while the app is running raises `NotificationInvoked`. In 1.11.0 the click was not delivered. A click while the app is not running starts it, and the click is delivered once after `Initialize`.
+- **Registration.** `Initialize` also writes `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator`, which routes clicks to this executable. **Two applications that use the same `displayName` compete for the clicks**: give each build its own display name.
+- **Error code `-4`** ("Native library unavailable"). Only `Initialize` returns it: the native library is missing, lacks a function, cannot be loaded, or is not C ABI 2.x. No manager is created, so later operations fail with `1`.
+- **The Editor.** The Windows notification API does nothing in the Editor and reports nothing.
+
+| Case | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| A JSON key that is missing, of the wrong type, or `null` | `5` | `7` |
+| A JSON number that does not fit a `double` (`1e400`, `1e-400`) | `5` | `3` |
+| A decimal in the JSON that rounds to 0 | Succeeded with 0 | `3` |
+| JSON nested deeper than 512 containers | `5` | `3` |
+| A `null` payload | The process crashed | `3` |
+| `NUL` inside a string | Passed on in full | Cut at the `NUL` |
+| `timestamp`, `expiration` or `scheduledTimeUnixMs` out of range | Passed on unchecked | `7` |
+| The arguments of a button with two or more of them | In an unspecified order | In the order of the JSON |
+| `UpdateNotificationProgress` with `valueStr` or `status` set to `null` | That field was left unchanged | That field is set to `""` |
+| The native library is missing or cannot be loaded | An exception from any method | `Initialize` returns `-4`; other methods `1` |
+| Any other exception in C# | Thrown to the caller | `5` |
+| After the manager is destroyed | The Windows App SDK runtime stayed initialized | It is shut down once; a new manager's `Initialize` starts it again |
+| Unpaired surrogates in strings | Passed through | Replaced with U+FFFD |
+
+Unchanged: a second `Initialize` succeeds; `timestamp` is in seconds; `Audio.Src` is still not read by the native layer, so the default sound plays whatever it holds.
+
 ### Supported capabilities
 
 - Initialize the Windows App SDK runtime and register the notification callback
@@ -927,7 +956,7 @@ Windows notifications are provided through `WindowsNotificationManager`. The sam
 #### Import the namespace
 
 ```csharp
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
 ```
 
 > **Note:** Wrap all Windows notification calls in `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` to prevent native calls from running in the Editor.

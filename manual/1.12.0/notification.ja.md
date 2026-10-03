@@ -33,6 +33,7 @@
     - [カテゴリ / アクションを登録する](#カテゴリ--アクションを登録する)
     - [イベントを受け取る](#イベントを受け取る)
 - [Windows](#windows)
+  - [1.12.0 での変更](#1120-での変更)
   - [セットアップ](#セットアップ-1)
   - [初期化](#初期化)
   - [通知を表示する](#通知を表示する)
@@ -904,6 +905,34 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 Windows 通知は `WindowsNotificationManager` を通じて提供されます。サンプルシーンでは、初期化、即時通知、スケジュール通知、進捗バー通知、通知の削除、通知許可のクエリを、Unity でビルドされたアンパッケージ Win32 アプリ上でデモします。
 
+### 1.12.0 での変更
+
+1.12.0 から、Windows の通知は native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、JSON のペイロードとその単位は変わりません。1.11.0 との違いは次のとおりです。
+
+- **名前空間。** `WindowsNotificationManager` と、ペイロード・ビルダー・結果の型は `JonghyunKim.NativeToolkit.Runtime.Windows.Notification` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+- **クリックが届くようになりました。** パッケージ化していないアプリ（Unity の Windows スタンドアロンビルドはすべてこれ）で、アプリが動いている間に通知やそのボタンをクリックすると、`NotificationInvoked` が発生します。1.11.0 ではクリックが届きませんでした。アプリが動いていないときにクリックするとアプリが起動し、`Initialize` の後にクリックが 1 回届きます。
+- **登録。** `Initialize` は `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator` も書き込み、これによってクリックがこの実行ファイルに届きます。**同じ `displayName` を使うアプリどうしはクリックを奪い合います。** ビルドごとに別の表示名にしてください。
+- **エラーコード `-4`**（「Native library unavailable」）。`Initialize` だけが返します。ネイティブライブラリが無い、関数が無い、読み込めない、または C ABI 2.x でないときです。Manager は作られないので、以後の操作は `1` で失敗します。
+- **Editor。** Editor では、Windows の通知の API は何もせず、何も報告しません。
+
+| 場面 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| JSON のキーが無い・型が違う・`null` | `5` | `7` |
+| `double` に収まらない JSON の数値（`1e400`、`1e-400`） | `5` | `3` |
+| JSON の小数で 0 に丸まる値 | 0 として成功 | `3` |
+| コンテナが 512 を超えて入れ子になった JSON | `5` | `3` |
+| `null` のペイロード | プロセスが落ちた | `3` |
+| 文字列の中の `NUL` | 最後まで渡した | `NUL` の手前で切れる |
+| 範囲外の `timestamp`・`expiration`・`scheduledTimeUnixMs` | 検査せずに渡した | `7` |
+| 引数が 2 つ以上あるボタンの引数 | 順序が決まっていなかった | JSON に書いた順 |
+| `UpdateNotificationProgress` の `valueStr` や `status` が `null` | その項目は変えなかった | その項目を `""` にする |
+| ネイティブライブラリが無い・読み込めない | どのメソッドでも例外 | `Initialize` は `-4`、ほかのメソッドは `1` |
+| そのほかの C# 側の例外 | 呼び出し側に例外 | `5` |
+| Manager を破棄した後 | Windows App SDK のランタイムは初期化されたまま | 1 回終了させ、新しい Manager の `Initialize` で初期化し直す |
+| 文字列の中の対になっていないサロゲート | そのまま | U+FFFD に置き換わる |
+
+変わらないもの: 2 回目の `Initialize` は成功します。`timestamp` は秒のままです。`Audio.Src` は今もネイティブ側が読まないので、何を入れても既定の音が鳴ります。
+
 ### サポート機能
 
 - Windows App SDK ランタイムの初期化と通知コールバックの登録
@@ -927,7 +956,7 @@ Windows 通知は `WindowsNotificationManager` を通じて提供されます。
 #### 名前空間のインポート
 
 ```csharp
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
 ```
 
 > **注意:** すべての Windows 通知 API 呼び出しを `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` で囲み、エディター上でネイティブ呼び出しが実行されないようにしてください。

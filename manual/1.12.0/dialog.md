@@ -17,6 +17,7 @@ Language:
 - [iOS](#ios)
   - [IosDialogManager](#iosdialogmanager)
 - [Windows](#windows)
+  - [Changes in 1.12.0](#changes-in-1120)
   - [WindowsDialogManager](#windowsdialogmanager)
 - [macOS](#macos)
   - [MacDialogManager](#macdialogmanager)
@@ -827,6 +828,38 @@ private void OnLoginDialogResult(
 
 ## Windows
 
+### Changes in 1.12.0
+
+Since 1.12.0 the Windows dialogs run on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events and their parameters are unchanged. What differs from 1.11.0:
+
+- **Namespace.** `WindowsDialogManager`, `Win32MessageBox` and `WindowsDialogErrorCodes` are in `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`. Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` in Windows code. The Android, iOS and macOS types keep their namespace.
+- **The Editor.** The Windows types also compile in the Editor. A call there shows nothing and reports `-5` through the event.
+- **Reserved error codes.** Besides the OS value, `errorCode` can be one of the values below. Compare with the constants rather than checking the sign: an OS `HRESULT` is negative too.
+
+| Constant (`WindowsDialogErrorCodes`) | Value | Meaning |
+| --- | --- | --- |
+| `Cancelled` | -1 | The user cancelled a file or folder dialog (`isCancelled = true`, `isSuccess = true`) |
+| `InvalidArgument` | -2 | Refused before showing anything: an empty title or message, an unsupported flag, a filter without a pattern |
+| `Unknown` | -3 | A failure that cannot be described more precisely |
+| `NativeUnavailable` | -4 | The native library is missing, lacks a function, cannot be loaded, or is not C ABI 2.x |
+| `PlatformUnavailable` | -5 | Not a Windows player (for example the Editor). No dialog is shown |
+
+| Case | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| `bufferSize` | Used as the buffer; a longer result failed | Ignored. One path can be up to 1023 characters and a multiple selection up to 32768 characters in total; beyond that the OS error code is returned |
+| Empty title or message | An empty dialog, and up to three events | No dialog; one event with `-2` |
+| `MB_SYSTEMMODAL`, `MB_TASKMODAL`, `MB_RIGHT`, `MB_RTLREADING` | Passed to Windows | No dialog; `-2`. Supported: the 7 button sets, 4 icons, 4 default buttons, `MB_APPLMODAL`, `MB_TOPMOST` and `MB_HELP` (0x4000) |
+| A filter pair without a pattern | Passed to Windows | `-2` |
+| Empty entries in a pattern (`"*.txt;;*.log"`) | Passed to Windows | Collapsed to `"*.txt;*.log"` |
+| A filter with no pairs (`""`) | An empty filter | One "All files" pair |
+| `ShowSaveFileDialog` with `defExt = ""` | Windows appended the selected filter's extension (`new` becomes `new.txt`) | The name is returned as typed (`new` stays `new`). Pass `defExt` to get an extension; the default `"txt"` gives `new.txt` |
+| `ShowFolderDialog` with `title = ""` | An empty title | The system title |
+| Multiple files selected at a drive root | `C:\\a.txt` | `C:\a.txt` |
+| The message box returns 0 with no OS error | `(0, true, null)` | `(0, false, -3)` |
+| The native library is missing or cannot be loaded | An exception at the call | No exception; the event reports `-4` |
+| Any other exception in C# | Thrown to the caller | No exception; the event reports `-3` |
+| Unpaired surrogates in strings | Passed through | Replaced with U+FFFD |
+
 ### WindowsDialogManager
 
 #### ShowDialog - Basic dialog
@@ -836,7 +869,7 @@ private void OnLoginDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -901,7 +934,7 @@ private void OnAlertDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -956,7 +989,7 @@ private void OnFileDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1011,7 +1044,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1066,7 +1099,7 @@ private void OnFolderDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1121,7 +1154,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

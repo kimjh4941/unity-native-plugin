@@ -33,6 +33,7 @@
     - [카테고리와 액션 등록](#카테고리와-액션-등록)
     - [이벤트 수신](#이벤트-수신)
 - [Windows](#windows)
+  - [1.12.0 변경 사항](#1120-변경-사항)
   - [설정](#설정-1)
   - [초기화](#초기화)
   - [알림 표시](#알림-표시)
@@ -904,6 +905,34 @@ IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
 
 Windows 알림은 `WindowsNotificationManager`를 통해 제공됩니다. 샘플 씬에서는 초기화, 즉시 알림, 예약 알림, 진행률 바 알림, 알림 삭제, 알림 권한 쿼리를 Unity로 빌드한 언패키지 Win32 앱에서 시연합니다.
 
+### 1.12.0 변경 사항
+
+1.12.0부터 Windows 알림은 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, JSON 페이로드와 그 단위는 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
+
+- **네임스페이스.** `WindowsNotificationManager`와 페이로드·빌더·결과 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Notification;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+- **클릭이 전달됩니다.** 패키지화하지 않은 앱(Unity의 Windows 스탠드얼론 빌드는 모두 해당)에서 앱이 실행 중일 때 알림이나 그 버튼을 클릭하면 `NotificationInvoked`가 발생합니다. 1.11.0에서는 클릭이 전달되지 않았습니다. 앱이 실행 중이 아닐 때 클릭하면 앱이 시작되고, `Initialize` 후에 클릭이 한 번 전달됩니다.
+- **등록.** `Initialize`는 `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator`도 기록하며, 이를 통해 클릭이 이 실행 파일로 전달됩니다. **같은 `displayName`을 쓰는 앱끼리는 클릭을 서로 가져갑니다.** 빌드마다 다른 표시 이름을 사용해 주세요.
+- **오류 코드 `-4`**("Native library unavailable"). `Initialize`만 반환합니다. 네이티브 라이브러리가 없거나, 함수가 없거나, 불러올 수 없거나, C ABI 2.x가 아닐 때입니다. Manager가 만들어지지 않으므로 이후 작업은 `1`로 실패합니다.
+- **Editor.** Editor에서는 Windows 알림 API가 아무 일도 하지 않고, 아무것도 보고하지 않습니다.
+
+| 상황 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| JSON 키가 없거나, 타입이 다르거나, `null` | `5` | `7` |
+| `double`에 담기지 않는 JSON 숫자(`1e400`, `1e-400`) | `5` | `3` |
+| 0으로 반올림되는 JSON 소수 | 0으로 성공 | `3` |
+| 컨테이너가 512개를 넘게 중첩된 JSON | `5` | `3` |
+| `null` 페이로드 | 프로세스가 종료됨 | `3` |
+| 문자열 안의 `NUL` | 끝까지 전달 | `NUL` 앞에서 잘림 |
+| 범위를 벗어난 `timestamp`·`expiration`·`scheduledTimeUnixMs` | 검사 없이 전달 | `7` |
+| 인수가 2개 이상인 버튼의 인수 | 순서가 정해져 있지 않았음 | JSON에 쓴 순서 |
+| `UpdateNotificationProgress`의 `valueStr`이나 `status`가 `null` | 그 항목을 바꾸지 않았음 | 그 항목을 `""`로 설정 |
+| 네이티브 라이브러리가 없거나 불러올 수 없음 | 모든 메서드에서 예외 | `Initialize`는 `-4`, 다른 메서드는 `1` |
+| 그 밖의 C# 쪽 예외 | 호출한 쪽으로 예외 | `5` |
+| Manager를 파괴한 뒤 | Windows App SDK 런타임이 초기화된 채로 남음 | 한 번 종료하고, 새 Manager의 `Initialize`에서 다시 초기화 |
+| 문자열 안의 짝이 맞지 않는 서로게이트 | 그대로 | U+FFFD로 바뀜 |
+
+바뀌지 않은 것: 두 번째 `Initialize`는 성공합니다. `timestamp`는 초 단위입니다. `Audio.Src`는 여전히 네이티브 쪽에서 읽지 않으므로, 무엇을 넣어도 기본 소리가 납니다.
+
 ### 지원 기능
 
 - Windows App SDK 런타임 초기화 및 알림 콜백 등록
@@ -927,7 +956,7 @@ Windows 알림은 `WindowsNotificationManager`를 통해 제공됩니다. 샘플
 #### 네임스페이스 임포트
 
 ```csharp
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
 ```
 
 > **참고:** 모든 Windows 알림 API 호출을 `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR`로 감싸 에디터에서 네이티브 호출이 실행되지 않도록 하세요.

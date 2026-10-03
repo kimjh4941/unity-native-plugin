@@ -85,6 +85,7 @@
   - [이벤트 수신](#이벤트-수신-2)
   - [오류 처리](#오류-처리)
 - [Windows](#windows)
+  - [1.12.0 변경 사항](#1120-변경-사항)
   - [설정](#설정-3)
   - [일반 텍스트 복사](#일반-텍스트-복사-3)
   - [HTML 텍스트 복사](#html-텍스트-복사-3)
@@ -2204,6 +2205,22 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ## Windows
 
+### 1.12.0 변경 사항
+
+1.12.0부터 Windows 클립보드는 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, `Operation*` 값, 결과 타입, 오류 코드 값, `WindowsClipboardJsonBuilder`, 페이로드 타입, 스레드 규칙은 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
+
+- **네임스페이스.** `WindowsClipboardManager`와 결과·페이로드·빌더 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Clipboard;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+
+| 상황 | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| 기록의 `Timestamp` | 100나노초 정밀도 | 밀리초 정밀도(아래 자릿수는 0). 값은 여전히 FILETIME 틱 수 |
+| 읽기의 `BufferTooSmall`(7) | 읽는 동안 내용의 크기가 계속 바뀌면 반환됨 | 반환되지 않습니다. 읽기는 한 번의 호출로 끝납니다 |
+| 기록·형식 목록·사용 가능 여부의 `ResultParseFailed`(1007) | 네이티브 응답이 깨져 있으면 반환됨 | 반환되지 않습니다. 기록 항목을 복사하는 도중의 실패는 `OutOfMemory`(8) 또는 `Unknown`(19)으로 한 번만 전달됩니다 |
+| 문자열 안의 짝이 맞지 않는 서로게이트 | UTF-16 그대로 전달 | UTF-8로 전달하며, 읽어 온 문자열에는 U+FFFD가 들어감 |
+| `CopyMultipleFormats`에 오류가 2개 이상일 때 | 요소 순서상 첫 오류를 반환 | 먼저 모든 base64를 확인하고, 다음에 플래그, 그다음 요소를 봅니다. 차이가 보이는 것은 앞 요소가 `InvalidData`이거나 플래그가 잘못되었을 때뿐입니다. DIB로서 잘못된 요소 뒤에 잘못된 base64가 있으면 `InvalidData`였던 것이 `InvalidParameter`가 됩니다 |
+| 요청이 대기 중일 때의 첫 번째 종료 시도 | 바로 끝나지 않았고, 이어지는 drain 동안 `Initialize`는 `ShuttingDown`으로 거부됨 | 대기 중인 요청은 호출 안에서 `Canceled`로 전달되며, 첫 시도에서 끝날 수 있습니다. 기록 요청이 이미 실행 중이면 close는 `Busy`인 채로 남고, 이전처럼 drain이 이어집니다 |
+| 불러올 수 없는 네이티브 라이브러리 | `Unknown`, 또는 일부 API에서 예외 | `BridgeUnavailable`(1001) |
+
 ### 설정
 
 #### 네임스페이스 가져오기
@@ -2212,7 +2229,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 ```csharp
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 #endif
 ```
 
@@ -2277,7 +2294,7 @@ await Task.Run(() =>
 `WindowsClipboardManager.Instance`는 최초 접근 시 매니저를 생성하며 씬 전환을 넘어 유지됩니다. 클립보드는 다른 프로세스가 점유할 수 있으므로 종료 경로가 두 가지입니다.
 
 ```csharp
-// 진행 중인 요청이 없을 때만 완료됩니다. 완료 여부는 completed가 알려 줍니다.
+// 한 번만 시도한다. 대기 중인 요청은 Canceled로 전달된다. completed는 끝났는지 여부.
 WindowsClipboardResult immediate = WindowsClipboardManager.Instance.TryShutdown(out bool completed);
 
 // 진행 중인 요청을 취소하고 이후 프레임에 걸쳐 완료합니다.
@@ -2286,6 +2303,8 @@ WindowsClipboardManager.Instance.ShutdownWithDrain(result =>
 ```
 
 `CanShutdownNow`는 같은 질문을 실행하지 않고 묻습니다. 드레인이 도는 동안의 `Initialize`는 `ShuttingDown`(1011)으로 거부됩니다. 매니저가 파기된 뒤에는 `WindowsClipboardManager.IsTerminated`가 `true`가 되고 모든 API가 거부됩니다.
+
+한도(60프레임 또는 2초)를 다 쓴 drain은 `ShutdownTimeout`(1006)으로 끝나고, Manager는 종료에 실패한 상태로 남습니다. `Initialize`는 계속 `ShuttingDown`을 반환하고, 네이티브 세션은 버려지지 않고 유지됩니다. 나중에 `ShutdownWithDrain`이나 `TryShutdown`을 다시 호출해 주세요. close가 성공하면 `Initialize`를 다시 사용할 수 있습니다. PC 부하가 높아 기록 요청이 끝나지 않을 때 일어납니다.
 
 ---
 
@@ -2705,8 +2724,10 @@ WindowsClipboardResult result = WindowsClipboardManager.Instance.Clear();
 | `Canceled` | 15 | `CancelRequest` 또는 취소된 `Awaitable` |
 | `NotForeground` | 17 | 복원에는 애플리케이션이 앞에 있어야 함 |
 | `PlatformUnavailable` | 1000 | 에디터 실행 또는 다른 플랫폼 |
+| `BridgeUnavailable` | 1001 | 네이티브 라이브러리가 없거나, 불러올 수 없거나, C ABI 2.x가 아님(`Initialize`) |
 | `MainThreadRequired` | 1002 | Unity 메인 스레드가 아닌 곳에서 호출됨 |
 | `InvalidArgument` | 1005 | null 텍스트, 빈 목록, 공백 이름, 중복 포맷 |
+| `ShutdownTimeout` | 1006 | 종료 drain이 한도를 다 씀(위의 Manager 수명과 종료 참고) |
 | `ShuttingDown` | 1011 | 종료 드레인이 진행 중 |
 
 **실패해도 예외를 던지지 않습니다.** 모든 작업이 결과 타입으로 보고하므로, 클립보드 코드를 `try/catch`로 감싸도 클립보드에서 비롯된 것은 아무것도 잡히지 않습니다.
