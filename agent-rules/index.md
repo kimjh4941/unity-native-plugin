@@ -8,6 +8,7 @@ All implementation rules are managed in this folder.
 - Common implementation policy (Bridge pattern / sample scenes / TDD): ./coding-rules/common.md
 - C# coding rules (Unity6): ./coding-rules/csharp.md
 - Test strategy (test layers / per-platform tooling): ./coding-rules/testing.md
+- Agent tooling notes on Windows (escaping, line endings, Japanese .py files, searches): ./tooling-notes.md
 
 ## Artifacts
 
@@ -45,6 +46,7 @@ Agent-specific wrappers in `.github/` reference these files.
 
 ## Working with the user
 
+- Reply to the user in Japanese, long reports included. Commit messages, code, identifiers and test names stay in English.
 - When the user has to decide, name the option you recommend and why in one line. Do not present a neutral list of choices.
 - Do not offer to stop or pause at a milestone. Finish the step, report the result, and go on to the next one; the user says when to stop. Still ask before anything hard to reverse or outward-facing (commits, pushes, PRs, releases, messages to others).
 - Choose the number of subagents or reviewers yourself from the work (distinct viewpoints, not volume), and state the choice in one line.
