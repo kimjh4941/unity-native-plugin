@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -129,101 +129,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 WindowsClipboardManager.ClassifyShutdown(false, code));
         }
 
-        // ── Read classification (design 7.5) ─────────────────────────────────────
-
-        [TestCase(WindowsClipboardErrorCode.Empty)]
-        [TestCase(WindowsClipboardErrorCode.FormatUnavailable)]
-        public void ClassifyFirstRead_TheseCodesMeanAnEmptyClipboard(WindowsClipboardErrorCode code)
-        {
-            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
-                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: false));
-            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
-                WindowsClipboardManager.ClassifyFirstRead(code, 12, isByteApi: true));
-        }
-
-        [Test]
-        public void ClassifyFirstRead_NoneWithASizeNeedsABuffer()
-        {
-            Assert.AreEqual(WindowsClipboardReadDecision.NeedsBuffer,
-                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.None, 5, false));
-        }
-
-        [Test]
-        public void ClassifyFirstRead_NoneWithoutASizeIsEmpty()
-        {
-            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
-                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.None, 0, false));
-        }
-
-        [Test]
-        public void ClassifyFirstRead_BufferTooSmallWithASizeNeedsABuffer()
-        {
-            // This is the normal path: the sizing call always reports the size this way.
-            Assert.AreEqual(WindowsClipboardReadDecision.NeedsBuffer,
-                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 21, false));
-        }
-
-        [Test]
-        public void ClassifyFirstRead_ZeroBytesIsAnEmptySuccessOnlyForTheByteApis()
-        {
-            // The byte APIs report a zero-length payload as size 0 plus BufferTooSmall. A string
-            // API always needs room for the terminator, so the same pair means something is wrong.
-            Assert.AreEqual(WindowsClipboardReadDecision.EmptySuccess,
-                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 0, isByteApi: true));
-            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
-                WindowsClipboardManager.ClassifyFirstRead(WindowsClipboardErrorCode.BufferTooSmall, 0, isByteApi: false));
-        }
-
-        [TestCase(WindowsClipboardErrorCode.NotInitialized)]
-        [TestCase(WindowsClipboardErrorCode.Busy)]
-        [TestCase(WindowsClipboardErrorCode.InvalidData)]
-        [TestCase(WindowsClipboardErrorCode.OutOfMemory)]
-        [TestCase(WindowsClipboardErrorCode.WrongThread)]
-        public void ClassifyFirstRead_AFailureWithZeroSizeIsNeverNormalizedToEmpty(
-            WindowsClipboardErrorCode code)
-        {
-            // The native read APIs return 0 for a lease failure too, so trusting the size instead
-            // of the code would turn a real failure into "the clipboard is empty".
-            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
-                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: false));
-            Assert.AreEqual(WindowsClipboardReadDecision.Failure,
-                WindowsClipboardManager.ClassifyFirstRead(code, 0, isByteApi: true));
-        }
-
-        [Test]
-        public void ClassifySecondRead_NoneMeansTheBufferMayBeRead()
-        {
-            Assert.AreEqual(WindowsClipboardSecondReadDecision.Read,
-                WindowsClipboardManager.ClassifySecondRead(WindowsClipboardErrorCode.None));
-        }
-
-        [TestCase(WindowsClipboardErrorCode.Empty)]
-        [TestCase(WindowsClipboardErrorCode.FormatUnavailable)]
-        public void ClassifySecondRead_TheClipboardChangingBetweenCallsIsAnEmptySuccess(
-            WindowsClipboardErrorCode code)
-        {
-            Assert.AreEqual(WindowsClipboardSecondReadDecision.EmptySuccess,
-                WindowsClipboardManager.ClassifySecondRead(code));
-        }
-
-        [Test]
-        public void ClassifySecondRead_BufferTooSmallMeansTheContentGrew()
-        {
-            Assert.AreEqual(WindowsClipboardSecondReadDecision.Retry,
-                WindowsClipboardManager.ClassifySecondRead(WindowsClipboardErrorCode.BufferTooSmall));
-        }
-
-        [TestCase(WindowsClipboardErrorCode.Busy)]
-        [TestCase(WindowsClipboardErrorCode.InvalidData)]
-        [TestCase(WindowsClipboardErrorCode.Unknown)]
-        public void ClassifySecondRead_OtherCodesFailBeforeTheBufferIsTouched(
-            WindowsClipboardErrorCode code)
-        {
-            Assert.AreEqual(WindowsClipboardSecondReadDecision.Failure,
-                WindowsClipboardManager.ClassifySecondRead(code));
-        }
-
-        // ── Deferred rendering (design 2.8 and 7.7) ──────────────────────────────
+        // ── Deferred rendering (design v8 2.8, and v12 J-8 for the one-step render) ──
 
         private static Dictionary<string, Func<byte[]>> Provider(string format, byte[] payload) =>
             new() { [format] = () => payload };
@@ -274,76 +180,43 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void Render_FirstPhase_ReportsTheSizeAndAsksToBeCalledAgain()
+        public void Render_HandsTheProvidersBytesToTheTargetOnce()
         {
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1, 2, 3 }));
-
-            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
-
-            Assert.AreEqual((uint)WindowsClipboardErrorCode.BufferTooSmall, code);
-            Assert.AreEqual(3u, required);
-        }
-
-        [Test]
-        public void Render_SecondPhase_WritesTheBytesAndRepeatsTheSameSize()
-        {
-            // The native layer discards a format whose second answer differs from the first, so the
-            // payload is produced once and reused rather than regenerated.
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 7, 8 }));
-            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
-
-            IntPtr buffer = Marshal.AllocHGlobal((int)first);
-            try
-            {
-                uint code = WindowsClipboardManager.RenderForTests("F", buffer, first, out uint second);
-
-                Assert.AreEqual((uint)WindowsClipboardErrorCode.None, code);
-                Assert.AreEqual(first, second, "the two phases must agree on the size");
-                var written = new byte[second];
-                Marshal.Copy(buffer, written, 0, (int)second);
-                Assert.AreEqual(new byte[] { 7, 8 }, written);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
-
-        [Test]
-        public void Render_SecondPhase_UsesTheCachedBytesEvenWhenTheProviderWouldChange()
-        {
-            int calls = 0;
+            int providerCalls = 0;
             var providers = new Dictionary<string, Func<byte[]>>
             {
-                ["F"] = () => { calls++; return calls == 1 ? new byte[] { 1, 2, 3 } : new byte[] { 9 }; }
+                ["F"] = () => { providerCalls++; return new byte[] { 7, 8 }; }
             };
             WindowsClipboardManager.SetRenderProvidersForTests(providers);
 
-            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
-            IntPtr buffer = Marshal.AllocHGlobal((int)first);
-            try
+            var handed = new List<byte[]>();
+            WindowsClipboardErrorCode code = WindowsClipboardManager.RenderForTests("F", bytes =>
             {
-                WindowsClipboardManager.RenderForTests("F", buffer, first, out uint second);
+                handed.Add(bytes);
+                return WindowsClipboardErrorCode.None;
+            });
 
-                Assert.AreEqual(1, calls, "the provider runs once per render, not once per phase");
-                Assert.AreEqual(first, second);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
+            Assert.AreEqual(WindowsClipboardErrorCode.None, code);
+            Assert.AreEqual(1, providerCalls, "the provider runs once per render, as in 1.x");
+            Assert.AreEqual(1, handed.Count);
+            CollectionAssert.AreEqual(new byte[] { 7, 8 }, handed[0]);
         }
 
         [Test]
         public void Render_AZeroLengthPayloadIsReportedRatherThanPlaced()
         {
             WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[0]));
+            bool reached = false;
 
-            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
+            WindowsClipboardErrorCode code = WindowsClipboardManager.RenderForTests("F", _ =>
+            {
+                reached = true;
+                return WindowsClipboardErrorCode.None;
+            });
 
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("produced no bytes"));
-            Assert.AreEqual((uint)WindowsClipboardErrorCode.InvalidData, code);
-            Assert.AreEqual(0u, required);
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("F: produced no bytes"));
+            Assert.AreEqual(WindowsClipboardErrorCode.InvalidData, code);
+            Assert.IsFalse(reached, "nothing reaches the target");
         }
 
         [Test]
@@ -351,55 +224,14 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             WindowsClipboardManager.SetRenderProvidersForTests(new Dictionary<string, Func<byte[]>>());
 
-            uint code = WindowsClipboardManager.RenderForTests("MISSING", IntPtr.Zero, 0, out uint required);
+            WindowsClipboardErrorCode code = WindowsClipboardManager.RenderForTests("MISSING", _ => WindowsClipboardErrorCode.None);
 
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("no provider for MISSING"));
-            Assert.AreEqual((uint)WindowsClipboardErrorCode.InvalidParameter, code);
-            Assert.AreEqual(0u, required);
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("MISSING: no provider"));
+            Assert.AreEqual(WindowsClipboardErrorCode.InvalidParameter, code);
         }
 
         [Test]
-        public void Render_SecondPhaseWithoutACachedPayloadFailsInsteadOfRegenerating()
-        {
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1 }));
-
-            IntPtr buffer = Marshal.AllocHGlobal(1);
-            try
-            {
-                uint code = WindowsClipboardManager.RenderForTests("F", buffer, 1, out uint required);
-
-                LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("no cached payload"));
-                Assert.AreEqual((uint)WindowsClipboardErrorCode.Unknown, code);
-                Assert.AreEqual(0u, required);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
-
-        [Test]
-        public void Render_ATooSmallBufferReportsTheRealSize()
-        {
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1, 2, 3, 4 }));
-            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
-
-            IntPtr buffer = Marshal.AllocHGlobal(1);
-            try
-            {
-                uint code = WindowsClipboardManager.RenderForTests("F", buffer, 1, out uint required);
-
-                Assert.AreEqual((uint)WindowsClipboardErrorCode.BufferTooSmall, code);
-                Assert.AreEqual(first, required, "the size reported must stay the one promised");
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
-
-        [Test]
-        public void Render_AThrowingProviderIsContainedAndReportsNoSize()
+        public void Render_AThrowingProviderIsContained()
         {
             var providers = new Dictionary<string, Func<byte[]>>
             {
@@ -407,141 +239,30 @@ namespace JonghyunKim.NativeToolkit.Tests
             };
             WindowsClipboardManager.SetRenderProvidersForTests(providers);
 
-            uint code = WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint required);
+            WindowsClipboardErrorCode code = WindowsClipboardManager.RenderForTests("F", _ => WindowsClipboardErrorCode.None);
 
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("InvalidOperationException"));
-            Assert.AreEqual((uint)WindowsClipboardErrorCode.Unknown, code);
-            Assert.AreEqual(0u, required, "an exception must not leave a stale size behind");
+            Assert.AreEqual(WindowsClipboardErrorCode.Unknown, code);
         }
 
-
-        // ── The two-call read protocol (design 7.5) ──────────────────────────────
-        // Driven through a stand-in for the native side. Behind the compile guard none of this
-        // could be reached, and the editor's answer came from the guard rather than the protocol.
-
-        private static Func<IntPtr, uint, (uint, WindowsClipboardErrorCode)> TextSource(string value)
+        [TestCase(WindowsClipboardErrorCode.InvalidParameter)]
+        [TestCase(WindowsClipboardErrorCode.OutOfMemory)]
+        public void Render_ATargetFailureIsReturnedAsItIs(WindowsClipboardErrorCode targetCode)
         {
-            uint needed = (uint)value.Length + 1;
-            return (buffer, bufferSize) =>
-            {
-                if (buffer == IntPtr.Zero) return (needed, WindowsClipboardErrorCode.None);
-                if (bufferSize < needed) return (needed, WindowsClipboardErrorCode.BufferTooSmall);
-                for (int i = 0; i < value.Length; i++)
-                {
-                    Marshal.WriteInt16(buffer, i * 2, (short)value[i]);
-                }
-                Marshal.WriteInt16(buffer, value.Length * 2, 0);
-                return (needed, WindowsClipboardErrorCode.None);
-            };
+            // Not overwritten with None: the native side logs what the render reports.
+            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1 }));
+
+            WindowsClipboardErrorCode code = WindowsClipboardManager.RenderForTests("F", _ => targetCode);
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("render_target_set"));
+            Assert.AreEqual(targetCode, code);
         }
 
-        [Test]
-        public void Read_ReturnsTheTextTheSecondCallWrote()
-        {
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: false, TextSource("hello"));
+        // ── Reads (design v12 4.3) ───────────────────────────────────────────────
+        // Driven through a stand-in for the native call, guard included.
 
-            Assert.IsTrue(outcome.isSuccess);
-            Assert.IsFalse(outcome.isEmpty);
-            Assert.AreEqual("hello", outcome.text);
-            Assert.AreEqual(2, outcome.calls, "one sizing call and one fill call");
-        }
-
-        [Test]
-        public void Read_AnEmptyStringIsAValueRatherThanAnEmptyClipboard()
-        {
-            // The native side reports a size of one for an empty string, not zero. Something was
-            // copied and can be pasted back, which is not the same as nothing being there.
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: false, TextSource(string.Empty));
-
-            Assert.IsTrue(outcome.isSuccess);
-            Assert.IsFalse(outcome.isEmpty, "the clipboard holds an empty string, not nothing");
-            Assert.AreEqual(string.Empty, outcome.text);
-        }
-
-        [Test]
-        public void Read_WhenTheContentGrowsBetweenTheCalls_SizesItAgain()
-        {
-            int call = 0;
-            var growing = TextSource("larger");
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: false,
-                (buffer, bufferSize) =>
-                {
-                    call++;
-                    // The second call finds the content no longer fits what the first promised.
-                    if (call == 2) return (0u, WindowsClipboardErrorCode.BufferTooSmall);
-                    return growing(buffer, bufferSize);
-                });
-
-            Assert.IsTrue(outcome.isSuccess);
-            Assert.AreEqual("larger", outcome.text);
-            Assert.AreEqual(4, outcome.calls, "sizing and filling, twice");
-        }
-
-        [Test]
-        public void Read_ThatKeepsResizingGivesUpRatherThanLoopingForever()
-        {
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: false,
-                (buffer, bufferSize) => buffer == IntPtr.Zero
-                    ? (4u, WindowsClipboardErrorCode.None)
-                    : (0u, WindowsClipboardErrorCode.BufferTooSmall));
-
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("kept resizing"));
-            Assert.IsFalse(outcome.isSuccess);
-            Assert.AreEqual(WindowsClipboardErrorCode.BufferTooSmall, outcome.code);
-            Assert.AreEqual(6, outcome.calls, "three attempts of two calls each, then it stops");
-        }
-
-        [Test]
-        public void Read_AFailureOnTheSecondCallIsReportedWithoutTouchingTheBuffer()
-        {
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: true,
-                (buffer, bufferSize) => buffer == IntPtr.Zero
-                    ? (8u, WindowsClipboardErrorCode.None)
-                    // Nothing was written, so reading the buffer would hand back uninitialized memory.
-                    : (0u, WindowsClipboardErrorCode.Busy));
-
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("read failed"));
-            Assert.IsFalse(outcome.isSuccess);
-            Assert.AreEqual(WindowsClipboardErrorCode.Busy, outcome.code);
-            Assert.IsNull(outcome.data);
-        }
-
-        [Test]
-        public void Read_AFailureOnTheFirstCallNeverAllocatesAtAll()
-        {
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: true,
-                (buffer, bufferSize) => (0u, WindowsClipboardErrorCode.NotInitialized));
-
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("sizing failed"));
-            Assert.IsFalse(outcome.isSuccess);
-            Assert.IsFalse(outcome.isEmpty, "a rejected read is not an empty clipboard");
-            Assert.AreEqual(WindowsClipboardErrorCode.NotInitialized, outcome.code);
-            Assert.AreEqual(1, outcome.calls);
-        }
-
-        [Test]
-        public void Read_ByteApi_ReturnsExactlyWhatWasWritten()
-        {
-            byte[] payload = { 9, 8, 7 };
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: true,
-                (buffer, bufferSize) =>
-                {
-                    if (buffer == IntPtr.Zero) return ((uint)payload.Length, WindowsClipboardErrorCode.None);
-                    Marshal.Copy(payload, 0, buffer, payload.Length);
-                    return ((uint)payload.Length, WindowsClipboardErrorCode.None);
-                });
-
-            Assert.IsTrue(outcome.isSuccess);
-            Assert.AreEqual(payload, outcome.data);
-        }
-
+        private static Func<(WindowsClipboardErrorCode, string?)> Answers(WindowsClipboardErrorCode code, string? text) =>
+            () => (code, text);
 
         [Test]
         public void ReadText_AnEmptyPasteIsAnEmptyStringAndNotAnEmptyClipboard()
@@ -552,7 +273,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
             WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
-                WindowsClipboardManager.OperationPastePlainText, TextSource(string.Empty));
+                WindowsClipboardManager.OperationPastePlainText, Answers(WindowsClipboardErrorCode.None, string.Empty));
 
             Assert.IsTrue(result.IsSuccess);
             Assert.IsFalse(result.IsEmpty);
@@ -562,14 +283,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ReadText_GetPreferredFormat_TreatsAnEmptyStringAsNothingMatched()
         {
-            // The odd one out, and the only reason the normalization exists: this call answers with
-            // an empty string when none of the candidates were present, and never reports the
-            // native Empty code.
+            // The odd one out: this call answers with an empty string when none of the candidates
+            // were present, and never reports the native Empty code.
             WindowsClipboardManager.PlatformAvailableForTests = true;
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
             WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
-                WindowsClipboardManager.OperationGetPreferredFormat, TextSource(string.Empty));
+                WindowsClipboardManager.OperationGetPreferredFormat, Answers(WindowsClipboardErrorCode.None, string.Empty));
 
             Assert.IsTrue(result.IsSuccess);
             Assert.IsTrue(result.IsEmpty);
@@ -582,88 +302,58 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
             WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
-                WindowsClipboardManager.OperationPastePlainText, TextSource("kept"));
+                WindowsClipboardManager.OperationPastePlainText, Answers(WindowsClipboardErrorCode.None, "kept"));
 
             Assert.IsTrue(result.IsSuccess);
             Assert.IsFalse(result.IsEmpty);
             Assert.AreEqual("kept", result.Text);
         }
 
-        [Test]
-        public void Render_AProviderGenerationChangeTakesTheCacheWithIt()
+        [TestCase(WindowsClipboardErrorCode.Empty)]
+        [TestCase(WindowsClipboardErrorCode.FormatUnavailable)]
+        public void ReadText_EmptyAndFormatUnavailable_AreAnEmptyClipboard(WindowsClipboardErrorCode code)
         {
-            // Every path that installs a generation for real clears the cache too. If the seam did
-            // not, a test could ask the second phase to answer from the previous generation's
-            // bytes - a state the manager itself cannot reach.
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 1, 2, 3 }));
-            WindowsClipboardManager.RenderForTests("F", IntPtr.Zero, 0, out uint first);
-            CollectionAssert.Contains(WindowsClipboardManager.RenderCacheNamesForTests, "F");
+            WindowsClipboardManager.PlatformAvailableForTests = true;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("F", new byte[] { 9 }));
+            WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
+                WindowsClipboardManager.OperationPastePlainText, Answers(code, null));
 
-            CollectionAssert.IsEmpty(WindowsClipboardManager.RenderCacheNamesForTests);
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.IsEmpty);
+        }
 
-            IntPtr buffer = Marshal.AllocHGlobal((int)first);
-            try
-            {
-                uint code = WindowsClipboardManager.RenderForTests("F", buffer, first, out uint required);
+        [TestCase(WindowsClipboardErrorCode.NotInitialized)]
+        [TestCase(WindowsClipboardErrorCode.Busy)]
+        [TestCase(WindowsClipboardErrorCode.InvalidData)]
+        public void ReadText_AFailureIsNeverNormalizedToEmpty(WindowsClipboardErrorCode code)
+        {
+            // The native read fails without a value for a lease failure too, so trusting the value
+            // instead of the code would turn a real failure into "the clipboard is empty".
+            WindowsClipboardManager.PlatformAvailableForTests = true;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
-                LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("no cached payload"));
-                Assert.AreEqual((uint)WindowsClipboardErrorCode.Unknown, code);
-                Assert.AreEqual(0u, required);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
+            WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
+                WindowsClipboardManager.OperationPastePlainText, Answers(code, null));
+
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("read failed"));
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsFalse(result.IsEmpty, "a rejected read is not an empty clipboard");
+            Assert.AreEqual(code, result.ErrorCode);
         }
 
         [Test]
-        public void Read_ASizeTooLargeToAllocateIsRefusedRatherThanTruncated()
+        public void ReadText_CutsAtTheFirstNul()
         {
-            // An unchecked cast turns this into a negative byte count, and the allocation that
-            // follows is smaller than what the second call is told it may write into.
-            var outcome = WindowsClipboardManager.ReadRawForTests(
-                isByteApi: false,
-                (buffer, bufferSize) => (0x7FFFFFFFu, WindowsClipboardErrorCode.None));
+            // As 1.x's PtrToStringUni read it; the C ABI hands back a length, so a NUL would survive.
+            WindowsClipboardManager.PlatformAvailableForTests = true;
+            WindowsClipboardManager.SetStateForTests(WindowsClipboardManagerState.Running);
 
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("too large to allocate"));
-            Assert.IsFalse(outcome.isSuccess);
-            Assert.AreEqual(WindowsClipboardErrorCode.OutOfMemory, outcome.code);
-            Assert.AreEqual(1, outcome.calls, "nothing was allocated, so nothing was filled");
+            WindowsClipboardTextResult result = WindowsClipboardManager.ReadTextForTests(
+                WindowsClipboardManager.OperationPastePlainText, Answers(WindowsClipboardErrorCode.None, "ab\0cd"));
+
+            Assert.AreEqual("ab", result.Text);
         }
-
-        [Test]
-        public void Reservation_OnFailure_KeepsTheCachedBytesAsWellAsTheProviders()
-        {
-            // The two go together. Dropping the cache while keeping the providers leaves a render
-            // that already promised a size unable to answer with it, and the native side discards
-            // the format for disagreeing with itself.
-            WindowsClipboardManager.SetRenderProvidersForTests(Provider("OLD", new byte[] { 1, 2 }));
-            WindowsClipboardManager.RenderForTests("OLD", IntPtr.Zero, 0, out uint first);
-            CollectionAssert.Contains(WindowsClipboardManager.RenderCacheNamesForTests, "OLD");
-
-            WindowsClipboardManager.ApplyReservationOutcomeForTests(
-                WindowsClipboardErrorCode.Busy, Provider("NEW", new byte[] { 3 }));
-
-            CollectionAssert.AreEquivalent(
-                new[] { "OLD" }, WindowsClipboardManager.RenderProviderNamesForTests);
-            CollectionAssert.Contains(WindowsClipboardManager.RenderCacheNamesForTests, "OLD");
-
-            IntPtr buffer = Marshal.AllocHGlobal((int)first);
-            try
-            {
-                uint code = WindowsClipboardManager.RenderForTests("OLD", buffer, first, out uint second);
-
-                Assert.AreEqual((uint)WindowsClipboardErrorCode.None, code);
-                Assert.AreEqual(first, second, "the size promised before the failed reservation still holds");
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
-
 
         [Test]
         public void InvokeInOrder_OneCommonSubscriberThrowingDoesNotSilenceTheNext()

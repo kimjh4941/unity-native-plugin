@@ -1,2 +1,33 @@
-unity-windows-native-toolkit.dll 1.2.0
-source: https://github.com/kimjh4941/native-toolkit/blob/main/dist/1.11.0/windows/windows-native-toolkit-1.2.0.dll
+# Which native-toolkit artifacts this folder holds, and where they came from.
+#
+# PreBuildProcessor READS the keys below from this file. It does not scan dist
+# and guess. If a required key is missing, or the artifact it names is not in
+# dist, the build FAILS rather than copying something else.
+#
+# Change these keys in the same commit as the DLL. The whole point is that the
+# binary in this folder and the line that names it move together.
+#
+# dist_version      the folder under native-toolkit/dist to copy from (required)
+# release_dll       the artifact to use for release builds (required)
+# debug_dll         the artifact for development builds; empty = use release_dll
+#                   (dist has never published a -debug.dll for Windows)
+# install_as        the file name to place here; empty = keep the dist file name
+# install_as_debug  the file name for development builds; empty = install_as,
+#                   then the dist file name
+#
+# The name placed here must match the DLL name the three Windows managers load:
+# WindowsNativeToolkitCApi.DllName in Runtime/Windows/Common, with ".dll". The
+# name contains '.', so it is written out in full rather than left for the
+# loader to complete.
+#
+# While Dialog, Notification and Clipboard moved to the 2.0.0 C ABI one at a
+# time, a second (extra_*) pin placed the 1.x DLL beside this one. It was
+# removed once Clipboard, the last, had moved (2026-09-27).
+
+# The 2.0.0 C ABI, under its own dist name for both builds.
+dist_version: 1.12.0
+release_dll: windows-native-toolkit-capi-2.0.0.dll
+debug_dll:
+install_as:
+install_as_debug:
+source: https://github.com/kimjh4941/native-toolkit/tree/1.12.0/dist/1.12.0/windows/windows-native-toolkit-capi-2.0.0.dll

@@ -1,12 +1,18 @@
 #nullable enable
 
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+// Editor only. These tests rest on the native boundary being compiled out (see the class
+// summary): every operation past the guard reports PlatformUnavailable, and native events are
+// injected through the *ForTests hooks, which exist only under UNITY_EDITOR. In a Windows
+// player the native path is live, so the premise does not hold and the hooks do not exist -
+// including this file there broke the test player build with 399 CS0117. Tests that exercise
+// the real native path on a player belong in a separate file, not here.
+#if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -406,7 +412,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             uint ticket = WindowsClipboardManager.OnlyPendingTicketForTests();
             Assert.IsTrue(WindowsClipboardManager.HasCancellationRegistrationForTests(ticket));
 
-            WindowsClipboardManager.InjectCompletionForTests(63, 0, "[]");
+            WindowsClipboardManager.InjectCompletionForTests(63, 0);
             yield return null;
 
             Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests);
@@ -440,9 +446,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(2, WindowsClipboardManager.PendingRequestCountForTests);
 
-            WindowsClipboardManager.InjectCompletionForTests(
-                72, 0, "{\"historyEnabled\":true,\"roamingEnabled\":false}");
-            WindowsClipboardManager.InjectCompletionForTests(71, 0, "[]");
+            WindowsClipboardManager.InjectAvailabilityForTests(72, 0, true, false);
+            WindowsClipboardManager.InjectCompletionForTests(71, 0);
             yield return null;
 
             Assert.AreEqual(1, history.Count);
@@ -453,11 +458,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
-        public IEnumerator AFailedCompletionKeepsItsNativeCodeRatherThanBecomingAParseFailure()
+        public IEnumerator AFailedCompletionKeepsItsNativeCode()
         {
-            // The native side reports these after it has accepted the request, and the payload is
-            // null when it does. Parsing that null and reporting ResultParseFailed would hide
-            // every one of them behind the same code.
+            // The native side reports these after it has accepted the request, with no history
+            // handle. Each keeps its own code rather than being folded into one.
             WindowsClipboardErrorCode[] codes =
             {
                 WindowsClipboardErrorCode.AccessDenied,
@@ -478,7 +482,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 WindowsClipboardManager.NextNativeRequestIdForTests = id;
                 manager.GetHistory(results.Add);
 
-                WindowsClipboardManager.InjectCompletionForTests(id, (int)code, null);
+                WindowsClipboardManager.InjectCompletionForTests(id, (int)code);
                 yield return null;
 
                 Assert.AreEqual(1, results.Count, code + " was never delivered");
@@ -523,7 +527,9 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.AreEqual(0u, id);
             Assert.AreEqual(1, results.Count);
-            Assert.AreEqual(WindowsClipboardErrorCode.Unknown, results[0].ErrorCode);
+            // A library that is not a loadable image reads as a missing bridge since the move to
+            // the C ABI 2.0.0 (1.x reported Unknown; design v12 J-13).
+            Assert.AreEqual(WindowsClipboardErrorCode.BridgeUnavailable, results[0].ErrorCode);
             Assert.IsFalse(
                 WindowsClipboardManager.IsInFlightForTests(
                     WindowsClipboardManager.OperationRestoreHistoryItem),
@@ -548,9 +554,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardManager.NextNativeRequestIdForTests = 102;
             manager.GetHistoryAvailability();
 
-            WindowsClipboardManager.InjectCompletionForTests(101, 0, "[]");
-            WindowsClipboardManager.InjectCompletionForTests(
-                102, 0, "{\"historyEnabled\":true,\"roamingEnabled\":true}");
+            WindowsClipboardManager.InjectCompletionForTests(101, 0);
+            WindowsClipboardManager.InjectAvailabilityForTests(102, 0, true, true);
             yield return null;
 
             Assert.AreEqual(1, history.Count, "HistoryReadCompleted never fired");
@@ -617,7 +622,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             manager.GetHistoryAsync(cts.Token);
 
             // A completes, then B is accepted under the id the native side reused.
-            WindowsClipboardManager.InjectCompletionForTests(63, 0, "[]");
+            WindowsClipboardManager.InjectCompletionForTests(63, 0);
             yield return null;
             var second = new List<WindowsClipboardHistoryResult>();
             WindowsClipboardManager.NextNativeRequestIdForTests = 63;
@@ -1145,7 +1150,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             // The read protocol runs for real here and reports the refusal it got, so the error it
             // logs is part of the expected behaviour rather than a surprise.
-            LogAssert.Expect(LogType.Error, new Regex("sizing failed: PlatformUnavailable"));
+            LogAssert.Expect(LogType.Error, new Regex("read failed: PlatformUnavailable"));
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
                 manager.PastePlainText().ErrorCode);
             Assert.AreEqual(WindowsClipboardErrorCode.PlatformUnavailable,
@@ -1204,7 +1209,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             WindowsClipboardManager.NextNativeRequestIdForTests = 77;
             manager.GetHistory(results.Add);
             WindowsClipboardManager.InjectCompletionForTests(
-                77, 0, "[{\"id\":\"a\",\"text\":\"hi\",\"timestamp\":\"1\"}]");
+                77, 0, new[] { new WindowsClipboardHistoryItem("a", "hi", null, 1) });
             yield return null;
 
             Assert.AreEqual(1, results.Count);
@@ -1221,7 +1226,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return null;
 
             LogAssert.Expect(LogType.Warning, new Regex("unknown request id"));
-            WindowsClipboardManager.InjectCompletionForTests(999, 0, "[]");
+            WindowsClipboardManager.InjectCompletionForTests(999, 0);
             yield return null;
 
             Assert.AreEqual(0, WindowsClipboardManager.PendingRequestCountForTests);
@@ -1236,7 +1241,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             WindowsClipboardManager.NextNativeRequestIdForTests = 11;
             manager.GetHistory(results.Add);
-            WindowsClipboardManager.InjectCompletionForTests(11, 0, "[]");
+            WindowsClipboardManager.InjectCompletionForTests(11, 0);
 
             // The completion is known but its delivery is still queued. A teardown here would drop
             // the result if the registry only tracked requests up to their completion.
@@ -1301,7 +1306,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(1, results.Count);
             Assert.AreEqual(WindowsClipboardErrorCode.OperationBusy, results[0].ErrorCode);
 
-            WindowsClipboardManager.InjectCompletionForTests(21, 0, null);
+            WindowsClipboardManager.InjectCompletionForTests(21, 0);
             yield return null;
 
             Assert.AreEqual(2, results.Count, "the first call still receives its own result");
@@ -1354,8 +1359,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             WindowsClipboardManager.NextNativeRequestIdForTests = 31;
             manager.GetHistoryAvailability(results.Add);
-            WindowsClipboardManager.InjectCompletionForTests(
-                31, 0, "{\"historyEnabled\":true,\"roamingEnabled\":false}");
+            WindowsClipboardManager.InjectAvailabilityForTests(31, 0, true, false);
             yield return null;
 
             Assert.AreEqual(1, results.Count);
@@ -1364,19 +1368,66 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
-        public IEnumerator AMalformedPayloadFailsInsteadOfLookingEmpty()
+        public IEnumerator ACopyThatThrows_StillDeliversOnce_AndReleasesTheInFlightMarker()
         {
+            // Design v12 E-20: the values are copied out of the native handle inside the completion.
+            // A copy that throws must not strand the caller or the in-flight marker.
+            WindowsClipboardManager manager = RunningManager();
+            var statuses = new List<WindowsClipboardResult>();
+            var histories = new List<WindowsClipboardHistoryResult>();
+            var commonHistories = new List<WindowsClipboardHistoryResult>();
+            manager.HistoryReadCompleted += commonHistories.Add;
+            yield return null;
+
+            WindowsClipboardManager.HistoryConversionForTests = () => throw new System.InvalidOperationException("copy failed");
+            WindowsClipboardManager.NextNativeRequestIdForTests = 41;
+            manager.RestoreHistoryItem("item-1", statuses.Add);
+            Assert.IsTrue(WindowsClipboardManager.IsInFlightForTests(WindowsClipboardManager.OperationRestoreHistoryItem));
+            WindowsClipboardManager.InjectCompletionForTests(41, 0);
+
+            WindowsClipboardManager.HistoryConversionForTests = () => throw new System.OutOfMemoryException();
+            WindowsClipboardManager.NextNativeRequestIdForTests = 42;
+            Awaitable<WindowsClipboardHistoryResult> awaited = manager.GetHistoryAsync();
+            WindowsClipboardManager.InjectCompletionForTests(42, 0);
+            WindowsClipboardManager.HistoryConversionForTests = null;
+            for (int i = 0; i < 3; i++) yield return null;
+
+            Assert.AreEqual(1, statuses.Count);
+            Assert.AreEqual(WindowsClipboardErrorCode.Unknown, statuses[0].ErrorCode);
+            Assert.IsFalse(WindowsClipboardManager.IsInFlightForTests(WindowsClipboardManager.OperationRestoreHistoryItem),
+                "the in-flight marker came off");
+
+            Assert.IsTrue(awaited.GetAwaiter().IsCompleted, "the awaitable finished");
+            Assert.AreEqual(1, commonHistories.Count, "the event fired once");
+            Assert.AreEqual(WindowsClipboardErrorCode.OutOfMemory, commonHistories[0].ErrorCode);
+        }
+
+        [UnityTest]
+        public IEnumerator ACompletionDeliveredInsideTheClose_IsDeliveredOnce()
+        {
+            // Design v12 E-22: the C ABI's close delivers the requests it cancels inside the call,
+            // before the shutdown attempt is finished.
             WindowsClipboardManager manager = RunningManager();
             var results = new List<WindowsClipboardHistoryResult>();
             yield return null;
 
-            WindowsClipboardManager.NextNativeRequestIdForTests = 41;
+            WindowsClipboardManager.NextNativeRequestIdForTests = 51;
             manager.GetHistory(results.Add);
-            WindowsClipboardManager.InjectCompletionForTests(41, 0, "{\"not\":\"an array\"}");
-            yield return null;
+            WindowsClipboardManager.NativeShutdownForTests = () =>
+            {
+                WindowsClipboardManager.InjectCompletionForTests(51, (int)WindowsClipboardErrorCode.Canceled);
+                return (true, WindowsClipboardErrorCode.None);
+            };
 
-            Assert.AreEqual(WindowsClipboardErrorCode.ResultParseFailed, results[0].ErrorCode);
-            Assert.IsFalse(results[0].IsEmpty, "a broken payload must not read as an empty history");
+            var shutdown = new List<WindowsClipboardResult>();
+            manager.ShutdownWithDrain(shutdown.Add);
+            for (int i = 0; i < 6 && shutdown.Count == 0; i++) yield return null;
+            for (int i = 0; i < 3; i++) yield return null;
+
+            Assert.AreEqual(1, shutdown.Count);
+            Assert.IsTrue(shutdown[0].IsSuccess);
+            Assert.AreEqual(1, results.Count, "delivered once, not again by the teardown drain");
+            Assert.AreEqual(WindowsClipboardErrorCode.Canceled, results[0].ErrorCode);
         }
 
         // ── History events ───────────────────────────────────────────────────────
@@ -1464,7 +1515,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             // Each read reports the refusal the stand-in native side gives it.
             for (int i = 0; i < 3; i++)
             {
-                LogAssert.Expect(LogType.Error, new Regex("sizing failed: PlatformUnavailable"));
+                LogAssert.Expect(LogType.Error, new Regex("read failed: PlatformUnavailable"));
             }
 
             manager.PastePlainText();

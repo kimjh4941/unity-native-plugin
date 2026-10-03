@@ -13,7 +13,10 @@ using UnityEditor.Build;
 /// Post-build processor that handles platform-specific setup after Unity builds complete.
 /// For macOS builds, copies XCFramework and modifies the Xcode project.
 /// For Android builds, adds Kotlin dependencies to generated Gradle files.
-/// For Windows builds, copies PDB files for debugging support.
+/// Windows builds need no post-processing: the DLLs are placed before the build by
+/// PreBuildProcessor. (A development build used to copy a PDB from an absolute path in the
+/// native-toolkit checkout; that path no longer resolved and dist publishes no PDB, so the copy
+/// was removed.)
 /// </summary>
 public static class PostBuildProcessor
 {
@@ -129,39 +132,6 @@ public static class PostBuildProcessor
 
             proj.WriteToFile(pbxprojPath);
             UnityEngine.Debug.Log("[Build][iOS] Post-build steps completed.");
-        }
-#endif
-
-#if UNITY_STANDALONE_WIN
-        if (target == BuildTarget.StandaloneWindows64)
-        {
-            UnityEngine.Debug.Log("[Build][Windows] Post-build steps started.");
-
-            bool isDevelopmentBuild = EditorUserBuildSettings.development;
-            if (!isDevelopmentBuild)
-            {
-                UnityEngine.Debug.Log("[Build][Windows] Skipping PDB copy for non-development build.");
-                UnityEngine.Debug.Log("[Build][Windows] Post-build steps completed.");
-                return;
-            }
-            // Source and destination paths
-            string pdbSrc = @"C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryExample\x64\Debug\WindowsLibraryExample\AppX\WindowsLibrary-Debug.pdb";
-            string buildDir = Path.GetDirectoryName(pathToBuiltProject);
-            string appName = Path.GetFileNameWithoutExtension(pathToBuiltProject);
-            string pdbDst = Path.Combine(buildDir, appName + "_Data", "Plugins", "x86_64", "WindowsLibrary-Debug.pdb");
-            
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(pdbDst));
-                File.Copy(pdbSrc, pdbDst, true);
-                UnityEngine.Debug.Log("[Build][Windows] Copied WindowsLibrary-Debug.pdb to: " + pdbDst);
-            }
-            catch (System.Exception ex)
-            {
-                UnityEngine.Debug.LogError("[Build][Windows] Failed to copy WindowsLibrary-Debug.pdb: " + ex.Message);
-            }
-
-            UnityEngine.Debug.Log("[Build][Windows] Post-build steps completed.");
         }
 #endif
 

@@ -19,7 +19,7 @@
    | Android  | `/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin/src/main/java/android/unity/` |
    | iOS      | `/Users/jonghyunkim/Desktop/native-toolkit/ios/UnityIosPlugin/UnityIosPlugin/` |
    | macOS    | `/Users/jonghyunkim/Desktop/native-toolkit/mac/UnityMacPlugin/UnityMacPlugin/` |
-   | Windows  | `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibrary` |
+   | Windows  | C ABI のヘッダー `C:\Users\User\Desktop\native-toolkit\dist\<版>\windows\include\NativeToolkitC\`（公開の契約）と、実装 `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryCApi\`・`windows\WindowsLibrary\`。版は `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` のピン |
 
    - 公開されている関数名・コールバック型・定数を一覧化する
    - C# 側で `[DllImport]` / `AndroidJavaObject` で呼び出す対象を確定する
@@ -36,6 +36,12 @@
    - `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/` 配下の AAR を展開し、`AndroidManifest.xml` と `res/` に何が内包されているかを把握する
    - manifest 宣言やリソース（FileProvider の `res/xml/` 等）が AAR に含まれていない場合、利用アプリ側に追加設定が必要になる可能性がある。設計段階で配置責任を確定する
 
+   Windows の場合は C ABI の約束ごとも確認する:
+
+   - 構造体の大きさとフィールドの位置は `windows\WindowsLibraryCApiTest\Common\CApiLayoutTest.cpp`、スレッド・寿命・エラーの規則はヘッダーのコメントと `windows\WindowsLibraryCApiTest\` のテストで確かめる
+   - C# 側の書き方は `agent-rules/coding-rules/common.md`「Unity Bridge パターン > Windows（native-toolkit の C ABI）」に従う。DLL 名・版の確認・`Common.h` の関数は `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs` を使い、機能の Bridge で重ねて宣言しない
+   - 既存の公開 API の振る舞いを変える場合は、「既知の差分」の表を計画に含める
+
 4. 既存の C# 実装を確認する（必須）
 
    `Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下の既存実装を読み込み、パターン・命名・構造を把握する。
@@ -43,8 +49,11 @@
    | ディレクトリ | 確認内容 |
    | ----------- | ------- |
    | `Common/`       | `UnityMainThreadDispatcher`、`IconConfiguration` などの共通ユーティリティ |
-   | `Dialog/`       | 各プラットフォームの Manager 実装（Singleton・イベント・Bridge 呼び出しパターン） |
-   | `Notification/` | 各プラットフォームの Manager・Payload・JsonBuilder 実装 |
+   | `Windows/<Feature>/`、`Windows/Common/` | Windows の Manager・Bridge と、Windows の全機能の共通部（移行済みの形） |
+   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | Android / iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
+
+   置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う。正しい形は `Runtime/<Platform>/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>`）。
+   Windows は移行済み、Android / iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
 
    - 既存の Singleton パターン・イベントシグネチャ・namespace を把握する
    - すでに実装済みのクラス・メソッドを重複追加しない
@@ -63,6 +72,7 @@
      - C# 側の `[DllImport]` / `AndroidJavaObject` 呼び出し方針
    - **変更ファイル一覧**
      - 新規作成 / 既存変更 / 非変更を分類して列挙する（`Packages/com.jonghyunkim.nativetoolkit/Runtime/` 配下）
+     - **新規ファイルの置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う**（Windows なら `Runtime/Windows/<Feature>/` と `JonghyunKim.NativeToolkit.Runtime.Windows.<Feature>`）。計画のパスはこの形で書く
      - テストファイル（`Tests/Runtime/` 配下）も変更一覧に含める
      - `.meta` ファイルは Unity が自動生成するため記載しない
      - **ファイル名は `agent-rules/coding-rules/common.md`「命名: OS 接頭辞と、共通ファイルを作らない方針」に従う。** 機能ディレクトリの新規ファイルは必ず `Android` / `Ios` / `Mac` / `Windows` の接頭辞を付ける。**他プラットフォームの既存実装を共有化する案は採らない。** 同じロジックが必要なら、そのプラットフォーム用に複製して持たせる（`Runtime/Common/` の横断インフラのみが例外）
@@ -85,8 +95,21 @@
      - use case / repository 層: ドメインエラー（個別の errorMessage 文言）
      - C# Bridge 層: 非対応プラットフォーム・未初期化・`Call` 例外（`{operation} could not be started.` 等）
    - **テスト方針**（EditMode / PlayMode / 手動確認の分担）
+   - **自動化の前提**（必須。層の定義は `agent-rules/coding-rules/testing.md`）
+     - **検証の層**: 各操作・各エラーケースを、層 1（EditMode）/ 層 2a（PlayMode・Editor 内）/
+       層 2b（PlayMode・Player 上）/ 層 3（OS 境界）/ 手動・computer use のどれで確かめるかを表にする。
+       手動に残す項目には、自動化できない理由を書く（「実装が大変」は理由にしない）
+     - **OS が出す画面・求める許可・前提の OS 設定**: 実行時に OS が出しうるダイアログ（アクセス許可、
+       ファイアウォール、プライバシーの確認など）と、前提になる OS 設定（クリップボード履歴、通知の許可など）を列挙し、
+       無人で実行する前にどう満たすか（事前の設定、実行前のチェック）を書く。出ない・要らない場合も「なし」と明記する
+     - **呼び出し側を止める OS の画面**: OS の画面を同期で出し、閉じられるまで戻らない API があるかを書く。
+       ある場合、その操作は外から画面を閉じる手段（UI Automation など）がないと自動化できない。
+       現在のハーネスにはこの手段がないので、その旨と代わりの検証方法を書く
+     - 背景: 2026-09、Windows のテスト用 Player を初めて回したときに、実装が済んだ後で障害が見つかった
+       （実行のたびに出るファイアウォールのダイアログ、Player に入らない Editor 専用のテストフック）。
+       設計の段階で書いておけば、実装と同時に準備できる。詳細は `artifact/topics/cross-platform-testing/README.md`
 
-   保存先: `artifact/designs/<feature>/`
+   保存先: `artifact/<os>/<feature>/designs/`
    ファイル名: `YYYY-MM-DD-<os>-<feature>-design-vN.md`
    同名が存在する場合は `vN` をインクリメントし、既存ファイルを上書きしない。
 

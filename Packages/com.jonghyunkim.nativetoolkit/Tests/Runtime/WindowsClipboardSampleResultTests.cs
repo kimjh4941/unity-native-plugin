@@ -4,7 +4,7 @@
 // The assembly is Editor-only, so this changes nothing about what runs; it keeps the pair readable
 // as a pair.
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard;
 using NUnit.Framework;
 
 namespace JonghyunKim.NativeToolkit.Tests

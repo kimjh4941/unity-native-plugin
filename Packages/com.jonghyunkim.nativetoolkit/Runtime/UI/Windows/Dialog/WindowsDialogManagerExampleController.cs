@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 
 /// <summary>

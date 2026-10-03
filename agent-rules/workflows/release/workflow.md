@@ -37,6 +37,7 @@ squash は使用しない。
 | ブランチ | `git branch --show-current` が `feature/` 系であること |
 | 未コミット変更 | `git status --porcelain` の出力が空であること |
 | Plugins | `Packages/com.jonghyunkim.nativetoolkit/Plugins/` に `Android` `iOS` `macOS` `Windows` ディレクトリが存在すること |
+| Windows DLL の整合 | `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` の `dist_version` を `<dv>`、`release_dll` を `<dll>` として、同梱の `Plugins/Windows/<dll>` の md5 が、native-toolkit のタグ `<dv>` の `dist/<dv>/windows/<dll>` と一致すること（`git -C ../native-toolkit show <dv>:dist/<dv>/windows/<dll> \| md5sum` と `md5sum Plugins/Windows/<dll>` を比べる。`debug_dll` が空でなければそれも）。あわせて `source` がブランチではなくタグ `<dv>` を指していること。タグが無い（native-toolkit が未リリース）なら ❌ |
 | manual | `manual/<version>/` に `*.md` `*.ja.md` `*.ko.md` の各マニュアルが存在すること |
 | docs | `docs/<version>/` が存在すること |
 | manual 整合 | `./scripts/verify_manual.sh <version>` が停止項目 0 件で終了すること（画像リンク切れ・アンカー切れ・バージョン参照の不一致・docs 未同期を検出する。警告項目は ❌ にしない） |
@@ -57,7 +58,15 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 
 ## ステップ4: リリースノート生成
 
-1. `git log main..HEAD --oneline` を実行してコミット一覧を取得する
+1. `git fetch origin --tags` の後、`git log <前回タグ>..HEAD --oneline` を実行して
+   コミット一覧を取得する
+   - 基点は前回タグ。ステップ6・7 により前回タグ = 前回の `origin/main` なので
+     `origin/main..HEAD` でも同じ結果になる（1.10.0 と当時の origin/main はいずれも `0ace335`）
+   - **ローカル `main` は使わない。** リリース作業で更新しないため置き去りになり、
+     件数が黙って膨らむ。1.11.0 で 224 件と出た（正しくは 71 件）。タグなら手元に無ければ
+     `unknown revision` で止まるが、ローカル `main` は誤った数字を普通に返す
+   - develop に他の feature が既に入っている場合、feature ブランチの `HEAD` では
+     取りこぼす。ステップ5 の後に `origin/develop` を対象にする
 2. conventional commits の type 別に分類する:
    - `feat` → Features
    - `fix` → Fixes

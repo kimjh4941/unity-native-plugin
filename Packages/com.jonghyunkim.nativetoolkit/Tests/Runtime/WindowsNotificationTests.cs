@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
@@ -68,6 +68,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var result = WindowsNotificationResult.Failure("showNotification", 7);
             Assert.AreEqual("Invalid parameter", result.ErrorMessage);
+        }
+
+        [Test]
+        public void Failure_ErrorCode8_ReturnsNotSupported()
+        {
+            var result = WindowsNotificationResult.Failure("setBadge", 8);
+            Assert.AreEqual("This operation is not supported for the current app type", result.ErrorMessage);
+        }
+
+        [Test]
+        public void Failure_ErrorCodeMinus4_ReturnsNativeLibraryUnavailable()
+        {
+            var result = WindowsNotificationResult.Failure("initialize", -4);
+            Assert.AreEqual("Native library unavailable", result.ErrorMessage);
         }
 
         [Test]
