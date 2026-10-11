@@ -67,6 +67,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | J-8 | フォルダの移し方 | Android の 4 機能の型（`Android*` の 11 と、接頭辞の無い Android 専用の結果型 10。計 21 ファイル）を、Dialog の実装の前の 1 コミットでまとめて `Runtime/Android/<Feature>/` に移す。名前は変えない（接頭辞の改名は os-prefix-violations の範囲）。1 つの OS の中で形を混ぜないため（Dialog 設計 v3 の J-D11） |
 | J-9 | C ABI の完了の配送 | 受け口は `Runtime/Android/Common/AndroidNativeCallbackQueue` に入れるだけにし、イベントは取り出した時点の `Instance` に出す（旧の dispatcher の経路と同じ振る舞い）。`UnityMainThreadDispatcher` は使わない（`dispatcher-runs-under-lock`）。4 機能とも同じ（Dialog 設計 v3 の J-D2） |
 | J-10 | Android の対応の範囲 | **IL2CPP + ARM64（と x86_64）。32 ビット（ARMv7）と Mono は対象外**（2026-10-11、利用者と相談）。Google Play は 64 ビットを必須にしており、Unity の Android の Mono は ARMv7 しか組めない。32 ビットを含むビルドは止める（J-5、6.4）。移行ガイドとマニュアルに書く |
+| J-11 | 1.x の振る舞いをどこまで保つか | **ふつうの使い方を保つ**（2026-10-11、利用者と相談。Share の設計レビューで「1.x と同じ」と書いた所が 1.12.0 のコードの細部と違う指摘が 2 回続いたため）。保つのは、公開 API と、UnityMain から 1 回ずつ正しい入力で呼んだときの結果・時点・文言、Editor の結果。複数のスレッドからの同時の呼び出し、Manager を壊す直前・直後の結果、変わった入力（重複した ID、ふつうでない空白、パディングの無い Base64 など）は、いちばん単純な形にして既知の差分に書く。設計で「1.x と同じ」と書く行には、タグ `1.12.0` のコードの位置を必ず付ける。Clipboard と Notification にも同じ方針を使う |
 
 ## 5. 進め方
 
@@ -76,7 +77,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | 1 | スパイク: VERSION.txt と `PreBuildProcessor`、Gradle の依存、KGP の削除、minSdk 31、`AndroidNativeToolkitCApi`、実機で `ntk_android_is_initialized() == 1`（申し送り 4.1 の「同じ実体」）。旧ブリッジと 2.0.0 の AAR が 1 つの APK に同居できるか | 完了（6.2。`34acb2d`） |
 | 2 | Android の Player テストを流すスクリプト（`scripts/verify_unity_android.sh`）。IL2CPP の ARM64 と、パッケージの利用者の条件 | 作成済み（`34acb2d`）。どちらも PASS。32 ビットと Mono の実行は持たない（J-10、6.3、6.4） |
 | 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 完了（`44f206d`。EditMode と実機が基準と同じに通った） |
-| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。**C ABI への移行を実装し、実機で 47/47（6.6）**。次は実装のレビューとコミット、その後 Share |
+| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。**C ABI への移行を実装し、実機で 49/49（6.6）**。コミット済み（`0513bb4`、`7f7ec32`）。Share: 設計 v6（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`）。設計レビューを 6 回回し、v6 で A1 が 0（2 回目の後に保つ範囲を J-11 に決めた）。次は UI テスト計画と UI の補助の設計 v6、その後 1.x のまま記録 |
 | 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース。**マニュアルの Android の動作環境に「ARM64（と x86_64）だけ、IL2CPP だけ」と書く**（J-10。native-toolkit の manual/1.13.0/index の 32 ビットの項目と合わせる。native-toolkit-1d の勧め、2026-10-11）。移行ガイドには、名前空間、既知の差分、「Configure Gradle Project」の削除、32 ビットのビルドが止まることを書く | 未着手 |
 
 ## 6. 記録
