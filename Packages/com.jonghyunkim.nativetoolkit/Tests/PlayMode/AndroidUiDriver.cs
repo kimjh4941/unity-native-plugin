@@ -4,6 +4,7 @@
 #if !UNITY_EDITOR
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -19,7 +20,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// A request is one logcat line (Debug.Log, tag Unity). The driver writes the answer into this
     /// app's files directory through run-as, one file per request, by renaming a finished temporary
     /// file so a half-written answer is never read. The protocol is in
-    /// artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-design-v4.md.
+    /// artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-design-v11.md.
     /// <para>
     /// When no driver answers the HELLO (the tests were started from the Editor's Test Runner, say),
     /// every request ignores the test instead of failing it. Once the driver has answered, a missing
@@ -34,12 +35,32 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private const float ReadyTimeoutSeconds = 5f;
         private const float AnswerTimeoutSeconds = 20f;
+
+        /// <summary>
+        /// How long a share sheet command may take to answer. On a device whose adb calls all time
+        /// out, the driver gives up within 151 s of taking the request (its SHEET_ANSWER_LIMIT,
+        /// pinned by its doctest): its own limit (60 s), watching for a sheet not yet seen (10 s),
+        /// closing the sheet (25 s), bringing this app back to the front (25 s), deleting what it
+        /// read (20 s), one second of waits, and writing the answer (10 s) (design 3.3). Ordinarily
+        /// a few seconds. A request still waiting behind an earlier one is not counted in that.
+        /// </summary>
+        internal const float SheetAnswerTimeoutSeconds = 180f;
+
+        // The driver's share sheet commands (design 3.1), which take longer than the others. The
+        // driver keeps the same list (SHEET_COMMANDS in scripts/android_ui_driver.py): change both.
+        private static readonly HashSet<string> s_sheetCommands = new()
+        {
+            "tap-in-sheet", "absent-in-sheet", "present-in-sheet", "close-sheet", "no-sheet",
+        };
         private const int MaxLineBytes = 1000;
 
         private static string? s_run;
         private static string? s_directory;
         private static bool? s_ready;
         private static int s_next;
+
+        // Requests sent and not yet waited for: the driver answers in order, so each must be collected.
+        private static readonly Dictionary<int, string> s_pending = new();
 
         /// <summary>The answer of the last request: "ok", "ok &lt;value&gt;" or "fail &lt;reason&gt;".</summary>
         internal static string LastAnswer { get; private set; } = "";
@@ -63,9 +84,26 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         /// <summary>
         /// Sends a request and waits for its answer. Ignores the test when no driver is running;
-        /// fails it when the driver answers "fail" or does not answer.
+        /// fails it when the driver answers "fail" or does not answer. A share sheet command gets
+        /// <see cref="SheetAnswerTimeoutSeconds"/>, the others 20 s.
         /// </summary>
         internal static IEnumerator Do(string command, params string[] args)
+        {
+            yield return Send(command, args);
+            yield return Wait(LastSent, s_sheetCommands.Contains(command) ? SheetAnswerTimeoutSeconds : AnswerTimeoutSeconds);
+        }
+
+        /// <summary>The number of the last request <see cref="Send"/> sent.</summary>
+        internal static int LastSent { get; private set; }
+
+        /// <summary>
+        /// Sends a request without waiting for its answer (design 5): for a share sheet, which pauses
+        /// Unity while it shows, the test sends first, opens the sheet in the same frame, and then
+        /// waits. The wait runs again once the sheet closes and Unity resumes; its limit counts from
+        /// when it began. Every request sent must be waited for, on failure paths too
+        /// (<see cref="WaitForPending"/>). Ignores the test when no driver is running.
+        /// </summary>
+        internal static IEnumerator Send(string command, params string[] args)
         {
             yield return EnsureReady();
             if (s_ready != true)
@@ -75,21 +113,71 @@ namespace JonghyunKim.NativeToolkit.Tests
             string line = $"NTK-UI|{s_run}|{number}|{command}" + (args.Length > 0 ? "|" + string.Join("|", args) : "");
             if (Encoding.UTF8.GetByteCount(line) > MaxLineBytes)
                 throw new ArgumentException($"A UI driver request is limited to {MaxLineBytes} bytes: {line}");
+            s_pending[number] = $"{command} {string.Join(" ", args)}";
             Debug.Log(line);
+            LastSent = number;
+        }
 
+        /// <summary>
+        /// Waits for the answer of a request sent earlier. Fails the test when the driver answers
+        /// "fail" or does not answer in time.
+        /// </summary>
+        internal static IEnumerator Wait(int number, float timeoutSeconds)
+        {
+            string request = s_pending.TryGetValue(number, out string? sent) ? sent : $"request {number}";
             string path = Path.Combine(s_directory!, number.ToString());
-            float deadline = Time.realtimeSinceStartup + AnswerTimeoutSeconds;
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while (!File.Exists(path))
             {
                 if (Time.realtimeSinceStartup > deadline)
-                    Assert.Fail($"The UI driver did not answer {command} within {AnswerTimeoutSeconds}s.");
+                {
+                    s_pending.Remove(number);
+                    Assert.Fail($"The UI driver did not answer {request} within {timeoutSeconds}s.");
+                }
                 yield return null;
             }
+            s_pending.Remove(number);
             LastAnswer = File.ReadAllText(path).Trim();
             File.Delete(path);
-            if (!LastAnswer.StartsWith("ok", StringComparison.Ordinal))
-                Assert.Fail($"The UI driver could not {command} {string.Join(" ", args)}: {LastAnswer}");
+            if (LastAnswer != "ok" && !LastAnswer.StartsWith("ok ", StringComparison.Ordinal))
+                Assert.Fail($"The UI driver could not {request}: {LastAnswer}");
         }
+
+        /// <summary>
+        /// Waits for every request sent and not yet waited for, so that a failed test does not leave
+        /// answers that a later request would be held up behind. A failed or missing answer does not
+        /// stop it: it collects the rest first, then fails with every failure. For teardowns: run it
+        /// through a wrapper that keeps what it throws.
+        /// </summary>
+        internal static IEnumerator WaitForPending()
+        {
+            var numbers = new List<int>(s_pending.Keys);
+            numbers.Sort();
+            var failures = new List<string>();
+            foreach (int number in numbers)
+            {
+                IEnumerator wait = Wait(number, SheetAnswerTimeoutSeconds);
+                while (true)
+                {
+                    try
+                    {
+                        if (!wait.MoveNext()) break;
+                    }
+                    catch (Exception e) when (e is not IgnoreException)
+                    {
+                        // A failed answer, or one that could not be read: collect the rest first.
+                        failures.Add(e.Message);
+                        break;
+                    }
+                    yield return wait.Current;
+                }
+            }
+            if (failures.Count > 0)
+                Assert.Fail(string.Join("\n", failures));
+        }
+
+        /// <summary>The number of requests sent and not yet waited for: 0 after every test.</summary>
+        internal static int PendingCount => s_pending.Count;
 
         /// <summary>
         /// Waits on the calling thread, without Unity's API, for the answer file of a request sent
