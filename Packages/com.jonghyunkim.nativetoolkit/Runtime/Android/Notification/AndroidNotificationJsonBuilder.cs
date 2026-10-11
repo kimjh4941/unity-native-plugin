@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Builds JSON strings for Android notification APIs with full control over optional fields.

@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
     /// Represents the app-selection result delivered by <c>shareWithCallback</c> after the user

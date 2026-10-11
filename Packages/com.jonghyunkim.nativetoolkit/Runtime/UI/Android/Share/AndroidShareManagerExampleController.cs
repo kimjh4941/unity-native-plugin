@@ -3,7 +3,7 @@
 #if UNITY_ANDROID || UNITY_EDITOR
 using System;
 using System.IO;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.Android.Share;
 using UnityEngine;
 using UnityEngine.UIElements;
 

@@ -2,7 +2,7 @@
 
 using System;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Represents an Android resource reference by name and optional type.

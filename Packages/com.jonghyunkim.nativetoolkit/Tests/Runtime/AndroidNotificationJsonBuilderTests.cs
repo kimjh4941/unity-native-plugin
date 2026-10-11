@@ -1,7 +1,7 @@
 #nullable enable
 
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

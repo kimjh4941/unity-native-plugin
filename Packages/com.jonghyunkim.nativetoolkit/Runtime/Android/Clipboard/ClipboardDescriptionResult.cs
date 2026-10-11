@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     /// <summary>
     /// Clipboard metadata returned by <see cref="AndroidClipboardManager.GetDescription"/>, obtained

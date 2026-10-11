@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
     /// Builds JSON strings for Android share APIs with full control over optional fields.

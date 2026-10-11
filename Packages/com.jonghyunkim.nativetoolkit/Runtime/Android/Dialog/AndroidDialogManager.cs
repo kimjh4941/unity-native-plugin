@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Dialog
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
 {
     using UnityEngine;
     using System;

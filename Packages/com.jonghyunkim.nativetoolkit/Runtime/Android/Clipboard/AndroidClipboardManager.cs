@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     using System;
     using System.Collections.Generic;

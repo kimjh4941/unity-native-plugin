@@ -2,7 +2,7 @@
 
 using System;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
     /// Coordinates chooser-action callback delivery: fires the global

@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.Android.Share;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

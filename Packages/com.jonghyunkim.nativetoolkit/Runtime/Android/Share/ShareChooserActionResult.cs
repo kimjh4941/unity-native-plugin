@@ -1,6 +1,6 @@
 #nullable enable
 
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
     /// Represents a custom chooser action tap delivered by the Android Sharesheet (API 34+).

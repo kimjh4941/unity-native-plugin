@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     /// <summary>
     /// The outcome category shared by <see cref="ClipboardReadResult"/> and

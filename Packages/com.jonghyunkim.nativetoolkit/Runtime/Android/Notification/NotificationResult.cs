@@ -1,11 +1,12 @@
 #nullable enable
 
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+#if UNITY_ANDROID
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
-    /// Represents the completion result of a copy, clear, or stopObserving clipboard operation.
+    /// Represents the completion result of a native notification operation.
     /// </summary>
-    public readonly struct ClipboardOperationResult
+    public readonly struct NotificationResult
     {
         /// <summary>
         /// Gets the native operation name that produced this result.
@@ -19,7 +20,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
 
         /// <summary>
         /// Gets the error message when the operation failed, otherwise <c>null</c>.
-        /// Guaranteed to be null when <see cref="IsSuccess"/> is true.
         /// </summary>
         public string? ErrorMessage { get; }
 
@@ -27,8 +27,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// Creates a successful operation result.
         /// </summary>
         /// <param name="operation">The native operation name.</param>
-        /// <returns>A successful <see cref="ClipboardOperationResult"/>.</returns>
-        public static ClipboardOperationResult Success(string operation) =>
+        /// <returns>A successful <see cref="NotificationResult"/>.</returns>
+        public static NotificationResult Success(string operation) =>
             new(operation, true, null);
 
         /// <summary>
@@ -36,11 +36,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         /// </summary>
         /// <param name="operation">The native operation name.</param>
         /// <param name="error">The error message returned by the native layer.</param>
-        /// <returns>A failed <see cref="ClipboardOperationResult"/>.</returns>
-        public static ClipboardOperationResult Failure(string operation, string error) =>
+        /// <returns>A failed <see cref="NotificationResult"/>.</returns>
+        public static NotificationResult Failure(string operation, string error) =>
             new(operation, false, error);
 
-        private ClipboardOperationResult(string operation, bool isSuccess, string? errorMessage)
+        private NotificationResult(string operation, bool isSuccess, string? errorMessage)
         {
             Operation = operation;
             IsSuccess = isSuccess;
@@ -48,3 +48,4 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
         }
     }
 }
+#endif

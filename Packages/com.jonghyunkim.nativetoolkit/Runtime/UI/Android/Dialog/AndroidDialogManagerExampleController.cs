@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 using System.Collections;
 using System.Linq;
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 
 /// <summary>

@@ -3,7 +3,7 @@
 #if UNITY_ANDROID
 using System.Collections.Generic;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Represents data delivered when a notification action is tapped.

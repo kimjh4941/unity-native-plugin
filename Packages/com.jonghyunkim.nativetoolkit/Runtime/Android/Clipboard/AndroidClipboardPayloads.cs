@@ -2,7 +2,7 @@
 
 using System;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     /// <summary>
     /// Payload for copying plain text to the clipboard via <see cref="AndroidClipboardManager.CopyPlainText"/>.

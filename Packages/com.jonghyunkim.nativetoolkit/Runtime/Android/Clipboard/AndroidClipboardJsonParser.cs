@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     /// <summary>
     /// Parses JSON strings returned by the synchronous Android clipboard native APIs

@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     using System;
     using JonghyunKim.NativeToolkit.Runtime.Common;

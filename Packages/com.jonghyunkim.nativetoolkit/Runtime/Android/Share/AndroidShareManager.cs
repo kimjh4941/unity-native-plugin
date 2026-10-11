@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     using System;
     using System.Collections.Generic;

@@ -1,12 +1,11 @@
 #nullable enable
 
-#if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
-    /// Represents the completion result of a native notification operation.
+    /// Represents the completion result of a native share operation.
     /// </summary>
-    public readonly struct NotificationResult
+    public readonly struct ShareOperationResult
     {
         /// <summary>
         /// Gets the native operation name that produced this result.
@@ -27,8 +26,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// Creates a successful operation result.
         /// </summary>
         /// <param name="operation">The native operation name.</param>
-        /// <returns>A successful <see cref="NotificationResult"/>.</returns>
-        public static NotificationResult Success(string operation) =>
+        /// <returns>A successful <see cref="ShareOperationResult"/>.</returns>
+        public static ShareOperationResult Success(string operation) =>
             new(operation, true, null);
 
         /// <summary>
@@ -36,11 +35,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         /// </summary>
         /// <param name="operation">The native operation name.</param>
         /// <param name="error">The error message returned by the native layer.</param>
-        /// <returns>A failed <see cref="NotificationResult"/>.</returns>
-        public static NotificationResult Failure(string operation, string error) =>
+        /// <returns>A failed <see cref="ShareOperationResult"/>.</returns>
+        public static ShareOperationResult Failure(string operation, string error) =>
             new(operation, false, error);
 
-        private NotificationResult(string operation, bool isSuccess, string? errorMessage)
+        private ShareOperationResult(string operation, bool isSuccess, string? errorMessage)
         {
             Operation = operation;
             IsSuccess = isSuccess;
@@ -48,4 +47,3 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
         }
     }
 }
-#endif

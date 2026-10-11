@@ -2,7 +2,7 @@
 
 using System;
 
-namespace JonghyunKim.NativeToolkit.Runtime.Share
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
     /// Represents a single custom action shown in the Android share chooser (API 34+).

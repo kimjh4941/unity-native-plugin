@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_ANDROID
-namespace JonghyunKim.NativeToolkit.Runtime.Notification
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Represents data reported when a notification is shown while the app is in foreground.

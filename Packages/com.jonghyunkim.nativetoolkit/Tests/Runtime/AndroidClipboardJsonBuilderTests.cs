@@ -1,7 +1,7 @@
 #nullable enable
 
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

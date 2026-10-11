@@ -3,7 +3,7 @@
 #if UNITY_ANDROID || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
 using UnityEngine;
 using UnityEngine.UIElements;
 
