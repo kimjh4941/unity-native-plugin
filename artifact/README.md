@@ -61,6 +61,8 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 | [device-verification-records](topics/device-verification-records/README.md) | ドキュメント | 一部対応 | 2026-09-10 | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。注記のみ入れた段階 |
 | [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-10-03 | テスト方針（`testing.md`）の策定記録と、Windows の層 2b / 3 の導入の記録（検証を流すときの前提を含む）。Android / iOS / macOS は未導入 |
 | [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-10-03 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
+| [dispatcher-runs-under-lock](topics/dispatcher-runs-under-lock/README.md) | 契約 | 未着手 | 2026-10-11 | `UnityMainThreadDispatcher` がロックを持ったまま購読者の処理を走らせ、ネイティブのコールバックのスレッドを待たせる。Android の C ABI の受け口は使わずに避けた |
+| [android-c-abi-2](topics/android-c-abi-2/README.md) | 移行 | 進行中 | 2026-10-11 | Android の下の層が native-toolkit の C ABI 2.0.0（`libntk.so`）に置き換わる。4 機能の Bridge を P/Invoke に書き直す。**2c の成功が native-toolkit 1.13.0 のリリースの条件**。基準とスパイクは済み（`DllImport` の `libntk.so` は初期化済みの実体、旧ブリッジと同居できる） |
 
 | [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
 
