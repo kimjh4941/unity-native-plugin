@@ -160,10 +160,15 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// Unity hands back forward slashes here, and the native layer writes what it is given into
         /// DROPFILES without normalising it. Left alone the copy still succeeds and only the paste
         /// into Explorer fails, which points the blame at the file operations rather than the path.
+        /// The fixture relies on <see cref="Path.GetFullPath(string)"/> turning them into backslashes,
+        /// which only a Windows host does, so the check runs only in a Windows Editor.
         /// </remarks>
         [Test]
         public void TemporaryFilePathsAreAbsoluteAndUseBackslashes()
         {
+            if (UnityEngine.Application.platform != UnityEngine.RuntimePlatform.WindowsEditor)
+                Assert.Ignore("Path separators follow the host OS; this checks what a Windows Editor produces.");
+
             var paths = WindowsClipboardSampleFixtures.CreateTempFiles();
             try
             {
