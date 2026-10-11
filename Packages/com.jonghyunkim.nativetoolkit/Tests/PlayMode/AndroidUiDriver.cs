@@ -95,13 +95,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// Waits on the calling thread, without Unity's API, for the answer file of a request sent
         /// earlier. For a test whose main thread is paused while the answer arrives (background).
         /// </summary>
-        internal static bool WaitForAnswerFile(int number, TimeSpan timeout)
+        internal static bool WaitForAnswerFile(int number, TimeSpan timeout, System.Threading.CancellationToken cancel = default)
         {
             string path = Path.Combine(s_directory!, number.ToString());
             DateTime deadline = DateTime.UtcNow + timeout;
             while (!File.Exists(path))
             {
-                if (DateTime.UtcNow > deadline) return false;
+                if (DateTime.UtcNow > deadline || cancel.IsCancellationRequested) return false;
                 System.Threading.Thread.Sleep(50);
             }
             return true;

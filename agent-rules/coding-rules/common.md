@@ -34,18 +34,48 @@ native-toolkit（ネイティブ側）
 
 ## Unity Bridge パターン
 
-### Android
+### Android（native-toolkit の C ABI）
 
-- `AndroidJavaObject` / `AndroidJavaClass` でネイティブ Singleton を取得する
-- コールバックは `AndroidJavaProxy` サブクラスで受け取り、`UnityMainThreadDispatcher` 経由でメインスレッドに転送する
+Android は 2.0.0 から native-toolkit の C ABI（`libntk.so`。ヘッダーは `native-toolkit/dist/<版>/android/include/NativeToolkitC/`、
+AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版>.aar`）を P/Invoke で呼ぶ。
+以下は Dialog を移す設計（`artifact/android/dialog/designs/2026-10-11-android-dialog-design-v4.md`）で決めた約束ごとで、ほかの Android の機能も従う。
+**Windows の C ABI の形をそのまま写さない**（`artifact/topics/android-c-abi-2/README.md` 3 章）。違うところは下の各項に書く。
+まだ移していない機能（Share、Clipboard、Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
 
-```csharp
-using (AndroidJavaClass cls = new AndroidJavaClass("com.example.Plugin"))
-{
-    AndroidJavaObject instance = cls.CallStatic<AndroidJavaObject>("getInstance");
-    instance.Call("showDialog", activity, title, message, listener);
-}
-```
+**ファイルの置き場所**
+
+| ファイル | 持つもの |
+|---|---|
+| `Runtime/Android/Common/AndroidNativeToolkitCApi.cs` | ライブラリ名の定数（`"ntk"`）、版と初期化の確認、`Common.h` の関数と `ntk_android_is_initialized` の `extern`、UTF-8 の読み書き（NULL と空を分ける `ReadUtf8OrNull` を含む） |
+| `Runtime/Android/Common/AndroidNativeCallbackQueue.cs` | C ABI の完了とイベントを UnityMain に運ぶ取り出し口（下の「コールバック」） |
+| `Runtime/Android/<Feature>/Android<Feature>CApi.cs`（Bridge） | その機能の構造体・`extern`・delegate の型と、`#if` の外の純粋な変換の関数 |
+| `Runtime/Android/<Feature>/Android<Feature>Manager.cs` | 公開 API、検査、完了の受け口（`[MonoPInvokeCallback]`）、イベント |
+
+**`DllImport`**: `[DllImport(AndroidNativeToolkitCApi.LibraryName, CallingConvention = CallingConvention.Cdecl)] internal static extern`。
+型は Windows と同じ（ポインタは `IntPtr`、`size_t` は `UIntPtr`、`int32_t` は `int`）。ただし**要求の ID（`uint64_t`）は `ulong`**（Windows は 32 ビット）。
+構造体は `[StructLayout(LayoutKind.Sequential, Pack = 8)]`、大きさと全フィールドの位置を層 1 で `StructLayoutTest.cpp` の値に固定する。
+同名でも Windows と引数・値・配置が違うものがあるので、Windows の宣言や列挙を流用しない。
+
+**コールバック**（Windows と違う）
+
+- 完了・イベント・受け付けた後の `release` は **Android の main（UI スレッド）**で来る。UnityMain ではない。UnityMain から呼ぶと、関数が戻る前に完了が来うる
+- 完了と呼び出しの対応は `user_data` で付ける（出力の要求の ID は、書かれる前に完了が来うるので使わない）。呼び出しごとの状態が無い機能（Dialog）は種類の番号を、ある機能は登録ごとの値を渡す
+- **コールバックが受け取ったハンドルは所有権ごと渡される**。受け口の中で managed の値に写し、対応する `_free` を `finally` で呼ぶ（Windows は借りるだけ）
+- 受け口は Manager の static メソッドで、delegate は `static readonly` に保つ。中では写して `_free` し、`AndroidNativeCallbackQueue.Post(() => Instance.Raise(...))` に入れるだけにする。Manager の状態にも Unity のオブジェクトにも触らない（`Debug.Log*` は可）。全体を `try/catch` で囲む（C に例外が抜けるとプロセスが終わる）
+- **`UnityMainThreadDispatcher` は使わない**（ロックを持ったまま購読者を走らせ、Android の main を待たせる。`artifact/topics/dispatcher-runs-under-lock/README.md`）。取り出し口は Manager の `Awake` と、ライブラリを呼ぶたび（どちらも UnityMain）に `AndroidNativeCallbackQueue.EnsureCreated()` で確かめる（利用者のコードが壊したり無効にしたりしても、次の呼び出しで戻る。戻るまでの完了は列に残り、`LogError` が出る）
+- **どのスレッドでも、完了も `release` も待たない**（UnityMain と Android の main が互いに待って止まる）
+
+**入力**: 文字列は NUL 終端の UTF-8（共通部の `AllocUtf8`）で、確保したものは 1 つの一覧で追い `finally` で解放する。ライブラリは呼び出しの間に写すので、戻ったらすぐ解放してよい。
+途中の U+0000 で切れる。NULL の要素を含む配列は C ABI が入口で拒むので、Manager が先に検査する。
+
+**版と対応の範囲**: 最初の呼び出しの前に `AndroidNativeToolkitCApi.EnsureNativeAvailable()`（major が 2、`DllNotFoundException` などは「使えない」）を確かめる。
+対応するのは **IL2CPP と ARM64（と x86_64）だけ**。32 ビットを含むビルドは `Editor/Android/AndroidArchitectureCheck.cs` が Gradle の前に止める。
+
+**Editor**: `DllImport` と受け口は `UNITY_ANDROID && !UNITY_EDITOR`。Editor では、その機能の 1.x の契約（Dialog なら検査の失敗だけをイベントで返し、通れば `LogWarning`）を保つ。
+
+**ログ**: 結果として返す失敗は `LogWarning`（Windows と同じ）。`LogError` は、正しい実装では起きないもの（入口の `INVALID_PARAMETER` / `NOT_SUPPORTED`、捕まえた例外）だけ。入力・利用者名・パスワードなどの値は長さだけを出す。
+
+**振る舞いの差分**: 1.x から移すときは、公開 API で変わる振る舞いを設計書の「既知の差分」の表に書き、XML コメントと実装結果ファイルを通して移行ガイドへ引き継ぐ。
 
 ### iOS / macOS
 
@@ -205,6 +235,7 @@ private void Awake()
 - 結果は `public event Action<...>?` で公開する
 - シグネチャは `(buttonText, isSuccess, errorMessage)` を基本とし、追加データを先頭に並べる
 - `isSuccess == true` のとき `errorMessage == null` を保証する
+  - 例外: Android の Dialog は、Back や外側のタップで閉じたとき `("Cancel", …, true, "")` を返す（1.x から続く公開の振る舞い。C ABI 2.0.0 への移行でも保った。`AndroidDialogManager` の XML コメントに書いてある）
 
 ### プラットフォームガード
 
@@ -336,7 +367,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 | プラットフォームをまたぐ共通（下の「例外」） | `Runtime/Common/` | `JonghyunKim.NativeToolkit.Runtime.Common` |
 
 - `<Platform>` のディレクトリ名は `Windows` / `Android` / `iOS` / `macOS`（`UI/<Platform>/` と同じ綴り）
-- **Windows は移行済み**（`Runtime/Windows/Clipboard/` など）。**Android / iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
+- **Windows と Android は移行済み**（`Runtime/Windows/Clipboard/`、`Runtime/Android/Dialog/` など。Android は 2026-10-11 に 4 機能の型をまとめて移した）。**iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
 - 移すときは `.cs` と `.meta` をいっしょに `git mv` する（GUID を保つ）。名前空間の変更は公開 API の破壊的変更になるので、その版の既知の差分とマニュアルに書く
 - `Tests/Runtime/` と `Tests/PlayMode/` はプラットフォームで分けない（ファイル名の接頭辞で分かる）
 
@@ -371,11 +402,13 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 **例外: `Runtime/<Platform>/Common/`**
 
-そのプラットフォームの**全機能が使うネイティブライブラリの共通部**だけを置ける。ファイル名には接頭辞を付ける。機能の中身は置かない。
+そのプラットフォームの**全機能が使うネイティブライブラリの共通部**だけを置ける。ネイティブの完了を UnityMain に運ぶ仕組み（Android の `AndroidNativeCallbackQueue`）もこれに含める。ファイル名には接頭辞を付ける。機能の中身は置かない。
 
 | ファイル | 位置づけ |
 |---|---|
 | `Runtime/Windows/Common/WindowsNativeToolkitCApi.cs` | Windows の全機能が使う native-toolkit の C ABI の共通部（DLL 名、版の確認、`Common.h` の関数、UTF-8 の読み書き。「Unity Bridge パターン」の Windows） |
+| `Runtime/Android/Common/AndroidNativeToolkitCApi.cs` | Android の全機能が使う native-toolkit の C ABI の共通部（ライブラリ名、版と初期化の確認、`Common.h` の関数、UTF-8 の読み書き。「Unity Bridge パターン」の Android） |
+| `Runtime/Android/Common/AndroidNativeCallbackQueue.cs` | Android の全機能が、C ABI の完了とイベントを UnityMain に運ぶのに使う取り出し口 |
 
 **共通化しない理由との関係:** 共通化を避けるのは、片方のプラットフォームの都合がもう片方に及ぶのを防ぐため（上）。
 同じプラットフォームの機能どうしは**同じネイティブライブラリの同じ版を必ず一緒に使う**ので、この理由が当てはまらない。
@@ -390,9 +423,9 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 | 逸脱している型 | 実際の所属 |
 |---|---|
-| `Clipboard/ClipboardOperationResult` / `ClipboardReadResult`（`ClipItem` / `ClipContents` を含む） / `ClipboardDescriptionResult` | Android |
-| `Notification/NotificationResult` / `NotificationActionResult` / `NotificationReceivedResult` | Android |
-| `Share/ShareOperationResult` / `ShareCallbackResult` / `ShareChooserActionResult` / `ShareChooserActionCallbackCoordinator` | Android |
+| `Android/Clipboard/ClipboardOperationResult` / `ClipboardReadResult`（`ClipItem` / `ClipContents` を含む） / `ClipboardDescriptionResult` | Android |
+| `Android/Notification/NotificationResult` / `NotificationActionResult` / `NotificationReceivedResult` | Android |
+| `Android/Share/ShareOperationResult` / `ShareCallbackResult` / `ShareChooserActionResult` / `ShareChooserActionCallbackCoordinator` | Android |
 | `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
 
 **`Tests/` の逸脱 2 件は 2026-09-03 に解消済み。** テストファイルは公開 API ではないため、Runtime の改名方針を待たずに直せた。

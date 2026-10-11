@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Runs the gates an Android change has to pass, in one command: EditMode, then the PlayMode tests on
-# a connected Android device (layer 2b), the only place the P/Invoke path into libntk.so executes.
+# Runs the gates an Android change has to pass, in one command: EditMode, the PlayMode tests inside
+# the Editor (layer 2a), then the PlayMode tests on a connected Android device (layer 2b), the only
+# place the P/Invoke path into libntk.so executes.
 #
 # Which build profile is active matters, and is easy to get wrong from the command line:
 #
@@ -43,6 +44,9 @@
 #
 # Usage:
 #   scripts/verify_unity_android.sh [--skip-editmode] [--as-package-user] [--keep-changes]
+#
+#   --skip-editmode skips both Editor runs (EditMode and the Editor's PlayMode) and runs the device
+#   tests only.
 #
 # Environment:
 #   UNITY_APP   Path to Unity.app. Defaults to the 6000.4.2f1 install used by this project.
@@ -211,7 +215,7 @@ echo "device:  $(adb shell getprop ro.product.model | tr -d '\r') (Android $(adb
 echo
 
 echo "-- UI driver doctest --"
-if python3 -m doctest "$DRIVER"; then
+if PYTHONDONTWRITEBYTECODE=1 python3 -m doctest "$DRIVER"; then
   echo "  doctest: passed"
 else
   echo "  doctest: FAILED"
@@ -222,6 +226,11 @@ echo
 if [ "$SKIP_EDITMODE" -eq 0 ]; then
   echo "-- EditMode (Android™ Profile: the build-step assembly is compiled) --"
   run_tests EditMode EditMode "$PROFILE"
+  echo
+  # Layer 2a: PlayMode tests inside the Editor (the Android managers' Editor paths and the callback
+  # queue). The device runs below do not reach them: they are compiled for the Editor only.
+  echo "-- PlayMode in the Editor (layer 2a) --"
+  run_tests PlayMode PlayMode "$PROFILE"
   echo
 fi
 

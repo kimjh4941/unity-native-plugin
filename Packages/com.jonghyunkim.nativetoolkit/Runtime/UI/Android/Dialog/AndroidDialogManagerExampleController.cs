@@ -593,6 +593,13 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     }
 
     /// <summary>
+    /// A typed value as the sample logs it: by length only, so inputs and passwords do not end up in
+    /// the device log. The screen still shows the input and the user name; only the password is
+    /// shown by length.
+    /// </summary>
+    private static string Length(string? value) => value == null ? "null" : $"({value.Length} characters)";
+
+    /// <summary>
     /// Handles the result from an Android text input dialog.
     /// Updates the result label with the entered text, button selection, and operation status.
     /// </summary>
@@ -602,7 +609,7 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     /// <param name="errorMessage">Error message if the operation failed</param>
     private void OnTextInputDialogResult(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
     {
-        Debug.Log($"[AndroidDialogManagerExampleController] OnTextInputDialogResult buttonText: {buttonText ?? "null"}, inputText: {inputText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+        Debug.Log($"[AndroidDialogManagerExampleController] OnTextInputDialogResult buttonText: {buttonText ?? "null"}, inputText: {Length(inputText)}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
         if (_resultLabel != null)
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
@@ -627,12 +634,12 @@ public class AndroidDialogManagerExampleController : MonoBehaviour
     private void OnLoginDialogResult(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[AndroidDialogManagerExampleController] OnLoginDialogResult buttonText: {buttonText ?? "null"}, " +
-                  $"username: {username ?? "null"}, password: {password ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
+                  $"username: {Length(username)}, password: {Length(password)}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
         if (_resultLabel != null)
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowLoginDialog buttonText: {buttonText ?? "null"}, " +
-                                $"username: {username ?? "null"}, password: {password ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+                                $"username: {username ?? "null"}, password: {Length(password)}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
         }
         else
         {

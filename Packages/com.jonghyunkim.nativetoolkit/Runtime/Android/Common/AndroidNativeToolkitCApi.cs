@@ -27,8 +27,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
     /// </para>
     /// <para>
     /// The library is initialized at app start by androidx.startup (<c>NtkInitializer</c>), not by
-    /// Unity. Until that has finished, every operation answers <c>NOT_INITIALIZED</c>; callers check
-    /// <see cref="IsInitialized"/> first.
+    /// Unity. Until that has finished, every operation answers <c>NOT_INITIALIZED</c>, which the
+    /// features report as a failure of the call; <see cref="IsInitialized"/> is for logging.
     /// </para>
     /// </remarks>
     internal static class AndroidNativeToolkitCApi
@@ -88,9 +88,28 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
             if (value == null) return IntPtr.Zero;
 
             byte[] bytes = ToUtf8WithTerminator(value);
-            IntPtr pointer = Marshal.AllocHGlobal(bytes.Length);
-            allocated.Add(pointer);
+            IntPtr pointer = Alloc(bytes.Length, allocated);
             Marshal.Copy(bytes, 0, pointer, bytes.Length);
+            return pointer;
+        }
+
+        /// <summary>
+        /// Allocates unmanaged memory and records it in <paramref name="allocated"/> for
+        /// <see cref="FreeAll"/>. If recording it fails (the list cannot grow), the memory is freed
+        /// before the exception leaves, so nothing escapes the list.
+        /// </summary>
+        internal static IntPtr Alloc(int byteCount, List<IntPtr> allocated)
+        {
+            IntPtr pointer = Marshal.AllocHGlobal(byteCount);
+            try
+            {
+                allocated.Add(pointer);
+            }
+            catch
+            {
+                Marshal.FreeHGlobal(pointer);
+                throw;
+            }
             return pointer;
         }
 
@@ -114,6 +133,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
             Marshal.Copy(data, bytes, 0, byteCount);
             return Encoding.UTF8.GetString(bytes);
         }
+
+        /// <summary>
+        /// Reads a string the C ABI returns as a pointer and a size, keeping its two kinds of
+        /// nothing apart: NULL (no value, e.g. the input of a dialog closed with its negative button)
+        /// becomes <see langword="null"/>, a non-NULL pointer of size 0 becomes "".
+        /// </summary>
+        internal static string? ReadUtf8OrNull(IntPtr data, UIntPtr size) =>
+            data == IntPtr.Zero ? null : ReadUtf8(data, ToByteCount(size));
 
         /// <summary>
         /// Converts a native byte count to <see cref="int"/>, refusing counts a managed array cannot hold.
