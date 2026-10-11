@@ -75,8 +75,8 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | 0 | 移行前の基準を取る（EditMode、Android 実機の PlayMode） | 完了（6.1） |
 | 1 | スパイク: VERSION.txt と `PreBuildProcessor`、Gradle の依存、KGP の削除、minSdk 31、`AndroidNativeToolkitCApi`、実機で `ntk_android_is_initialized() == 1`（申し送り 4.1 の「同じ実体」）。旧ブリッジと 2.0.0 の AAR が 1 つの APK に同居できるか | 完了（6.2。`34acb2d`） |
 | 2 | Android の Player テストを流すスクリプト（`scripts/verify_unity_android.sh`）。IL2CPP の ARM64 と、パッケージの利用者の条件 | 作成済み（`34acb2d`）。どちらも PASS。32 ビットと Mono の実行は持たない（J-10、6.3、6.4） |
-| 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 未着手。Dialog の確認の後に最初に行う |
-| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v4。**利用者の確認を待って実装に入る**（2026-10-11 の利用者の指示）。1.x で先に記録する順は 2026-10-11 の利用者の提案（Windows と同じ） |
+| 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 完了（`44f206d`。EditMode と実機が基準と同じに通った） |
+| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。次は C ABI への移行（Dialog 設計 v4 5.5 の手順 4） |
 | 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース。**マニュアルの Android の動作環境に「ARM64（と x86_64）だけ、IL2CPP だけ」と書く**（J-10。native-toolkit の manual/1.13.0/index の 32 ビットの項目と合わせる。native-toolkit-1d の勧め、2026-10-11）。移行ガイドには、名前空間、既知の差分、「Configure Gradle Project」の削除、32 ビットのビルドが止まることを書く | 未着手 |
 
 ## 6. 記録
@@ -155,4 +155,12 @@ Execution failed for task ':unityLibrary:configureCMakeDebug[armeabi-v7a]'.
 - EditMode: 1168 件中 1167 件が通過、失敗 0（`AndroidArchitectureCheckTests` 7 件を含む）
 - ARMv7 を含めたテストのビルド（`-testSettingsFile` で `"architecture": "ARMv7"`）: Gradle の前に `BuildFailedException: [NativeToolkit] Native Toolkit for Android supports ARM64 (and x86_64) only; its native library is not built for ARMv7. ...` で止まった。`CXX1210` は出ない
 - テストのビルドが途中で止まると、Test Framework が一時的に変えた設定（スプラッシュ、コードのストリップ、署名）が `Android™ Profile.asset` に残る。`git checkout` で戻した。スクリプトの片付けは `Assets/Settings` を戻すので、スクリプトから流せば残らない
+
+### 6.5 UI の補助と、Dialog の 1.x の記録（2026-10-11）
+
+Dialog 設計 v4 5.5 の手順 2〜3。補助（`scripts/android_ui_driver.py` ほか）を作り、旧ブリッジ（1.x）のまま Dialog の UI テスト 29 件を実機で流して記録した。4 回目に Android™ Profile で 42/42（Clipboard の 11 件、C ABI の共通部の 2 件を含む）、パッケージの利用者の条件で 33 件が合格・9 件が skip（サンプルのシーンが無い。想定どおり）。結果は UI テスト計画 v1 の 5 章と「1.x」の列、補助で直したことは UI の補助の設計 v5。
+
+- 1.x の実測で、推定を確かめた: 長い `checkedItems` は長さのまま返る（AD-22）、`checkedItem = -1` は `null`（AD-23）、範囲外の `checkedItem` でもダイアログは出て、その値が返る（AD-33。移行後は同期の失敗になる既知の差分）
+- **Google の自動入力が、テストのパスワードの保存を求める画面を出し、それが残って以後のテストを止めた。** テストの値は「Not now」で閉じて保存させていない。補助は実行の間、自動入力を切る（元の設定は終わりに戻す）
+- **補助が後片付けの途中で止まり、端末の設定（アニメーション、充電中の画面の点灯、自動入力）が変わったまま残った**（1・2 回目）。1 回目の後は元の値を記録していなかったので、Android の既定の値に戻した（アニメーションは既定の 1 倍、画面の点灯はオフ）。利用者に、開発者向けオプションで別の値にしていたら直すよう伝えた。2 回目の後は状態ファイルから 7 つとも元の値に戻した。補助は、後片付けの間は合図を無視し、状態ファイルを残すようにした
 

@@ -9,7 +9,7 @@
 | 目的 | Android の C ABI 2.0.0 への移行（`artifact/topics/android-c-abi-2/`）で、公開 API の振る舞いが設計どおりであることを、実機の画面を操作して確かめる |
 | 実行 | `scripts/verify_unity_android.sh` の実機の PlayMode（層 2b）。テストは `Tests/PlayMode/AndroidDialogPlayerTests.cs` |
 | 設計 | `artifact/android/dialog/designs/2026-10-11-android-dialog-design-v4.md`（7.3 が層 2b。この計画は 7.3 の中身に番号を振り、期待値を具体にしたもの） |
-| 画面の操作 | ホストの adb の補助（`artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-design-v4.md`）。命令の名前（`tap`、`back` など）はその 3.1 |
+| 画面の操作 | ホストの adb の補助（`artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-design-v5.md`）。命令の名前（`tap`、`back` など）はその 3.1 |
 | 移行前の基準 | 無い。Android の Dialog の UI テストは 1.x には無かった。期待値は、1.x のブリッジの値（Dialog 設計 v4 の 2 章の表）と、既知の差分（Dialog 設計 v4 5.3）から決めた |
 
 Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-windows-dialog-ui-test-plan-v2.md`）と同じく、サンプル画面を通すテスト（1 章）と、Manager を直接呼ぶテスト（2 章）に分ける。
@@ -64,8 +64,8 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 | # | 呼び方 | 操作 | 期待（移行後） | 1.x |
 |---|---|---|---|---|
 | AD-21 | `ShowMultiChoiceItemDialog`（項目 4 つ、`checkedItems` が 2 つ `[true, false]`） | そのまま肯定 | 返る配列の長さが 4 で `[true, false, false, false]`（短い配列は `false` で埋める。設計 J-D4） | **流さない**。短い配列は main で例外になりアプリが落ちると推定（Dialog 設計 v4 の 2 章）。落ちると後のテストが止まる |
-| AD-22 | `ShowMultiChoiceItemDialog`（項目 2 つ、`checkedItems` が 4 つ） | そのまま肯定 | 長さ 2（余りは捨てる） | 流す。長さ 4 のまま返ると推定。実測で記録 |
-| AD-23 | `ShowSingleChoiceItemDialog`（`checkedItem = -1`） | そのまま肯定 | `checkedItem` が `null` | 流す。実測で記録 |
+| AD-22 | `ShowMultiChoiceItemDialog`（項目 2 つ、`checkedItems` が 4 つ） | そのまま肯定 | 長さ 2（余りは捨てる） | 流す。**実測（2026-10-11）: 長さ 4 のまま `[true, false, true, false]` が返る**（推定どおり） |
+| AD-23 | `ShowSingleChoiceItemDialog`（`checkedItem = -1`） | そのまま肯定 | `checkedItem` が `null` | 流す。**実測（2026-10-11）: 何も選ばれずに出て、肯定で `checkedItem` は `null`** |
 | AD-24 | 題名・本文・肯定のラベル・項目に `ダイアログ-𠮷`（日本語とサロゲートペア）を入れた `ShowConfirmDialog` と `ShowSingleChoiceItemDialog` | 補助が `expect` で題名・本文・ボタン・項目の文字を照らしてから肯定 | 画面の文字が一致し、`buttonText` が `ダイアログ-𠮷` と等しい | 流す。同じ |
 
 ### 2.3 呼び出しの時点と完了の経路
@@ -75,7 +75,7 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 | AD-25 | UnityMain から `ShowConfirmDialog` | `Show*` が戻った時点でイベントが 0 回。補助が肯定を押した後に 1 回、UnityMain で（設計 J-D14） | 流す。同じ（旧も dispatcher を通るので戻る前には出ない） |
 | AD-26 | Manager の受け口と `Kind.Confirm` で `ntk_dialog_show_confirm_async` を要求の ID つきで直接呼び、`ntk_dialog_cancel` | `ConfirmDialogResult` に `(null, false, "Failed to showConfirmDialog: the dialog was canceled.")` が 1 回。UI の操作は無い | 流さない（C ABI にしか無い） |
 | AD-27 | 後ろに回したまま呼ぶ（補助の `background 3000` と別のスレッド。Dialog 設計 v4 7.3 の E-8） | `DialogResult` に `(null, false, "Failed to showDialog: the app is not in the foreground.")` が 1 回。**試す**: 確実に起こせなければ外し、理由を実装結果ファイルに書く | 流さない（C ABI の Bridge を直接呼ぶテスト。旧は後ろからの呼び出しが別の経路で失敗する） |
-| AD-28 | `ShowConfirmDialog` → 補助で `(今の向き + 1) % 4` に `rotate` | ダイアログが残り（`count` が 1）、肯定で `ConfirmDialogResult` が 1 回。テストの中で `Screen.orientation` を `AutoRotation` にし、終わりに向きと一緒に戻す（Dialog 設計 v4 7.3） | 流す。同じ |
+| AD-28 | `ShowConfirmDialog` → テストが `Screen.orientation` で向きを変える（今が横なら縦、縦なら `LandscapeLeft`）→ 補助の `rotation` で表示が回ったことを確かめる | ダイアログが残り（`count` が 1）、肯定で `ConfirmDialogResult` が 1 回。終わりに向きを戻し、表示が戻るまで待つ。**初めは補助の `rotate`（`user_rotation`）で回す計画だったが、Unity の自動回転はセンサーに従い、机に置いた端末では回らなかった（2026-10-11）ので、アプリから回す形にした** | 流す。同じ |
 
 ### 2.4 同期の失敗（UI 不要）
 
@@ -87,7 +87,7 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 | AD-30 | `ShowConfirmDialog("title", "")` | `"Message cannot be null or empty."` | 同上 |
 | AD-31 | `ShowSingleChoiceItemDialog("title", new string[0])` | `"singleChoiceItems cannot be null or empty."` | 同上 |
 | AD-32 | `ShowSingleChoiceItemDialog("title", { "a", null })` | `"singleChoiceItems cannot contain null."`（設計 J-D12） | **流さない**。`null` の要素はそのまま Java に渡り、落ちうる |
-| AD-33 | `ShowSingleChoiceItemDialog("title", { "a", "b" }, checkedItem: 2)` | `"checkedItem is out of range."`（設計 J-D3） | 流す。ダイアログが出るか、何が返るかを実測で記録（旧は検査しない） |
+| AD-33 | `ShowSingleChoiceItemDialog("title", { "a", "b" }, checkedItem: 2)` | `"checkedItem is out of range."`（設計 J-D3） | 流す。**実測（2026-10-11）: ダイアログは出て（何も選ばれていない）、肯定で `checkedItem` は `2`（範囲外の値がそのまま返る）**。移行後は同期の失敗（既知の差分） |
 | AD-34 | `ShowMultiChoiceItemDialog("title", { "a", null })` | `"multiChoiceItems cannot contain null."` | **流さない**。AD-32 と同じ |
 
 ### 2.5 32 ビット（対象外）
@@ -116,3 +116,7 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 
 | 日付 | 版（移行前 / 移行後） | バックエンド | Player | Dialog |
 |---|---|---|---|---|
+| 2026-10-11 | 移行前（1.x、Android™ Profile）1 回目 | IL2CPP | 23/42 | AD-01〜07 は合格。AD-07 の後、Google の自動入力の「パスワードを保存しますか」が操作の対象の窓を取り、`uiautomator dump` がダイアログを読めず AD-08 以降が落ちた。補助は自動入力を切るようにした（補助の設計 v5） |
+| 2026-10-11 | 移行前（1.x）2 回目 | IL2CPP | 20/42 | 外側のタップの基準の誤り（ダイアログの窓を画面と取り違えた）、後片付けの失敗で購読が積み重なった、閉じられないダイアログが残って連鎖した、自動回転が回らない。テストと補助を直した |
+| 2026-10-11 | 移行前（1.x）3 回目 | IL2CPP | 41/42 | AD-28 だけ落ちた（`user_rotation` では回らない）。アプリから回す形にした |
+| 2026-10-11 | **移行前（1.x）4 回目** | IL2CPP | **42/42** | **1.x で流す 29 件すべて合格**（AD-01〜20、22〜25、28〜31、33）。補助は依頼 101 件、終了コード 0。パッケージの利用者の条件（Test Android™ Profile）は 33 件合格・9 件 skip（サンプルのシーンが無く、AD-01〜09 が Ignore。想定どおり） |
