@@ -20,7 +20,7 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 
 サンプルのトップメニューを読み込み、Dialog の画面を開いてからサンプルのボタンを押す（Windows の `WindowsDialogSamplePlayerTests` の `LoadAtTopMenu` と同じ形）。サンプルのボタンは C# から押す（Unity の UI は OS の部品の木に出ないので、補助では押せない）。ダイアログは補助で押す。
 
-サンプルは固定の値で呼ぶ（Dialog 設計 v4 の 2 章。どのボタンも `cancelable = false`、`cancelableOnTouchOutside = false`）。結果は画面の `ResultTextBlock` で照らす。入力とパスワードは画面に長さだけを出す（Dialog 設計 v4 5.1。`(<n> characters)`）。
+サンプルは固定の値で呼ぶ（Dialog 設計 v4 の 2 章。どのボタンも `cancelable = false`、`cancelableOnTouchOutside = false`）。結果は画面の `ResultTextBlock` で照らす。パスワードは画面に長さだけを出し、入力と利用者名はそのまま出す（Dialog 設計 v4 5.1。`(<n> characters)`）。
 
 | # | 操作 | 期待（移行後。`ResultTextBlock`） | 1.x |
 |---|---|---|---|
@@ -29,8 +29,8 @@ Windows の UI テスト計画（`artifact/windows/dialog/designs/2026-09-26-win
 | AD-03 | ShowConfirmDialog → 否定（`button2`） | `OK\nShowConfirmDialog buttonText: No, isSuccess: True, errorMessage: null` | 流す。同じ |
 | AD-04 | ShowSingleChoiceItemDialog → `tap text=Option 2` → 補助が `expect text=Option 2 checked true` → 肯定 | `OK\nShowSingleChoiceItemDialog buttonText: OK, checkedItem: 1, isSuccess: True, errorMessage: null` | 流す。同じ |
 | AD-05 | ShowMultiChoiceItemDialog（初期値 `[F, T, F, T]`）→ `tap text=Item 1` → 肯定 | `OK\nShowMultiChoiceItemDialog buttonText: OK, checkedItems: [True,True,False,True], isSuccess: True, errorMessage: null` | 流す。同じ |
-| AD-06 | ShowTextInputDialog → 肯定が `enabled false`（空を許さない設定）→ `type class=EditText abc123` → 肯定が `enabled true` → 肯定 | `OK\nShowTextInputDialog buttonText: OK, inputText: (6 characters), isSuccess: True, errorMessage: null` | 流す。表示は入力そのもの（`inputText: abc123`）。表示の変更は移行のコミット（Dialog 設計 v4 5.5 の手順 6） |
-| AD-07 | ShowLoginDialog → 肯定が `enabled false` → 利用者名に `user01` → まだ `enabled false` → パスワードに `pass02` → 肯定（`Login`） | `OK\nShowLoginDialog buttonText: Login, username: user01, password: (6 characters), isSuccess: True, errorMessage: null` | 流す。表示はパスワードそのもの（`password: pass02`）。同上 |
+| AD-06 | ShowTextInputDialog → 肯定が `enabled false`（空を許さない設定）→ `type class=EditText abc123` → 肯定が `enabled true` → 肯定 | `OK\nShowTextInputDialog buttonText: OK, inputText: abc123, isSuccess: True, errorMessage: null` | 流す。同じ |
+| AD-07 | ShowLoginDialog → 肯定が `enabled false` → 利用者名に `user01` → まだ `enabled false` → パスワードに `pass02` → 肯定（`Login`） | `OK\nShowLoginDialog buttonText: Login, username: user01, password: (6 characters), isSuccess: True, errorMessage: null` | 流す。表示はパスワードそのもの（`password: pass02`）。長さにする変更は移行のコミット（Dialog 設計 v4 5.5 の手順 6）で、期待値が変わるのはここだけ |
 | AD-08 | ShowConfirmDialog → `back` → `count resource-id=android:id/alertTitle` が 1（閉じない）→ `tap-outside` → まだ 1 → 肯定 | AD-02 と同じ。イベントは肯定の 1 回だけ | 流す。同じ |
 | AD-09 | Home を押す | トップメニューに戻る。もう一度 Dialog の画面を開いて AD-01 が通る | 流す。同じ |
 

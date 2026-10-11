@@ -77,7 +77,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | 2 | Android の Player テストを流すスクリプト（`scripts/verify_unity_android.sh`）。IL2CPP の ARM64 と、パッケージの利用者の条件 | 作成済み（`34acb2d`）。どちらも PASS。32 ビットと Mono の実行は持たない（J-10、6.3、6.4） |
 | 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 未着手。Dialog の確認の後に最初に行う |
 | 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v4。**利用者の確認を待って実装に入る**（2026-10-11 の利用者の指示）。1.x で先に記録する順は 2026-10-11 の利用者の提案（Windows と同じ） |
-| 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース | 未着手 |
+| 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース。**マニュアルの Android の動作環境に「ARM64（と x86_64）だけ、IL2CPP だけ」と書く**（J-10。native-toolkit の manual/1.13.0/index の 32 ビットの項目と合わせる。native-toolkit-1d の勧め、2026-10-11）。移行ガイドには、名前空間、既知の差分、「Configure Gradle Project」の削除、32 ビットのビルドが止まることを書く | 未着手 |
 
 ## 6. 記録
 
@@ -148,6 +148,7 @@ Execution failed for task ':unityLibrary:configureCMakeDebug[armeabi-v7a]'.
 - `Editor/Android/AndroidArchitectureCheck.cs`（`IPreprocessBuildWithReport`、define の外）が、Target Architectures に ARM64 と x86_64 以外があれば、Gradle の前に `BuildFailedException` で止め、Player Settings の直し方を出す。EditMode のテスト（`AndroidArchitectureCheckTests`）で組み合わせを固めた
 - スクリプトの `--armv7` と、Player テストの 32 ビットのケースは消した
 - native-toolkit-1d には、直しの依頼ではなく報告として伝える（Prefab を有効にした Gradle の利用者にも同じことが起きうるので、native-toolkit のマニュアルに書くかの判断材料）
+- native-toolkit の返事（同日、`feature/NTKIT-17` の `a7684dee`）: manual/1.13.0/index（3 言語）の 32 ビットの項目に、Prefab が有効で 32 ビット向けに組むモジュールは `ntk::ntk` を使わなくても CXX1210 で止まること、Unity の `unityLibrary` がこれに当たることを書いた。申し送り 3.1 に訂正、5 章の表の 32 ビットの行にこちらの決定を書いた。C ABI の直しは無い
 
 確かめたこと（同日。Unity Editor を閉じてから流した。Editor でプロジェクトが開いていると、コマンドラインの Unity はプロジェクトを開けずにすぐ終わる）:
 

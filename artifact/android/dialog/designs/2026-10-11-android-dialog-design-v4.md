@@ -39,7 +39,7 @@
 - R2-M-2、R2-M-3、R2-M-5: 層 2b の Ignore の条件を `IntPtr.Size == 4` だけにし、後片付けを足し、E-8 の手順を補助の `background` で組み直した（7.3）。ゲートの判定は UI の補助の設計書 v3 の 7 章
 - R2-L-2: ログの規則の範囲を「Android の C ABI の Bridge / Manager」にした（J-D13）
 - R2-L-3: Editor でも変わる行を 5.3 に明記した
-- R2-L-4: サンプルのコントローラーも、入力とパスワードは長さだけを出す（5.1）
+- R2-L-4: サンプルのコントローラーも、ログは入力とパスワードの長さだけを出す。画面はパスワードだけ長さ（5.1。画面の扱いは 2026-10-11 に利用者と相談して決めた）
 - R2-L-5: 文言をそろえ、J-D11 を親課題の決定に写した（親課題の J-8）
 - R2-L-6: 取り出しは `Update` の始めの件数だけ（5.4）
 - Codex の新規 2〜4（`run-as` のユーザー、画面の点灯の設定、`rotate`）は UI の補助の設計書 v3 で直した
@@ -295,7 +295,7 @@ Unity の Activity と透明な宿主は `configChanges` に `orientation|screen
 |---|---|---|---|---|
 | 既存変更 | `AndroidDialogManager.cs` | `Runtime/Android/Dialog/` | 型は `UNITY_ANDROID \|\| UNITY_EDITOR`（今は `UNITY_ANDROID`）。受け口・delegate を保つフィールド・関数ポインタ（`internal`。層 2b の取り消しのテストが使う）は `UNITY_ANDROID && !UNITY_EDITOR` | `AndroidJavaObject` / `AndroidJavaProxy` を消し、`AndroidDialogCApi` を呼ぶ。受け口（J-D2）、`internal void Raise(AndroidDialogCApi.Answer)`。公開 API・既定値・検査・文言はそのまま。`Initialize()` は J-D10。結果のログは 4.4 |
 | 新規作成 | `AndroidNativeCallbackQueue.cs` | `Runtime/Android/Common/` | `UNITY_ANDROID \|\| UNITY_EDITOR` | 取り出し口（J-D2）。`internal static void Post(Action)`、`internal static void EnsureCreated()`（UnityMain から）、`internal static void ResetForTests()`（列を空にする）。Android の 4 機能が使うので共通部に置く（`common.md` の `Runtime/<Platform>/Common/` の条件）。Editor でもコンパイルし、層 2a で確かめる。GameObject は `DontDestroyOnLoad` で、`hideFlags` は付けない（`DontSave` を含む値だと、Editor で再生を止めた後も残り、取り出し口が 2 つになる） |
-| 既存変更 | `AndroidDialogManagerExampleController.cs` | `Runtime/UI/Android/Dialog/` | 今のまま | 入力とパスワードは、ログと画面に長さだけを出す（4.4 と同じ考え方） |
+| 既存変更 | `AndroidDialogManagerExampleController.cs` | `Runtime/UI/Android/Dialog/` | 今のまま | ログは、入力・利用者名・パスワードの長さだけを出す（4.4 と同じ考え方）。画面は、入力と利用者名をそのまま出し、パスワードだけ長さにする（画面は logcat と違って外から読まれず、受け取れた値を見せるのがサンプルの目的。パスワードは画面でも伏せる。2026-10-11、利用者と相談） |
 | 新規作成 | `AndroidDialogCApi.cs` | `Runtime/Android/Dialog/` | 型と純粋な関数（`Answer` からイベントの引数への変換を含む）は `UNITY_ANDROID \|\| UNITY_EDITOR`、`DllImport` と結果の読み取り `Read(kind, error, result)` は `UNITY_ANDROID && !UNITY_EDITOR` | Bridge。4.1 の構造体・`extern`・delegate の型、入れ子の `Kind`（1〜6）と `Answer`、4.2〜4.4 の純粋な関数（検査、構造体の組み立て、`checked` の長さの合わせ方、`Answer` からイベントの引数、エラーの名前と文言） |
 | 既存変更 | `AndroidNativeToolkitCApi.cs` | `Runtime/Android/Common/` | 今のまま | `ReadUtf8OrNull` を足す |
 | 新規作成 | `AndroidDialogCApiTests.cs` | `Tests/Runtime/` | `UNITY_ANDROID \|\| UNITY_EDITOR` | 層 1（7.1） |
@@ -349,7 +349,7 @@ XML コメントに書き、実装結果ファイル経由で次の版のマニ�
 | 前面が `FragmentActivity` でない | `"Failed to cast context to FragmentActivity"` | 透明な宿主に出る（第 2 部の設計 8.3 の DL-08）。Unity の GameActivity は `FragmentActivity` なので、ふつうは起きない |
 | ネイティブが使えない（J-D9） | 無い（ブリッジは Java なので 32 ビットでも動いた） | **32 ビット（ARMv7）を含むビルドはできない**（Gradle の前に止まる）。Mono も ARMv7 だけなので使えない。対応の範囲は IL2CPP + ARM64（と x86_64） |
 | エラーの文言 | 例外の文言を含む | 4.4 の固定の文言 |
-| ログ（J-D13） | 検査の失敗は `LogError`、入力とパスワードを出した | 検査の失敗は `LogWarning`、入力とパスワードは長さだけ |
+| ログ（J-D13） | 検査の失敗は `LogError`、入力とパスワードを出した | 検査の失敗は `LogWarning`、入力・利用者名・パスワードは長さだけ。サンプルの画面はパスワードだけ長さ |
 | `Initialize()`（J-D10） | ブリッジを取り、リスナーを登録した | 使えるかをログに出すだけ |
 
 ### 5.4 呼び出しの流れと契約（`ShowConfirmDialog` の例）
@@ -390,7 +390,7 @@ if (error != null) ConfirmDialogResult?.Invoke(null, false, error);   // 7
 3. **1.x のまま** `AndroidDialogPlayerTests` のうち 1.x で流せるもの（UI テスト計画 v1 の「1.x」の列）を書いて流し、結果を UI テスト計画の 1.x の列に記録する。IL2CPP の ARM64。推定と書いた所が実測と違えば、2 章と 5.3 をこの記録で直す（設計書の新しい版にする）
 4. `AndroidDialogCApi` の構造体と純粋な関数、共通部の `ReadUtf8OrNull` と `AndroidNativeCallbackQueue`、層 1 のテスト
 5. `AndroidDialogCApi` の `extern`
-6. `AndroidDialogManager` の置き換え（J-D1〜J-D14）と層 2a。サンプルのコントローラーの表示（入力とパスワードを長さだけに）もここで変える（移行の前後で期待値が変わる所を 1 つのコミットにまとめる）
+6. `AndroidDialogManager` の置き換え（J-D1〜J-D14）と層 2a。サンプルのコントローラーのログ（入力・利用者名・パスワードを長さだけに）と画面（パスワードを長さだけに）もここで変える（移行の前後で期待値が変わる所を 1 つのコミットにまとめる）
 7. 2.0.0 の列のテスト（C ABI にしか無いもの）を足し、全体を流す。1.x の列と比べ、違いが 5.3 の表にあることを確かめる
 8. `common.md`、`csharp.md`、`testing.md`
 9. 実装結果ファイル（`artifact/android/dialog/results/`）に 5.3 と 4.4、UI テスト計画の 2 列の結果を書き写す
