@@ -3,7 +3,7 @@
 - 記録日: 2026-10-11
 - 分類: 横断課題（`Runtime/Common/` の dispatcher。全 OS の Manager が使う）
 - 発見経緯: Android の Dialog を C ABI に移す設計のレビュー（`artifact/android/dialog/reviews/2026-10-11-android-dialog-design-review-v1.md` の H-4）
-- 対応方針: 今は直さない。Android の C ABI の受け口は dispatcher を使わず、Manager のロックの無い列に入れる（`artifact/android/dialog/designs/2026-10-11-android-dialog-design-v2.md` の J-D2）。dispatcher を直すと全 OS の配送の時点（同じフレームで続けて走るか）が変わるので、Android の移行と混ぜない
+- 対応方針: 今は直さない。Android の C ABI の受け口（4 機能とも）は dispatcher を使わず、Android の共通部の取り出し口 `AndroidNativeCallbackQueue` に入れる（`artifact/android/dialog/designs/2026-10-11-android-dialog-design-v3.md` の J-D2、親課題 android-c-abi-2 の J-9）。dispatcher を直すと全 OS の配送の時点（同じフレームで続けて走るか）が変わるので、Android の移行と混ぜない
 - 進捗: 未着手
 
 ## 何が起きるか
