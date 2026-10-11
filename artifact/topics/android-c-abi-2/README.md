@@ -76,7 +76,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | 1 | スパイク: VERSION.txt と `PreBuildProcessor`、Gradle の依存、KGP の削除、minSdk 31、`AndroidNativeToolkitCApi`、実機で `ntk_android_is_initialized() == 1`（申し送り 4.1 の「同じ実体」）。旧ブリッジと 2.0.0 の AAR が 1 つの APK に同居できるか | 完了（6.2。`34acb2d`） |
 | 2 | Android の Player テストを流すスクリプト（`scripts/verify_unity_android.sh`）。IL2CPP の ARM64 と、パッケージの利用者の条件 | 作成済み（`34acb2d`）。どちらも PASS。32 ビットと Mono の実行は持たない（J-10、6.3、6.4） |
 | 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 完了（`44f206d`。EditMode と実機が基準と同じに通った） |
-| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。次は C ABI への移行（Dialog 設計 v4 5.5 の手順 4） |
+| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。**C ABI への移行を実装し、実機で 47/47（6.6）**。次は実装のレビューとコミット、その後 Share |
 | 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース。**マニュアルの Android の動作環境に「ARM64（と x86_64）だけ、IL2CPP だけ」と書く**（J-10。native-toolkit の manual/1.13.0/index の 32 ビットの項目と合わせる。native-toolkit-1d の勧め、2026-10-11）。移行ガイドには、名前空間、既知の差分、「Configure Gradle Project」の削除、32 ビットのビルドが止まることを書く | 未着手 |
 
 ## 6. 記録
@@ -164,3 +164,13 @@ Dialog 設計 v4 5.5 の手順 2〜3。補助（`scripts/android_ui_driver.py` �
 - **Google の自動入力が、テストのパスワードの保存を求める画面を出し、それが残って以後のテストを止めた。** テストの値は「Not now」で閉じて保存させていない。補助は実行の間、自動入力を切る（元の設定は終わりに戻す）
 - **補助が後片付けの途中で止まり、端末の設定（アニメーション、充電中の画面の点灯、自動入力）が変わったまま残った**（1・2 回目）。1 回目の後は元の値を記録していなかったので、Android の既定の値に戻した（アニメーションは既定の 1 倍、画面の点灯はオフ）。利用者に、開発者向けオプションで別の値にしていたら直すよう伝えた。2 回目の後は状態ファイルから 7 つとも元の値に戻した。補助は、後片付けの間は合図を無視し、状態ファイルを残すようにした
 
+### 6.6 Dialog の C ABI への移行（2026-10-11）
+
+Dialog 設計 v4 5.5 の手順 4〜9。`AndroidDialogCApi`（Bridge）、共通部の取り出し口 `AndroidNativeCallbackQueue`、`AndroidDialogManager` の書き直し、層 1・2a のテスト、2.0.0 だけの UI テスト 5 件を足した。結果は Dialog の実装結果 v4（`artifact/android/dialog/results/2026-10-11-android-dialog-implementation-feature-result-v4.md`。v1 は移行の直後、v2〜v4 は実装レビュー v1〜v3 の修正の後）。UI テスト計画は v2（AD-36、AD-37 を足した）。
+
+- 実機（Pixel 6a、IL2CPP ARM64、Android™ Profile）: 47/47。Dialog の AD-01〜AD-34 がすべて合格。パッケージの利用者の条件: 38 件合格・9 件 skip（想定どおり）。実装レビュー 3 回の修正の後の最終回（`verify-fix3`）で、実機 49/49（AD-36、AD-37 を含む）、EditMode 1229/1230、Editor の PlayMode 226/237（skip はどちらも既存のもの）。移行の直後は 1226/1227、219/230 だった
+- 1.x の 29 件のうち期待値を変えたのは、Dialog 設計 v4 5.3 の既知の差分に当たるものだけ（閉じたときの選択、範囲外の `checkedItem`、長い `checkedItems`、サンプルのパスワードの表示、検査のログの段階）
+- 後ろから呼んだときの `NOT_FOREGROUND`（AD-27）は実機で確実に起こせた。補助が Activity の `STOPPED` を確かめてから、別のスレッドが Bridge を呼ぶ。Unity が一時停止している間も Test Runner の接続は切れない（UI の補助の設計 v5 の V-8）
+- C ABI の側の直しは要らなかった（native-toolkit-1d へ戻すものは無い）
+- 実装レビューを 3 回（サブエージェントと Codex）回し、3 回目で A が 0 件になった。3 回目では、別のスレッドからの `Show*` が例外を出す回帰（1.x は動いた見込み）も見つかり、直した。製品の側では、確保した後に一覧へ足すまでの間の漏れ、取り出し口が壊された・無効にされたときに完了が無言で止まること、などを直した。テストの側では、後片付けで要求とイベントの数を照らし、Unity Test Framework が入れ子の手順の失敗の後に外側の `finally` を走らせないことに合わせて、片付けが必ず走る形にした。直した所は、わざと壊して落ちることを確かめた（実装結果 v2 の 9 章、v3 の 10 章）
+- **Windows にも、確保した後に一覧へ足すまでの間の漏れと同じ形が 3 か所ある**（実装結果 v3 の 7 章）。この段では変えない
