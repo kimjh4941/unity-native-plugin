@@ -25,6 +25,14 @@
 # of scope (artifact/topics/android-c-abi-2, J-10), so there is no 32-bit run. Mono is not run
 # either: on Android it builds ARMv7 only.
 #
+# The device runs start the host-side UI driver (scripts/android_ui_driver.py), which presses the OS
+# dialogs the tests ask for (artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-
+# design-v4.md). A device run fails when the driver exits non-zero (a setting it could not restore,
+# a HELLO it could not answer), and - with the Android™ Profile, whose player holds the sample scene -
+# when a test of the AndroidUiDriver category was skipped, or when no such test ran at all. The driver
+# changes device settings while it runs and restores them when it stops; a trap stops it even when
+# this script is interrupted.
+#
 # The Editor ships its own adb (36.x), and an older adb on PATH (the Android SDK's platform-tools)
 # kills its server and starts its own: whichever runs second disconnects the other. The script puts
 # Unity's adb first on PATH, and uses it for its own checks.
@@ -132,10 +140,83 @@ run_tests() {
   grep -n "BuildFailedException\|Error building Player" "$log" | head -3
 }
 
+DRIVER="$PROJECT_DIR/scripts/android_ui_driver.py"
+DRIVER_PID=""
+
+stop_driver() {
+  if [ -n "$DRIVER_PID" ]; then
+    kill -TERM "$DRIVER_PID" 2>/dev/null
+    wait "$DRIVER_PID"
+    local code=$?
+    DRIVER_PID=""
+    return $code
+  fi
+  return 0
+}
+trap 'stop_driver >/dev/null 2>&1' EXIT INT TERM HUP
+
+# Prints how many tests of the AndroidUiDriver category ran and were skipped, from a result file.
+# A category put on a fixture is written on its test-suite, so a case inherits its suites' categories.
+ui_driver_counts() {
+  python3 - "$1" <<'PY'
+import sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+def categories(element):
+    return {p.get("value") for p in element.findall("./properties/property[@name='Category']")}
+total = skipped = 0
+def walk(element, inherited):
+    global total, skipped
+    mine = inherited | categories(element)
+    for child in element:
+        if child.tag in ("test-suite", "test-case"):
+            walk(child, mine)
+    if element.tag == "test-case" and "AndroidUiDriver" in mine:
+        total += 1
+        if element.get("result") == "Skipped":
+            skipped += 1
+walk(root, set())
+print(total, skipped)
+PY
+}
+
+# run_device_tests <label> <profile> <check ui tests: 1|0>
+run_device_tests() {
+  local label="$1" profile="$2" check_ui="$3"
+  local driver_log="$OUT_DIR/$label-ui-driver.log"
+  python3 "$DRIVER" --state-file "$OUT_DIR/ui-driver-settings.json" --dump-dir "$OUT_DIR/$label-ui-dumps" > "$driver_log" 2>&1 &
+  DRIVER_PID=$!
+  run_tests "$label" Android "$profile"
+  stop_driver
+  local driver_code=$?
+  echo "  ui driver: $(tail -1 "$driver_log") (exit $driver_code)"
+  if [ "$driver_code" -ne 0 ]; then
+    echo "  ui driver: FAILED; see $driver_log"
+    failures=$((failures + 1))
+  fi
+  local xml="$OUT_DIR/$label.xml"
+  if [ "$check_ui" -eq 1 ] && [ -f "$xml" ]; then
+    read -r ui_total ui_skipped <<< "$(ui_driver_counts "$xml")"
+    echo "  AndroidUiDriver tests: $ui_total, skipped $ui_skipped"
+    if [ "$ui_total" -eq 0 ] || [ "$ui_skipped" -ne 0 ]; then
+      echo "  AndroidUiDriver tests: FAILED (every one must run, and at least one must exist)"
+      failures=$((failures + 1))
+    fi
+  fi
+}
+
 echo "== Unity Android verification =="
 echo "project: $PROJECT_DIR"
 echo "output:  $OUT_DIR"
 echo "device:  $(adb shell getprop ro.product.model | tr -d '\r') (Android $(adb shell getprop ro.build.version.release | tr -d '\r'))"
+echo
+
+echo "-- UI driver doctest --"
+if python3 -m doctest "$DRIVER"; then
+  echo "  doctest: passed"
+else
+  echo "  doctest: FAILED"
+  failures=$((failures + 1))
+fi
 echo
 
 if [ "$SKIP_EDITMODE" -eq 0 ]; then
@@ -145,12 +226,12 @@ if [ "$SKIP_EDITMODE" -eq 0 ]; then
 fi
 
 echo "-- device PlayMode (IL2CPP, Android™ Profile: AARs copied from dist) --"
-run_tests Android Android "$PROFILE"
+run_device_tests Android "$PROFILE" 1
 echo
 
 if [ "$AS_PACKAGE_USER" -eq 1 ]; then
   echo "-- device PlayMode (IL2CPP, Test Android™ Profile: as a package user) --"
-  run_tests Android-package-user Android "$TEST_PROFILE"
+  run_device_tests Android-package-user "$TEST_PROFILE" 0
   echo
 fi
 
