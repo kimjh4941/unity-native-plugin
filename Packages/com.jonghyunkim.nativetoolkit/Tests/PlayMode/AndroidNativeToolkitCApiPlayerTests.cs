@@ -1,7 +1,6 @@
 #nullable enable
 
 #if UNITY_ANDROID
-using System;
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -20,10 +19,6 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// toolkit only proved that a second .so loaded with System.loadLibrary shares the instance, not
     /// that Unity's DllImport does. If Unity loaded a separate copy, every call would answer
     /// NOT_INITIALIZED for ever.
-    /// <para>
-    /// libntk.so ships for 64-bit ABIs only. A 32-bit player (always the case with Mono, which builds
-    /// ARMv7 only on Android) must see the C ABI as unavailable, not throw at its callers.
-    /// </para>
     /// </remarks>
     public sealed class AndroidNativeToolkitCApiPlayerTests
     {
@@ -38,14 +33,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
 #if !UNITY_EDITOR
-        private static bool Is64BitProcess => IntPtr.Size == 8;
-
         [Test]
         public void Version_HasTheSupportedMajor()
         {
-            if (!Is64BitProcess)
-                Assert.Ignore("32-bit player: libntk.so is not shipped for this ABI.");
-
             uint version = AndroidNativeToolkitCApi.ntk_version();
 
             Assert.That(version >> 16, Is.EqualTo(AndroidNativeToolkitCApi.SupportedMajor), $"ntk_version() = 0x{version:X6}");
@@ -55,9 +45,6 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator IsInitialized_TheLibraryUnityLoadsIsTheOneAndroidxStartupInitialized()
         {
-            if (!Is64BitProcess)
-                Assert.Ignore("32-bit player: libntk.so is not shipped for this ABI.");
-
             float deadline = Time.realtimeSinceStartup + InitializationTimeoutSeconds;
             while (AndroidNativeToolkitCApi.ntk_android_is_initialized() == 0 && Time.realtimeSinceStartup < deadline)
                 yield return null;
@@ -66,16 +53,6 @@ namespace JonghyunKim.NativeToolkit.Tests
                 "libntk.so loaded through DllImport reports that it is not initialized. Either androidx.startup " +
                 "did not run NtkInitializer, or Unity loaded a separate copy of the library.");
             Assert.That(AndroidNativeToolkitCApi.IsInitialized(), Is.True);
-        }
-
-        [Test]
-        public void On32Bit_TheCApiIsUnavailableWithoutThrowing()
-        {
-            if (Is64BitProcess)
-                Assert.Ignore("64-bit player: the C ABI is available here.");
-
-            Assert.That(AndroidNativeToolkitCApi.EnsureNativeAvailable(), Is.EqualTo(AndroidNativeToolkitCApi.NativeState.NativeUnavailable));
-            Assert.That(AndroidNativeToolkitCApi.IsInitialized(), Is.False);
         }
 #endif
     }

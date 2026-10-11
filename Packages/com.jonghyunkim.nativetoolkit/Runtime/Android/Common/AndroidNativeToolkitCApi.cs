@@ -20,9 +20,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
     /// Windows in shape, and even that is declared again here rather than shared, because the two
     /// platforms load different libraries.
     /// <para>
-    /// <c>libntk.so</c> ships for arm64-v8a and x86_64 only. On armeabi-v7a the first call throws
-    /// <see cref="DllNotFoundException"/>, which <see cref="EnsureNativeAvailable"/> turns into
-    /// <see cref="NativeState.NativeUnavailable"/>.
+    /// <c>libntk.so</c> ships for arm64-v8a and x86_64 only, and a build that targets a 32-bit ABI is
+    /// stopped before Gradle runs (the Editor's AndroidArchitectureCheck). Should a player still lack
+    /// the library, the first call throws <see cref="DllNotFoundException"/>, which
+    /// <see cref="EnsureNativeAvailable"/> turns into <see cref="NativeState.NativeUnavailable"/>.
     /// </para>
     /// <para>
     /// The library is initialized at app start by androidx.startup (<c>NtkInitializer</c>), not by
@@ -49,7 +50,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
             /// <summary>The library loaded and its major version matches.</summary>
             Available,
 
-            /// <summary>The library is missing (armeabi-v7a), lacks an entry point, or reports another major version.</summary>
+            /// <summary>The library is missing, lacks an entry point, or reports another major version.</summary>
             NativeUnavailable,
 
             /// <summary>Not an Android player: the Editor, where the library is never loaded.</summary>

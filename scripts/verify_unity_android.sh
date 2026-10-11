@@ -19,12 +19,11 @@
 # the device tests again with the Test Android™ Profile, against the AARs the first run left in
 # Plugins/Android - what a package user's build sees.
 #
-# --mono builds the test player with Mono instead of IL2CPP (Player Settings use IL2CPP), through
-# the Test Framework's settings file. Unity's Mono on Android builds ARMv7 (32-bit) only, and
-# native-toolkit ships libntk.so for arm64-v8a and x86_64 only, so a Mono player cannot load the
-# C ABI at all. The Mono run therefore checks the other path: that every manager reports the C ABI
-# as unavailable instead of throwing DllNotFoundException at the caller (J-5 in
-# artifact/topics/android-c-abi-2). The device has to run 32-bit apps (ro.product.cpu.abilist32).
+# Only 64-bit players are built. native-toolkit ships libntk.so for arm64-v8a and x86_64 only, and
+# its AAR's Prefab module stops any build that also targets ARMv7 inside Gradle; the package now
+# stops such a build earlier, with a clear message (AndroidArchitectureCheck). 32-bit Android is out
+# of scope (artifact/topics/android-c-abi-2, J-10), so there is no 32-bit run. Mono is not run
+# either: on Android it builds ARMv7 only.
 #
 # The Editor ships its own adb (36.x), and an older adb on PATH (the Android SDK's platform-tools)
 # kills its server and starts its own: whichever runs second disconnects the other. The script puts
@@ -35,7 +34,7 @@
 # had changes before the run. --keep-changes skips that.
 #
 # Usage:
-#   scripts/verify_unity_android.sh [--skip-editmode] [--mono] [--as-package-user] [--keep-changes]
+#   scripts/verify_unity_android.sh [--skip-editmode] [--as-package-user] [--keep-changes]
 #
 # Environment:
 #   UNITY_APP   Path to Unity.app. Defaults to the 6000.4.2f1 install used by this project.
@@ -51,14 +50,12 @@ OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/unity-android-verify}"
 PROFILE="Assets/Settings/Build Profiles/Android™ Profile.asset"
 TEST_PROFILE="Assets/Settings/Build Profiles/Test Android™ Profile.asset"
 SKIP_EDITMODE=0
-MONO=0
 AS_PACKAGE_USER=0
 KEEP_CHANGES=0
 
 for arg in "$@"; do
   case "$arg" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
-    --mono) MONO=1 ;;
     --as-package-user) AS_PACKAGE_USER=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
@@ -141,32 +138,19 @@ echo "output:  $OUT_DIR"
 echo "device:  $(adb shell getprop ro.product.model | tr -d '\r') (Android $(adb shell getprop ro.build.version.release | tr -d '\r'))"
 echo
 
-backend_args=()
-backend_label="il2cpp"
-if [ "$MONO" -eq 1 ]; then
-  backend_label="mono"
-  settings="$OUT_DIR/mono-test-settings.json"
-  printf '{\n  "scriptingBackend": "Mono2x",\n  "architecture": "ARMv7"\n}\n' > "$settings"
-  backend_args=(-testSettingsFile "$settings")
-  if [ -z "$(adb shell getprop ro.product.cpu.abilist32 | tr -d '\r')" ]; then
-    echo "--mono needs a device that runs 32-bit apps; this one does not (ro.product.cpu.abilist32 is empty)." >&2
-    exit 2
-  fi
-fi
-
 if [ "$SKIP_EDITMODE" -eq 0 ]; then
   echo "-- EditMode (Android™ Profile: the build-step assembly is compiled) --"
   run_tests EditMode EditMode "$PROFILE"
   echo
 fi
 
-echo "-- device PlayMode ($backend_label, Android™ Profile: AARs copied from dist) --"
-run_tests "Android-$backend_label" Android "$PROFILE" ${backend_args[@]+"${backend_args[@]}"}
+echo "-- device PlayMode (IL2CPP, Android™ Profile: AARs copied from dist) --"
+run_tests Android Android "$PROFILE"
 echo
 
 if [ "$AS_PACKAGE_USER" -eq 1 ]; then
-  echo "-- device PlayMode ($backend_label, Test Android™ Profile: as a package user) --"
-  run_tests "Android-$backend_label-package-user" Android "$TEST_PROFILE" ${backend_args[@]+"${backend_args[@]}"}
+  echo "-- device PlayMode (IL2CPP, Test Android™ Profile: as a package user) --"
+  run_tests Android-package-user Android "$TEST_PROFILE"
   echo
 fi
 
