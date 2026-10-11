@@ -46,7 +46,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// moved on their own: the build deleted the committed 1.x DLL and copied the 2.0.0 C ABI DLL in
     /// its place, with the P/Invoke layer still on 1.x. Naming the version and the artifact makes that
     /// a reviewable line in a commit instead of a consequence of someone else's release.
-    /// Android, iOS and macOS still use the scanning path; only Windows is pinned so far.
+    /// Android is pinned the same way (<see cref="AndroidPin"/>); iOS and macOS still use the scanning path.
     /// </remarks>
     private readonly struct WindowsPin
     {
@@ -105,28 +105,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         /// </remarks>
         internal static WindowsPin Read(string path)
         {
-            if (!File.Exists(path))
-            {
-                throw new BuildFailedException(
-                    $"[Build][Windows] {FileName} not found at {path}. It declares which native-toolkit " +
-                    "artifact this folder holds; without it the build has nothing to copy from.");
-            }
-
-            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string rawLine in File.ReadAllLines(path))
-            {
-                string line = rawLine.Trim();
-                if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
-                    continue;
-
-                int separator = line.IndexOf(':');
-                if (separator <= 0)
-                    continue;
-
-                string key = line.Substring(0, separator).Trim();
-                // Values may contain ':' (the source URL does), so split on the first one only.
-                values[key] = line.Substring(separator + 1).Trim();
-            }
+            IDictionary<string, string> values = ReadPinValues(path, "[Build][Windows]", FileName);
 
             return new WindowsPin(
                 Get(values, "dist_version", path, required: true),
@@ -150,6 +129,119 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
     }
 
+    /// <summary>
+    /// Reads a VERSION.txt pin as "key: value" lines. '#' starts a comment line. Throws
+    /// <see cref="BuildFailedException"/> when the file is missing.
+    /// </summary>
+    private static IDictionary<string, string> ReadPinValues(string path, string logPrefix, string fileName)
+    {
+        if (!File.Exists(path))
+        {
+            throw new BuildFailedException(
+                $"{logPrefix} {fileName} not found at {path}. It declares which native-toolkit " +
+                "artifact this folder holds; without it the build has nothing to copy from.");
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string rawLine in File.ReadAllLines(path))
+        {
+            string line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
+                continue;
+
+            int separator = line.IndexOf(':');
+            if (separator <= 0)
+                continue;
+
+            string key = line.Substring(0, separator).Trim();
+            // Values may contain ':' (the source URL does), so split on the first one only.
+            values[key] = line.Substring(separator + 1).Trim();
+        }
+        return values;
+    }
+
+    /// <summary>The value of a required pin key; throws <see cref="BuildFailedException"/> when it is missing or empty.</summary>
+    private static string RequirePinValue(IDictionary<string, string> values, string key, string path, string logPrefix, string fileName)
+    {
+        if (values.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
+            return value;
+
+        throw new BuildFailedException(
+            $"{logPrefix} {fileName} has no value for '{key}' ({path}). " +
+            "Add it; the build does not guess which version or artifact to use.");
+    }
+
+    /// <summary>
+    /// The Android entry in <c>Plugins/Android/VERSION.txt</c>: which dist folder to copy from and
+    /// which AARs to take, by their full file names.
+    /// </summary>
+    /// <remarks>
+    /// Android used to scan dist for the highest version and pick AARs by name prefix. When
+    /// native-toolkit published dist/1.13.0, the prefix "android-native-toolkit-" matched
+    /// android-native-toolkit-capi-2.0.0.aar, the bridge AAR was no longer there, and the build
+    /// failed (artifact/topics/android-c-abi-2). The same happened on Windows with 1.12.0, which is
+    /// why <see cref="WindowsPin"/> exists; this is the same idea with a list of AARs, because
+    /// Android needs two (the Kotlin API and the C ABI that runs on it).
+    /// <para>
+    /// The extra_* keys place a second set from another dist folder beside the first. They exist
+    /// for the migration to the 2.0.0 C ABI, while features not yet moved still call the 1.x bridge.
+    /// </para>
+    /// </remarks>
+    private readonly struct AndroidPin
+    {
+        internal const string FileName = "VERSION.txt";
+
+        internal string DistVersion { get; }
+        internal IReadOnlyList<string> Aars { get; }
+
+        /// <summary>Null when there is no extra set.</summary>
+        internal string ExtraDistVersion { get; }
+        internal IReadOnlyList<string> ExtraAars { get; }
+
+        private AndroidPin(string distVersion, IReadOnlyList<string> aars, string extraDistVersion, IReadOnlyList<string> extraAars)
+        {
+            DistVersion = distVersion;
+            Aars = aars;
+            ExtraDistVersion = extraDistVersion;
+            ExtraAars = extraAars;
+        }
+
+        /// <summary>
+        /// Reads the pin. Throws <see cref="BuildFailedException"/> when the file or a required key is
+        /// missing, or when only one of the two extra_* keys is given.
+        /// </summary>
+        internal static AndroidPin Read(string path)
+        {
+            IDictionary<string, string> values = ReadPinValues(path, "[Build][Android]", FileName);
+
+            string distVersion = RequirePinValue(values, "dist_version", path, "[Build][Android]", FileName);
+            IReadOnlyList<string> aars = SplitList(RequirePinValue(values, "aars", path, "[Build][Android]", FileName));
+
+            values.TryGetValue("extra_dist_version", out string extraDistVersion);
+            values.TryGetValue("extra_aars", out string extraAarsValue);
+            bool hasExtraVersion = !string.IsNullOrEmpty(extraDistVersion);
+            bool hasExtraAars = !string.IsNullOrEmpty(extraAarsValue);
+            if (hasExtraVersion != hasExtraAars)
+            {
+                throw new BuildFailedException(
+                    $"[Build][Android] {FileName} gives only one of extra_dist_version and extra_aars ({path}). " +
+                    "Give both, or neither.");
+            }
+
+            return new AndroidPin(
+                distVersion,
+                aars,
+                hasExtraVersion ? extraDistVersion : null,
+                hasExtraAars ? SplitList(extraAarsValue) : Array.Empty<string>());
+        }
+
+        private static IReadOnlyList<string> SplitList(string value) =>
+            value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(item => item.Trim())
+                .Where(item => item.Length > 0)
+                .ToArray();
+    }
+
     public int callbackOrder => 0;
 
     // Determine config from build options
@@ -170,11 +262,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         if (report.summary.platform == BuildTarget.Android)
         {
-            string latestVersion = FindLatestVersionInDist();
-            if (!string.IsNullOrEmpty(latestVersion))
-            {
-                CopyAndroidLibraries(config, latestVersion);
-            }
+            // Android does not call FindLatestVersionInDist: it reads the pin in
+            // Plugins/Android/VERSION.txt instead. See AndroidPin for why.
+            CopyAndroidLibraries();
         }
         else if (report.summary.platform == BuildTarget.iOS)
         {
@@ -309,136 +399,81 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Copies Android AAR libraries (Debug/Release) from dist folder to Plugins/Android.
+    /// Copies the AARs named by Plugins/Android/VERSION.txt from the dist folder to Plugins/Android,
+    /// and deletes every other AAR there.
     /// </summary>
-    private void CopyAndroidLibraries(string config, string version)
+    /// <remarks>
+    /// The same AARs serve development and release builds: dist publishes no -debug.aar for Android.
+    /// </remarks>
+    private void CopyAndroidLibraries()
     {
-        UnityEngine.Debug.Log($"[Build][Android] Copying libraries from dist (config={config}, version={version})");
-
-        string distAndroidDir = Path.Combine(NativeToolkitDistRoot, version, "android");
-
-        if (!Directory.Exists(distAndroidDir))
-        {
-            UnityEngine.Debug.LogError($"[Build][Android] Android dist directory not found: {distAndroidDir}");
-            return;
-        }
-
-        bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
-
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/Android");
 
+        AndroidPin pin = AndroidPin.Read(Path.Combine(destDir, AndroidPin.FileName));
+        UnityEngine.Debug.Log(
+            $"[Build][Android] Pinned by {AndroidPin.FileName}: dist_version={pin.DistVersion}, aars={string.Join(", ", pin.Aars)}" +
+            (pin.ExtraDistVersion != null ? $"; extra_dist_version={pin.ExtraDistVersion}, extra_aars={string.Join(", ", pin.ExtraAars)}" : ""));
+
         // Resolve every source BEFORE deleting anything. Deleting first and then failing to find a
-        // replacement would leave the project with no native libraries at all.
-        string selectedAar1 = FindAarNameInDist(distAndroidDir, "android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
-        string selectedAar2 = FindAarNameInDist(distAndroidDir, "unity-android-native-toolkit-", "[Build][Android]", isDevelopmentBuild);
+        // replacement would leave the project with no native libraries at all. A pin that does not
+        // resolve is a configuration error, not something to work around by copying whatever else
+        // is in dist.
+        var sources = new List<string>();
+        AddAndroidSources(sources, pin.DistVersion, pin.Aars);
+        if (pin.ExtraDistVersion != null)
+            AddAndroidSources(sources, pin.ExtraDistVersion, pin.ExtraAars);
 
-        if (string.IsNullOrEmpty(selectedAar1) || string.IsNullOrEmpty(selectedAar2))
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string source in sources)
         {
-            UnityEngine.Debug.LogError(
-                $"[Build][Android] Aborting copy: could not resolve both AARs in {distAndroidDir}. " +
-                "Existing libraries were left untouched.");
-            return;
-        }
-
-        if (!Directory.Exists(destDir))
-        {
-            Directory.CreateDirectory(destDir);
-        }
-        else
-        {
-            // Clean existing AAR files only now that both replacements are known to exist.
-            foreach (string aarFile in Directory.GetFiles(destDir, "*.aar"))
+            if (!names.Add(Path.GetFileName(source)))
             {
-                File.Delete(aarFile);
-                UnityEngine.Debug.Log($"[Build][Android] Deleted old AAR: {aarFile}");
+                throw new BuildFailedException(
+                    $"[Build][Android] {AndroidPin.FileName} names {Path.GetFileName(source)} twice.");
             }
         }
 
-        // Copy AAR files located by prefix search (filename version may differ from directory version)
-        File.Copy(Path.Combine(distAndroidDir, selectedAar1), Path.Combine(destDir, selectedAar1), true);
-        UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar1}");
+        Directory.CreateDirectory(destDir);
+        foreach (string aarFile in Directory.GetFiles(destDir, "*.aar"))
+        {
+            if (names.Contains(Path.GetFileName(aarFile)))
+                continue;
 
-        File.Copy(Path.Combine(distAndroidDir, selectedAar2), Path.Combine(destDir, selectedAar2), true);
-        UnityEngine.Debug.Log($"[Build][Android] Copied {selectedAar2}");
+            File.Delete(aarFile);
+            string meta = aarFile + ".meta";
+            if (File.Exists(meta))
+                File.Delete(meta);
+            UnityEngine.Debug.Log($"[Build][Android] Deleted AAR not in the pin: {aarFile}");
+        }
 
+        foreach (string source in sources)
+        {
+            File.Copy(source, Path.Combine(destDir, Path.GetFileName(source)), true);
+            UnityEngine.Debug.Log($"[Build][Android] Copied {source}");
+        }
+
+        AssetDatabase.Refresh();
         UnityEngine.Debug.Log($"[Build][Android] Copy completed to {destDir}");
     }
 
     /// <summary>
-    /// Finds an AAR file name in dist using prefix and build-mode filter.
-    /// For development builds, falls back to the release AAR when no <c>-debug.aar</c> variant is
-    /// published: dist does not always ship debug artifacts, and a test player build is always a
-    /// development build (UnityEditor.TestRunner PlayerLauncher forces BuildOptions.Development),
-    /// so without this fallback on-device test runs could never resolve a library.
+    /// Adds the full path of each pinned AAR in dist/&lt;version&gt;/android, or throws
+    /// <see cref="BuildFailedException"/> when one is not there.
     /// </summary>
-    private string FindAarNameInDist(string distDir, string prefix, string logPrefix, bool isDevelopmentBuild)
+    private static void AddAndroidSources(List<string> sources, string distVersion, IReadOnlyList<string> aars)
     {
-        if (!Directory.Exists(distDir))
+        string distAndroidDir = Path.Combine(NativeToolkitDistRoot, distVersion, "android");
+        foreach (string aar in aars)
         {
-            UnityEngine.Debug.LogError($"{logPrefix} Dist directory not found: {distDir}");
-            return null;
-        }
-
-        string[] candidates = Directory.GetFiles(distDir, "*.aar");
-
-        string selectedName = SelectAarName(candidates, prefix, preferDebug: isDevelopmentBuild, logPrefix);
-
-        if (selectedName == null && isDevelopmentBuild)
-        {
-            selectedName = SelectAarName(candidates, prefix, preferDebug: false, logPrefix);
-            if (selectedName != null)
+            string source = Path.Combine(distAndroidDir, aar);
+            if (!File.Exists(source))
             {
-                UnityEngine.Debug.LogWarning(
-                    $"{logPrefix} No -debug.aar published for prefix={prefix}; falling back to the release AAR: {selectedName}");
+                throw new BuildFailedException(
+                    $"[Build][Android] {AndroidPin.FileName} names {aar} in dist {distVersion}, but it is not at {source}.");
             }
+            sources.Add(source);
         }
-
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates.Select(Path.GetFileName));
-            UnityEngine.Debug.LogError($"{logPrefix} AAR not found. prefix={prefix}, isDevelopmentBuild={isDevelopmentBuild}, distDir={distDir}, available={available}");
-            return null;
-        }
-
-        UnityEngine.Debug.Log($"{logPrefix} Selected AAR: {selectedName}");
-        return selectedName;
-    }
-
-    /// <summary>
-    /// Picks the highest-sorting AAR matching <paramref name="prefix"/> and the requested debug/release
-    /// flavour. Returns null when no candidate matches.
-    /// </summary>
-    private static string SelectAarName(string[] candidates, string prefix, bool preferDebug, string logPrefix)
-    {
-        string selectedName = null;
-        bool hasMultipleMatches = false;
-
-        foreach (string candidatePath in candidates)
-        {
-            string candidateName = Path.GetFileName(candidatePath);
-            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            bool isDebugName = candidateName.EndsWith("-debug.aar", StringComparison.OrdinalIgnoreCase);
-            if (isDebugName != preferDebug)
-                continue;
-
-            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
-            {
-                hasMultipleMatches = selectedName != null || hasMultipleMatches;
-                selectedName = candidateName;
-            }
-            else
-            {
-                hasMultipleMatches = true;
-            }
-        }
-
-        if (selectedName != null && hasMultipleMatches)
-            UnityEngine.Debug.LogWarning($"{logPrefix} Multiple AAR matches found. Selected: {selectedName}");
-
-        return selectedName;
     }
 
     /// <summary>
@@ -461,7 +496,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
-        // Resolve every source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        // Resolve every source BEFORE deleting anything (deleting first and then failing to find a replacement would leave the project with no native libraries).
         string selectedXcf1 = FindXcframeworkNameInDist(distIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
         string selectedXcf2 = FindXcframeworkNameInDist(distIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
 
@@ -524,7 +559,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             $"[Build][Windows] Pinned by {WindowsPin.FileName}: dist_version={pin.DistVersion}, " +
             $"dll={selectedDll}, install_as={destName} (config={config})");
 
-        // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        // Resolve the source BEFORE deleting anything (deleting first and then failing to find a replacement would leave the project with no native libraries).
         // A pin that does not resolve is a configuration error, not something to work around by
         // copying whatever else is in dist: that is exactly how the 2.0.0 C ABI DLL got in here
         // while the P/Invoke layer was still 1.x.
@@ -599,7 +634,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/macOS");
 
-        // Resolve the source BEFORE deleting anything (see CopyAndroidLibraries for rationale).
+        // Resolve the source BEFORE deleting anything (deleting first and then failing to find a replacement would leave the project with no native libraries).
         string selectedXcf2 = FindXcframeworkNameInDist(distMacDir, "unity-mac-native-toolkit-", xcfSuffix, "[Build][macOS]", isDevelopmentBuild);
         if (string.IsNullOrEmpty(selectedXcf2))
         {
@@ -641,7 +676,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// <summary>
     /// Finds an XCFramework folder name in dist using prefix and build-mode filter.
     /// Falls back to the release XCFramework when no <c>-debug.xcframework</c> variant is published
-    /// (see <see cref="FindAarNameInDist"/> for the rationale).
+    /// (dist does not always ship debug artifacts, and a test player build is always a development
+    /// build: UnityEditor.TestRunner PlayerLauncher forces BuildOptions.Development).
     /// </summary>
     private string FindXcframeworkNameInDist(string distDir, string prefix, string xcfSuffix, string logPrefix, bool isDevelopmentBuild)
     {

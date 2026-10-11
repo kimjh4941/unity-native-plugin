@@ -1,0 +1,32 @@
+# Which native-toolkit artifacts this folder holds, and where they came from.
+#
+# PreBuildProcessor READS the keys below from this file. It does not scan dist
+# and guess. If a required key is missing, or an artifact it names is not in
+# dist, the build FAILS rather than copying something else. Every other .aar in
+# this folder is deleted by the build.
+#
+# Change these keys in the same commit as the AARs. The point is that the
+# binaries in this folder and the lines that name them move together.
+#
+# dist_version        the folder under native-toolkit/dist to copy from (required)
+# aars                the AARs to copy from it, comma-separated full file names
+#                     (required). 2.0.0 needs both the Kotlin API and the C ABI
+#                     (android-native-toolkit-capi), which runs on the Kotlin API.
+# extra_dist_version  a second dist folder (optional; give both extra_* or none)
+# extra_aars          the AARs to copy from it
+#
+# The runtime dependencies of these AARs are not in the AARs. They are listed in
+# Editor/Android/AndroidGradleDependencies.cs and must match the .module files
+# in dist/<dist_version>/android/m2 (an EditMode test compares them).
+#
+# While the four Android features move to the 2.0.0 C ABI one at a time, the
+# extra_* pin keeps the 1.x bridge beside it for the features not yet moved
+# (artifact/topics/android-c-abi-2). Remove it with the last feature's move.
+
+# The 2.0.0 Kotlin API and C ABI.
+dist_version: 1.13.0
+aars: android-native-toolkit-2.0.0.aar, android-native-toolkit-capi-2.0.0.aar
+
+# The 1.x Kotlin library and Unity bridge, for the features not yet moved.
+extra_dist_version: 1.12.0
+extra_aars: android-native-toolkit-1.3.0.aar, unity-android-native-toolkit-1.3.0.aar
