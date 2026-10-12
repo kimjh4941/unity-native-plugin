@@ -13,15 +13,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <summary>Clip label, if present.</summary>
         public string? Label { get; }
 
-        /// <summary>MIME types available on the clip. Never null; empty when the native layer omitted the key.</summary>
+        /// <summary>MIME types available on the clip. Never null; empty when the clip has none.</summary>
         public IReadOnlyList<string> MimeTypes { get; }
 
         /// <summary>Whether the clip is styled text (API 31+).</summary>
         public bool IsStyledText { get; }
 
         /// <summary>
-        /// Raw ClipDescription.CLASSIFICATION_* value. Null when unavailable; the native layer
-        /// omits the key on API levels below 31.
+        /// Raw ClipDescription.CLASSIFICATION_* value. Null when the OS did not report one.
         /// </summary>
         public int? ClassificationStatus { get; }
 

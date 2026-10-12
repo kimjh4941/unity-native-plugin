@@ -16,6 +16,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// all, matching the same rationale as <see cref="AndroidClipboardManager"/> (5.7.2 of the
     /// clipboard design). Only the caller (AndroidClipboardManager) logs a redacted summary.
     /// </summary>
+    /// <remarks>
+    /// Since 2.0.0 <see cref="AndroidClipboardManager"/> calls native-toolkit's C ABI and does not use
+    /// this JSON. It stays public for now and goes when all four Android features have moved
+    /// (artifact/topics/android-c-abi-2, stage 4).
+    /// </remarks>
     public static class AndroidClipboardJsonBuilder
     {
         /// <summary>

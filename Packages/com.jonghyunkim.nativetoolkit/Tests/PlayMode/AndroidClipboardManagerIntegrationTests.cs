@@ -9,6 +9,11 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
+#if !UNITY_EDITOR
+using System.Runtime.InteropServices;
+using AOT;
+using JonghyunKim.NativeToolkit.Runtime.Android.Common;
+#endif
 using UnityEngine;
 using UnityEngine.TestTools;
 using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
@@ -17,7 +22,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Layer 2b tests (see agent-rules/coding-rules/testing.md): PlayMode tests that run on an
-    /// actual Android Player to verify the JNI / IL2CPP path that no other layer can reach.
+    /// actual Android Player to verify the native path (the C ABI's P/Invoke, or the 1.x bridge's
+    /// JNI) under IL2CPP, which no other layer can reach.
     ///
     /// Unlike <c>IosShareManagerIntegrationTests</c> (which asserts the Editor fallback path),
     /// these tests assert real on-device behaviour and are skipped anywhere else. Running them in
@@ -32,7 +38,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// (testing.md section 6).
     ///
     /// The AC-* tests are the device table of the Clipboard design
-    /// (artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v3.md, 7.3). They run
+    /// (artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md, 7.3). They run
     /// on the 1.x bridge first, to record its behaviour, and on the C ABI after; where the two are
     /// known to differ, <see cref="OnCApi"/> picks the expectation. Values the design only records
     /// are logged with the prefix "[ClipboardRecord]".
@@ -51,8 +57,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const float ObserveSettleSeconds = 0.5f;
         private const float ChangeWindowSeconds = 3f;
 
-        // Results are queued rather than overwritten. Manager events are delivered through
-        // UnityMainThreadDispatcher, so an operation started late in one test (notably the teardown
+        // Results are queued rather than overwritten. Manager events are delivered through a queue
+        // run on Unity's main thread, so an operation started late in one test (notably the teardown
         // cleanup) can surface a frame later, i.e. during the next test. Matching on the operation
         // name instead of "whatever arrived last" keeps tests independent of that timing.
         private readonly List<ClipboardOperationResult> _results = new();
@@ -76,7 +82,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             if (Application.platform != RuntimePlatform.Android)
             {
                 Assert.Ignore(
-                    "Device-only. These tests verify real JNI / IL2CPP behaviour and must run on an " +
+                    "Device-only. These tests verify the real native behaviour under IL2CPP and must run on an " +
                     "Android Player (testing.md layer 2b).");
             }
 
@@ -108,7 +114,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         /// <summary>
         /// Restores device state and, crucially, waits for the cleanup operations to complete before
-        /// unsubscribing. Returning a coroutine (UnityTearDown) is what makes that wait possible; a
+        /// unsubscribing. The cleanup itself never fails the test, except for one check at the end:
+        /// every event of the test came on Unity's main thread. Returning a coroutine (UnityTearDown) is what makes that wait possible; a
         /// plain [TearDown] would leave the stopObserving / clear events in flight and they would be
         /// observed by the following test.
         /// </summary>
@@ -138,6 +145,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return DrainOperation(AndroidClipboardManager.OperationClear);
 
             Unsubscribe();
+            // Every event of the test and of its cleanup came on Unity's main thread (design 7.3).
+            AssertEventsOnMainThread();
         }
 
         private void OnOperationCompleted(ClipboardOperationResult result)
@@ -275,7 +284,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsNull(_lastResult.Value.ErrorMessage, "ErrorMessage must be null when IsSuccess is true.");
         }
 
-        // ---- Copy: basic JNI + AndroidJavaProxy round trip ----
+        // ---- Copy: the basic round trip through the native layer ----
 
         [UnityTest]
         public IEnumerator CopyPlainText_OnDevice_Succeeds()
@@ -288,8 +297,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
 
-            // Reaching a Success here proves the JNI method resolved and the AndroidJavaProxy
-            // callback was invoked back into managed code under IL2CPP.
+            // Reaching a Success here proves the native call resolved under IL2CPP and its result
+            // came back to managed code.
             AssertSucceeded();
         }
 
@@ -370,15 +379,14 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(AndroidClipboardManager.Instance.HasClip());
         }
 
-        // ---- StopObserving: zero-argument JNI resolution (design v4, 要検証 9.3) ----
+        // ---- StopObserving: the call with no arguments ----
 
         [UnityTest]
         public IEnumerator StopObserving_ZeroArgumentJniCall_Resolves()
         {
-            // StopObserving is the only native method called with no arguments at all
-            // (fullArgs = Array.Empty<object?>()). If JNI cannot resolve that overload, the call
-            // throws and CallOperation reports Failure with the exception message, so asserting
-            // Success here is what proves the zero-arg path works on device.
+            // StopObserving is the only asynchronous operation with no arguments. On the 1.x bridge
+            // this proved the zero-argument JNI overload resolved; on the C ABI it is the stop being
+            // accepted. The test keeps its 1.x name.
             AndroidClipboardManager.Instance.StopObserving();
 
             yield return WaitForOperation(AndroidClipboardManager.OperationStopObserving);
@@ -830,6 +838,139 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record("AC-31", $"changes={_changes}");
             Assert.AreEqual(1, _changes);
         }
+
+#if !UNITY_EDITOR
+        // ---- AC-32 to AC-34: the C ABI only (the externs exist in an Android player only) ----
+
+        private static int s_nativeChanges;
+        private static readonly AndroidClipboardCApi.ChangeCallback s_testChange = OnTestChange;
+        private static readonly IntPtr s_testChangePointer = Marshal.GetFunctionPointerForDelegate(s_testChange);
+
+        [MonoPInvokeCallback(typeof(AndroidClipboardCApi.ChangeCallback))]
+        private static void OnTestChange(IntPtr userData) => Interlocked.Increment(ref s_nativeChanges);
+
+        // Not used by the manager, so the bridge does not declare it (design 4.1).
+        [DllImport(AndroidNativeToolkitCApi.LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void ntk_clipboard_listener_remove(IntPtr listener);
+
+        [UnityTest]
+        public IEnumerator AC32_AnotherUsersObserving_IsNotRaised()
+        {
+            // native-toolkit's Kotlin API or another plugin in the same app, started without Unity.
+            Assert.AreEqual(AndroidClipboardCApi.ErrorNone, AndroidClipboardCApi.ntk_clipboard_start_observing());
+            try
+            {
+                yield return WaitSeconds(ObserveSettleSeconds);
+                _changes = 0;
+                yield return CopyUriAndWait();
+                AssertSucceeded();
+                yield return WaitSeconds(ChangeWindowSeconds);
+                Assert.AreEqual(0, _changes);
+            }
+            finally
+            {
+                AndroidClipboardCApi.ntk_clipboard_stop_observing();
+            }
+        }
+
+        [Test]
+        public void AC33_ExternSignatures_MatchClipboardH()
+        {
+            Type ptr = typeof(IntPtr), size = typeof(UIntPtr), i32 = typeof(int), none = typeof(void);
+            Type outPtr = ptr.MakeByRefType(), outSize = size.MakeByRefType(), outI32 = i32.MakeByRefType();
+            Type refOptions = typeof(AndroidClipboardCApi.CopyOptions).MakeByRefType();
+            var expected = new Dictionary<string, (Type ret, Type[] args)>
+            {
+                ["ntk_clipboard_copy_text"] = (i32, new[] { ptr, refOptions }),
+                ["ntk_clipboard_copy_html"] = (i32, new[] { ptr, ptr, refOptions }),
+                ["ntk_clipboard_copy_uri"] = (i32, new[] { ptr, refOptions }),
+                ["ntk_clipboard_copy_texts"] = (i32, new[] { ptr, size, refOptions }),
+                ["ntk_clipboard_clear"] = (i32, Type.EmptyTypes),
+                ["ntk_clipboard_read"] = (i32, new[] { outPtr }),
+                ["ntk_clipboard_has_clip"] = (i32, new[] { outI32 }),
+                ["ntk_clipboard_get_description"] = (i32, new[] { outPtr }),
+                ["ntk_clipboard_start_observing"] = (i32, Type.EmptyTypes),
+                ["ntk_clipboard_stop_observing"] = (i32, Type.EmptyTypes),
+                ["ntk_clipboard_add_change_listener"] = (i32, new[] { ptr, ptr, ptr, outPtr }),
+                ["ntk_clipboard_content_label"] = (ptr, new[] { ptr, outSize }),
+                ["ntk_clipboard_content_mime_type_count"] = (size, new[] { ptr }),
+                ["ntk_clipboard_content_mime_type_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_content_item_count"] = (size, new[] { ptr }),
+                ["ntk_clipboard_content_item_text_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_content_item_html_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_content_item_uri_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_content_item_coerced_text_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_content_free"] = (none, new[] { ptr }),
+                ["ntk_clipboard_description_label"] = (ptr, new[] { ptr, outSize }),
+                ["ntk_clipboard_description_mime_type_count"] = (size, new[] { ptr }),
+                ["ntk_clipboard_description_mime_type_at"] = (ptr, new[] { ptr, size, outSize }),
+                ["ntk_clipboard_description_is_styled_text"] = (i32, new[] { ptr }),
+                ["ntk_clipboard_description_classification_status"] = (i32, new[] { ptr }),
+                ["ntk_clipboard_description_free"] = (none, new[] { ptr }),
+            };
+
+            var externs = typeof(AndroidClipboardCApi)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(m => (m.Attributes & MethodAttributes.PinvokeImpl) != 0)
+                .ToDictionary(m => m.Name);
+            CollectionAssert.AreEquivalent(expected.Keys, externs.Keys);
+            foreach (var (name, (ret, args)) in expected.Select(e => (e.Key, e.Value)))
+            {
+                MethodInfo method = externs[name];
+                Assert.IsTrue(method.IsStatic && method.IsAssembly, $"{name}: internal static");
+                Assert.AreEqual(ret, method.ReturnType, $"{name}: return type");
+                CollectionAssert.AreEqual(args, method.GetParameters().Select(p => p.ParameterType).ToArray(), $"{name}: parameters");
+                // The library name and the calling convention are not checked: DllImportAttribute is a
+                // pseudo-attribute, and IL2CPP hands reflection one with an empty library name
+                // (measured on 2026-10-12, design 9 K-6). Every call on the device uses the name.
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AC34_StopObservingAndDestroy_StopTheNativeObserving()
+        {
+            s_nativeChanges = 0;
+            Assert.AreEqual(AndroidClipboardCApi.ErrorNone,
+                AndroidClipboardCApi.ntk_clipboard_add_change_listener(s_testChangePointer, IntPtr.Zero, IntPtr.Zero, out IntPtr listener));
+            try
+            {
+                // (1) Unity's observing reaches the test's own listener.
+                AndroidClipboardManager.Instance.StartObserving();
+                yield return WaitSeconds(ObserveSettleSeconds);
+                Interlocked.Exchange(ref s_nativeChanges, 0);
+                yield return CopyUriAndWait();
+                yield return WaitSeconds(ChangeWindowSeconds);
+                Assert.AreEqual(1, Volatile.Read(ref s_nativeChanges), "(1) observing");
+
+                // (2) StopObserving stops the native observing, not only Unity's flag.
+                AndroidClipboardManager.Instance.StopObserving();
+                yield return WaitForOperation(AndroidClipboardManager.OperationStopObserving);
+                AssertSucceeded();
+                yield return WaitSeconds(ObserveSettleSeconds);
+                Interlocked.Exchange(ref s_nativeChanges, 0);
+                yield return CopyUriAndWait();
+                yield return WaitSeconds(ChangeWindowSeconds);
+                Assert.AreEqual(0, Volatile.Read(ref s_nativeChanges), "(2) after StopObserving");
+
+                // (3) Destroying the observing manager stops it too.
+                AndroidClipboardManager.Instance.StartObserving();
+                yield return WaitSeconds(ObserveSettleSeconds);
+                Unsubscribe();
+                UnityEngine.Object.Destroy(AndroidClipboardManager.Instance.gameObject);
+                yield return null;
+                Subscribe(AndroidClipboardManager.Instance);
+                yield return WaitSeconds(ObserveSettleSeconds);
+                Interlocked.Exchange(ref s_nativeChanges, 0);
+                yield return CopyUriAndWait();
+                yield return WaitSeconds(ChangeWindowSeconds);
+                Assert.AreEqual(0, Volatile.Read(ref s_nativeChanges), "(3) after the manager was destroyed");
+            }
+            finally
+            {
+                ntk_clipboard_listener_remove(listener);
+            }
+        }
+#endif
     }
 }
 #endif

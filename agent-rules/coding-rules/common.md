@@ -41,7 +41,8 @@ AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版
 以下は Dialog を移す設計（`artifact/android/dialog/designs/2026-10-11-android-dialog-design-v4.md`）で決めた約束ごとで、ほかの Android の機能も従う。
 **Windows の C ABI の形をそのまま写さない**（`artifact/topics/android-c-abi-2/README.md` 3 章）。違うところは下の各項に書く。
 Share も移した（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`。2026-10-12）。Share が従わない約束ごとは、下の「Share の例外」に書く。
-まだ移していない機能（Clipboard、Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
+Clipboard も移した（`artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md`。2026-10-12）。Clipboard の形は、下の「Clipboard の形」に書く。
+まだ移していない機能（Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
 
 **ファイルの置き場所**
 
@@ -83,6 +84,16 @@ Share も移した（`artifact/android/share/designs/2026-10-11-android-share-de
 - **結果はいつも呼び出しの後**（J-S2）: 検査の失敗も Editor の失敗も取り出し口を通す（Dialog は呼び出しの中で出す）
 - **どのスレッドから呼んでもよい**（J-S16）: 1.x は別のスレッドからの呼び出しを受け付けなかった（UI テスト計画 v6。既知の差分）。ただし `Instance` の最初の取得は GameObject を作るので、UnityMain で行う（公開の XML コメントに書く）
 - **ログ**（J-S10）: 本文と `subject` は長さ、アイコンはバイト数だけを出す。題名・MIME・パス・ID・ラベル・カテゴリ・選ばれたアプリのパッケージ名・押されたアクションの ID はそのまま出す（1.x もライブラリも出していた）
+
+**Clipboard の形**（Clipboard 設計 v4 の J-C1〜J-C17）
+
+- **同期の C を呼び、結果は後で出す**（J-C1、J-C2）: copy・clear・stopObserving の C の関数は呼び出しスレッドで同期に動く。公開 API は非同期の形のまま、戻り値から作った結果を、その呼び出しの per-call を閉じ込めて取り出し口に `Post` する（呼び出しの中ではイベントを出さない）。per-call の枠（辞書）は持たない
+- **結果と変更は、取り出した時点で生きている Manager に出し、いなければ捨てる**（J-C3。Share の J-S4 と同じ）
+- **C# は入力を検査しない**（J-C8）: 空の HTML や URI のスキームは、1.x と同じ Kotlin のコードが判定する。C# はエラー値を 1.x の文言とコードに写すだけ。**文字列の null は検査の失敗ではなく `""` として渡す**（J-C7。文字列の配列の null の要素も。上の「NULL の要素を含む配列は Manager が先に検査する」の Clipboard 版）。`payload` と配列そのものの null は `ArgumentNullException`
+- **変更のリスナーはプロセスで 1 回だけ登録し、外さない**（J-C9）。監視はプロセスで共有されるので、C# の印（Unity が `StartObserving` を呼んだか）が偽の間の変更は受け口で捨てる（J-C10）。Manager の破棄で監視を止めるのは、その Manager が生きていて、印が真のときだけ（J-C12）
+- **開始と停止は監視専用の `lock` で直列にする**（実装のレビュー v2）: 印と F-9 / F-10 を 1 つのまとまりにする（F-9 / F-10 は積むだけで待たないので `lock` の中で呼べる）。止めるたびに世代を数え、止める前に積まれた変更は配送の前に再開しても出さない。受け口は `lock` を取らない
+- **監視の開始は後で効く**（J-C11）: `StartObserving` の直後のコピーの変更は届かないことがある（親課題 J-11 の例外。利用者の判断）
+- **どのスレッドから呼んでもよい**（J-C13）。`Instance` の最初の取得は UnityMain で行う
 
 **ログ**: 結果として返す失敗は `LogWarning`（Windows と同じ）。`LogError` は、正しい実装では起きないもの（入口の `INVALID_PARAMETER` / `NOT_SUPPORTED`、捕まえた例外）だけ。入力・利用者名・パスワードなどの値は長さだけを出す。
 

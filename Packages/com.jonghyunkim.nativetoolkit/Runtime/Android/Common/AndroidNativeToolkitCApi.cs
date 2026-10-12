@@ -167,7 +167,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
         }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-        private static NativeState? s_state;
+        // 0 until the first check, then (int)state + 1 (Available is 0, so it cannot stand for "not
+        // checked"). An int, volatile, because the features are called from any thread and a
+        // Nullable<NativeState> is two fields that another thread may see half written. Two threads
+        // that both find 0 both check, and both write the same answer.
+        private static volatile int s_state;
 
         /// <summary>
         /// Checks once whether the native library loads and speaks <see cref="SupportedMajor"/>,
@@ -177,7 +181,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
         /// </summary>
         internal static NativeState EnsureNativeAvailable()
         {
-            if (s_state is NativeState known) return known;
+            int known = s_state;
+            if (known != 0) return (NativeState)(known - 1);
 
             NativeState state;
             try
@@ -193,7 +198,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
                 state = NativeState.NativeUnavailable;
             }
 
-            s_state = state;
+            s_state = (int)state + 1;
             return state;
         }
 

@@ -23,8 +23,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 
     /// <summary>
     /// A single clip item read from the clipboard.
-    /// The native layer omits JSON keys whose value is null, so an absent value is returned as
-    /// null here. An empty string is never returned; it is normalized to null.
+    /// A value the item does not hold is returned as null. An empty string is never returned; it is
+    /// normalized to null.
     /// </summary>
     public sealed class ClipItem
     {
@@ -58,10 +58,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <summary>Clip label, if present.</summary>
         public string? Label { get; }
 
-        /// <summary>MIME types available on the clip. Never null; empty when the native layer omitted the key.</summary>
+        /// <summary>MIME types available on the clip. Never null; empty when the clip has none.</summary>
         public IReadOnlyList<string> MimeTypes { get; }
 
-        /// <summary>Clip items, in clipboard order. Never null; empty when the native layer omitted the key.</summary>
+        /// <summary>Clip items, in clipboard order. Never null; empty when the clip has none.</summary>
         public IReadOnlyList<ClipItem> Items { get; }
 
         internal ClipContents(string? label, IReadOnlyList<string> mimeTypes, IReadOnlyList<ClipItem> items)

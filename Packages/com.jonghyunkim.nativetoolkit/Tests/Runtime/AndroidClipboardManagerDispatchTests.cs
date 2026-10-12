@@ -1,6 +1,6 @@
 #nullable enable
 
-#if UNITY_ANDROID
+#if UNITY_ANDROID || UNITY_EDITOR
 using NUnit.Framework;
 using UnityEngine.TestTools;
 using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
