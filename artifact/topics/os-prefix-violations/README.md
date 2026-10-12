@@ -7,6 +7,7 @@
 - 検査手段: 下記「検査コマンド」
 - 対応方針: **macOS Clipboard の実装には含めない。別途対応。**
 - 進捗: 案 0 **完了**（下記）／案 1〜3 は未着手
+- **決定（2026-10-12、利用者と相談）: 案 1（Runtime 11 件の一括改名。Android の 10 件と、macOS の `IconConfiguration` を `MacIconConfiguration` にして `Dialog/` へ移す 1 件の両方）を、Android の 4 機能の C ABI への移行（`artifact/topics/android-c-abi-2`）が終わった後に、1 つのタスクとして行う。出す版は 1.13.0**（メジャーにはしない）。利用者のコードが壊れる変更なので、CHANGELOG と移行ガイドに破壊的変更として書く。案 1 の「メジャーバージョンで行う」はこの決定で置き換える
 
 ---
 
