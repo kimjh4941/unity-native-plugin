@@ -21,7 +21,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <summary>
     /// Layer 2b tests of the Android Share manager that open no share sheet: the calls that fail
     /// before it, and the Direct Share targets. Test IDs (AS-21 to AS-36) and expectations are in
-    /// artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v5.md, 2.1.
+    /// artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v6.md, 2.1.
     /// </summary>
     /// <remarks>
     /// No UI driver is used, so this class has no category and runs without one. A regression that

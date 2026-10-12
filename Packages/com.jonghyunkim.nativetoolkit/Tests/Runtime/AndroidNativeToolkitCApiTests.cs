@@ -100,6 +100,44 @@ namespace JonghyunKim.NativeToolkit.Tests
                 Marshal.FreeHGlobal(pointer);
             }
         }
+
+        [Test]
+        public void AllocStringArray_ReadsBack()
+        {
+            var allocated = new List<IntPtr>();
+            try
+            {
+                string[] items = { "a", "ダイアログ", "" };
+                IntPtr array = AndroidNativeToolkitCApi.AllocStringArray(items, allocated);
+                for (int i = 0; i < items.Length; i++)
+                {
+                    IntPtr item = Marshal.ReadIntPtr(array, i * IntPtr.Size);
+                    int length = Encoding.UTF8.GetByteCount(items[i]);
+                    Assert.AreEqual(items[i], AndroidNativeToolkitCApi.ReadUtf8(item, length), $"item {i}");
+                    Assert.AreEqual(0, Marshal.ReadByte(item, length), $"item {i} is NUL-terminated");
+                }
+                Assert.AreEqual(1 + items.Length, allocated.Count, "the array and each item are recorded for FreeAll");
+            }
+            finally
+            {
+                AndroidNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
+
+        [Test]
+        public void AllocStringArray_Empty_IsNotNull()
+        {
+            var allocated = new List<IntPtr>();
+            try
+            {
+                Assert.AreNotEqual(IntPtr.Zero, AndroidNativeToolkitCApi.AllocStringArray(new string[0], allocated));
+                Assert.AreEqual(1, allocated.Count);
+            }
+            finally
+            {
+                AndroidNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
     }
 }
 #endif

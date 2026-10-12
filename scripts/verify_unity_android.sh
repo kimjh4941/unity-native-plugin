@@ -38,6 +38,12 @@
 # kills its server and starts its own: whichever runs second disconnects the other. The script puts
 # Unity's adb first on PATH, and uses it for its own checks.
 #
+# The sample app (the Android™ Profile's own build, installed for manual checks) has the same name as
+# the test player, and the share sheet lists apps by name only: a test that picks this app in the
+# sheet could pick the sample instead. So the device runs uninstall the sample app first, without
+# asking, and uninstall the test player when they end, so a manual check that installs the sample
+# afterwards finds it alone (2026-10-12).
+#
 # Unity re-serializes some assets during a run (render pipeline settings, the solution file). The
 # script restores what a run changed under those locations and leaves alone anything that already
 # had changes before the run. --keep-changes skips that.
@@ -234,6 +240,31 @@ if [ "$SKIP_EDITMODE" -eq 0 ]; then
   echo
 fi
 
+# The sample app's package, as the Android™ Profile sets it.
+SAMPLE_APP_ID="$(sed -n "s/^.*|     Android: \(com\.[A-Za-z0-9_.]*\)'\$/\1/p" "$PROJECT_DIR/$PROFILE" | head -1)"
+TEST_PLAYER_ID="com.UnityTestRunner.UnityTestRunner"
+
+# uninstall_app <package>: removes it if installed; says what it did.
+uninstall_app() {
+  if adb shell pm list packages "$1" | tr -d '\r' | grep -qx "package:$1"; then
+    if adb uninstall "$1" >/dev/null 2>&1; then
+      echo "  uninstalled $1"
+    else
+      echo "  could not uninstall $1"
+      failures=$((failures + 1))
+    fi
+  fi
+}
+
+echo "-- device apps --"
+if [ -n "$SAMPLE_APP_ID" ]; then
+  uninstall_app "$SAMPLE_APP_ID"
+else
+  echo "  the sample app's package was not found in $PROFILE"
+  failures=$((failures + 1))
+fi
+echo
+
 echo "-- device PlayMode (IL2CPP, Android™ Profile: AARs copied from dist) --"
 run_device_tests Android "$PROFILE" 1
 echo
@@ -243,6 +274,10 @@ if [ "$AS_PACKAGE_USER" -eq 1 ]; then
   run_device_tests Android-package-user "$TEST_PROFILE" 0
   echo
 fi
+
+echo "-- device apps --"
+uninstall_app "$TEST_PLAYER_ID"
+echo
 
 if [ "$KEEP_CHANGES" -eq 0 ]; then
   while IFS=$'\t' read -r status path; do

@@ -40,13 +40,14 @@ Android は 2.0.0 から native-toolkit の C ABI（`libntk.so`。ヘッダー�
 AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版>.aar`）を P/Invoke で呼ぶ。
 以下は Dialog を移す設計（`artifact/android/dialog/designs/2026-10-11-android-dialog-design-v4.md`）で決めた約束ごとで、ほかの Android の機能も従う。
 **Windows の C ABI の形をそのまま写さない**（`artifact/topics/android-c-abi-2/README.md` 3 章）。違うところは下の各項に書く。
-まだ移していない機能（Share、Clipboard、Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
+Share も移した（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`。2026-10-12）。Share が従わない約束ごとは、下の「Share の例外」に書く。
+まだ移していない機能（Clipboard、Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
 
 **ファイルの置き場所**
 
 | ファイル | 持つもの |
 |---|---|
-| `Runtime/Android/Common/AndroidNativeToolkitCApi.cs` | ライブラリ名の定数（`"ntk"`）、版と初期化の確認、`Common.h` の関数と `ntk_android_is_initialized` の `extern`、UTF-8 の読み書き（NULL と空を分ける `ReadUtf8OrNull` を含む） |
+| `Runtime/Android/Common/AndroidNativeToolkitCApi.cs` | ライブラリ名の定数（`"ntk"`）、版と初期化の確認、`Common.h` の関数と `ntk_android_is_initialized` の `extern`、UTF-8 の読み書き（NULL と空を分ける `ReadUtf8OrNull` を含む）、文字列の配列（`AllocStringArray`。`const char* const*`） |
 | `Runtime/Android/Common/AndroidNativeCallbackQueue.cs` | C ABI の完了とイベントを UnityMain に運ぶ取り出し口（下の「コールバック」） |
 | `Runtime/Android/<Feature>/Android<Feature>CApi.cs`（Bridge） | その機能の構造体・`extern`・delegate の型と、`#if` の外の純粋な変換の関数 |
 | `Runtime/Android/<Feature>/Android<Feature>Manager.cs` | 公開 API、検査、完了の受け口（`[MonoPInvokeCallback]`）、イベント |
@@ -72,6 +73,16 @@ AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版
 対応するのは **IL2CPP と ARM64（と x86_64）だけ**。32 ビットを含むビルドは `Editor/Android/AndroidArchitectureCheck.cs` が Gradle の前に止める。
 
 **Editor**: `DllImport` と受け口は `UNITY_ANDROID && !UNITY_EDITOR`。Editor では、その機能の 1.x の契約（Dialog なら検査の失敗だけをイベントで返し、通れば `LogWarning`）を保つ。
+
+**Share の例外**（Share 設計 v6 の J-S1〜J-S16。1.x の per-call の時点を保つため）
+
+- **呼び出しごとの `user_data`**（J-S1）: 完了の文言にパスや ID を入れるので、呼び出しの記録（`ShareCall`）を static の表に連番のキーで入れ、キーを `user_data` にする。表に入れるのは `extern` を呼ぶ直前、消すのは `release` の受け口と、`extern` に入れなかった例外のときだけ。完了の受け口は表を読むだけ（完了の直後に同じ main のメッセージで `release` が来る）
+- **受け口が per-call の枠を取り出す**（J-S5、J-S14）: 「受け口は写して積むだけ」の例外。完了の受け口（Android の main）が、ロックの中で操作ごとの per-call の枠を取り出し（`shareWithCallback` の失敗なら `onSelected` も消し）、取り出した callback を閉じ込めて `Post` する。ロックの中では辞書の読み書きだけ
+- **選ばれたアプリは照らさない**（J-S12）: ネイティブが今の待ちの選択だけを届けるので、C# は要求の ID と照らさない
+- **結果は、取り出した時点で生きている Manager に出し、いなければ捨てる**（J-S4）: Dialog の「`Instance` を作って出す」と違う（終了の間に GameObject を作り直さない）。例外の例外として、Chooser Action は受け口の時点の Manager の coordinator に閉じ込める。受けた後に Manager を壊しても、その購読者に 1 回出る（1.x の proxy と同じ。持ち越し K-1）
+- **結果はいつも呼び出しの後**（J-S2）: 検査の失敗も Editor の失敗も取り出し口を通す（Dialog は呼び出しの中で出す）
+- **どのスレッドから呼んでもよい**（J-S16）: 1.x は別のスレッドからの呼び出しを受け付けなかった（UI テスト計画 v6。既知の差分）。ただし `Instance` の最初の取得は GameObject を作るので、UnityMain で行う（公開の XML コメントに書く）
+- **ログ**（J-S10）: 本文と `subject` は長さ、アイコンはバイト数だけを出す。題名・MIME・パス・ID・ラベル・カテゴリ・選ばれたアプリのパッケージ名・押されたアクションの ID はそのまま出す（1.x もライブラリも出していた）
 
 **ログ**: 結果として返す失敗は `LogWarning`（Windows と同じ）。`LogError` は、正しい実装では起きないもの（入口の `INVALID_PARAMETER` / `NOT_SUPPORTED`、捕まえた例外）だけ。入力・利用者名・パスワードなどの値は長さだけを出す。
 

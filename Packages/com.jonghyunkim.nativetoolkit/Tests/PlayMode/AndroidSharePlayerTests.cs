@@ -22,7 +22,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <summary>
     /// Layer 2b tests of the Android Share on a device: the sample screen and the manager, with the
     /// share sheet worked by the host-side UI driver. Test IDs (AS-01 to AS-13, AS-41 to AS-53) and
-    /// expectations are in artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v5.md.
+    /// expectations are in artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v6.md.
     /// </summary>
     /// <remarks>
     /// The share sheet pauses Unity while it shows (V-11), so each test sends its UI driver request

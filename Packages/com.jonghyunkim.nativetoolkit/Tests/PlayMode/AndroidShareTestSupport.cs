@@ -16,7 +16,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <summary>
     /// What the Android Share device tests share: the events a test saw, when the player came back
     /// from the share sheet, the icons they pass, and the steps that keep a teardown going. The test
-    /// plan is artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v5.md.
+    /// plan is artifact/android/share/designs/2026-10-11-android-share-ui-test-plan-v6.md.
     /// </summary>
     internal static class AndroidShareTestSupport
     {

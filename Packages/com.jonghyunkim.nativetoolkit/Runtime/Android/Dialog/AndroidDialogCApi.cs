@@ -322,7 +322,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
         {
             StructSize = (uint)Marshal.SizeOf<SingleChoiceRequest>(),
             Title = AndroidNativeToolkitCApi.AllocUtf8(title, allocated),
-            Items = AllocStringArray(items, allocated),
+            Items = AndroidNativeToolkitCApi.AllocStringArray(items, allocated),
             ItemCount = new UIntPtr((uint)items.Length),
             CheckedIndex = checkedItem,
             NotCancelable = ToNotFlag(cancelable),
@@ -336,7 +336,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
         {
             StructSize = (uint)Marshal.SizeOf<MultiChoiceRequest>(),
             Title = AndroidNativeToolkitCApi.AllocUtf8(title, allocated),
-            Items = AllocStringArray(items, allocated),
+            Items = AndroidNativeToolkitCApi.AllocStringArray(items, allocated),
             ItemCount = new UIntPtr((uint)items.Length),
             Checked = AllocInt32Array(FitChecked(checkedItems, items.Length), allocated),
             NegativeText = AndroidNativeToolkitCApi.AllocUtf8(negativeText, allocated),
@@ -374,15 +374,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
             NotCancelable = ToNotFlag(cancelable),
             NotCancelableOnTouchOutside = ToNotFlag(cancelableOnTouchOutside),
         };
-
-        /// <summary>A <c>const char* const*</c>: each item as NUL-terminated UTF-8, then the array of pointers.</summary>
-        internal static IntPtr AllocStringArray(string[] items, List<IntPtr> allocated)
-        {
-            IntPtr array = AndroidNativeToolkitCApi.Alloc(IntPtr.Size * Math.Max(items.Length, 1), allocated);
-            for (int i = 0; i < items.Length; i++)
-                Marshal.WriteIntPtr(array, i * IntPtr.Size, AndroidNativeToolkitCApi.AllocUtf8(items[i], allocated));
-            return array;
-        }
 
         /// <summary>A <c>const int32_t*</c> of 1 for true and 0 for false.</summary>
         internal static IntPtr AllocInt32Array(bool[] values, List<IntPtr> allocated)

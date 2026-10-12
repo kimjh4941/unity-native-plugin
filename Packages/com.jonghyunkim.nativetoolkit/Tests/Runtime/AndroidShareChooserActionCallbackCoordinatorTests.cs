@@ -2,6 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using JonghyunKim.NativeToolkit.Runtime.Android.Share;
 
@@ -134,6 +136,17 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.IsNotNull(received);
             Assert.AreEqual("com.example.action", received!.Value.ActionId);
+        }
+
+        // The per-call callback is registered on the calling thread and read by Fire on the Android
+        // main thread, so the field is volatile (implementation review v1, X:B-1). The tests here run
+        // on one thread and cannot see a lost write; this pins the modifier itself.
+        [Test]
+        public void PerCallCallbackField_IsVolatile()
+        {
+            FieldInfo? field = typeof(ShareChooserActionCallbackCoordinator).GetField("_pending", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            Assert.That(field!.GetRequiredCustomModifiers(), Does.Contain(typeof(IsVolatile)));
         }
     }
 }

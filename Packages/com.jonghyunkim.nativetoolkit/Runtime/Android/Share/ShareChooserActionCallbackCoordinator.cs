@@ -13,7 +13,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     public sealed class ShareChooserActionCallbackCoordinator
     {
         private readonly Action<Action> _dispatch;
-        private Action<ShareChooserActionResult>? _pending;
+        // Volatile: registered from the calling thread, read by Fire on the Android main thread.
+        private volatile Action<ShareChooserActionResult>? _pending;
 
         /// <summary>
         /// Occurs when a custom chooser action is tapped. Always fired before the per-call
@@ -26,8 +27,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// </summary>
         /// <param name="dispatch">
         /// Enqueues work on the target thread. In production this is
-        /// <c>UnityMainThreadDispatcher.Instance.Enqueue</c>; in EditMode tests pass
-        /// <c>a => a()</c> for synchronous execution.
+        /// <c>AndroidNativeCallbackQueue.Post</c>, which runs it on Unity's main thread; in EditMode
+        /// tests pass <c>a => a()</c> for synchronous execution.
         /// </param>
         public ShareChooserActionCallbackCoordinator(Action<Action> dispatch) => _dispatch = dispatch;
 

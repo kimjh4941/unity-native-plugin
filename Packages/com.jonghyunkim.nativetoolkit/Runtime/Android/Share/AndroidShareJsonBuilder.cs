@@ -11,6 +11,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Does not use external JSON libraries; matches the hand-written serializer pattern used by
     /// <c>AndroidNotificationJsonBuilder</c>.
     /// </summary>
+    /// <remarks>
+    /// Since 2.0.0 <see cref="AndroidShareManager"/> calls native-toolkit's C ABI and does not use this
+    /// JSON. It stays public for now and goes when all four Android features have moved
+    /// (artifact/topics/android-c-abi-2, stage 4).
+    /// </remarks>
     public static class AndroidShareJsonBuilder
     {
         /// <summary>

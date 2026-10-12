@@ -113,6 +113,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Common
             return pointer;
         }
 
+        /// <summary>
+        /// A <c>const char* const*</c>: each item as NUL-terminated UTF-8, then the array of pointers,
+        /// all recorded in <paramref name="allocated"/>. An empty array still gets one slot, so the
+        /// pointer is never NULL. Dialog, Share, Clipboard and Notification pass string lists this way.
+        /// </summary>
+        internal static IntPtr AllocStringArray(string[] items, List<IntPtr> allocated)
+        {
+            IntPtr array = Alloc(IntPtr.Size * Math.Max(items.Length, 1), allocated);
+            for (int i = 0; i < items.Length; i++)
+                Marshal.WriteIntPtr(array, i * IntPtr.Size, AllocUtf8(items[i], allocated));
+            return array;
+        }
+
         /// <summary>Frees every pointer in the list and empties it.</summary>
         internal static void FreeAll(List<IntPtr> allocated)
         {
