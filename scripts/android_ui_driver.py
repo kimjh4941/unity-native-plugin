@@ -351,13 +351,24 @@ def stopped_in(text, package):
 def resumed_activity(text):
     """The resumed activity in `dumpsys activity activities` as (component, action), the action
     being its record's intent action or "-" when it shows none; None when no activity is resumed.
+    Android 16 writes the record's intent as "Intent { act=... }" (Pixel 6a, 2026-10-12). A screen
+    Settings forwards to its SPA activity has none: Settings starts that record itself, without one.
 
-    >>> resumed_activity('''  topResumedActivity=ActivityRecord{3a u0 com.android.settings/.spa.SpaActivity t9}
-    ...     * Hist  #1: ActivityRecord{3a u0 com.android.settings/.spa.SpaActivity t9}
-    ...         intent={act=android.settings.APP_NOTIFICATION_SETTINGS flg=0x10000000 cmp=com.android.settings/.spa.SpaActivity}
+    >>> resumed_activity('''    topResumedActivity=ActivityRecord{108471437 u0 com.android.settings/.Settings$AppNotificationSettingsActivity t490}
+    ...     * Hist  #1: ActivityRecord{108471437 u0 com.android.settings/.Settings$AppNotificationSettingsActivity t490}
+    ...       packageName=com.android.settings processName=com.android.settings
+    ...       Intent { act=android.settings.APP_NOTIFICATION_SETTINGS flg=0x10000000 cmp=com.android.settings/.Settings$AppNotificationSettingsActivity (has extras) }
     ...     * Hist  #0: ActivityRecord{1b u0 com.example/.Main t8}
-    ...         intent={act=android.intent.action.MAIN cmp=com.example/.Main}''')
-    ('com.android.settings/.spa.SpaActivity', 'android.settings.APP_NOTIFICATION_SETTINGS')
+    ...       Intent { act=android.intent.action.MAIN cmp=com.example/.Main }''')
+    ('com.android.settings/.Settings$AppNotificationSettingsActivity', 'android.settings.APP_NOTIFICATION_SETTINGS')
+    >>> resumed_activity('''    topResumedActivity=ActivityRecord{240219641 u0 com.android.settings/.spa.SpaActivity t490}
+    ...     * Hist  #3: ActivityRecord{240219641 u0 com.android.settings/.spa.SpaActivity t490}
+    ...       Intent { xflg=0x4 cmp=com.android.settings/.spa.SpaActivity (has extras) }''')
+    ('com.android.settings/.spa.SpaActivity', '-')
+    >>> resumed_activity('''  topResumedActivity=ActivityRecord{3a u0 com.example/.Main t9}
+    ...     * Hist  #0: ActivityRecord{3a u0 com.example/.Main t9}
+    ...       intent={act=android.intent.action.MAIN}''')
+    ('com.example/.Main', 'android.intent.action.MAIN')
     >>> resumed_activity("  topResumedActivity=ActivityRecord{3a u0 com.android.settings/.Settings$AppDetails t9}")
     ('com.android.settings/.Settings$AppDetails', '-')
     >>> resumed_activity("nothing") is None
@@ -374,7 +385,7 @@ def resumed_activity(text):
             for following in lines[i + 1:]:
                 if "ActivityRecord{" in following:
                     break
-                action = re.search(r"intent=\{act=([^\s}]+)", following)
+                action = re.search(r"(?:intent=\{|Intent \{ )act=([^\s}]+)", following)
                 if action:
                     return component, action.group(1)
             break
