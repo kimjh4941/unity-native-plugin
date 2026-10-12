@@ -27,12 +27,15 @@
 # either: on Android it builds ARMv7 only.
 #
 # The device runs start the host-side UI driver (scripts/android_ui_driver.py), which presses the OS
-# dialogs the tests ask for (artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-
-# design-v4.md). A device run fails when the driver exits non-zero (a setting it could not restore,
-# a HELLO it could not answer), and - with the Android™ Profile, whose player holds the sample scene -
-# when a test of the AndroidUiDriver category was skipped, or when no such test ran at all. The driver
-# changes device settings while it runs and restores them when it stops; a trap stops it even when
-# this script is interrupted.
+# dialogs, the share sheet and the notification shade the tests ask for (artifact/topics/android-c-
+# abi-2/designs/2026-10-12-android-ui-driver-design-v15.md). It is told the test player's package and
+# ignores requests from any other. A device run fails when the driver exits non-zero (a setting it
+# could not restore, a HELLO it could not answer, a screen read it could not delete), when a test of
+# the AndroidUiDriver category was skipped, or when no such test ran at all. The Test Android™
+# Profile's player has no sample scenes, so in its run the tests that go through the sample screens
+# (category AndroidSampleScreen) are left out of that check, and only they. The driver changes device
+# settings while it runs and restores them when it stops; a trap stops it even when this script is
+# interrupted.
 #
 # The Editor ships its own adb (36.x), and an older adb on PATH (the Android SDK's platform-tools)
 # kills its server and starts its own: whichever runs second disconnects the other. The script puts
@@ -42,7 +45,9 @@
 # the test player, and the share sheet lists apps by name only: a test that picks this app in the
 # sheet could pick the sample instead. So the device runs uninstall the sample app first, without
 # asking, and uninstall the test player when they end, so a manual check that installs the sample
-# afterwards finds it alone (2026-10-12).
+# afterwards finds it alone (2026-10-12). Each device run also starts from a fresh install of the test
+# player: the Notification tests use the state a fresh install has (notification permission not yet
+# asked, exact alarms not allowed), so the player is uninstalled before each run, and by the trap.
 #
 # Unity re-serializes some assets during a run (render pipeline settings, the solution file). The
 # script restores what a run changed under those locations and leaves alone anything that already
@@ -152,6 +157,7 @@ run_tests() {
 
 DRIVER="$PROJECT_DIR/scripts/android_ui_driver.py"
 DRIVER_PID=""
+TEST_PLAYER_ID="com.UnityTestRunner.UnityTestRunner"
 
 stop_driver() {
   if [ -n "$DRIVER_PID" ]; then
@@ -163,12 +169,14 @@ stop_driver() {
   fi
   return 0
 }
-trap 'stop_driver >/dev/null 2>&1' EXIT INT TERM HUP
+# The driver first (it may still be pressing the player's screens), then the player.
+trap 'stop_driver >/dev/null 2>&1; adb uninstall "$TEST_PLAYER_ID" >/dev/null 2>&1' EXIT INT TERM HUP
 
-# Prints how many tests of the AndroidUiDriver category ran and were skipped, from a result file.
+# Prints how many tests of the AndroidUiDriver category ran and were skipped, from a result file,
+# leaving out those that also have the category given second (if any).
 # A category put on a fixture is written on its test-suite, so a case inherits its suites' categories.
 ui_driver_counts() {
-  python3 - "$1" <<'PY'
+  python3 - "$1" "${2:-}" <<'PY'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 def categories(element):
@@ -180,7 +188,7 @@ def walk(element, inherited):
     for child in element:
         if child.tag in ("test-suite", "test-case"):
             walk(child, mine)
-    if element.tag == "test-case" and "AndroidUiDriver" in mine:
+    if element.tag == "test-case" and "AndroidUiDriver" in mine and not (sys.argv[2] and sys.argv[2] in mine):
         total += 1
         if element.get("result") == "Skipped":
             skipped += 1
@@ -189,11 +197,13 @@ print(total, skipped)
 PY
 }
 
-# run_device_tests <label> <profile> <check ui tests: 1|0>
+# run_device_tests <label> <profile> [category left out of the AndroidUiDriver check]
 run_device_tests() {
-  local label="$1" profile="$2" check_ui="$3"
+  local label="$1" profile="$2" left_out="${3:-}"
   local driver_log="$OUT_DIR/$label-ui-driver.log"
-  python3 "$DRIVER" --state-file "$OUT_DIR/ui-driver-settings.json" --dump-dir "$OUT_DIR/$label-ui-dumps" > "$driver_log" 2>&1 &
+  uninstall_app "$TEST_PLAYER_ID"
+  python3 "$DRIVER" --package "$TEST_PLAYER_ID" --state-file "$OUT_DIR/ui-driver-settings.json" \
+    --dump-dir "$OUT_DIR/$label-ui-dumps" > "$driver_log" 2>&1 &
   DRIVER_PID=$!
   run_tests "$label" Android "$profile"
   stop_driver
@@ -204,9 +214,9 @@ run_device_tests() {
     failures=$((failures + 1))
   fi
   local xml="$OUT_DIR/$label.xml"
-  if [ "$check_ui" -eq 1 ] && [ -f "$xml" ]; then
-    read -r ui_total ui_skipped <<< "$(ui_driver_counts "$xml")"
-    echo "  AndroidUiDriver tests: $ui_total, skipped $ui_skipped"
+  if [ -f "$xml" ]; then
+    read -r ui_total ui_skipped <<< "$(ui_driver_counts "$xml" "$left_out")"
+    echo "  AndroidUiDriver tests${left_out:+ (without $left_out)}: $ui_total, skipped $ui_skipped"
     if [ "$ui_total" -eq 0 ] || [ "$ui_skipped" -ne 0 ]; then
       echo "  AndroidUiDriver tests: FAILED (every one must run, and at least one must exist)"
       failures=$((failures + 1))
@@ -242,7 +252,6 @@ fi
 
 # The sample app's package, as the Android™ Profile sets it.
 SAMPLE_APP_ID="$(sed -n "s/^.*|     Android: \(com\.[A-Za-z0-9_.]*\)'\$/\1/p" "$PROJECT_DIR/$PROFILE" | head -1)"
-TEST_PLAYER_ID="com.UnityTestRunner.UnityTestRunner"
 
 # uninstall_app <package>: removes it if installed; says what it did.
 uninstall_app() {
@@ -266,12 +275,12 @@ fi
 echo
 
 echo "-- device PlayMode (IL2CPP, Android™ Profile: AARs copied from dist) --"
-run_device_tests Android "$PROFILE" 1
+run_device_tests Android "$PROFILE"
 echo
 
 if [ "$AS_PACKAGE_USER" -eq 1 ]; then
   echo "-- device PlayMode (IL2CPP, Test Android™ Profile: as a package user) --"
-  run_device_tests Android-package-user "$TEST_PROFILE" 0
+  run_device_tests Android-package-user "$TEST_PROFILE" AndroidSampleScreen
   echo
 fi
 

@@ -77,7 +77,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-17`、`49b99bc4` 
 | 1 | スパイク: VERSION.txt と `PreBuildProcessor`、Gradle の依存、KGP の削除、minSdk 31、`AndroidNativeToolkitCApi`、実機で `ntk_android_is_initialized() == 1`（申し送り 4.1 の「同じ実体」）。旧ブリッジと 2.0.0 の AAR が 1 つの APK に同居できるか | 完了（6.2。`34acb2d`） |
 | 2 | Android の Player テストを流すスクリプト（`scripts/verify_unity_android.sh`）。IL2CPP の ARM64 と、パッケージの利用者の条件 | 作成済み（`34acb2d`）。どちらも PASS。32 ビットと Mono の実行は持たない（J-10、6.3、6.4） |
 | 3-0 | Android の 4 機能の型 21 ファイルを `Runtime/Android/<Feature>/` に移す（J-8）。振る舞いは変えない | 完了（`44f206d`。EditMode と実機が基準と同じに通った） |
-| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。**C ABI への移行を実装し、実機で 49/49（6.6）**。コミット済み（`0513bb4`、`7f7ec32`）。Share: 設計 v6（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`）。設計レビューを 6 回回し、v6 で A1 が 0（2 回目の後に保つ範囲を J-11 に決めた）。UI テスト計画 v1〜v5 と UI の補助の設計 v6〜v11（レビューを 5 回回し、打ち切りに達した。5 回目の直しは doctest と実機で確かめた。利用者の判断でコミット: `c427a9c`、`5729578`）。**1.x のまま 45/45 を記録した（UI テスト計画 v6 の 5 章。2026-10-12）**。1.x は別のスレッドからの呼び出しを受け付けなかった（設計 v6 J-S16 の「1.x と同じ」は誤り。既知の差分として次の版に足す。持ち越し K-5）。**C ABI への移行を実装した（2026-10-12）**: 層 1 の `AndroidShareCApiTests`、層 2a の `AndroidShareManagerEditorTests` 20 本、実機で Share 45/45（と、共通部を変えたので Dialog 36/36）。実装のレビューを 2 回回し、2 回目で両方の A が 0（実装結果 v2）。Clipboard: 設計 v1〜v3（`artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v3.md`）。設計レビューを 2 回回し、2 回目で両方の A1 が 0。監視の開始の直後の変更を J-11 の例外にした（利用者の判断）。OS の画面を出さないので UI の補助と UI テスト計画は作らず、設計の 7.3 の表を使う。**1.x のまま 37/37 を記録した（設計 v4 の 7.3。2026-10-12）**。1.x は別のスレッドからの呼び出しを受け付けず、文字列の null を `"null"` として扱った。コピーの直後の `Read` は 1.x でも 10 回すべてで新しい本文を読んだ。**C ABI への移行を実装した（2026-10-12）**: 層 1 の `AndroidClipboardCApiTests`、層 2a の `AndroidClipboardManagerEditorTests` 30 本、実機で Clipboard 40/40。通しの検証は PASS。実装のレビューを 2 回回した（実装結果 v3）。IL2CPP では `DllImportAttribute` のライブラリ名を反射で読めなかった（AC-33 から外した） |
+| 3 | 機能ごとに: 設計 → レビュー → UI テスト計画 → **1.x のまま UI テストを流して記録** → 移行の実装 → 同じテストを流し、1.x と同じか既知の差分かを確かめる → 実装のレビュー → 実装結果。順は Dialog → Share → Clipboard → Notification。UI の補助は Dialog の前半で作る | Dialog: 設計 v4、UI テスト計画 v1、UI の補助の設計 v5。利用者の確認を経て実装に入った（2026-10-11）。**UI の補助を作り、1.x で 29 件を記録した（6.5）**。**C ABI への移行を実装し、実機で 49/49（6.6）**。コミット済み（`0513bb4`、`7f7ec32`）。Share: 設計 v6（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`）。設計レビューを 6 回回し、v6 で A1 が 0（2 回目の後に保つ範囲を J-11 に決めた）。UI テスト計画 v1〜v5 と UI の補助の設計 v6〜v11（レビューを 5 回回し、打ち切りに達した。5 回目の直しは doctest と実機で確かめた。利用者の判断でコミット: `c427a9c`、`5729578`）。**1.x のまま 45/45 を記録した（UI テスト計画 v6 の 5 章。2026-10-12）**。1.x は別のスレッドからの呼び出しを受け付けなかった（設計 v6 J-S16 の「1.x と同じ」は誤り。既知の差分として次の版に足す。持ち越し K-5）。**C ABI への移行を実装した（2026-10-12）**: 層 1 の `AndroidShareCApiTests`、層 2a の `AndroidShareManagerEditorTests` 20 本、実機で Share 45/45（と、共通部を変えたので Dialog 36/36）。実装のレビューを 2 回回し、2 回目で両方の A が 0（実装結果 v2）。Clipboard: 設計 v1〜v3（`artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v3.md`）。設計レビューを 2 回回し、2 回目で両方の A1 が 0。監視の開始の直後の変更を J-11 の例外にした（利用者の判断）。OS の画面を出さないので UI の補助と UI テスト計画は作らず、設計の 7.3 の表を使う。**1.x のまま 37/37 を記録した（設計 v4 の 7.3。2026-10-12）**。1.x は別のスレッドからの呼び出しを受け付けず、文字列の null を `"null"` として扱った。コピーの直後の `Read` は 1.x でも 10 回すべてで新しい本文を読んだ。**C ABI への移行を実装した（2026-10-12）**: 層 1 の `AndroidClipboardCApiTests`、層 2a の `AndroidClipboardManagerEditorTests` 30 本、実機で Clipboard 40/40。通しの検証は PASS。実装のレビューを 2 回回した（実装結果 v3）。IL2CPP では `DllImportAttribute` のライブラリ名を反射で読めなかった（AC-33 から外した）。Notification: 設計 v1〜v4（`artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md`。設計レビュー 3 回）、UI テスト計画 v1〜v4 と UI の補助の設計 v12〜v15（レビュー 3 回。3 回目で A1 が 0。3 回目は Codex が利用上限で使えず、利用者の指示でサブエージェントだけで判定した）。**UI の補助をシェードと画面の命令に広げ、今の実機の UI テストが退行しないことを確かめた（6.7）** |
 | 4 | 旧ブリッジの AAR と JSON の層を消す。マニュアル。リリース。**マニュアルの Android の動作環境に「ARM64（と x86_64）だけ、IL2CPP だけ」と書く**（J-10。native-toolkit の manual/1.13.0/index の 32 ビットの項目と合わせる。native-toolkit-1d の勧め、2026-10-11）。移行ガイドには、名前空間、既知の差分、「Configure Gradle Project」の削除、32 ビットのビルドが止まることを書く。**出す版は 1.13.0。4 機能の移行の後、リリースの前に、接頭辞の無い Runtime の 11 型の一括改名（`artifact/topics/os-prefix-violations` の案 1。Android の 10 型と macOS の `IconConfiguration` 1 型）を 1 つのタスクとして行い、移行ガイドに書く**（2026-10-12、利用者と相談） | 未着手 |
 
 ## 6. 記録
@@ -175,3 +175,30 @@ Dialog 設計 v4 5.5 の手順 4〜9。`AndroidDialogCApi`（Bridge）、共通�
 - C ABI の側の直しは要らなかった（native-toolkit-1d へ戻すものは無い）
 - 実装レビューを 3 回（サブエージェントと Codex）回し、3 回目で A が 0 件になった。3 回目では、別のスレッドからの `Show*` が例外を出す回帰（1.x は動いた見込み）も見つかり、直した。製品の側では、確保した後に一覧へ足すまでの間の漏れ、取り出し口が壊された・無効にされたときに完了が無言で止まること、などを直した。テストの側では、後片付けで要求とイベントの数を照らし、Unity Test Framework が入れ子の手順の失敗の後に外側の `finally` を走らせないことに合わせて、片付けが必ず走る形にした。直した所は、わざと壊して落ちることを確かめた（実装結果 v2 の 9 章、v3 の 10 章）
 - **Windows にも、確保した後に一覧へ足すまでの間の漏れと同じ形が 3 か所ある**（実装結果 v3 の 7 章）。この段では変えない
+
+### 6.7 UI の補助を Notification に広げる（2026-10-12）
+
+UI の補助の設計 v15 の実装。Notification の設計 5.5 の手順 3（1.x の記録）の前に、補助と検証のスクリプトを広げた。Notification のテストはまだ足していない。
+
+- 補助（`scripts/android_ui_driver.py`）:
+  - 画面の命令 6 つ（`notification-present`、`notification-tap`、`notification-action`、`notification-dismiss`、`permission-answer`、`close-screen`）と、`grant`、`appop-allow` を足した
+  - HELLO の検査と `--package` の引数を足した。v11 からは、偽の HELLO でシェルに命令を入れられた
+  - 読み取りは毎回別の名前の端末のファイルに書き、読んだ直後に消す。終わりにはすべてを消す
+  - システムの UI（`com.android.systemui`）の木は残さない
+- `doctest` は全件通った。決まりを 1 つずつ壊した版でも確かめた:
+  - 新しい決まりの 32 通りは、すべて捕まえた。最初は 4 通りを捕まえられず、模擬の端末と `doctest` を直した。捕まえられなかったのは、終わりの削除、Back を読まずに押す、見ていない画面の見張り、`stay` の後の `collapse`
+  - Sharesheet の前の壊し方 49 通りのうち、当てられる 38 通りも、すべて捕まえた（11 通りはコードが変わって当てられない）。1 通りは、読み取り 1 回の adb の呼び出しが 4 回から 3 回に減ったため、遅れて消えるシートの `doctest` が押し直しの経路に入らなくなっていた。遅れを 5 回の読み取りにして直した
+- テストの側（`AndroidUiDriver.cs`）: 画面の命令の一覧と、200 秒の待ちを足した
+- 検証のスクリプト（`verify_unity_android.sh`）:
+  - 補助に `--package` を渡す
+  - 実機の実行の前と `trap` で、テストの Player をアンインストールする
+  - Test Android™ Profile の実行でも、`AndroidSampleScreen` を除く `AndroidUiDriver` のテストの skip を見る
+  - Dialog と Share のサンプル画面のテスト 22 本に、このカテゴリを付けた
+- 実機（Pixel 6a、`--as-package-user` 付きの通しの検証）: PASS
+  - EditMode 1263/1264（skip 1）、Editor の PlayMode 276/313（skip 37）
+  - Android™ Profile の実機 123/123。補助の命令は 178、終了コードは 0。`AndroidUiDriver` のテストは 65 本で、skip は 0
+  - Test Android™ Profile の実機 101 件が合格、22 件が skip（サンプル画面のテストだけ）。`AndroidSampleScreen` を除く `AndroidUiDriver` のテストは 43 本で、skip は 0
+- 実行の途中で、Unity のログが 5 分以上伸びない時間が 2 回あった。どちらも止まってはいなかった
+  - 1 回目は Gradle の中の IL2CPP の C++ のコンパイル（clang が CPU を使っていた）
+  - 2 回目は端末の上のテストの実行中で、補助への依頼は増え続けていた（`absent-in-sheet` は 1 件 30 秒あまり）
+  - 実機の実行の間、ホストの側の Unity のログは伸びない。止まったかは、補助への依頼が増えているかで見る

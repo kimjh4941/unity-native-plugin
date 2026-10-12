@@ -20,7 +20,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// A request is one logcat line (Debug.Log, tag Unity). The driver writes the answer into this
     /// app's files directory through run-as, one file per request, by renaming a finished temporary
     /// file so a half-written answer is never read. The protocol is in
-    /// artifact/topics/android-c-abi-2/designs/2026-10-11-android-ui-driver-design-v11.md.
+    /// artifact/topics/android-c-abi-2/designs/2026-10-12-android-ui-driver-design-v15.md.
     /// <para>
     /// When no driver answers the HELLO (the tests were started from the Editor's Test Runner, say),
     /// every request ignores the test instead of failing it. Once the driver has answered, a missing
@@ -32,6 +32,14 @@ namespace JonghyunKim.NativeToolkit.Tests
     {
         /// <summary>The NUnit category of every test that needs the driver.</summary>
         internal const string Category = "AndroidUiDriver";
+
+        /// <summary>
+        /// The NUnit category of every test that goes through the sample screens, besides
+        /// <see cref="Category"/>. The Test Android™ Profile's player has no sample scenes, so those
+        /// tests are ignored there, and only there may a test of <see cref="Category"/> be skipped
+        /// (scripts/verify_unity_android.sh; design 7).
+        /// </summary>
+        internal const string SampleScreenCategory = "AndroidSampleScreen";
 
         private const float ReadyTimeoutSeconds = 5f;
         private const float AnswerTimeoutSeconds = 20f;
@@ -46,12 +54,37 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// </summary>
         internal const float SheetAnswerTimeoutSeconds = 180f;
 
+        /// <summary>
+        /// How long a screen command (the notification shade, the permission dialog, a settings
+        /// screen) may take to answer. The driver gives up within 171 s of taking the request (its
+        /// SCREEN_ANSWER_LIMIT, pinned by its doctest): its own limit (60 s), watching for a dialog or
+        /// screen not yet seen (10 s), collapsing the shade (10 s), Back (15 s), stopping the
+        /// permission controller (10 s), bringing this app back (25 s), deleting what it read (30 s),
+        /// a second of waits, and writing the answer (10 s) (design 3.5). A test that sends one runs
+        /// past the test framework's default limit of 180 s, so it carries a [Timeout] (design 5).
+        /// </summary>
+        internal const float ScreenAnswerTimeoutSeconds = 200f;
+
         // The driver's share sheet commands (design 3.1), which take longer than the others. The
         // driver keeps the same list (SHEET_COMMANDS in scripts/android_ui_driver.py): change both.
         private static readonly HashSet<string> s_sheetCommands = new()
         {
             "tap-in-sheet", "absent-in-sheet", "present-in-sheet", "close-sheet", "no-sheet",
         };
+
+        // The driver's screen commands (design 3.5). The driver keeps the same list (SCREEN_COMMANDS
+        // in scripts/android_ui_driver.py): change both.
+        private static readonly HashSet<string> s_screenCommands = new()
+        {
+            "notification-present", "notification-tap", "notification-action", "notification-dismiss",
+            "permission-answer", "close-screen",
+        };
+
+        /// <summary>How long to wait for the answer to command.</summary>
+        internal static float AnswerTimeoutFor(string command) =>
+            s_screenCommands.Contains(command) ? ScreenAnswerTimeoutSeconds
+            : s_sheetCommands.Contains(command) ? SheetAnswerTimeoutSeconds
+            : AnswerTimeoutSeconds;
         private const int MaxLineBytes = 1000;
 
         private static string? s_run;
@@ -85,12 +118,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>
         /// Sends a request and waits for its answer. Ignores the test when no driver is running;
         /// fails it when the driver answers "fail" or does not answer. A share sheet command gets
-        /// <see cref="SheetAnswerTimeoutSeconds"/>, the others 20 s.
+        /// <see cref="SheetAnswerTimeoutSeconds"/>, a screen command
+        /// <see cref="ScreenAnswerTimeoutSeconds"/>, the others 20 s.
         /// </summary>
         internal static IEnumerator Do(string command, params string[] args)
         {
             yield return Send(command, args);
-            yield return Wait(LastSent, s_sheetCommands.Contains(command) ? SheetAnswerTimeoutSeconds : AnswerTimeoutSeconds);
+            yield return Wait(LastSent, AnswerTimeoutFor(command));
         }
 
         /// <summary>The number of the last request <see cref="Send"/> sent.</summary>
@@ -156,7 +190,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var failures = new List<string>();
             foreach (int number in numbers)
             {
-                IEnumerator wait = Wait(number, SheetAnswerTimeoutSeconds);
+                IEnumerator wait = Wait(number, ScreenAnswerTimeoutSeconds);
                 while (true)
                 {
                     try

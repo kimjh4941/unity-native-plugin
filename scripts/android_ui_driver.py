@@ -76,8 +76,39 @@ SHEET_REASONS = frozenset({
     "anchor-not-found", "present", "still-open", "did-not-close", "wrong-app", "not-in-front", "sheet-opened",
     "bad-span",
 })
+SHADE_PACKAGE = "com.android.systemui"
+PERMISSION_PACKAGES = ("com.google.android.permissioncontroller", "com.android.permissioncontroller")
+SETTINGS_PACKAGE = "com.android.settings"
+ROW_ID = "com.android.systemui:id/expandableNotificationRow"
+SHADE_CLOSE_TIMEOUT = 10.0
+DISMISS_TRIES = 3
+DISMISS_WAIT = 3.0
+SCREEN_BACK_TRIES = 4
+# The longest a screen command takes to answer, on a device whose every adb call times out (design
+# 3.5; pinned by the doctests below): its own limit, watching for a dialog or screen not yet seen,
+# collapsing the shade and checking, Back, stopping the permission controller, bringing this app back
+# (once), six deletes past their deadline, a second of waits, and writing the answer.
+# AndroidUiDriver.ScreenAnswerTimeoutSeconds waits longer.
+SCREEN_ANSWER_LIMIT = (SHEET_TIMEOUT + UNSEEN_WATCH + SHADE_CLOSE_TIMEOUT + SHEET_CLOSE_TIMEOUT + SHEET_STOP_TIMEOUT
+                       + FRONT_TIMEOUT + 6 * DELETE_TIMEOUT + 1 + RESULT_TIMEOUT)
+# The commands that run inside screen_command, arguments and all. AndroidUiDriver.cs keeps the same
+# list (s_screenCommands) to wait longer for them: change both together.
+SCREEN_COMMANDS = frozenset({"notification-present", "notification-tap", "notification-action",
+                             "notification-dismiss", "permission-answer", "close-screen"})
+# The screen commands that watch for what the test opened when they fail before seeing it.
+WATCHED_SCREENS = frozenset({"permission-answer", "close-screen"})
+# The only reasons a screen command answers with (design 3.5); anything else becomes "error".
+SCREEN_REASONS = SHEET_REASONS | {"shade-did-not-open", "dialog-did-not-open", "screen-did-not-open",
+                                  "still-present", "bad-arg", "not-stopped", "ambiguous"}
 READY_TIMEOUT = 5.0
-DUMP_PATH = "/data/local/tmp/ntk-ui-dump.xml"
+# Each screen read gets a name of its own (design 3.6): a read the host gave up on may still be
+# written on the device after its delete, and must not pass for a later one.
+DUMP_PREFIX = "/data/local/tmp/ntk-ui-dump-"
+DUMP_GLOB = DUMP_PREFIX + "*.xml"
+RUN_ID = re.compile(r"^[0-9a-f]{32}$")
+USER_ID = re.compile(r"^[0-9]{1,5}$")
+PERMISSION = re.compile(r"^android\.permission\.[A-Z_]{1,64}$")
+APP_OP = re.compile(r"^[A-Z_]{1,64}$")
 MIN_OUTSIDE_GAP = 48
 TYPE_TEXT = re.compile(r"^[a-z0-9]{1,64}$")
 REASON = re.compile(r"[^A-Za-z0-9-]")
@@ -241,6 +272,115 @@ def shows_sheet(root):
     return any(n.get("package") == SHEET_PACKAGE for n in root.iter("node"))
 
 
+def shows_package(root, packages):
+    """Whether a dumped screen has a node of one of packages.
+
+    >>> shows_package(ET.fromstring('<hierarchy><node package="com.android.systemui"/></hierarchy>'), (SHADE_PACKAGE,))
+    True
+    """
+    return any(n.get("package") in packages for n in root.iter("node"))
+
+
+def private_screen(root):
+    """Whether a dumped screen must never be kept: it shows the share sheet (other apps' share
+    targets, the user's contacts) or anything of the system UI, whose notification shade lists
+    other apps' notifications (design 3.4, 3.6). Judged by package, not by the shade's own ids.
+
+    >>> private_screen(ET.fromstring('<hierarchy><node package="com.android.systemui"/></hierarchy>'))
+    True
+    >>> private_screen(ET.fromstring('<hierarchy><node package="com.android.intentresolver"/></hierarchy>'))
+    True
+    >>> private_screen(ET.fromstring('<hierarchy><node package="com.example"/></hierarchy>'))
+    False
+    """
+    return shows_package(root, (SHEET_PACKAGE, SHADE_PACKAGE))
+
+
+def shade_title(root, title):
+    """The shade's title node of the notification titled title, or None."""
+    return find(root, {"package": SHADE_PACKAGE, "resource-id": "android:id/title", "text": title}, 0)
+
+
+def labelled(root, label):
+    """The system UI nodes whose text or content description is label."""
+    return [n for n in root.iter("node")
+            if n.get("package") == SHADE_PACKAGE and label in (n.get("text"), n.get("content-desc"))]
+
+
+def notification_row(root, node):
+    """The notification row that holds node (its nearest expandableNotificationRow ancestor), or None.
+
+    >>> root = ET.fromstring('<hierarchy><node resource-id="com.android.systemui:id/expandableNotificationRow" '
+    ...                      'bounds="[0,0][9,9]"><node><node text="T"/></node></node></hierarchy>')
+    >>> notification_row(root, root[0][0][0]).get("resource-id") == ROW_ID
+    True
+    >>> notification_row(root, root) is None
+    True
+    """
+    parents = {child: parent for parent in root.iter() for child in parent}
+    while node is not None:
+        if node.get("resource-id") == ROW_ID:
+            return node
+        node = parents.get(node)
+    return None
+
+
+def stopped_in(text, package):
+    """Whether every activity record of package in `dumpsys activity activities` reports STOPPED.
+
+    >>> stopped_in('''  * Hist  #0: ActivityRecord{1 u0 com.example/.Main t1}
+    ...       state=STOPPED''', "com.example")
+    True
+    >>> stopped_in('''  * Hist  #0: ActivityRecord{1 u0 com.example/.Main t1}
+    ...       state=PAUSED''', "com.example")
+    False
+    """
+    states = []
+    current = None
+    for line in text.splitlines():
+        if "ActivityRecord{" in line:
+            current = package in line
+        elif current:
+            match = re.search(r"\bstate=([A-Z_]+)", line)
+            if match:
+                states.append(match.group(1))
+                current = False
+    return bool(states) and all(state == "STOPPED" for state in states)
+
+
+def resumed_activity(text):
+    """The resumed activity in `dumpsys activity activities` as (component, action), the action
+    being its record's intent action or "-" when it shows none; None when no activity is resumed.
+
+    >>> resumed_activity('''  topResumedActivity=ActivityRecord{3a u0 com.android.settings/.spa.SpaActivity t9}
+    ...     * Hist  #1: ActivityRecord{3a u0 com.android.settings/.spa.SpaActivity t9}
+    ...         intent={act=android.settings.APP_NOTIFICATION_SETTINGS flg=0x10000000 cmp=com.android.settings/.spa.SpaActivity}
+    ...     * Hist  #0: ActivityRecord{1b u0 com.example/.Main t8}
+    ...         intent={act=android.intent.action.MAIN cmp=com.example/.Main}''')
+    ('com.android.settings/.spa.SpaActivity', 'android.settings.APP_NOTIFICATION_SETTINGS')
+    >>> resumed_activity("  topResumedActivity=ActivityRecord{3a u0 com.android.settings/.Settings$AppDetails t9}")
+    ('com.android.settings/.Settings$AppDetails', '-')
+    >>> resumed_activity("nothing") is None
+    True
+    """
+    match = (re.search(r"topResumedActivity=ActivityRecord\{(\S+) u\d+ (\S+)", text)
+             or re.search(r"ResumedActivity: ActivityRecord\{(\S+) u\d+ (\S+)", text))
+    if not match:
+        return None
+    record, component = match.groups()
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if f"ActivityRecord{{{record} " in line and "Resumed" not in line:
+            for following in lines[i + 1:]:
+                if "ActivityRecord{" in following:
+                    break
+                action = re.search(r"intent=\{act=([^\s}]+)", following)
+                if action:
+                    return component, action.group(1)
+            break
+    return component, "-"
+
+
 def find_in_sheet(root, text):
     """The share sheet node whose text is exactly text (case-sensitive), or None.
 
@@ -276,8 +416,9 @@ def remaining(deadline, cap, now=None):
     return min(cap, left)
 
 
-def sheet_reason(error):
-    """The fixed word a share sheet command answers with for error (design 3.4).
+def sheet_reason(error, words=SHEET_REASONS):
+    """The fixed word a share sheet command (or, with SCREEN_REASONS, a screen command) answers with
+    for error (design 3.4, 3.5).
 
     >>> sheet_reason(Failure("not-found"))
     'not-found'
@@ -287,10 +428,12 @@ def sheet_reason(error):
     'timeout'
     >>> sheet_reason(ValueError("Alice"))
     'error'
+    >>> sheet_reason(Failure("ambiguous")), sheet_reason(Failure("ambiguous"), SCREEN_REASONS)
+    ('error', 'ambiguous')
     """
     if isinstance(error, subprocess.TimeoutExpired):
         return "timeout"
-    if isinstance(error, Failure) and str(error) in SHEET_REASONS:
+    if isinstance(error, Failure) and str(error) in words:
         return str(error)
     return "error"
 
@@ -344,13 +487,17 @@ class Device:
 
 
 class Driver:
-    def __init__(self, device, state_file=None, dump_dir=None, clock=time.monotonic, sleep=time.sleep):
+    def __init__(self, device, state_file=None, dump_dir=None, clock=time.monotonic, sleep=time.sleep, package=None):
         self.device = device
         self.now = clock
         self.sleep = sleep
         self.warn = lambda text: print(f"ui-driver: {text}", file=sys.stderr)
+        self.expected_package = package  # --package: a HELLO for any other package is ignored
+        self.dumps = 0  # screen reads started; each gets its own file on the device
         self.dump_left = False  # a screen read may still be on the device: deleting it failed
         self.seen_sheet = False  # the current share sheet command has read a screen with the sheet
+        self.seen_screen = False  # the current screen command has seen the dialog or screen it is for
+        self.front_failed = False  # the current screen command already tried to bring this app back
         self.deadline = None  # the deadline of the command being run, other than a share sheet one
         self.state_file = state_file
         self.dump_dir = dump_dir
@@ -421,7 +568,8 @@ class Driver:
 
     def as_app(self, script, timeout=30):
         quoted = shlex.quote(script)
-        return self.device.shell(f"run-as {self.package} --user {self.user} sh -c {quoted}", timeout=timeout)
+        return self.device.shell(f"run-as {shlex.quote(self.package)} --user {shlex.quote(self.user)} sh -c {quoted}",
+                                 timeout=timeout)
 
     def write_result(self, name, text):
         directory = f"files/ntk-ui/{self.run_id}"
@@ -431,6 +579,12 @@ class Driver:
     # -- requests ----------------------------------------------------------------------------
 
     def hello(self, run_id, package, user):
+        # Any app on the device can write a Unity-tagged logcat line, and these values go into
+        # shell command lines: a HELLO that is not the test player's, in the form it sends, is
+        # dropped (design 3.6). Its values are not printed either.
+        if not (RUN_ID.match(run_id) and package == self.expected_package and USER_ID.match(user)):
+            self.warn("ignored a HELLO that is not the test player's")
+            return
         self.hellos += 1
         self.run_id, self.package, self.user = run_id, package, user
         started = self.now()
@@ -460,6 +614,8 @@ class Driver:
                 # Reading the arguments too: the test opened the sheet as it sent the request, so a
                 # bad argument must close it like any other failure (design 3.3).
                 value = self.sheet_command(lambda deadline: handler(deadline, *args))
+            elif name in SCREEN_COMMANDS:
+                value = self.screen_command(name, lambda deadline: handler(deadline, *args))
             else:
                 self.deadline = self.now() + COMMAND_TIMEOUT
                 try:
@@ -490,41 +646,58 @@ class Driver:
 
     def dump(self, deadline=None):
         """Reads the screen. With a deadline, each adb call may take only the time left (design 3.3).
-        A screen that shows the share sheet, or one that cannot be read and so might, is never kept,
-        and its copy on the device is deleted at once (design 3.4): it lists other apps' share
-        targets and the user's contacts."""
+        Each read is written to a file of its own on the device and deleted right after, whether it
+        could be read or not (design 3.4, 3.6). A screen that shows the share sheet or the system UI,
+        or one that cannot be read and so might, is never kept: they list other apps' share targets,
+        the user's contacts, and other apps' notifications."""
         self.last_dump = None
-        first = self.limit(deadline, 30)  # past the deadline nothing starts, so nothing to delete
+        first = self.limit(deadline, 15)  # past the deadline nothing starts, so nothing to delete
+        self.dumps += 1
+        path = f"{DUMP_PREFIX}{self.dumps}.xml"
         try:
-            self.device.shell(f"rm -f {DUMP_PATH}", check=False, timeout=first)
-            out = self.device.shell(f"uiautomator dump {DUMP_PATH}", check=False, timeout=self.limit(deadline, 15))
+            out = self.device.shell(f"uiautomator dump {path}", check=False, timeout=first)
             if "dumped to" not in out:
                 raise Failure("uiautomator dump failed")
-            text = self.device.run("exec-out", "cat", DUMP_PATH, timeout=self.limit(deadline, 30))
+            text = self.device.run("exec-out", "cat", path, timeout=self.limit(deadline, 30))
             root = ET.fromstring(text)
-        except Exception as error:  # noqa: BLE001 - whatever stopped the read, the copy may be the sheet
+        except Exception as error:  # noqa: BLE001 - whatever stopped the read, the copy may be private
             self.forget_dump()
             if isinstance(error, subprocess.TimeoutExpired):
                 raise Failure("timeout") from None
             if isinstance(error, ET.ParseError):
                 raise Failure("bad-dump") from None
             raise
+        self.forget_dump()
         if shows_sheet(root):
             self.seen_sheet = True
-            self.forget_dump()
-        else:
+        if not private_screen(root):
             self.last_dump = text
         return root
 
     def forget_dump(self):
-        """Deletes the screen read on the device. A failure is remembered: the share sheet command's
-        end and the driver's own end delete it again, and the driver's exit status reports a screen
-        it could not delete (design 3.4)."""
+        """Deletes the screen reads on the device. A failure is remembered: the command's end and the
+        driver's own end delete them again, and the driver's exit status reports reads it could not
+        delete (design 3.4)."""
         try:
-            self.device.shell(f"rm -f {DUMP_PATH}", timeout=DELETE_TIMEOUT)
+            self.device.shell(f"rm -f {DUMP_GLOB}", timeout=DELETE_TIMEOUT)
             self.dump_left = False
         except Exception:  # noqa: BLE001
             self.dump_left = True
+
+    def remove_all_dumps(self):
+        """At the driver's end: deletes every screen read on the device, whether or not a delete
+        failed before (a read the host gave up on may have been written after its delete, V-17).
+        Nothing when no screen was read, so a run that read none is not failed by an adb server Unity
+        has stopped. Waits for adb first: Unity stops its server at the end of its run. True when
+        they are gone (design 3.4, 3.6)."""
+        if self.dumps == 0:
+            return True
+        try:
+            self.device.run("wait-for-device", timeout=30)
+        except Exception:  # noqa: BLE001
+            pass
+        self.forget_dump()
+        return not self.dump_left
 
     def wait_for(self, selector, present=True):
         """Reads the screen until the selector matches (or, with present=False, stops matching),
@@ -638,18 +811,7 @@ class Driver:
 
     def app_stopped(self):
         """Whether every activity record of the package reports STOPPED."""
-        text = self.shell("dumpsys activity activities")
-        states = []
-        current = None
-        for line in text.splitlines():
-            if "ActivityRecord{" in line:
-                current = self.package in line
-            elif current:
-                match = re.search(r"\bstate=([A-Z_]+)", line)
-                if match:
-                    states.append(match.group(1))
-                    current = False
-        return bool(states) and all(state == "STOPPED" for state in states)
+        return stopped_in(self.shell("dumpsys activity activities"), self.package)
 
     def do_background(self, milliseconds):
         delay = int(milliseconds)
@@ -670,6 +832,18 @@ class Driver:
 
     def do_home(self):
         self.shell("input keyevent KEYCODE_HOME")
+
+    def do_grant(self, permission):
+        """pm grant: does not stop the app (design 3.1). A revoke would, so there is none."""
+        if not PERMISSION.match(permission):
+            raise Failure("bad-arg")
+        self.shell(f"pm grant --user {shlex.quote(self.user)} {shlex.quote(self.package)} {permission}")
+
+    def do_appop_allow(self, operation):
+        """appops set ... allow: does not stop the app (design 3.1). deny would, so there is none."""
+        if not APP_OP.match(operation):
+            raise Failure("bad-arg")
+        self.shell(f"appops set --user {shlex.quote(self.user)} {shlex.quote(self.package)} {operation} allow")
 
     # -- the share sheet (design 3.1, 3.3, 3.4) ---------------------------------------------------
     #
@@ -922,12 +1096,346 @@ class Driver:
     def do_front(self, deadline=None):
         deadline = self.command_deadline() if deadline is None else deadline
         resolved = self.device.shell(
-            f"cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {self.package}",
+            f"cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {shlex.quote(self.package)}",
             timeout=self.limit(deadline, 30)).split()
         component = resolved[-1] if resolved else ""
         if "/" not in component:
             raise Failure("no launcher activity")
-        self.device.shell(f"am start -n {component}", timeout=self.limit(deadline, 30))
+        self.device.shell(f"am start -n {shlex.quote(component)}", timeout=self.limit(deadline, 30))
+
+    # -- the notification shade, the permission dialog, settings screens (design 3.5, 3.6) --------
+    #
+    # Like the share sheet commands: each has SHEET_TIMEOUT for its work and, when it fails, closes
+    # what it opened or the test opened, brings this app back, and answers with a fixed word, within
+    # SCREEN_ANSWER_LIMIT. No screen of the system UI is ever kept.
+
+    def screen_command(self, name, work):
+        """Runs work(deadline) as a screen command. Whatever it raises: watches for the dialog or
+        screen the test opened if it was not seen yet, collapses the shade (always), closes a
+        permission dialog or settings screen in front, brings this app back (unless the command
+        already tried and failed), and answers with a fixed word."""
+        deadline = self.now() + SHEET_TIMEOUT
+        self.seen_screen = False
+        self.front_failed = False
+        try:
+            return work(deadline)
+        except Exception as error:  # noqa: BLE001 - every failure must close what is open
+            word = sheet_reason(error, SCREEN_REASONS)
+            if word == "error":
+                self.warn(f"a screen command stopped on {type(error).__name__}")
+            if name in WATCHED_SCREENS and not self.seen_screen and word not in ("dialog-did-not-open", "screen-did-not-open"):
+                self.watch_for_screen(name)
+            if not self.close_screens() and word not in ("did-not-close", "not-in-front"):
+                self.warn(f"{word}, and a screen did not close")
+                word = "did-not-close"
+            if not self.front_failed and not self.bring_front() and word != "did-not-close":
+                self.warn(f"{word}, and the player did not come back to the front")
+                word = "not-in-front"
+            raise Failure(word) from None
+        finally:
+            self.last_dump = None
+            self.forget_dump()
+
+    def watch_for_screen(self, name):
+        """Waits up to UNSEEN_WATCH for the permission dialog (permission-answer) or a settings
+        screen (close-screen) the test opened with the request. Never raises."""
+        until = self.now() + UNSEEN_WATCH
+        while self.now() < until:
+            try:
+                if name == "permission-answer":
+                    if shows_package(self.dump(until), PERMISSION_PACKAGES):
+                        return
+                elif self.front_package(min(until, self.now() + FRONT_READ_TIMEOUT)) == SETTINGS_PACKAGE:
+                    return
+            except Exception:  # noqa: BLE001
+                pass
+            self.sleep(0.5)
+
+    def close_screens(self):
+        """After a failure. Collapses the shade, unconditionally: it does no harm, and judging whether
+        it is open could be wrong. Presses Back while a permission dialog or settings screen is in
+        front, reading before each press so that a Back never reaches the player. Stops the
+        permission controller if its dialog stays. Each step has its own limit. True when the shade
+        is gone and no permission dialog is left (a settings screen left is bring_front's to cover).
+        Never raises."""
+        shade_gone = self.collapse_shade(self.now() + SHADE_CLOSE_TIMEOUT)
+        deadline = self.now() + SHEET_CLOSE_TIMEOUT
+        top = "unknown"
+        try:
+            for presses in range(SCREEN_BACK_TRIES + 1):
+                top = self.front_package(deadline)
+                if top not in PERMISSION_PACKAGES + (SETTINGS_PACKAGE,) or presses == SCREEN_BACK_TRIES:
+                    break
+                self.device.shell("input keyevent KEYCODE_BACK", timeout=self.limit(deadline, 30))
+                self.sleep(1)
+        except Exception:  # noqa: BLE001 - unknown: go on to stopping the dialog
+            top = "unknown"
+        dialog_gone = True
+        if top in PERMISSION_PACKAGES or top == "unknown":
+            dialog_gone = self.stop_permission_dialog()
+        return shade_gone and dialog_gone
+
+    def stop_permission_dialog(self):
+        """Stops the permission controller, when Back does not close its dialog. True when no
+        permission dialog is in front. Never raises."""
+        deadline = self.now() + SHEET_STOP_TIMEOUT
+        try:
+            for package in PERMISSION_PACKAGES:
+                self.device.shell(f"am force-stop {package}", timeout=self.limit(deadline, 30))
+            while self.front_package(deadline) in PERMISSION_PACKAGES:
+                self.sleep(0.5)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
+    def collapse_shade(self, until):
+        """Collapses the shade and reads until no system UI shows. True when it is gone. Never raises."""
+        try:
+            self.device.shell("cmd statusbar collapse", timeout=self.limit(until, 30))
+            while True:
+                try:
+                    if not shows_package(self.dump(until), (SHADE_PACKAGE,)):
+                        return True
+                except Failure:
+                    pass
+                if self.now() >= until:
+                    return False
+                self.sleep(0.5)
+        except Exception:  # noqa: BLE001
+            return False
+
+    def close_shade(self, deadline):
+        if not self.collapse_shade(min(deadline, self.now() + SHADE_CLOSE_TIMEOUT)):
+            raise Failure("did-not-close")
+
+    def wait_screen(self, deadline, found, missing):
+        """Reads the screen for up to COMMAND_TIMEOUT (within the deadline) until found(root) gives
+        something; returns (root, what it gave). A read that fails is read again; what found raises
+        is not caught."""
+        until = min(deadline, self.now() + COMMAND_TIMEOUT)
+        while True:
+            try:
+                root = self.dump(until)
+            except Failure:
+                root = None
+            if root is not None:
+                value = found(root)
+                if value is not None:
+                    return root, value
+            if self.now() >= until:
+                raise Failure("timeout" if until >= deadline else missing)
+            self.sleep(0.5)
+
+    def open_shade(self, deadline):
+        self.device.shell("cmd statusbar expand-notifications", timeout=self.limit(deadline, 30))
+        return self.wait_screen(deadline, lambda root: True if shows_package(root, (SHADE_PACKAGE,)) else None,
+                                "shade-did-not-open")[0]
+
+    def tap_node(self, node, deadline):
+        left, top, right, bottom = bounds(node)
+        self.device.shell(f"input tap {(left + right) // 2} {(top + bottom) // 2}", timeout=self.limit(deadline, 30))
+
+    def send_home(self, deadline):
+        """front's first step: HOME, then wait for this app to stop, so that a tap that does not open
+        the app cannot pass for one that does (design 3.5; native-toolkit's NotificationEventTest.cpp)."""
+        self.device.shell("input keyevent KEYCODE_HOME", timeout=self.limit(deadline, 30))
+        until = min(deadline, self.now() + COMMAND_TIMEOUT)
+        while True:
+            try:
+                text = self.device.shell("dumpsys activity activities",
+                                         timeout=self.limit(min(until, self.now() + FRONT_READ_TIMEOUT), 30))
+                if stopped_in(text, self.package):
+                    return
+            except (Failure, subprocess.TimeoutExpired):
+                pass
+            if self.now() >= until:
+                raise Failure("timeout" if until >= deadline else "not-stopped")
+            self.sleep(0.2)
+
+    def came_front(self, deadline):
+        """Whether this app comes to the front within COMMAND_TIMEOUT (and the deadline). Never raises."""
+        until = min(deadline, self.now() + COMMAND_TIMEOUT)
+        while True:
+            try:
+                if self.front_package(min(until, self.now() + FRONT_READ_TIMEOUT)) == self.package:
+                    return True
+            except (Failure, subprocess.TimeoutExpired):
+                pass
+            if self.now() >= until:
+                return False
+            self.sleep(0.5)
+
+    def after_tap(self, deadline, front):
+        """stay: collapses the shade; ok. front: "front" when this app came to the front, else
+        "not-front" once it is brought back; when it cannot be, not-in-front, and the failure path
+        does not try again (that try is the one counted in SCREEN_ANSWER_LIMIT)."""
+        if front == "stay":
+            self.close_shade(deadline)
+            return None
+        came = self.came_front(deadline)
+        self.close_shade(deadline)
+        if came:
+            return "front"
+        if not self.bring_front():
+            self.front_failed = True
+            raise Failure("not-in-front")
+        return "not-front"
+
+    @staticmethod
+    def front_argument(front):
+        if front not in ("front", "stay"):
+            raise Failure("bad-arg")
+
+    def do_notification_present(self, deadline, title):
+        label = decode(title)
+        self.open_shade(deadline)
+        self.wait_screen(deadline, lambda root: shade_title(root, label), "not-found")
+        self.close_shade(deadline)
+
+    def do_notification_tap(self, deadline, title, front):
+        label = decode(title)
+        self.front_argument(front)
+        if front == "front":
+            self.send_home(deadline)
+        self.open_shade(deadline)
+        _, node = self.wait_screen(deadline, lambda root: shade_title(root, label), "not-found")
+        self.tap_node(node, deadline)
+        return self.after_tap(deadline, front)
+
+    def do_notification_action(self, deadline, title, button, front):
+        """The button inside the notification's row; failing that, the row expanded and the button
+        looked for in the whole shade, as native-toolkit's NotificationShade.kt does (expanding may
+        replace the row's content). Then there must be exactly one: another app's notification may
+        have a button of the same text (ambiguous)."""
+        label, text = decode(title), decode(button)
+        self.front_argument(front)
+        if front == "front":
+            self.send_home(deadline)
+        self.open_shade(deadline)
+        root, node = self.wait_screen(deadline, lambda root: shade_title(root, label), "not-found")
+        row = notification_row(root, node)
+        if row is None:
+            raise Failure("not-found")
+        inside = [n for n in row.iter("node") if text in (n.get("text"), n.get("content-desc"))]
+        if inside:
+            target = inside[0]
+        else:
+            expand = find(row, {"resource-id": "android:id/expand_button"}, 0)
+            if expand is None:
+                raise Failure("not-found")
+            self.tap_node(expand, deadline)
+
+            def pick(root):
+                if shade_title(root, label) is None:
+                    return None
+                matches = labelled(root, text)
+                if len(matches) > 1:
+                    raise Failure("ambiguous")
+                return matches[0] if matches else None
+
+            _, target = self.wait_screen(deadline, pick, "not-found")
+        self.tap_node(target, deadline)
+        return self.after_tap(deadline, front)
+
+    def do_notification_dismiss(self, deadline, title):
+        """A fast swipe across the row, from 1/10 to 9/10 of the width (a slow one may not dismiss;
+        native-toolkit's UiDriver.kt), up to DISMISS_TRIES times, the row found again each time."""
+        label = decode(title)
+        width, _ = self.screen_size(deadline)
+        self.open_shade(deadline)
+        root, node = self.wait_screen(deadline, lambda root: shade_title(root, label), "not-found")
+        for _ in range(DISMISS_TRIES):
+            _, top, _, bottom = bounds(notification_row(root, node) or node)
+            y = (top + bottom) // 2
+            self.device.shell(f"input swipe {width // 10} {y} {width * 9 // 10} {y} 100", timeout=self.limit(deadline, 30))
+            seen = self.still_shown(deadline, label)
+            if seen is None:
+                self.close_shade(deadline)
+                return
+            root, node = seen
+        raise Failure("still-present")
+
+    def still_shown(self, deadline, label):
+        """None once a read shows no notification titled label within DISMISS_WAIT; else the last
+        screen that showed it and its title node."""
+        until = min(deadline, self.now() + DISMISS_WAIT)
+        seen = None
+        while True:
+            try:
+                root = self.dump(until)
+                node = shade_title(root, label)
+                if node is None:
+                    return None
+                seen = (root, node)
+            except Failure:
+                pass
+            if self.now() >= until:
+                if seen is None:
+                    raise Failure("timeout")
+                return seen
+            self.sleep(0.5)
+
+    def do_permission_answer(self, deadline, choice):
+        if choice not in ("allow", "deny"):
+            raise Failure("bad-arg")
+        suffix = f":id/permission_{choice}_button"
+
+        def dialog(root):
+            if not shows_package(root, PERMISSION_PACKAGES):
+                return None
+            self.seen_screen = True
+            return True
+
+        def button(root):
+            return next((n for n in root.iter("node") if n.get("package") in PERMISSION_PACKAGES
+                         and n.get("resource-id", "").endswith(suffix)), None)
+
+        self.wait_screen(deadline, dialog, "dialog-did-not-open")
+        _, node = self.wait_screen(deadline, button, "not-found")
+        self.tap_node(node, deadline)
+        if not self.came_front(deadline):
+            raise Failure("still-open")
+
+    def do_close_screen(self, deadline, package):
+        """ok "<component> <action>" of the settings screen in front, once two reads 0.5 s apart
+        agree (a trampoline activity is not taken for the screen), after closing it: Back, read
+        before each press, then `front`; the player's launcher activity is singleTask, so starting it
+        clears what was stacked on it (V-25)."""
+        if decode(package) != SETTINGS_PACKAGE:
+            raise Failure("bad-arg")
+        until = min(deadline, self.now() + COMMAND_TIMEOUT)
+        previous = None
+        while True:
+            try:
+                current = resumed_activity(self.device.shell(
+                    "dumpsys activity activities", timeout=self.limit(min(until, self.now() + FRONT_READ_TIMEOUT), 30)))
+            except (Failure, subprocess.TimeoutExpired):
+                current = None
+            if current is not None and current[0].startswith(SETTINGS_PACKAGE + "/"):
+                self.seen_screen = True
+                if current == previous:
+                    break
+                previous = current
+            else:
+                previous = None
+            if self.now() >= until:
+                raise Failure("timeout" if until >= deadline else "screen-did-not-open")
+            self.sleep(0.5)
+        for _ in range(SCREEN_BACK_TRIES):
+            if self.front_package(deadline) != SETTINGS_PACKAGE:
+                break
+            self.device.shell("input keyevent KEYCODE_BACK", timeout=self.limit(deadline, 30))
+            self.sleep(1)
+        if self.front_package(deadline) == SETTINGS_PACKAGE:
+            self.do_front(deadline)
+            self.sleep(1)
+            if self.front_package(deadline) == SETTINGS_PACKAGE:
+                raise Failure("did-not-close")
+        if self.front_package(deadline) != self.package:
+            self.do_front(deadline)
+            if not self.came_front(deadline):
+                raise Failure("not-in-front")
+        return f"{current[0]} {current[1]}"
 
 
 class _Deferred:
@@ -946,7 +1454,8 @@ class ScriptedDevice:
 
     def __init__(self, labels, sheet=True, seconds=0.5, backs_to_close=1, stoppable=True,
                  chosen=PLAYER, bad_reads=0, failing=None, broken=None, late_reads=0, slow=None,
-                 stuck_rm=False, bad_at=(), open_at=None, front_sticks=False, front=PLAYER, flaky=(), slow_once=None):
+                 stuck_rm=False, bad_at=(), open_at=None, front_sticks=False, front=PLAYER, flaky=(), slow_once=None,
+                 rm_fails=()):
         self.labels, self.sheet, self.seconds = list(labels), sheet, seconds
         self.backs_to_close, self.stoppable, self.chosen = backs_to_close, stoppable, chosen
         self.bad_reads, self.failing, self.broken = bad_reads, failing, broken
@@ -957,6 +1466,7 @@ class ScriptedDevice:
         self.flaky = list(flaky)  # command prefixes that fail once each
         self.slow_once = dict(slow_once or {})  # command prefix -> seconds, for one call only
         self.calls = []  # every adb call, for the doctests that look at what was sent
+        self.rm_fails, self.rms = set(rm_fails), 0  # the deletes (1, 2, ...) that fail
         if open_at is not None:
             self.sheet = False
         self.closing = None  # reads left before a tapped sheet goes
@@ -992,8 +1502,10 @@ class ScriptedDevice:
             if command.startswith(prefix):
                 self.flaky.remove(prefix)
                 raise Failure(f"adb shell {command} exited 1")
-        if self.stuck_rm and command.startswith("rm -f"):
-            raise Failure("adb shell rm exited 1")
+        if command.startswith("rm -f"):
+            self.rms += 1
+            if self.stuck_rm or self.rms in self.rm_fails:
+                raise Failure("adb shell rm exited 1")
 
     def screen(self):
         if not self.sheet:
@@ -1009,9 +1521,9 @@ class ScriptedDevice:
             if script.startswith("echo "):
                 self.answer = shlex.split(script)[1]
             return ""
-        if command == f"rm -f {DUMP_PATH}":
+        if command == f"rm -f {DUMP_GLOB}":
             self.file = None
-        elif command == f"uiautomator dump {DUMP_PATH}":
+        elif command.startswith(f"uiautomator dump {DUMP_PREFIX}"):
             if self.closing is not None:
                 self.closing -= 1
                 if self.closing < 0:
@@ -1021,7 +1533,7 @@ class ScriptedDevice:
             if self.bad_reads or self.reads in self.bad_at:
                 self.bad_reads = max(0, self.bad_reads - 1)
                 self.file = self.file[:-20]
-            return f"UI hierchary dumped to: {DUMP_PATH}"
+            return f"UI hierchary dumped to: {command.split()[-1]}"
         elif command == "wm size":
             return "Physical size: 1080x2400"
         elif command.startswith("input swipe"):
@@ -1053,11 +1565,204 @@ class ScriptedDevice:
 
 def scripted(labels, **options):
     """A ScriptedDevice and a Driver on it, as after a HELLO."""
-    device = ScriptedDevice(labels, **options)
-    driver = Driver(device, clock=device.now, sleep=device.sleep)
+    return on(ScriptedDevice(labels, **options))
+
+
+def on(device):
+    """A Driver on device, as after a HELLO."""
+    driver = Driver(device, clock=device.now, sleep=device.sleep, package=ScriptedDevice.PLAYER)
     driver.run_id, driver.package, driver.user = "run", ScriptedDevice.PLAYER, "0"
     driver.warn = lambda text: None
     return device, driver
+
+
+class ScreenDevice(ScriptedDevice):
+    """A stand-in device for the screen commands' doctests (design 3.5): a notification shade that
+    expand-notifications opens and collapse closes, notifications to tap, act on, expand and swipe
+    away, a permission dialog and a settings screen that Back closes, and an activity stack whose
+    bottom is the player: HOME stops it, and `am start` brings it back to the top, clearing what was
+    stacked on it, as its singleTask launcher activity does.
+
+    A notification is a dict: title; buttons (shown in its row); more (shown once expanded, outside
+    the row when replaces is set); swipes (to dismiss it, default 1); launches (whether a tap on its
+    body opens the app, default True); launching (the buttons that open the app)."""
+
+    LAUNCHER = ("com.example.launcher", "com.example.launcher/.Home", "android.intent.action.MAIN")
+    DIALOG = (PERMISSION_PACKAGES[0], f"{PERMISSION_PACKAGES[0]}/.GrantPermissionsActivity",
+              "android.content.pm.action.REQUEST_PERMISSIONS")
+
+    def __init__(self, notifications=(), dialog=False, dialog_at=None, settings=None, trampoline=0, shade_opens=True,
+                 shade_sticks=False, home_stops=True, dialog_backs=1, dialog_stoppable=True, settings_backs=1,
+                 **options):
+        super().__init__([], sheet=False, **options)
+        self.notifications = [dict(n) for n in notifications]
+        self.shade, self.shade_opens, self.shade_sticks = False, shade_opens, shade_sticks
+        self.home_stops, self.player_stopped = home_stops, False
+        self.dialog_backs, self.dialog_stoppable, self.settings_backs = dialog_backs, dialog_stoppable, settings_backs
+        self.expanded = set()
+        self.stack = [(self.PLAYER, f"{self.PLAYER}/.Main", "android.intent.action.MAIN")]
+        if dialog:
+            self.stack.append(self.DIALOG)
+        if settings:
+            self.stack.append((SETTINGS_PACKAGE,) + tuple(settings))
+        self.trampoline = trampoline  # reads of dumpsys that still show a bridging activity
+        self.dialog_at = dialog_at  # the time a permission dialog the test opened shows, for one that comes late
+        self.events = []  # what the app and the system saw: taps, actions, dismissals, answers
+        self.collapses = 0
+        self.targets = {}
+
+    def top(self):
+        return self.stack[-1][0]
+
+    def screen(self):
+        self.targets = {}
+        if self.shade:
+            nodes = []
+            for i, n in enumerate(self.notifications):
+                y = 200 + 300 * i
+                title = (f'<node package="{SHADE_PACKAGE}" resource-id="android:id/title" text="{n["title"]}" '
+                         f'bounds="[40,{y + 20}][800,{y + 80}]"/>')
+                self.targets[(40, y + 20, 800, y + 80)] = ("body", n["title"])
+                expanded = n["title"] in self.expanded
+                shown = list(n.get("buttons", ())) + (list(n.get("more", ())) if expanded else [])
+                moved = expanded and n.get("replaces")
+                parts = [title]
+                if n.get("more") and not expanded:
+                    parts.append(f'<node package="{SHADE_PACKAGE}" resource-id="android:id/expand_button" '
+                                 f'bounds="[900,{y + 20}][1000,{y + 80}]"/>')
+                    self.targets[(900, y + 20, 1000, y + 80)] = ("expand", n["title"])
+                loose = []
+                for j, label in enumerate(shown):
+                    box = (100 + 200 * j, 2000 + 60 * i, 280 + 200 * j, 2050 + 60 * i) if moved else \
+                          (100 + 200 * j, y + 200, 280 + 200 * j, y + 260)
+                    (loose if moved else parts).append(
+                        f'<node package="{SHADE_PACKAGE}" text="{label}" bounds="[{box[0]},{box[1]}][{box[2]},{box[3]}]"/>')
+                    self.targets[box] = ("action", n["title"], label)
+                nodes.append(f'<node package="{SHADE_PACKAGE}" resource-id="{ROW_ID}" bounds="[0,{y}][1080,{y + 280}]">'
+                             + "".join(parts) + "</node>" + "".join(loose))
+            return f'<hierarchy><node package="{SHADE_PACKAGE}" bounds="[0,0][1080,2400]">{"".join(nodes)}</node></hierarchy>'
+        package = self.top()
+        if package in PERMISSION_PACKAGES:
+            self.targets[(100, 1500, 500, 1600)] = ("allow",)
+            self.targets[(100, 1700, 500, 1800)] = ("deny",)
+            return (f'<hierarchy><node package="{package}" bounds="[0,1000][1080,2000]">'
+                    f'<node package="{package}" resource-id="com.android.permissioncontroller:id/permission_allow_button" '
+                    f'bounds="[100,1500][500,1600]"/>'
+                    f'<node package="{package}" resource-id="com.android.permissioncontroller:id/permission_deny_button" '
+                    f'bounds="[100,1700][500,1800]"/></node></hierarchy>')
+        return f'<hierarchy><node package="{package}" text="screen" bounds="[0,0][1080,2400]"/></hierarchy>'
+
+    def bring_player(self):
+        while self.top() != self.PLAYER:
+            self.stack.pop()
+        self.player_stopped = False
+
+    def tap(self, x, y):
+        self.screen()
+        hits = [(r - l) * (b - t) for (l, t, r, b) in self.targets if l <= x <= r and t <= y <= b]
+        target = next((v for (l, t, r, b), v in self.targets.items()
+                       if l <= x <= r and t <= y <= b and (r - l) * (b - t) == min(hits)), None) if hits else None
+        if target is None:
+            return
+        notification = next((n for n in self.notifications if len(target) > 1 and n["title"] == target[1]), None)
+        if target[0] == "expand":
+            self.expanded.add(target[1])
+            return
+        self.events.append(target)
+        if target[0] in ("allow", "deny"):
+            self.stack.pop()
+            return
+        if target[0] == "body":
+            self.shade = False
+            self.notifications.remove(notification)
+            if notification.get("launches", True):
+                self.bring_player()
+        elif target[2] in notification.get("launching", ()):
+            self.shade = False
+            self.bring_player()
+
+    def activities(self):
+        lines = [f"  topResumedActivity=ActivityRecord{{{len(self.stack)} u0 {self.stack[-1][1]} t1}}"]
+        if self.trampoline and self.top() == SETTINGS_PACKAGE:
+            self.trampoline -= 1
+            lines = [f"  topResumedActivity=ActivityRecord{{99 u0 {SETTINGS_PACKAGE}/.Trampoline t1}}"]
+        for i in range(len(self.stack) - 1, -1, -1):
+            package, component, action = self.stack[i]
+            if package == self.PLAYER and self.player_stopped:
+                state = "STOPPED"
+            else:
+                state = "RESUMED" if i == len(self.stack) - 1 else "PAUSED"
+            lines += [f"    * Hist  #{i}: ActivityRecord{{{i + 1} u0 {component} t1}}",
+                      f"        intent={{act={action} cmp={component}}}", f"        state={state}"]
+        return "\n".join(lines)
+
+    def shell(self, command, check=True, timeout=30):
+        self.take(command, timeout)
+        if self.dialog_at is not None and self.time >= self.dialog_at:
+            self.stack.append(self.DIALOG)
+            self.dialog_at = None
+        if command.startswith("run-as"):
+            script = shlex.split(command)[-1]
+            if script.startswith("echo "):
+                self.answer = shlex.split(script)[1]
+        elif command.startswith(f"uiautomator dump {DUMP_PREFIX}"):
+            self.file = self.screen()
+            return f"UI hierchary dumped to: {command.split()[-1]}"
+        elif command == f"rm -f {DUMP_GLOB}":
+            self.file = None
+        elif command == "cmd statusbar expand-notifications":
+            self.shade = self.shade_opens
+        elif command == "cmd statusbar collapse":
+            self.collapses += 1
+            self.shade = self.shade and self.shade_sticks
+        elif command == "input keyevent KEYCODE_HOME":
+            if self.top() != self.LAUNCHER[0]:
+                self.stack.append(self.LAUNCHER)
+            self.player_stopped = self.home_stops
+        elif command == "input keyevent KEYCODE_BACK":
+            self.backs += 1
+            if self.top() in PERMISSION_PACKAGES:
+                self.dialog_backs -= 1
+                if self.dialog_backs <= 0:
+                    self.stack.pop()
+            elif self.top() == SETTINGS_PACKAGE:
+                self.settings_backs -= 1
+                if self.settings_backs <= 0:
+                    self.stack.pop()
+            elif self.top() == self.PLAYER and not self.shade:
+                self.events.append(("back",))  # a Back that reached the player
+        elif command.startswith("am force-stop "):
+            self.stopped += 1
+            if self.top() == command.split()[-1] and self.dialog_stoppable:
+                self.stack.pop()
+        elif command.startswith("am start -n"):
+            if not self.front_sticks:
+                self.bring_player()
+        elif command.startswith("input tap"):
+            self.taps += 1
+            x, y = (int(v) for v in command.split()[2:4])
+            self.tap(x, y)
+        elif command.startswith("input swipe") and self.shade:
+            y = int(command.split()[3])
+            for i, n in enumerate(self.notifications):
+                if 200 + 300 * i <= y <= 480 + 300 * i:
+                    n["swipes"] = n.get("swipes", 1) - 1
+                    if n["swipes"] <= 0:
+                        self.notifications.remove(n)
+                        self.events.append(("dismiss", n["title"]))
+                    break
+        elif command == "dumpsys activity activities":
+            return self.activities()
+        elif command.startswith("cmd package resolve-activity"):
+            return f"priority=0\n{self.PLAYER}/.Main"
+        elif command == "wm size":
+            return "Physical size: 1080x2400"
+        return ""
+
+
+def screens(**options):
+    """A ScreenDevice and a Driver on it, as after a HELLO."""
+    return on(ScreenDevice(**options))
 
 
 def answer(driver, name, *args):
@@ -1136,8 +1841,16 @@ read of another screen is kept for finding out what was in the way of a wait:
 (None, None)
 >>> device, driver = scripted([], sheet=False)
 >>> _ = driver.dump()
->>> device.file == driver.last_dump == device.screen()
-True
+>>> device.file, driver.last_dump == device.screen()
+(None, True)
+
+Each read is written under a name of its own, and deleted right after (design 3.6):
+
+>>> [c.split()[-1] for c in device.calls if c.startswith("uiautomator")], device.calls[-1]
+(['/data/local/tmp/ntk-ui-dump-1.xml'], 'rm -f /data/local/tmp/ntk-ui-dump-*.xml')
+>>> _ = driver.dump()
+>>> [c.split()[-1] for c in device.calls if c.startswith("uiautomator")]
+['/data/local/tmp/ntk-ui-dump-1.xml', '/data/local/tmp/ntk-ui-dump-2.xml']
 
 A screen that cannot be read is not kept either:
 
@@ -1326,7 +2039,7 @@ come:
 A tap whose sheet goes only after the wait for it: the next look finds it gone, and it is not
 tapped again:
 
->>> device, driver = scripted(["Save"], late_reads=4)
+>>> device, driver = scripted(["Save"], late_reads=5)
 >>> answer(driver, "tap-in-sheet", encode("Save")), device.taps
 ('ok', 1)
 
@@ -1362,6 +2075,15 @@ timeout
 >>> _ = answer(driver, "close-sheet")
 >>> driver.dump_left
 True
+
+A command deletes the reads once more at its end, for the last read's delete that failed:
+
+>>> device, driver = scripted(["Save"], rm_fails=[3])
+>>> answer(driver, "close-sheet"), device.rms, driver.dump_left
+('ok', 4, False)
+>>> device, driver = screens(notifications=[{"title": "T1"}], rm_fails=[3])
+>>> answer(driver, "notification-present", encode("T1")), device.rms, driver.dump_left
+('ok', 4, False)
 
 The limits (design 3.3). The work has SHEET_TIMEOUT; after a failure, watching for a sheet not yet
 seen, closing it (Back, then stopping its process) and bringing the player back each have their own
@@ -1405,6 +2127,227 @@ On a device so slow that every adb call takes 7 seconds, the answers come within
 >>> device, driver = scripted(["Save"], seconds=7, chosen="com.other")
 >>> answer(driver, "tap-in-sheet", encode("Save")) != "ok", device.time <= SHEET_ANSWER_LIMIT
 (True, True)
+""",
+
+"screen commands": """
+The screen commands' promises (design 3.5, 3.6), on a ScreenDevice.
+
+notification-present opens the shade, finds the title, and collapses it. Nothing read is kept:
+
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-present", encode("T1")), device.shade, device.file, driver.last_dump
+('ok', False, None, None)
+
+A title that is not there fails with a fixed word, and the shade is collapsed:
+
+>>> device, driver = screens(notifications=[{"title": "Other app: Alice"}])
+>>> answer(driver, "notification-present", encode("T1")), device.shade
+('fail not-found', False)
+
+A shade that does not open:
+
+>>> answer(screens(shade_opens=False)[1], "notification-present", encode("T1"))
+'fail shade-did-not-open'
+
+notification-tap stay: the body is tapped, and the shade collapsed:
+
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-tap", encode("T1"), "stay"), device.events, device.shade
+('ok', [('body', 'T1')], False)
+
+front: HOME first, and the app must stop before the shade opens; then "front" when the tap opened
+the app, "not-front" (the app brought back) when it did not:
+
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-tap", encode("T1"), "front"), device.top() == device.PLAYER
+('ok front', True)
+>>> device.calls.index("input keyevent KEYCODE_HOME") < device.calls.index("cmd statusbar expand-notifications")
+True
+>>> device, driver = screens(notifications=[{"title": "T1", "launches": False}])
+>>> answer(driver, "notification-tap", encode("T1"), "front"), device.top() == device.PLAYER, device.events
+('ok not-front', True, [('body', 'T1')])
+
+An app that does not stop on HOME, a front argument out of range, and a player that cannot be
+brought back (tried once, not again on the failure path):
+
+>>> device, driver = screens(notifications=[{"title": "T1"}], home_stops=False)
+>>> answer(driver, "notification-tap", encode("T1"), "front"), device.top() == device.PLAYER, device.events
+('fail not-stopped', True, [])
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-tap", encode("T1"), "later"), device.collapses, device.events
+('fail bad-arg', 1, [])
+>>> device, driver = screens(notifications=[{"title": "T1", "launches": False}], front_sticks=True)
+>>> answer(driver, "notification-tap", encode("T1"), "front"), sum(c.startswith("am start") for c in device.calls)
+('fail not-in-front', 1)
+
+notification-action: a button in the row; one that shows once the row is expanded, even when
+expanding moves it out of the row; and one that another notification has too (ambiguous):
+
+>>> device, driver = screens(notifications=[{"title": "T1", "buttons": ["Later-1"]}])
+>>> answer(driver, "notification-action", encode("T1"), encode("Later-1"), "stay"), device.events, device.shade
+('ok', [('action', 'T1', 'Later-1')], False)
+>>> device, driver = screens(notifications=[{"title": "T1", "more": ["Play-1"], "replaces": True, "launching": ["Play-1"]}])
+>>> answer(driver, "notification-action", encode("T1"), encode("Play-1"), "front"), device.events
+('ok front', [('action', 'T1', 'Play-1')])
+>>> device, driver = screens(notifications=[{"title": "T1", "more": ["Go"], "replaces": True},
+...                                         {"title": "Other", "buttons": ["Go"]}])
+>>> answer(driver, "notification-action", encode("T1"), encode("Go"), "stay"), device.events
+('fail ambiguous', [])
+>>> answer(screens(notifications=[{"title": "T1"}])[1], "notification-action", encode("T1"), encode("Go"), "stay")
+'fail not-found'
+>>> answer(screens(notifications=[{"title": "T1"}])[1], "notification-action", encode("T1"), encode("Go"), "now")
+'fail bad-arg'
+
+notification-dismiss: a fast swipe across the row, from 1/10 to 9/10 of the width, up to three:
+
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-dismiss", encode("T1")), device.events
+('ok', [('dismiss', 'T1')])
+>>> [c for c in device.calls if c.startswith("input swipe")]
+['input swipe 108 340 972 340 100']
+>>> device, driver = screens(notifications=[{"title": "T1", "swipes": 2}])
+>>> answer(driver, "notification-dismiss", encode("T1")), device.events
+('ok', [('dismiss', 'T1')])
+>>> device, driver = screens(notifications=[{"title": "T1", "swipes": 99}])
+>>> answer(driver, "notification-dismiss", encode("T1")), sum(c.startswith("input swipe") for c in device.calls), device.shade
+('fail still-present', 3, False)
+
+permission-answer: the dialog's button, then the app in front; a bad answer still closes the dialog
+the test opened (Back, then stopping the permission controller):
+
+>>> device, driver = screens(dialog=True)
+>>> answer(driver, "permission-answer", "deny"), device.events, device.top() == device.PLAYER
+('ok', [('deny',)], True)
+>>> device, driver = screens(dialog=True)
+>>> answer(driver, "permission-answer", "maybe"), device.events, device.top() == device.PLAYER
+('fail bad-arg', [], True)
+>>> device, driver = screens(dialog=True, dialog_backs=99)
+>>> answer(driver, "permission-answer", "maybe"), device.backs, device.stopped, device.top() == device.PLAYER
+('fail bad-arg', 4, 2, True)
+>>> answer(screens()[1], "permission-answer", "allow")
+'fail dialog-did-not-open'
+
+A dialog the test opened that comes after a bad argument was found is still waited for and closed:
+
+>>> device, driver = screens(dialog_at=8.0)
+>>> answer(driver, "permission-answer", "maybe")
+'fail bad-arg'
+>>> device.sleep(10)
+>>> _ = device.shell("true")
+>>> device.top() == device.PLAYER
+True
+
+A Back is pressed only on a dialog or settings screen in front, never on the player:
+
+>>> device, driver = screens(notifications=[{"title": "T1"}])
+>>> answer(driver, "notification-present", encode("Nothing")), device.backs, device.events
+('fail not-found', 0, [])
+
+close-screen: the settings screen's activity and action, read twice alike (a trampoline is not
+taken for it), then closed; a name with $ reaches the test whole:
+
+>>> device, driver = screens(settings=("com.android.settings/.spa.SpaActivity", "android.settings.APP_NOTIFICATION_SETTINGS"))
+>>> answer(driver, "close-screen", encode(SETTINGS_PACKAGE)), device.top() == device.PLAYER
+('ok com.android.settings/.spa.SpaActivity android.settings.APP_NOTIFICATION_SETTINGS', True)
+>>> device, driver = screens(settings=("com.android.settings/.Settings$AppDetails", "-"), trampoline=1)
+>>> answer(driver, "close-screen", encode(SETTINGS_PACKAGE))
+'ok com.android.settings/.Settings$AppDetails -'
+
+Back that does not close it falls back on bringing the player (singleTask) up; a screen that stays
+even so, another package, and no screen at all:
+
+>>> device, driver = screens(settings=("com.android.settings/.Settings", "-"), settings_backs=99)
+>>> answer(driver, "close-screen", encode(SETTINGS_PACKAGE)).split()[0], device.backs, device.top() == device.PLAYER
+('ok', 4, True)
+>>> device, driver = screens(settings=("com.android.settings/.Settings", "-"), settings_backs=99, front_sticks=True)
+>>> answer(driver, "close-screen", encode(SETTINGS_PACKAGE))
+'fail did-not-close'
+>>> device, driver = screens(settings=("com.android.settings/.Settings", "-"))
+>>> answer(driver, "close-screen", encode("com.example")), device.top() == device.PLAYER
+('fail bad-arg', True)
+>>> answer(screens()[1], "close-screen", encode(SETTINGS_PACKAGE))
+'fail screen-did-not-open'
+
+No read with the system UI is kept, even when a wait for the player's screen times out:
+
+>>> import tempfile
+>>> with tempfile.TemporaryDirectory() as folder:
+...     device, driver = screens(notifications=[{"title": "T1"}])
+...     driver.dump_dir = folder
+...     device.shade = True
+...     print(answer(driver, "wait", "text=" + encode("Nothing")).split()[0], os.listdir(folder))
+fail []
+
+grant and appop-allow take checked arguments only:
+
+>>> device, driver = screens()
+>>> answer(driver, "grant", "android.permission.POST_NOTIFICATIONS"), device.calls[0]
+('ok', 'pm grant --user 0 com.example.player android.permission.POST_NOTIFICATIONS')
+>>> answer(driver, "grant", "android.permission.X;reboot"), answer(driver, "appop-allow", "SCHEDULE_EXACT_ALARM")
+('fail bad-arg', 'ok')
+>>> answer(driver, "appop-allow", "a b")
+'fail bad-arg'
+
+A HELLO that is not the test player's, in the form it sends, is dropped: another app can write the
+same logcat line, and the values go into shell commands:
+
+>>> device, driver = screens()
+>>> for hello in (("0" * 32, "com.other", "0"), ("x;reboot", device.PLAYER, "0"), ("0" * 32, device.PLAYER, "0 0"),
+...               ("0" * 31, device.PLAYER, "0")):
+...     driver.hello(*hello)
+>>> driver.hellos, device.calls
+(0, [])
+>>> driver.hello("0" * 32, device.PLAYER, "10")
+>>> driver.hellos, driver.run_id == "0" * 32
+(1, True)
+
+At the driver's end every read is deleted, whatever was remembered; nothing is done when nothing
+was read; one that cannot be deleted is reported:
+
+>>> device, driver = screens()
+>>> driver.remove_all_dumps(), device.calls
+(True, [])
+>>> _ = driver.dump()
+>>> driver.dump_left = False
+>>> before = len(device.calls)
+>>> driver.remove_all_dumps(), device.calls[before:]
+(True, ['wait-for-device', 'rm -f /data/local/tmp/ntk-ui-dump-*.xml'])
+>>> device, driver = screens(stuck_rm=True)
+>>> _ = driver.dump()
+>>> driver.remove_all_dumps()
+False
+
+The limits (design 3.5): SCREEN_ANSWER_LIMIT, and on a device whose every adb call times out, each
+screen command gives up within it (no answer can be written there, which the exit status reports):
+
+>>> SHADE_CLOSE_TIMEOUT, SCREEN_ANSWER_LIMIT
+(10.0, 171.0)
+>>> for request in (["notification-present", encode("T1")], ["notification-tap", encode("T1"), "front"],
+...                 ["notification-action", encode("T1"), encode("Go"), "front"],
+...                 ["notification-dismiss", encode("T1")], ["permission-answer", "allow"],
+...                 ["close-screen", encode(SETTINGS_PACKAGE)]):
+...     device, driver = screens(notifications=[{"title": "T1"}], dialog=True, seconds=1000)
+...     print(request[0], answer(driver, *request), device.time <= SCREEN_ANSWER_LIMIT, driver.exit_code)
+notification-present None True 1
+notification-tap None True 1
+notification-action None True 1
+notification-dismiss None True 1
+permission-answer None True 1
+close-screen None True 1
+
+and on one where every call takes 7 seconds:
+
+>>> for request in (["notification-tap", encode("T1"), "front"], ["notification-dismiss", encode("T1")],
+...                 ["permission-answer", "maybe"], ["close-screen", encode(SETTINGS_PACKAGE)]):
+...     device, driver = screens(notifications=[{"title": "T1", "swipes": 99, "launches": False}], dialog=True,
+...                              dialog_backs=99, seconds=7)
+...     print(request[0], end=" ")
+...     _ = answer(driver, *request)
+...     print(device.time <= SCREEN_ANSWER_LIMIT)
+notification-tap True
+notification-dismiss True
+permission-answer True
+close-screen True
 """}
 
 
@@ -1413,10 +2356,12 @@ def main():
     parser.add_argument("--serial")
     parser.add_argument("--state-file", help="where the replaced settings are kept until restored")
     parser.add_argument("--dump-dir", help="where the screen is kept when a wait times out")
+    parser.add_argument("--package", required=True,
+                        help="the test player's package: a HELLO for any other is ignored (design 3.6)")
     options = parser.parse_args()
 
     device = Device(options.serial)
-    driver = Driver(device, options.state_file, options.dump_dir)
+    driver = Driver(device, options.state_file, options.dump_dir, package=options.package)
 
     def stop(signum, _frame):
         raise KeyboardInterrupt(signum)
@@ -1452,17 +2397,9 @@ def main():
             signal.signal(signum, signal.SIG_IGN)
         if logcat is not None:
             logcat.terminate()
-        if driver.dump_left:
-            # An earlier delete failed, so the copy may hold the share sheet: one more try, with
-            # room for adb to come back (Unity stops the adb server at the end of its run).
-            try:
-                device.run("wait-for-device", timeout=30)
-            except Exception:  # noqa: BLE001
-                pass
-            driver.forget_dump()
-        if driver.dump_left:
-            print(f"ui-driver: could not delete {DUMP_PATH} on the device; it may hold the share sheet",
-                  file=sys.stderr)
+        if not driver.remove_all_dumps():
+            print(f"ui-driver: could not delete {DUMP_GLOB} on the device; they may hold the share sheet or "
+                  "the notification shade", file=sys.stderr)
             driver.exit_code = max(driver.exit_code, 1)
         driver.restore()
         print(f"ui-driver: hello={driver.hellos} ready={driver.readies} commands={driver.commands} "

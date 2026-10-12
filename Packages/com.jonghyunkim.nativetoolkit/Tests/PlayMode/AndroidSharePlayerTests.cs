@@ -172,16 +172,16 @@ namespace JonghyunKim.NativeToolkit.Tests
         // ── 1. The sample screen ─────────────────────────────────────────────────
         // Every row counts one more Op: unloading the sample cancels its pending callback.
 
-        [UnityTest] public IEnumerator AS01_SampleShareText() => SampleCloses("ShareTextButton", "[event] Share plain text: Success");
-        [UnityTest] public IEnumerator AS02_SampleShareUrl() => SampleCloses("ShareUrlButton", "[event] Share URL: Success");
-        [UnityTest] public IEnumerator AS03_SampleShareWithSubjectTitle() => SampleCloses("ShareWithSubjectTitleButton", "[event] Share with subject and title: Success");
-        [UnityTest] public IEnumerator AS04_SampleShareRichPreview() => SampleCloses("ShareRichPreviewButton", "[event] Share with rich preview: Success");
-        [UnityTest] public IEnumerator AS05_SampleShareImage() => SampleCloses("ShareImageButton", "[event] Share image: Success");
-        [UnityTest] public IEnumerator AS06_SampleShareImages() => SampleCloses("ShareImagesButton", "[event] Share multiple images: Success");
-        [UnityTest] public IEnumerator AS07_SampleShareFile() => SampleCloses("ShareFileButton", "[event] Share file: Success");
-        [UnityTest] public IEnumerator AS08_SampleShareFiles() => SampleCloses("ShareFilesButton", "[event] Share multiple files: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS01_SampleShareText() => SampleCloses("ShareTextButton", "[event] Share plain text: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS02_SampleShareUrl() => SampleCloses("ShareUrlButton", "[event] Share URL: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS03_SampleShareWithSubjectTitle() => SampleCloses("ShareWithSubjectTitleButton", "[event] Share with subject and title: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS04_SampleShareRichPreview() => SampleCloses("ShareRichPreviewButton", "[event] Share with rich preview: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS05_SampleShareImage() => SampleCloses("ShareImageButton", "[event] Share image: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS06_SampleShareImages() => SampleCloses("ShareImagesButton", "[event] Share multiple images: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS07_SampleShareFile() => SampleCloses("ShareFileButton", "[event] Share file: Success");
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)] public IEnumerator AS08_SampleShareFiles() => SampleCloses("ShareFilesButton", "[event] Share multiple files: Success");
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AS09_SampleChooserAction()
         {
             yield return OpenSample();
@@ -191,7 +191,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.That(_events.Ops, Does.Contain("Op|shareText|True|null"), _events.Describe());
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AS10_SampleShareWithCallback()
         {
             yield return OpenSample();
@@ -200,7 +200,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel($"[onSelected] Selected: {AppPackage()}");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AS11_SampleInvalidFile()
         {
             yield return OpenSample();
@@ -209,7 +209,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("[event] Share invalid file (error handling demo): Failed\nError: File not found: /invalid/path/that/does/not/exist/sample.txt");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AS12_SampleDirectShareTarget()
         {
             yield return OpenSample();
@@ -221,7 +221,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("[event] Remove Direct Share targets: Success");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AS13_SampleHome_AndOpenAgain()
         {
             yield return OpenSample();

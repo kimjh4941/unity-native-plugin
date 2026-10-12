@@ -228,19 +228,19 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // ── 1. The sample screen ─────────────────────────────────────────────────
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD01_SampleShowDialog_Ok() => SampleAndPress("ShowDialogButton", "Hello from Unity", Positive,
             "OK\nShowDialog buttonText: OK, isSuccess: True, errorMessage: null");
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD02_SampleConfirm_Yes() => SampleAndPress("ShowConfirmDialogButton", "Confirmation", Positive,
             "OK\nShowConfirmDialog buttonText: Yes, isSuccess: True, errorMessage: null");
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD03_SampleConfirm_No() => SampleAndPress("ShowConfirmDialogButton", "Confirmation", Negative,
             "OK\nShowConfirmDialog buttonText: No, isSuccess: True, errorMessage: null");
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD04_SampleSingleChoice_SecondOption()
         {
             yield return OpenSample();
@@ -252,7 +252,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("OK\nShowSingleChoiceItemDialog buttonText: OK, checkedItem: 1, isSuccess: True, errorMessage: null");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD05_SampleMultiChoice_TapFirst()
         {
             yield return OpenSample();
@@ -263,7 +263,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("OK\nShowMultiChoiceItemDialog buttonText: OK, checkedItems: [True,True,False,True], isSuccess: True, errorMessage: null");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD06_SampleTextInput_Typed()
         {
             yield return OpenSample();
@@ -275,7 +275,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("OK\nShowTextInputDialog buttonText: OK, inputText: abc123, isSuccess: True, errorMessage: null");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD07_SampleLogin_Typed()
         {
             yield return OpenSample();
@@ -289,7 +289,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectLabel("OK\nShowLoginDialog buttonText: Login, username: user01, password: (6 characters), isSuccess: True, errorMessage: null");
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD08_SampleConfirm_NotCancelable()
         {
             yield return OpenSample();
@@ -309,7 +309,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(1, _events.Count, string.Join(" | ", _events));
         }
 
-        [UnityTest]
+        [UnityTest, Category(AndroidUiDriver.SampleScreenCategory)]
         public IEnumerator AD09_Home_AndOpenAgain()
         {
             yield return OpenSample();
