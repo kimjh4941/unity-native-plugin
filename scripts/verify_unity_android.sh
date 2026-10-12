@@ -48,6 +48,9 @@
 # afterwards finds it alone (2026-10-12). Each device run also starts from a fresh install of the test
 # player: the Notification tests use the state a fresh install has (notification permission not yet
 # asked, exact alarms not allowed), so the player is uninstalled before each run, and by the trap.
+# The Notification retention test (category AndroidNotificationRetention) needs a process where the
+# notification manager was never created, so it has a device run of its own, after the main one; the
+# other device runs leave it out (-testCategory "!AndroidNotificationRetention").
 #
 # Unity re-serializes some assets during a run (render pipeline settings, the solution file). The
 # script restores what a run changed under those locations and leaves alone anything that already
@@ -197,15 +200,20 @@ print(total, skipped)
 PY
 }
 
-# run_device_tests <label> <profile> [category left out of the AndroidUiDriver check]
+# The Notification retention test (AN-01) holds only in a process where nothing has created the
+# notification manager, so it runs alone, from a fresh install, and every other device run leaves
+# its category out (the Notification UI test plan v5, chapter 2).
+RETENTION_CATEGORY="AndroidNotificationRetention"
+
+# run_device_tests <label> <profile> <category left out of the AndroidUiDriver check, or ""> <-testCategory filter>
 run_device_tests() {
-  local label="$1" profile="$2" left_out="${3:-}"
+  local label="$1" profile="$2" left_out="$3" categories="$4"
   local driver_log="$OUT_DIR/$label-ui-driver.log"
   uninstall_app "$TEST_PLAYER_ID"
   python3 "$DRIVER" --package "$TEST_PLAYER_ID" --state-file "$OUT_DIR/ui-driver-settings.json" \
     --dump-dir "$OUT_DIR/$label-ui-dumps" > "$driver_log" 2>&1 &
   DRIVER_PID=$!
-  run_tests "$label" Android "$profile"
+  run_tests "$label" Android "$profile" -testCategory "$categories"
   stop_driver
   local driver_code=$?
   echo "  ui driver: $(tail -1 "$driver_log") (exit $driver_code)"
@@ -275,12 +283,16 @@ fi
 echo
 
 echo "-- device PlayMode (IL2CPP, Android™ Profile: AARs copied from dist) --"
-run_device_tests Android "$PROFILE"
+run_device_tests Android "$PROFILE" "" "!$RETENTION_CATEGORY"
+echo
+
+echo "-- device PlayMode (IL2CPP, Android™ Profile: the Notification retention test alone) --"
+run_device_tests Android-retention "$PROFILE" "" "$RETENTION_CATEGORY"
 echo
 
 if [ "$AS_PACKAGE_USER" -eq 1 ]; then
   echo "-- device PlayMode (IL2CPP, Test Android™ Profile: as a package user) --"
-  run_device_tests Android-package-user "$TEST_PROFILE" AndroidSampleScreen
+  run_device_tests Android-package-user "$TEST_PROFILE" AndroidSampleScreen "!$RETENTION_CATEGORY"
   echo
 fi
 

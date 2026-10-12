@@ -42,7 +42,7 @@ AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版
 **Windows の C ABI の形をそのまま写さない**（`artifact/topics/android-c-abi-2/README.md` 3 章）。違うところは下の各項に書く。
 Share も移した（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`。2026-10-12）。Share が従わない約束ごとは、下の「Share の例外」に書く。
 Clipboard も移した（`artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md`。2026-10-12）。Clipboard の形は、下の「Clipboard の形」に書く。
-まだ移していない機能（Notification）は、移すまで 1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶ。新しく書くコードはそちらを真似しない。
+Notification も移した（`artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md`。2026-10-12）。これで 4 機能すべてが C ABI を呼ぶ。Notification の形は、下の「Notification の形」に書く。1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶコードはもう無い。旧ブリッジの AAR は段 4 で外す。
 
 **ファイルの置き場所**
 
@@ -94,6 +94,17 @@ Clipboard も移した（`artifact/android/clipboard/designs/2026-10-12-android-
 - **開始と停止は監視専用の `lock` で直列にする**（実装のレビュー v2）: 印と F-9 / F-10 を 1 つのまとまりにする（F-9 / F-10 は積むだけで待たないので `lock` の中で呼べる）。止めるたびに世代を数え、止める前に積まれた変更は配送の前に再開しても出さない。受け口は `lock` を取らない
 - **監視の開始は後で効く**（J-C11）: `StartObserving` の直後のコピーの変更は届かないことがある（親課題 J-11 の例外。利用者の判断）
 - **どのスレッドから呼んでもよい**（J-C13）。`Instance` の最初の取得は UnityMain で行う
+
+**Notification の形**（Notification 設計 v4 の J-N1〜J-N21）
+
+- **公開 API の JSON は C# で読む**（J-N4、J-N17）: 汎用のリーダー（`AndroidNotificationJsonReader`）と、1.x の Kotlin のパーサーの規則（必須のキーとその順、既定値、空白は無し、捨てる要素）で中間の値を作るマッピング（`AndroidNotificationJsonMapping`）。値の型が違うものは「無い」。中間の値からビルダー（`ntk_notification_content_*` / `_channel_*`）を呼ぶのは Bridge の `BuildContent` / `BuildChannel`。チャンネルのハンドルは `set_channel` の直後に解放し、内容のハンドルは呼ぶ側の `finally` で解放する
+- **1.x の補正のうち、JSON の段で決まるものを保つ**（J-N5）: importance・visibility の丸め、priority と progress の丸め、groupName の既定、messaging の `"You"` と今の時刻など。保たないもの（引けないリソースの名前、範囲の外の値）は失敗として返す（J-N6。利用者の判断）
+- **同期の C を呼び、結果は後で出す**（J-N1）: Clipboard と同じ。設定の画面だけは非同期で、完了の受け口から `Post` する（J-N9）。per-call は無い
+- **権限が無い・アプリの通知がオフの表示は失敗**（J-N7。親課題 J-11 の例外。利用者の判断）
+- **正確な予約が許されなければ、1 回だけ不正確で呼び直す**（J-N8）。判断は純粋な `ScheduleWithFallback`
+- **リスナーは 2 種類（操作のイベントと shown）を、種類ごとの印でプロセスで 1 回だけ登録し、外さない**（J-N12）。失敗した側だけをやり直す。最初の登録で、それまで保たれていたタップ（アプリが起動する前を含む）が届くので、`Instance` を最初に取るフレームで購読する
+- **`RequestPermission` は Unity の権限 API のまま**（J-N10）。ほかのメソッドはどのスレッドから呼んでもよい（J-N15）
+- **ログ**: JSON をそのまま出さず、ID、題名と本文の長さ、style の種類、アクションと data の件数、tag の有無だけ。ビルダーが拒んだときは、拒んだ setter の名前を出す。**`INVALID_PARAMETER` は `LogWarning`**（設計 4.5）: ビルダーの範囲の検査が、利用者が JSON に書いた値に返すため。下の一般則（入口の `INVALID_PARAMETER` は `LogError`）の例外。正しい実装で起きない `NOT_SUPPORTED` だけを `LogError` にする
 
 **ログ**: 結果として返す失敗は `LogWarning`（Windows と同じ）。`LogError` は、正しい実装では起きないもの（入口の `INVALID_PARAMETER` / `NOT_SUPPORTED`、捕まえた例外）だけ。入力・利用者名・パスワードなどの値は長さだけを出す。
 

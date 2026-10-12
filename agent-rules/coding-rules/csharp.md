@@ -11,7 +11,7 @@ Debug.Log($"[{LogTag}][{nameof(MethodName)}] param1: {param1}, param2: {param2}"
 ```
 
 エラーは `Debug.LogError` を使ってログ出力する。
-ただし Windows と Android の C ABI の Bridge / Manager では、結果（エラーコード、エラーの文言）として呼び出し側に返す失敗は `Debug.LogWarning` までにする（`common.md`「Unity Bridge パターン」の Windows と Android の「ログ」）。Android の 1.x のブリッジを呼ぶ層（まだ移していない機能）は、今のまま `LogError`。
+ただし Windows と Android の C ABI の Bridge / Manager では、結果（エラーコード、エラーの文言）として呼び出し側に返す失敗は `Debug.LogWarning` までにする（`common.md`「Unity Bridge パターン」の Windows と Android の「ログ」）。Android の 4 機能はすべて C ABI に移した（2026-10-12）ので、1.x のブリッジを呼ぶ層はもう無い。
 
 ```csharp
 Debug.LogError($"[{LogTag}][{nameof(MethodName)}] param1: {param1}, param2: {param2}");

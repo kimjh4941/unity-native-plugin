@@ -1,6 +1,6 @@
 #nullable enable
 
-#if UNITY_ANDROID
+#if UNITY_ANDROID || UNITY_EDITOR
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
