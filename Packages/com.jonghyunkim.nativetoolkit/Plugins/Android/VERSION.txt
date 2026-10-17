@@ -13,6 +13,17 @@
 #                     (required). 2.0.0 needs both the Kotlin API and the C ABI
 #                     (android-native-toolkit-capi), which runs on the Kotlin API.
 #
+# One key is NOT read by the build:
+#
+# verified_native_toolkit_commit
+#                     the native-toolkit commit the last full verification
+#                     (scripts/verify_unity_android.sh --as-package-user) ran
+#                     against, with dist/<dist_version>/android unchanged. The
+#                     release checklist compares the AARs and .module files
+#                     between it and the tag <dist_version>
+#                     (agent-rules/workflows/release/workflow.md, step 3).
+#                     Rewrite it whenever that verification is run again.
+#
 # The runtime dependencies of these AARs are not in the AARs. They are listed in
 # Editor/Android/AndroidGradleDependencies.cs and must match the .module files
 # in dist/<dist_version>/android/m2 (an EditMode test compares them).
@@ -25,3 +36,6 @@
 # The 2.0.0 Kotlin API and C ABI.
 dist_version: 1.13.0
 aars: android-native-toolkit-2.0.0.aar, android-native-toolkit-capi-2.0.0.aar
+
+# The last full verification (stage 4, 2026-10-17).
+verified_native_toolkit_commit: a7684deeea419ecaa5b7c7f7c8a0cf4e447a0f73
