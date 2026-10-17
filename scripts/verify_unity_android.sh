@@ -58,9 +58,17 @@
 #
 # Usage:
 #   scripts/verify_unity_android.sh [--skip-editmode] [--as-package-user] [--keep-changes]
+#                                   [--pull-apk=<dir>]
 #
 #   --skip-editmode skips both Editor runs (EditMode and the Editor's PlayMode) and runs the device
 #   tests only.
+#   --pull-apk=<dir> copies the test player's APKs off the device after each device run, before the
+#   player is uninstalled, unpacks them under <dir>/<run>/, and prints how many classes and manifest
+#   names of the 1.x bridge (android.unity.*, android.library.*) they hold. The counts are printed,
+#   not judged: the check made while the 1.x AARs were still shipped expects them above zero, the one
+#   after they were removed expects zero (artifact/topics/android-c-abi-2, stage 4 design v8,
+#   V-S4-1). A run whose APKs cannot be pulled, or that has no APK or no dex, fails. <dir> must not
+#   exist or must be empty, so a count never comes from an earlier run.
 #
 # Environment:
 #   UNITY_APP   Path to Unity.app. Defaults to the 6000.4.2f1 install used by this project.
@@ -71,22 +79,42 @@ set -uo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNITY_APP="${UNITY_APP:-/Applications/Unity/Hub/Editor/6000.4.2f1/Unity.app}"
 UNITY_EXE="$UNITY_APP/Contents/MacOS/Unity"
-UNITY_ADB_DIR="$(cd "$UNITY_APP/.." && pwd)/PlaybackEngines/AndroidPlayer/SDK/platform-tools"
+ANDROID_PLAYER_DIR="$(cd "$UNITY_APP/.." && pwd)/PlaybackEngines/AndroidPlayer"
+UNITY_ADB_DIR="$ANDROID_PLAYER_DIR/SDK/platform-tools"
+DEXDUMP="$ANDROID_PLAYER_DIR/SDK/build-tools/36.0.0/dexdump"
+APKANALYZER="$ANDROID_PLAYER_DIR/SDK/cmdline-tools/16.0/bin/apkanalyzer"
 OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/unity-android-verify}"
 PROFILE="Assets/Settings/Build Profiles/Android™ Profile.asset"
 TEST_PROFILE="Assets/Settings/Build Profiles/Test Android™ Profile.asset"
 SKIP_EDITMODE=0
 AS_PACKAGE_USER=0
 KEEP_CHANGES=0
+PULL_APK_DIR=""
 
 for arg in "$@"; do
   case "$arg" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
     --as-package-user) AS_PACKAGE_USER=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
+    --pull-apk=?*) PULL_APK_DIR="${arg#--pull-apk=}" ;;
+    --pull-apk|--pull-apk=) echo "--pull-apk takes a directory: --pull-apk=<dir>" >&2; exit 2 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
+
+if [ -n "$PULL_APK_DIR" ]; then
+  if [ -e "$PULL_APK_DIR" ] && [ -n "$(ls -A "$PULL_APK_DIR" 2>/dev/null)" ]; then
+    echo "--pull-apk: $PULL_APK_DIR is not empty; give a new or empty directory" >&2
+    exit 2
+  fi
+  for tool in "$DEXDUMP" "$APKANALYZER" "$ANDROID_PLAYER_DIR/OpenJDK/bin/java"; do
+    if [ ! -x "$tool" ]; then
+      echo "--pull-apk: not found: $tool" >&2
+      exit 2
+    fi
+  done
+  mkdir -p "$PULL_APK_DIR" && PULL_APK_DIR="$(cd "$PULL_APK_DIR" && pwd)"
+fi
 
 if [ ! -x "$UNITY_EXE" ]; then
   echo "Unity not found at: $UNITY_EXE" >&2
@@ -205,6 +233,71 @@ PY
 # its category out (the Notification UI test plan v5, chapter 2).
 RETENTION_CATEGORY="AndroidNotificationRetention"
 
+# pull_apks <label>: copies every APK of the test player off the device into <dir>/<label>/apks,
+# unpacks each into its own folder under <dir>/<label>/expanded, and counts the 1.x bridge's classes
+# in all their dex files and its names in the base APK's merged manifest. The action IDs the
+# Notification still publishes (android.unity.notification.ACTION_*) are values, not classes, and
+# are not counted. The names found are written next to the APKs.
+pull_apks() {
+  local label="$1"
+  local dir="$PULL_APK_DIR/$label"
+  mkdir -p "$dir/apks" "$dir/expanded"
+  local paths
+  paths="$(adb shell pm path "$TEST_PLAYER_ID" | tr -d '\r' | sed -n 's/^package://p')"
+  if [ -z "$paths" ]; then
+    echo "  apk: FAILED: no APK of $TEST_PLAYER_ID on the device"
+    failures=$((failures + 1))
+    return
+  fi
+  local apk_count=0 dex_count=0 path name dex dump
+  : > "$dir/old-classes.txt"
+  : > "$dir/old-manifest-names.txt"
+  while IFS= read -r path; do
+    name="$(basename "$path" .apk)"
+    if ! adb pull "$path" "$dir/apks/$name.apk" >/dev/null 2>&1; then
+      echo "  apk: FAILED: could not pull $path"
+      failures=$((failures + 1))
+      continue
+    fi
+    apk_count=$((apk_count + 1))
+    if ! unzip -q -o "$dir/apks/$name.apk" -d "$dir/expanded/$name"; then
+      echo "  apk: FAILED: could not unpack $name.apk"
+      failures=$((failures + 1))
+      continue
+    fi
+    for dex in "$dir/expanded/$name"/classes*.dex; do
+      [ -f "$dex" ] || continue
+      dex_count=$((dex_count + 1))
+      if ! dump="$("$DEXDUMP" "$dex" 2>/dev/null)"; then
+        echo "  apk: FAILED: dexdump could not read $name/$(basename "$dex")"
+        failures=$((failures + 1))
+        continue
+      fi
+      printf '%s\n' "$dump" | grep -oE "Class descriptor +: 'Landroid/(unity|library)/[^']*'" \
+        | sed "s/^.*'\(.*\)'\$/\1/" >> "$dir/old-classes.txt"
+    done
+    if [ "$name" = "base" ]; then
+      if JAVA_HOME="$ANDROID_PLAYER_DIR/OpenJDK" "$APKANALYZER" manifest print "$dir/apks/$name.apk" \
+          > "$dir/expanded/base-manifest.xml" 2>/dev/null; then
+        grep -oE 'android\.(unity|library)\.[A-Za-z0-9_.$]+' "$dir/expanded/base-manifest.xml" \
+          | grep -v '^android\.unity\.notification\.ACTION_' >> "$dir/old-manifest-names.txt"
+      else
+        echo "  apk: FAILED: apkanalyzer could not print the base APK's manifest"
+        failures=$((failures + 1))
+      fi
+    fi
+  done <<< "$paths"
+  if [ "$apk_count" -eq 0 ] || [ "$dex_count" -eq 0 ]; then
+    echo "  apk: FAILED: $apk_count APK, $dex_count dex"
+    failures=$((failures + 1))
+  fi
+  local old_classes old_names
+  old_classes="$(wc -l < "$dir/old-classes.txt" | tr -d ' ')"
+  old_names="$(wc -l < "$dir/old-manifest-names.txt" | tr -d ' ')"
+  echo "  apk: $apk_count APK, $dex_count dex; 1.x classes in the dex: $old_classes," \
+    "1.x names in the manifest: $old_names ($dir)"
+}
+
 # run_device_tests <label> <profile> <category left out of the AndroidUiDriver check, or ""> <-testCategory filter>
 run_device_tests() {
   local label="$1" profile="$2" left_out="$3" categories="$4"
@@ -214,6 +307,8 @@ run_device_tests() {
     --dump-dir "$OUT_DIR/$label-ui-dumps" > "$driver_log" 2>&1 &
   DRIVER_PID=$!
   run_tests "$label" Android "$profile" -testCategory "$categories"
+  # The player stays installed until the next run's (or the final) uninstall.
+  [ -n "$PULL_APK_DIR" ] && pull_apks "$label"
   stop_driver
   local driver_code=$?
   echo "  ui driver: $(tail -1 "$driver_log") (exit $driver_code)"
