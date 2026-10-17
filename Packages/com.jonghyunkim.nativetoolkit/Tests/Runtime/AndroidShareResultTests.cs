@@ -11,7 +11,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     public sealed class AndroidShareResultTests
     {
         [Test]
-        public void ShareOperationResult_Success_IsSuccessTrueAndErrorMessageNull()
+        public void AndroidShareOperationResult_Success_IsSuccessTrueAndErrorMessageNull()
         {
             var result = AndroidShareOperationResult.Success("shareText");
 
@@ -21,7 +21,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ShareOperationResult_Failure_IsSuccessFalseAndErrorMessageSet()
+        public void AndroidShareOperationResult_Failure_IsSuccessFalseAndErrorMessageSet()
         {
             var result = AndroidShareOperationResult.Failure("shareImage", "File not found: /path.png");
 
@@ -31,7 +31,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ShareOperationResult_Success_ErrorMessageIsNull_Invariant()
+        public void AndroidShareOperationResult_Success_ErrorMessageIsNull_Invariant()
         {
             var result = AndroidShareOperationResult.Success("shareFile");
 
@@ -40,7 +40,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ShareCallbackResult_WithPackageName_StoresValues()
+        public void AndroidShareCallbackResult_WithPackageName_StoresValues()
         {
             var result = new AndroidShareCallbackResult("shareWithCallback", "com.example.app");
 
@@ -49,7 +49,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ShareCallbackResult_NullPackageName_IsAllowed()
+        public void AndroidShareCallbackResult_NullPackageName_IsAllowed()
         {
             var result = new AndroidShareCallbackResult("shareWithCallback", null);
 
@@ -59,7 +59,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // (7) AndroidShareChooserActionResult stores ActionId
         [Test]
-        public void ShareChooserActionResult_WithActionId_StoresValue()
+        public void AndroidShareChooserActionResult_WithActionId_StoresValue()
         {
             var result = new AndroidShareChooserActionResult("com.example.action");
 
@@ -68,7 +68,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // (8) AndroidShareChooserActionResult normalizes null to string.Empty
         [Test]
-        public void ShareChooserActionResult_NullActionId_NormalizedToEmpty()
+        public void AndroidShareChooserActionResult_NullActionId_NormalizedToEmpty()
         {
             var result = new AndroidShareChooserActionResult(null!);
 
@@ -76,7 +76,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ShareChooserActionResult_EmptyActionId_StoredAsEmpty()
+        public void AndroidShareChooserActionResult_EmptyActionId_StoredAsEmpty()
         {
             var result = new AndroidShareChooserActionResult(string.Empty);
 

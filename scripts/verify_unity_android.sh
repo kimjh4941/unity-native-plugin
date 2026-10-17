@@ -52,9 +52,10 @@
 # notification manager was never created, so it has a device run of its own, after the main one; the
 # other device runs leave it out (-testCategory "!AndroidNotificationRetention").
 #
-# Unity re-serializes some assets during a run (render pipeline settings, the solution file). The
-# script restores what a run changed under those locations and leaves alone anything that already
-# had changes before the run. --keep-changes skips that.
+# Unity re-serializes some assets during a run (render pipeline settings, the solution file), and a
+# run it does not finish leaves the test runner's scene and settings files in Assets. The script
+# restores what a run changed under those locations and leaves alone anything that already had
+# changes before the run, also when the run is stopped by a signal. --keep-changes skips that.
 #
 # Usage:
 #   scripts/verify_unity_android.sh [--skip-editmode] [--as-package-user] [--keep-changes]
@@ -141,6 +142,8 @@ SIDE_EFFECT_PATHS=(
   "Assets/Settings"
   "ProjectSettings"
   "unity-native-plugin.slnx"
+  "Assets/InitTestScene*"
+  "Assets/Resources/PerformanceTestRun*"
 )
 
 changed_paths() {
@@ -153,6 +156,25 @@ changed_paths() {
 }
 
 CHANGED_BEFORE="$(changed_paths)"
+
+# Restores what this run changed under SIDE_EFFECT_PATHS, once: at the end, or from the EXIT trap
+# when a signal stops the run.
+RESTORED=0
+restore_side_effects() {
+  [ "$RESTORED" -eq 1 ] && return
+  RESTORED=1
+  [ "$KEEP_CHANGES" -eq 1 ] && return
+  while IFS=$'\t' read -r status path; do
+    [ -z "$path" ] && continue
+    if printf '%s\n' "$CHANGED_BEFORE" | grep -qxF "$status"$'\t'"$path"; then
+      continue
+    fi
+    case "$status" in
+      '??') rm -rf "${PROJECT_DIR:?}/$path" ;;
+      *) git -C "$PROJECT_DIR" checkout -- "$path" ;;
+    esac
+  done <<< "$(changed_paths)"
+}
 
 report_tests() {
   local label="$1" xml="$2" exit_code="$3"
@@ -201,7 +223,19 @@ stop_driver() {
   return 0
 }
 # The driver first (it may still be pressing the player's screens), then the player.
-trap 'stop_driver >/dev/null 2>&1; adb uninstall "$TEST_PLAYER_ID" >/dev/null 2>&1' EXIT INT TERM HUP
+# A signal ends the script (through the EXIT trap): cleaning up and carrying on would start the next
+# device run with the driver gone (2026-10-17, a run stopped with TERM went on to the retention run).
+# The cleanup ignores further signals, so a second one cannot cut it short.
+on_exit() {
+  trap '' INT TERM HUP
+  stop_driver >/dev/null 2>&1
+  adb uninstall "$TEST_PLAYER_ID" >/dev/null 2>&1
+  restore_side_effects
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 # Prints how many tests of the AndroidUiDriver category ran and were skipped, from a result file,
 # leaving out those that also have the category given second (if any).
@@ -395,18 +429,7 @@ echo "-- device apps --"
 uninstall_app "$TEST_PLAYER_ID"
 echo
 
-if [ "$KEEP_CHANGES" -eq 0 ]; then
-  while IFS=$'\t' read -r status path; do
-    [ -z "$path" ] && continue
-    if printf '%s\n' "$CHANGED_BEFORE" | grep -qxF "$status"$'\t'"$path"; then
-      continue
-    fi
-    case "$status" in
-      '??') rm -rf "${PROJECT_DIR:?}/$path" ;;
-      *) git -C "$PROJECT_DIR" checkout -- "$path" ;;
-    esac
-  done <<< "$(changed_paths)"
-fi
+restore_side_effects
 
 if [ "$failures" -eq 0 ]; then
   echo "== PASS =="

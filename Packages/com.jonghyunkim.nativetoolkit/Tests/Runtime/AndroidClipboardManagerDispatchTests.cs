@@ -100,7 +100,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
-        public void ClipboardOperationResult_Success_ErrorMessageIsNull_Invariant()
+        public void AndroidClipboardOperationResult_Success_ErrorMessageIsNull_Invariant()
         {
             var result = AndroidClipboardOperationResult.Success("clear");
 
