@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 using UnityEngine;
@@ -26,8 +25,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <remarks>
     /// No UI driver is used, so this class has no category and runs without one. A regression that
     /// opens the share sheet here would leave Unity paused until the test run's own limit (plan 4).
-    /// The rows whose 1.x behaviour differs check the 1.x value on the 1.x bridge (<see cref="OnCApi"/>),
-    /// as recorded on 2026-10-12.
+    /// The 1.x values of the rows whose 1.x behaviour differs were recorded on the 1.x bridge on
+    /// 2026-10-12 (the plan's 1.x column); the 1.x bridge left with stage 4, so only the C ABI is checked.
     /// </remarks>
     public sealed class AndroidShareManagerPlayerTests
     {
@@ -43,6 +42,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             if (Application.platform != RuntimePlatform.Android)
                 Assert.Ignore("Device-only.");
+            Assert.IsTrue(OnCApi, "AndroidShareManager has no PendingCallCountForTests: the test seam is gone or renamed");
             _events.Unsubscribe();
             _events = new AndroidShareEvents();
             _events.Subscribe();
@@ -78,14 +78,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             string? offThread = _events.OffMainThread();
             if (offThread != null) failures.Add(offThread);
 
-            if (OnCApi)
-            {
-                deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
-                while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
-                    yield return null;
-                if (PendingCallCount() != 0)
-                    failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
-            }
+            deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
+            while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            if (PendingCallCount() != 0)
+                failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
 
             _events.Unsubscribe();
             if (failures.Count > 0) Assert.Fail(string.Join("\n", failures));
@@ -113,9 +110,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             string existing = ExistingFile();
             // Known difference (design v6 5.3): the C ABI names every path, 1.x the one that failed.
-            string paths = OnCApi ? $"{existing}, {Outside}" : Outside;
             return Fails(() => Manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { existing, Outside } }),
-                $"Op|shareFiles|False|File cannot be shared: {paths}. Ensure the file is in a supported directory.");
+                $"Op|shareFiles|False|File cannot be shared: {existing}, {Outside}. Ensure the file is in a supported directory.");
         }
 
         [UnityTest]
@@ -145,9 +141,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AS29_ShareFiles_NullPath() => Fails(
             () => Manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { ExistingFile(), null! } }),
-            OnCApi
-                ? "Op|shareFiles|False|Failed to shareFiles: filePaths must not contain null"
-                : "Op|shareFiles|False|File not found: null");
+            "Op|shareFiles|False|Failed to shareFiles: filePaths must not contain null");
 
         [UnityTest]
         public IEnumerator AS30_Register_EmptyId() => Fails(
@@ -201,7 +195,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             _ = Manager;
             _cleanupIds.Add("ntk_as35");
             string icon = IconBase64();
-            if (!OnCApi) ExpectOffThreadErrors();
             Exception? thrown = null;
             var thread = new Thread(() =>
             {
@@ -218,9 +211,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             thread.Join();
             Assert.IsNull(thrown, thrown?.ToString());
             _ops = 2;  // the registration and the cleanup's removal
-            yield return ExpectOp(OnCApi
-                ? "Op|registerDirectShareTarget|True|null"
-                : "Op|registerDirectShareTarget|False|registerDirectShareTarget could not be started.");
+            yield return ExpectOp("Op|registerDirectShareTarget|True|null");
             // The teardown checks that the result was raised on Unity's main thread.
         }
 
@@ -229,7 +220,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void AS36_ShareFile_NullPayload()
         {
             // Known difference (design v6 5.3, J-S7): 1.x threw NullReferenceException.
-            Type expected = OnCApi ? typeof(ArgumentNullException) : typeof(NullReferenceException);
+            Type expected = typeof(ArgumentNullException);
             Exception? thrown = null;
             try
             {
@@ -279,13 +270,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             string path = Path.Combine(Application.persistentDataPath, "ntk-share-test.txt");
             File.WriteAllText(path, "native toolkit share test");
             return path;
-        }
-
-        /// <summary>The two errors 1.x logged when called from another thread (AS-35, AS-52, AS-53).</summary>
-        internal static void ExpectOffThreadErrors()
-        {
-            LogAssert.Expect(LogType.Error, new Regex(@"\[AndroidShareManager\] Failed to get currentActivity"));
-            LogAssert.Expect(LogType.Error, new Regex(@"\[AndroidShareManager\] \w+ failed: currentActivity is null\."));
         }
 
     }

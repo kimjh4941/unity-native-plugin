@@ -7,7 +7,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -31,8 +30,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// carry [Order] and run first; the others carry none, and each starts by granting the permission
     /// and exact alarms. The bundled NUnit's [Order] cannot go on a class.
     /// <para>
-    /// The rows whose 1.x behaviour differs check the 1.x value on the 1.x bridge (<see cref="OnCApi"/>);
-    /// what 1.x did is also logged as NTK-NOTIFICATION-RECORD lines, for the plan's 1.x column.
+    /// The 1.x values of the rows whose 1.x behaviour differs were recorded on the 1.x bridge on
+    /// 2026-10-12 (the plan's 1.x column); the 1.x bridge left with stage 4, so only the C ABI is checked.
     /// </para>
     /// </remarks>
     [Category(AndroidUiDriver.Category)]
@@ -76,6 +75,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             if (Application.platform != RuntimePlatform.Android)
                 Assert.Ignore("Device-only.");
+            Assert.IsTrue(OnCApi, "AndroidNotificationManager has no PendingCallCountForTests: the test seam is gone or renamed");
             _events.Unsubscribe();
             _events = new AndroidNotificationEvents();
             _events.Subscribe();
@@ -149,14 +149,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             if (leftRequests != null) failures.Add(leftRequests);
 
             // 6. The C ABI's calls all completed.
-            if (OnCApi)
-            {
-                deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
-                while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
-                    yield return null;
-                if (PendingCallCount() != 0)
-                    failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
-            }
+            deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
+            while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            if (PendingCallCount() != 0)
+                failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
 
             // 7. Always.
             _events.Unsubscribe();
@@ -164,7 +161,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return null;
             if (_pauses != null) UnityEngine.Object.Destroy(_pauses.gameObject);
             _pauses = null;
-            LogAssert.ignoreFailingMessages = false;
 
             if (failures.Count > 0) Assert.Fail(string.Join("\n", failures));
             Exception? ignored = errors.FirstOrDefault(e => e is IgnoreException);
@@ -194,9 +190,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 Assert.Fail("not a fresh install: the notification permission is already granted (V-27)");
             Expect(ops: 1);
             Show(Notification(7002, Title("02")));
-            yield return ExpectOp(OnCApi
-                ? Failed("showNotification", $"Failed to showNotification: {NotAllowed}")
-                : Ok("showNotification"));
+            yield return ExpectOp(Failed("showNotification", $"Failed to showNotification: {NotAllowed}"));
             yield return StaysAway(7002);
         }
 
@@ -206,9 +200,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             _ordered = true;
             Expect(ops: 1);
             Manager.UpdateNotification(AndroidNotificationJsonBuilder.BuildNotificationJson(Notification(7002, Title("02b"))));
-            yield return ExpectOp(OnCApi
-                ? Failed("updateNotification", $"Failed to updateNotification: {NotAllowed}")
-                : Ok("updateNotification"));
+            yield return ExpectOp(Failed("updateNotification", $"Failed to updateNotification: {NotAllowed}"));
         }
 
         [UnityTest, Order(3)]
@@ -217,9 +209,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             _ordered = true;
             Expect(ops: 1);
             Schedule(Notification(7003, Title("02c")), DateTimeOffset.UtcNow.AddMinutes(-1), exact: false);
-            yield return ExpectOp(OnCApi
-                ? Failed("scheduleNotification", $"Failed to scheduleNotification: {NotAllowed}")
-                : Ok("scheduleNotification"));
+            yield return ExpectOp(Failed("scheduleNotification", $"Failed to scheduleNotification: {NotAllowed}"));
         }
 
         [UnityTest, Order(4), Timeout(OneScreen)]
@@ -250,7 +240,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             _ordered = true;
             if (Manager.CanScheduleExactAlarms())
             {
-                Record("AN-05", "CanScheduleExactAlarms was true on a fresh install (V-24); the row is not run");
+                Debug.Log("AN-05: CanScheduleExactAlarms was true on a fresh install (V-24); the row is not run");
                 yield break;
             }
             Expect(ops: 2);
@@ -381,15 +371,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1);
             Manager.ShowNotification("{\"id\":");
-            if (OnCApi)
-            {
-                yield return ExpectOp(Failed("showNotification", "Failed to showNotification: the JSON could not be read."));
-            }
-            else
-            {
-                // 1.x passes org.json's message on (recorded on the device, 2026-10-12).
-                yield return ExpectOp(Failed("showNotification", "Failed to showNotification: End of input at character 6 of {\"id\":"));
-            }
+            yield return ExpectOp(Failed("showNotification", "Failed to showNotification: the JSON could not be read."));
         }
 
         [UnityTest]
@@ -401,12 +383,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             payload.groupAlertBehavior = 3;
             Show(payload);
             yield return ExpectOps("showNotification", 1);
-            Record("AN-19", _events.Ops[0]);
-            Assert.AreEqual(OnCApi
-                ? Failed("showNotification", "Invalid argument for showNotification: Please verify the input parameters.")
-                : Ok("showNotification"), _events.Ops[0]);
+            Assert.AreEqual(Failed("showNotification", "Invalid argument for showNotification: Please verify the input parameters."),
+                _events.Ops[0]);
             yield return Anchor(7019);
-            Assert.AreEqual(!OnCApi, IsActive(7019), OnCApi ? "nothing shows" : "1.x shows it");
+            Assert.IsFalse(IsActive(7019), "nothing shows");
         }
 
         [UnityTest]
@@ -418,12 +398,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             payload.smallIcon = new NotificationResourcePayload { name = "ntk_no_such_icon", type = "drawable" };
             Show(payload);
             yield return ExpectOps("showNotification", 1);
-            Record("AN-20", _events.Ops[0]);
-            Assert.AreEqual(OnCApi
-                ? Failed("showNotification", "Failed to showNotification: a resource named in the notification was not found.")
-                : Ok("showNotification"), _events.Ops[0]);
+            Assert.AreEqual(Failed("showNotification", "Failed to showNotification: a resource named in the notification was not found."),
+                _events.Ops[0]);
             yield return Anchor(7020);
-            Assert.AreEqual(!OnCApi, IsActive(7020), OnCApi ? "nothing shows" : "1.x shows it with the app's icon");
+            Assert.IsFalse(IsActive(7020), "nothing shows");
         }
 
         [UnityTest]
@@ -441,7 +419,6 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 1);
-            if (!OnCApi) LogAssert.ignoreFailingMessages = true; // 1.x logs errors off its main thread
             Exception? thrown = null;
             string json = AndroidNotificationJsonBuilder.BuildNotificationJson(Notification(7022, Title("22")));
             var thread = new Thread(() =>
@@ -459,9 +436,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             thread.Join();
             Assert.IsNull(thrown, thrown?.ToString());
             yield return ExpectOps("showNotification", 1);
-            Record("AN-22", _events.Ops[0]);
             // 1.x could not be called from another thread, as with Share's AS-35 (recorded, 2026-10-12).
-            Assert.AreEqual(OnCApi ? Ok("showNotification") : Failed("showNotification", "showNotification could not be started."), _events.Ops[0]);
+            Assert.AreEqual(Ok("showNotification"), _events.Ops[0]);
         }
 
         [UnityTest]
@@ -469,22 +445,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 1);
-            if (!OnCApi)
-            {
-                // 1.x's Kotlin takes a non-null channel ID and throws; the manager logs it (recorded, 2026-10-12).
-                LogAssert.Expect(LogType.Error, new Regex(@"\[AndroidNotificationManager\] deleteChannel error: java\.lang\.NullPointerException"));
-            }
+            // 1.x's Kotlin took a non-null channel ID, threw, and reported the exception (recorded, 2026-10-12).
             Manager.DeleteChannel(null!);
-            if (OnCApi)
-            {
-                yield return ExpectOp(Ok("deleteChannel"));
-            }
-            else
-            {
-                // ... and reports the exception's text as a failure (recorded, 2026-10-12).
-                yield return ExpectOp(Failed("deleteChannel", "java.lang.NullPointerException: Parameter specified as non-null is null: "
-                    + "method android.unity.notification.UnityAndroidNotificationManager.deleteChannel, parameter channelId"));
-            }
+            yield return ExpectOp(Ok("deleteChannel"));
         }
 
         [UnityTest]
@@ -549,9 +512,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             payload.data = new[] { new NotificationDataEntryPayload { key = "k", value = "v" } };
             yield return ShowAndWait(payload);
             yield return Driver("notification-tap", Ui.Base64(title), "front");
-            Record("AN-31", Ui.LastValue);
             // 1.x brought no app to the front from a notification, opening or not (recorded, 2026-10-12; design K-1).
-            Assert.AreEqual(OnCApi ? "front" : "not-front", Ui.LastValue, "the tap opened the app");
+            Assert.AreEqual("front", Ui.LastValue, "the tap opened the app");
             yield return ExpectTap($"Tap|{AndroidNotificationManager.ActionBodyTap}|7031|k=v");
         }
 
@@ -565,8 +527,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             payload.launchAppOnTap = false;
             yield return ShowAndWait(payload);
             yield return Driver("notification-tap", Ui.Base64(title), "front");
-            Record("AN-32", Ui.LastValue);
-            Assert.AreEqual(OnCApi ? "not-front" : "not-front", Ui.LastValue, "the tap did not open the app");
+            Assert.AreEqual("not-front", Ui.LastValue, "the tap did not open the app");
             yield return ExpectTap($"Tap|{AndroidNotificationManager.ActionBodyTap}|7032|", prefix: true);
         }
 
@@ -579,8 +540,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             string suffix = title.Substring(title.Length - 8);
             yield return ShowAndWait(TwoActions(7033, title, suffix));
             yield return Driver("notification-action", Ui.Base64(title), Ui.Base64($"Later-{suffix}"), "front");
-            Record("AN-33", Ui.LastValue);
-            Assert.AreEqual(OnCApi ? "not-front" : "not-front", Ui.LastValue, "the action did not open the app");
+            Assert.AreEqual("not-front", Ui.LastValue, "the action did not open the app");
             yield return ExpectTap("Tap|later|7033|", prefix: true);
         }
 
@@ -593,8 +553,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             string suffix = title.Substring(title.Length - 8);
             yield return ShowAndWait(TwoActions(7034, title, suffix));
             yield return Driver("notification-action", Ui.Base64(title), Ui.Base64($"Play-{suffix}"), "front");
-            Record("AN-34", Ui.LastValue);
-            Assert.AreEqual(OnCApi ? "front" : "not-front", Ui.LastValue, "the action opened the app");
+            Assert.AreEqual("front", Ui.LastValue, "the action opened the app");
             yield return ExpectTap("Tap|play|7034|", prefix: true);
         }
 
@@ -669,23 +628,21 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Driver("notification-tap", Ui.Base64(title), "stay");
             yield return Until(() => _events.TapResults.Count >= 1);
             NotificationActionResult tap = _events.TapResults.First();
-            Record("AN-39", _events.Taps.First());
             Assert.IsNotNull(tap.Data, "the data");
-            // 1.x hands the values over as they were escaped in its JSON (recorded, 2026-10-12; design 5.3).
-            var expected = OnCApi ? data : new Dictionary<string, string> { ["quote"] = "a\\\"b", ["slash"] = "c\\/d", ["jp"] = "日本語の値" };
-            CollectionAssert.AreEquivalent(expected, tap.Data!.ToDictionary(p => p.Key, p => p.Value), _events.Describe());
+            // 1.x handed the values over as they were escaped in its JSON (recorded, 2026-10-12; design 5.3).
+            CollectionAssert.AreEquivalent(data, tap.Data!.ToDictionary(p => p.Key, p => p.Value), _events.Describe());
         }
 
         [UnityTest, Timeout(OneScreen)]
-        public IEnumerator AN40_NotificationSettings() => SettingsScreen("AN-40", Manager.OpenNotificationSettings, "openNotificationSettings",
+        public IEnumerator AN40_NotificationSettings() => SettingsScreen(Manager.OpenNotificationSettings, "openNotificationSettings",
             // 1.x fell back to the app's details (design 5.3's open question; recorded, 2026-10-12).
-            OnCApi ? $"{Settings}/.Settings$AppNotificationSettingsActivity android.settings.APP_NOTIFICATION_SETTINGS" : SpaScreen, true);
+            $"{Settings}/.Settings$AppNotificationSettingsActivity android.settings.APP_NOTIFICATION_SETTINGS", true);
 
         [UnityTest, Timeout(OneScreen)]
-        public IEnumerator AN41_AppDetailsSettings() => SettingsScreen("AN-41", Manager.OpenAppDetailsSettings, "openAppDetailsSettings", SpaScreen, false);
+        public IEnumerator AN41_AppDetailsSettings() => SettingsScreen(Manager.OpenAppDetailsSettings, "openAppDetailsSettings", SpaScreen, false);
 
         [UnityTest, Timeout(OneScreen)]
-        public IEnumerator AN42_ExactAlarmSettings() => SettingsScreen("AN-42", Manager.OpenExactAlarmSettings, "openExactAlarmSettings", SpaScreen, true);
+        public IEnumerator AN42_ExactAlarmSettings() => SettingsScreen(Manager.OpenExactAlarmSettings, "openExactAlarmSettings", SpaScreen, true);
 
         [UnityTest]
         public IEnumerator AN43_SettingsInTheBackground()
@@ -693,7 +650,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             _ = Manager;
             Expect(ops: 1);
-            if (!OnCApi) LogAssert.ignoreFailingMessages = true; // 1.x logs errors off its main thread
             int number = Ui.NextNumber;
             string? threadError = null;
             var abandonSource = new CancellationTokenSource();
@@ -724,11 +680,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(thread.IsAlive, "the thread did not finish");
             Assert.IsNull(threadError, threadError);
             yield return ExpectOps("openNotificationSettings", 1);
-            Record("AN-43", _events.Ops[0]);
             // 1.x could not be called from another thread (recorded, 2026-10-12).
-            Assert.AreEqual(OnCApi
-                ? Failed("openNotificationSettings", "Failed to openNotificationSettings: the app is not in the foreground.")
-                : Failed("openNotificationSettings", "openNotificationSettings could not be started."), _events.Ops[0]);
+            Assert.AreEqual(Failed("openNotificationSettings", "Failed to openNotificationSettings: the app is not in the foreground."),
+                _events.Ops[0]);
         }
 
         // ── 5. The sample screen (plan 5) ────────────────────────────────────────
@@ -912,18 +866,17 @@ namespace JonghyunKim.NativeToolkit.Tests
             _lastAnswerAt = Time.realtimeSinceStartup;
         }
 
-        private IEnumerator SettingsScreen(string row, Action open, string operation, string screen, bool checkOpened)
+        private IEnumerator SettingsScreen(Action open, string operation, string screen, bool checkOpened)
         {
             yield return EnsureGranted();
             _ = Manager;
             Expect(ops: 1);
             yield return SendThen(open, "close-screen", Ui.Base64(Settings));
-            Record(row, Ui.LastValue);
             Assert.AreEqual(screen, Ui.LastValue, "the screen that opened");
             yield return ExpectOp(Ok(operation));
-            // The exact alarm screen and the app's details look the same to the UI driver: on the C
-            // ABI, the manager's record tells whether it fell back (plan AN-40, AN-42).
-            if (OnCApi && checkOpened)
+            // The exact alarm screen and the app's details look the same to the UI driver: the
+            // manager's record tells whether it fell back (plan AN-40, AN-42).
+            if (checkOpened)
                 Assert.AreEqual(0, LastSettingsResult(), "OPENED, not OPENED_FALLBACK");
         }
 
@@ -935,8 +888,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return LoadAtTopMenu(TopMenuNotificationButton);
             yield return Open(TopMenuNotificationButton, "ShowNotificationButton");
         }
-
-        private static void Record(string row, string what) => Debug.Log($"NTK-NOTIFICATION-RECORD|{row}|{(OnCApi ? "capi" : "1.x")}|{what}");
 
         private static IEnumerator Until(Func<bool> condition, float timeoutSeconds = EventTimeoutSeconds)
         {

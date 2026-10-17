@@ -182,10 +182,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// failed (artifact/topics/android-c-abi-2). The same happened on Windows with 1.12.0, which is
     /// why <see cref="WindowsPin"/> exists; this is the same idea with a list of AARs, because
     /// Android needs two (the Kotlin API and the C ABI that runs on it).
-    /// <para>
-    /// The extra_* keys place a second set from another dist folder beside the first. They exist
-    /// for the migration to the 2.0.0 C ABI, while features not yet moved still call the 1.x bridge.
-    /// </para>
     /// </remarks>
     private readonly struct AndroidPin
     {
@@ -194,22 +190,21 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         internal string DistVersion { get; }
         internal IReadOnlyList<string> Aars { get; }
 
-        /// <summary>Null when there is no extra set.</summary>
-        internal string ExtraDistVersion { get; }
-        internal IReadOnlyList<string> ExtraAars { get; }
-
-        private AndroidPin(string distVersion, IReadOnlyList<string> aars, string extraDistVersion, IReadOnlyList<string> extraAars)
+        private AndroidPin(string distVersion, IReadOnlyList<string> aars)
         {
             DistVersion = distVersion;
             Aars = aars;
-            ExtraDistVersion = extraDistVersion;
-            ExtraAars = extraAars;
         }
 
         /// <summary>
         /// Reads the pin. Throws <see cref="BuildFailedException"/> when the file or a required key is
-        /// missing, or when only one of the two extra_* keys is given.
+        /// missing, rather than falling back to a guess.
         /// </summary>
+        /// <remarks>
+        /// While the Android features moved to the 2.0.0 C ABI one at a time, a second pin placed the
+        /// 1.x AARs beside these (artifact/topics/android-c-abi-2). It was removed with the last
+        /// feature's move; an extra_* key left in the file is ignored.
+        /// </remarks>
         internal static AndroidPin Read(string path)
         {
             IDictionary<string, string> values = ReadPinValues(path, "[Build][Android]", FileName);
@@ -217,22 +212,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             string distVersion = RequirePinValue(values, "dist_version", path, "[Build][Android]", FileName);
             IReadOnlyList<string> aars = SplitList(RequirePinValue(values, "aars", path, "[Build][Android]", FileName));
 
-            values.TryGetValue("extra_dist_version", out string extraDistVersion);
-            values.TryGetValue("extra_aars", out string extraAarsValue);
-            bool hasExtraVersion = !string.IsNullOrEmpty(extraDistVersion);
-            bool hasExtraAars = !string.IsNullOrEmpty(extraAarsValue);
-            if (hasExtraVersion != hasExtraAars)
-            {
-                throw new BuildFailedException(
-                    $"[Build][Android] {FileName} gives only one of extra_dist_version and extra_aars ({path}). " +
-                    "Give both, or neither.");
-            }
-
-            return new AndroidPin(
-                distVersion,
-                aars,
-                hasExtraVersion ? extraDistVersion : null,
-                hasExtraAars ? SplitList(extraAarsValue) : Array.Empty<string>());
+            return new AndroidPin(distVersion, aars);
         }
 
         private static IReadOnlyList<string> SplitList(string value) =>
@@ -412,8 +392,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
         AndroidPin pin = AndroidPin.Read(Path.Combine(destDir, AndroidPin.FileName));
         UnityEngine.Debug.Log(
-            $"[Build][Android] Pinned by {AndroidPin.FileName}: dist_version={pin.DistVersion}, aars={string.Join(", ", pin.Aars)}" +
-            (pin.ExtraDistVersion != null ? $"; extra_dist_version={pin.ExtraDistVersion}, extra_aars={string.Join(", ", pin.ExtraAars)}" : ""));
+            $"[Build][Android] Pinned by {AndroidPin.FileName}: dist_version={pin.DistVersion}, aars={string.Join(", ", pin.Aars)}");
 
         // Resolve every source BEFORE deleting anything. Deleting first and then failing to find a
         // replacement would leave the project with no native libraries at all. A pin that does not
@@ -421,8 +400,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         // is in dist.
         var sources = new List<string>();
         AddAndroidSources(sources, pin.DistVersion, pin.Aars);
-        if (pin.ExtraDistVersion != null)
-            AddAndroidSources(sources, pin.ExtraDistVersion, pin.ExtraAars);
 
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string source in sources)

@@ -24,15 +24,15 @@ namespace JonghyunKim.NativeToolkit.Tests
         internal const float TearDownTimeoutSeconds = 5f;
 
         /// <summary>
-        /// Whether the manager runs on native-toolkit's C ABI. The 1.x bridge has no test seam, so the
-        /// same tests record the 1.x behaviour first (the plan's 1.x column) and check the C ABI after.
+        /// Whether the manager runs on native-toolkit's C ABI: its test seam is there. The fixtures check
+        /// it first, so a seam that is gone or renamed fails them rather than passing in silence.
         /// </summary>
         internal static bool OnCApi => PendingCallCountProperty != null;
 
         private static PropertyInfo? PendingCallCountProperty => typeof(AndroidShareManager).GetProperty(
             "PendingCallCountForTests", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 
-        /// <summary>The manager's calls still waiting for their completion, or null on the 1.x bridge.</summary>
+        /// <summary>The manager's calls still waiting for their completion.</summary>
         internal static int? PendingCallCount() => (int?)PendingCallCountProperty?.GetValue(null);
 
         /// <summary>A 64x64 PNG, as Base64: an icon every Android version can read.</summary>

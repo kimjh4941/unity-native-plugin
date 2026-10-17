@@ -26,9 +26,9 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// </summary>
     /// <remarks>
     /// The share sheet pauses Unity while it shows (V-11), so each test sends its UI driver request
-    /// first, opens the sheet in the same frame, and then waits for the answer. The rows whose 1.x
-    /// behaviour differs check the 1.x value on the 1.x bridge (<see cref="OnCApi"/>), as recorded on
-    /// 2026-10-12; AS-52 also logs what happened, as an NTK-SHARE-RECORD line.
+    /// first, opens the sheet in the same frame, and then waits for the answer. The 1.x values of the
+    /// rows whose 1.x behaviour differs were recorded on the 1.x bridge on 2026-10-12 (the plan's 1.x
+    /// column); the 1.x bridge left with stage 4, so only the C ABI is checked.
     /// </remarks>
     [Category(AndroidUiDriver.Category)]
     public sealed class AndroidSharePlayerTests
@@ -61,6 +61,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             if (Application.platform != RuntimePlatform.Android)
                 Assert.Ignore("Device-only.");
+            Assert.IsTrue(OnCApi, "AndroidShareManager has no PendingCallCountForTests: the test seam is gone or renamed");
             _events.Unsubscribe();
             _events = new AndroidShareEvents();
             _events.Subscribe();
@@ -130,14 +131,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             if (leftRequests != null) failures.Add(leftRequests);
 
             // 6. The C ABI's calls all completed.
-            if (OnCApi)
-            {
-                deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
-                while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
-                    yield return null;
-                if (PendingCallCount() != 0)
-                    failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
-            }
+            deadline = Time.realtimeSinceStartup + TearDownTimeoutSeconds;
+            while (PendingCallCount() != 0 && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            if (PendingCallCount() != 0)
+                failures.Add($"{PendingCallCount()} call(s) still waiting for their completion");
 
             // 7. Always.
             _events.Unsubscribe();
@@ -270,10 +268,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AS44a_DuplicateAction()
         {
-            ShareTextPayload payload = AS44Payload();
-            return OnCApi
-                ? ShareTextAnd(payload, "absent-in-sheet", Ui.Base64("A44b"), Ui.Base64("A44a"))
-                : ShareTextAnd(payload, "present-in-sheet", Ui.Base64("A44b"));
+            return ShareTextAnd(AS44Payload(), "absent-in-sheet", Ui.Base64("A44b"), Ui.Base64("A44a"));
         }
 
         [UnityTest]
@@ -306,16 +301,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                 text = "ntk share 46",
                 chooserActions = new[] { new ChooserActionPayload { label = "X46", iconBase64 = BrokenPngBase64(), intentAction = "ntk.x46" } },
             };
-            if (OnCApi)
-            {
-                yield return SendThen(() => Manager.ShareText(payload), "no-sheet", "5000");
-                yield return ExpectOp("Op|shareText|False|Failed to shareText: a chooser action icon could not be read as an image.");
-            }
-            else
-            {
-                yield return SendThen(() => Manager.ShareText(payload), "close-sheet");
-                yield return ExpectOp("Op|shareText|True|null");
-            }
+            yield return SendThen(() => Manager.ShareText(payload), "no-sheet", "5000");
+            yield return ExpectOp("Op|shareText|False|Failed to shareText: a chooser action icon could not be read as an image.");
         }
 
         [UnityTest]
@@ -397,7 +384,6 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             _ = Manager;
             Expect(ops: 1);
-            if (!OnCApi) AndroidShareManagerPlayerTests.ExpectOffThreadErrors();
             // Makes the UI driver ready, so the thread can work out the answer file's path.
             yield return Ui.Do("count", Ui.Selector("package", SheetPackage));
             int background = Ui.NextNumber;
@@ -431,14 +417,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             string answer = "";
             yield return Answer(watch, a => answer = a);
             yield return Eventually(() => _events.Ops.Count > 0);
-            Record("AS-52", $"thread={threadError ?? "ok"} no-sheet={answer} events={_events.Describe()}");
             Assert.IsNull(threadError, threadError);
             Assert.AreEqual("ok", answer, "a share sheet showed after the app came back");
             Assert.AreEqual(new[]
             {
-                OnCApi
-                    ? "Op|shareText|False|Failed to shareText: the app is not in the foreground."
-                    : "Op|shareText|False|shareText could not be started.",
+                "Op|shareText|False|Failed to shareText: the app is not in the foreground.",
             }, _events.Ops);
         }
 
@@ -451,7 +434,6 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             _ = Manager;
             Expect(ops: 1);
-            if (!OnCApi) AndroidShareManagerPlayerTests.ExpectOffThreadErrors();
             Exception? thrown = null;
             yield return SendThen(() =>
             {
@@ -468,9 +450,9 @@ namespace JonghyunKim.NativeToolkit.Tests
                 });
                 thread.Start();
                 thread.Join();
-            }, OnCApi ? "close-sheet" : "no-sheet", OnCApi ? new string[0] : new[] { "5000" });
+            }, "close-sheet");
             Assert.IsNull(thrown, thrown?.ToString());
-            yield return ExpectOp(OnCApi ? "Op|shareText|True|null" : "Op|shareText|False|shareText could not be started.");
+            yield return ExpectOp("Op|shareText|True|null");
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
@@ -595,9 +577,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             text = "ntk share 44",
             chooserActions = new[] { Action("A44a", "ntk.a44"), Action("A44b", "ntk.a44") },
         };
-
-        private static void Record(string id, string what) =>
-            Debug.Log($"NTK-SHARE-RECORD|{id}|{(OnCApi ? "c-abi" : "1.x")}|{what}");
     }
 }
 #endif

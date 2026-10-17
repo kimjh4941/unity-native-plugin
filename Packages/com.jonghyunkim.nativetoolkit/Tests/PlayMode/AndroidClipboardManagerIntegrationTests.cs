@@ -6,7 +6,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 #if !UNITY_EDITOR
@@ -22,8 +21,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// Layer 2b tests (see agent-rules/coding-rules/testing.md): PlayMode tests that run on an
-    /// actual Android Player to verify the native path (the C ABI's P/Invoke, or the 1.x bridge's
-    /// JNI) under IL2CPP, which no other layer can reach.
+    /// actual Android Player to verify the native path (the C ABI's P/Invoke) under IL2CPP, which no
+    /// other layer can reach.
     ///
     /// Unlike <c>IosShareManagerIntegrationTests</c> (which asserts the Editor fallback path),
     /// these tests assert real on-device behaviour and are skipped anywhere else. Running them in
@@ -38,10 +37,10 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// (testing.md section 6).
     ///
     /// The AC-* tests are the device table of the Clipboard design
-    /// (artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md, 7.3). They run
-    /// on the 1.x bridge first, to record its behaviour, and on the C ABI after; where the two are
-    /// known to differ, <see cref="OnCApi"/> picks the expectation. Values the design only records
-    /// are logged with the prefix "[ClipboardRecord]".
+    /// (artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md, 7.3). They ran
+    /// on the 1.x bridge first, to record its behaviour (2026-10-12); the 1.x bridge left with stage 4,
+    /// so only the C ABI is checked. Values the design only records, because they vary from run to
+    /// run, are logged with the prefix "[ClipboardRecord]".
     /// </summary>
     public sealed class AndroidClipboardManagerIntegrationTests
     {
@@ -70,8 +69,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         private int _mainThread;
 
         /// <summary>
-        /// Whether the manager runs on native-toolkit's C ABI. The 1.x bridge has no test seam, so the
-        /// same tests record the 1.x behaviour first and check the C ABI after (design 7.3).
+        /// Whether the manager runs on native-toolkit's C ABI: its test seam is there. The tests check
+        /// it first, so a seam that is gone or renamed fails them rather than passing in silence.
         /// </summary>
         private static bool OnCApi => typeof(AndroidClipboardManager).GetProperty(
             "IsObservingForTests", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) != null;
@@ -86,6 +85,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                     "Android Player (testing.md layer 2b).");
             }
 
+            Assert.IsTrue(OnCApi, "AndroidClipboardManager has no IsObservingForTests: the test seam is gone or renamed");
             ResetResult();
             _mainThread = Thread.CurrentThread.ManagedThreadId;
             _changes = 0;
@@ -192,17 +192,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}, message: {read.ErrorMessage}");
             Assert.GreaterOrEqual(read.Contents!.Items.Count, 1, "Expected at least one clip item.");
             return read.Contents.Items[0];
-        }
-
-        /// <summary>
-        /// 1.x reads the current activity through JNI, which a thread that is not attached to the
-        /// JVM cannot do: it logs two errors and fails the call (the Share recorded the same,
-        /// UI test plan v6 AS-35).
-        /// </summary>
-        private static void ExpectOffThreadErrors()
-        {
-            LogAssert.Expect(LogType.Error, new Regex(@"\[AndroidClipboardManager\] Failed to get currentActivity"));
-            LogAssert.Expect(LogType.Error, new Regex(@"\[AndroidClipboardManager\] \w+ failed: currentActivity is null\."));
         }
 
         private static Exception? RunOnAnotherThread(Action action)
@@ -591,7 +580,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertSucceeded();
             yield return WaitSeconds(ChangeWindowSeconds);
 
-            Record("AC-21a", $"changes={_changes}");
             Assert.AreEqual(1, _changes);
             AssertEventsOnMainThread();
         }
@@ -656,17 +644,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AC24_CopyFromAnotherThread()
         {
             var manager = AndroidClipboardManager.Instance;
-            if (!OnCApi) ExpectOffThreadErrors();
 
             Exception? thrown = RunOnAnotherThread(() => manager.CopyPlainText(new CopyPlainTextPayload { text = SampleText }));
             Assert.IsNull(thrown, $"the call threw: {thrown}");
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
 
-            Record("AC-24", $"isSuccess={_lastResult!.Value.IsSuccess}, message={_lastResult.Value.ErrorMessage ?? "null"}");
-            if (OnCApi)
-                AssertSucceeded();
-            else
-                Assert.AreEqual("copyPlainText could not be started.", _lastResult.Value.ErrorMessage);
+            AssertSucceeded();
             AssertEventsOnMainThread();
         }
 
@@ -676,23 +659,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Copy(new CopyPlainTextPayload { text = SampleText });
             AssertSucceeded();
             var manager = AndroidClipboardManager.Instance;
-            if (!OnCApi) ExpectOffThreadErrors();
 
             ClipboardReadResult read = default;
             Exception? thrown = RunOnAnotherThread(() => read = manager.Read());
             Assert.IsNull(thrown, $"the call threw: {thrown}");
 
-            Record("AC-25", $"status={read.Status}, errorCode={read.ErrorCode ?? "null"}, message={read.ErrorMessage ?? "null"}");
-            if (OnCApi)
-            {
-                Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
-                Assert.AreEqual(SampleText, read.Contents!.Items[0].Text);
-            }
-            else
-            {
-                Assert.AreEqual(ClipboardReadStatus.Failed, read.Status);
-                Assert.AreEqual("read could not be started.", read.ErrorMessage);
-            }
+            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
+            Assert.AreEqual(SampleText, read.Contents!.Items[0].Text);
         }
 
         [UnityTest]
@@ -701,10 +674,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Copy(new CopyPlainTextPayload { text = null! });
             AssertSucceeded();
 
-            // 1.x is expected to have carried JSON null as the string "null" (design 5.3).
+            // A known difference: 1.x carried JSON null as the string "null" (design 5.3).
             ClipItem item = ReadFirstItem();
-            Record("AC-26a", $"text={item.Text ?? "(null)"}");
-            Assert.AreEqual(OnCApi ? null : "null", item.Text);
+            Assert.IsNull(item.Text);
         }
 
         [UnityTest]
@@ -715,8 +687,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertSucceeded();
 
             ClipItem item = ReadFirstItem();
-            Record("AC-26b", $"text={item.Text ?? "(null)"}, html={item.HtmlText ?? "(null)"}");
-            Assert.AreEqual(OnCApi ? null : "null", item.Text);
+            Assert.IsNull(item.Text);
             Assert.AreEqual("<b>html</b>", item.HtmlText);
         }
 
@@ -726,17 +697,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload { plainText = "plain", htmlText = null! });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyHtmlText);
 
-            Record("AC-26c", $"isSuccess={_lastResult!.Value.IsSuccess}, message={_lastResult.Value.ErrorMessage ?? "null"}");
-            if (OnCApi)
-            {
-                Assert.IsFalse(_lastResult.Value.IsSuccess);
-                Assert.AreEqual("Clipboard content is empty. Please provide text or HTML.", _lastResult.Value.ErrorMessage);
-            }
-            else
-            {
-                AssertSucceeded();
-                Assert.AreEqual("null", ReadFirstItem().HtmlText);
-            }
+            Assert.IsFalse(_lastResult!.Value.IsSuccess);
+            Assert.AreEqual("Clipboard content is empty. Please provide text or HTML.", _lastResult.Value.ErrorMessage);
         }
 
         [UnityTest]
@@ -745,9 +707,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload { uri = null! });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyUri);
 
-            Record("AC-26d", $"isSuccess={_lastResult!.Value.IsSuccess}, message={_lastResult.Value.ErrorMessage ?? "null"}");
-            Assert.IsFalse(_lastResult.Value.IsSuccess);
-            Assert.AreEqual(OnCApi ? "Invalid URI: " : "Invalid URI: null", _lastResult.Value.ErrorMessage);
+            Assert.IsFalse(_lastResult!.Value.IsSuccess);
+            Assert.AreEqual("Invalid URI: ", _lastResult.Value.ErrorMessage);
         }
 
         [UnityTest]
@@ -758,23 +719,21 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertSucceeded();
 
             var texts = AndroidClipboardManager.Instance.Read().Contents!.Items.Select(i => i.Text).ToArray();
-            Record("AC-26e", $"texts={string.Join("|", texts.Select(t => t ?? "(null)"))}");
-            CollectionAssert.AreEqual(new[] { "a", OnCApi ? null : "null", "c" }, texts);
+            CollectionAssert.AreEqual(new[] { "a", null, "c" }, texts);
         }
 
         [Test]
         public void AC27_NullPayload_Throws()
         {
             var thrown = Assert.Catch<Exception>(() => AndroidClipboardManager.Instance.CopyPlainText(null!));
-            Record("AC-27", $"type={thrown.GetType().Name}");
-            Assert.IsInstanceOf(OnCApi ? typeof(ArgumentNullException) : typeof(NullReferenceException), thrown);
+            Assert.IsInstanceOf(typeof(ArgumentNullException), thrown);
         }
 
         [UnityTest]
         public IEnumerator AC28_ReadRightAfterCopy_WithoutWaitingForTheResult()
         {
-            // 1.x copies later, on the Android main thread, so what a read right after the call sees
-            // is a race there: it is counted over several rounds and recorded only.
+            // The C ABI copies before the call returns, so a read right after it sees the new text.
+            // 1.x copied later, on the Android main thread, and a read there raced it (design 5.3).
             const int rounds = 10;
             int sawNew = 0;
             for (int i = 0; i < rounds; i++)
@@ -790,8 +749,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 if (read.Contents?.Items.FirstOrDefault()?.Text == $"NTK-NEW-{i}") sawNew++;
             }
 
-            Record("AC-28", $"new={sawNew}/{rounds}");
-            if (OnCApi) Assert.AreEqual(rounds, sawNew);
+            Assert.AreEqual(rounds, sawNew);
         }
 
         [UnityTest]
@@ -835,7 +793,6 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertSucceeded();
             yield return WaitSeconds(ChangeWindowSeconds);
 
-            Record("AC-31", $"changes={_changes}");
             Assert.AreEqual(1, _changes);
         }
 

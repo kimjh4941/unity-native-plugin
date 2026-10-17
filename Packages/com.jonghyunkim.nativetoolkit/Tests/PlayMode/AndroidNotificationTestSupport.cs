@@ -53,12 +53,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         // ── The C ABI's seams ────────────────────────────────────────────────────
 
         /// <summary>
-        /// Whether the manager runs on native-toolkit's C ABI. The 1.x bridge has no test seam, so the
-        /// same tests record the 1.x behaviour first (the plan's 1.x column) and check the C ABI after.
+        /// Whether the manager runs on native-toolkit's C ABI: its test seam is there. The fixtures check
+        /// it first, so a seam that is gone or renamed fails them rather than passing in silence.
         /// </summary>
         internal static bool OnCApi => Seam("PendingCallCountForTests") != null;
 
-        /// <summary>The manager's calls still waiting for their completion, or null on the 1.x bridge.</summary>
+        /// <summary>The manager's calls still waiting for their completion.</summary>
         internal static int? PendingCallCount() => (int?)Seam("PendingCallCountForTests")?.GetValue(null);
 
         /// <summary>The result the last settings call completed with (0 OPENED, 1 OPENED_FALLBACK), or null.</summary>

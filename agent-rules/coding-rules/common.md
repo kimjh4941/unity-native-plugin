@@ -42,7 +42,7 @@ AAR は `android-native-toolkit-<版>.aar` と `android-native-toolkit-capi-<版
 **Windows の C ABI の形をそのまま写さない**（`artifact/topics/android-c-abi-2/README.md` 3 章）。違うところは下の各項に書く。
 Share も移した（`artifact/android/share/designs/2026-10-11-android-share-design-v6.md`。2026-10-12）。Share が従わない約束ごとは、下の「Share の例外」に書く。
 Clipboard も移した（`artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md`。2026-10-12）。Clipboard の形は、下の「Clipboard の形」に書く。
-Notification も移した（`artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md`。2026-10-12）。これで 4 機能すべてが C ABI を呼ぶ。Notification の形は、下の「Notification の形」に書く。1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶコードはもう無い。旧ブリッジの AAR は段 4 で外す。
+Notification も移した（`artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md`。2026-10-12）。これで 4 機能すべてが C ABI を呼ぶ。Notification の形は、下の「Notification の形」に書く。1.x のブリッジ（`AndroidJavaObject` / `AndroidJavaProxy`、`android.unity.*`）を呼ぶコードはもう無い。旧ブリッジの AAR（`android-native-toolkit-1.3.0.aar`、`unity-android-native-toolkit-1.3.0.aar`）は段 4 で外した（2026-10-17）。
 
 **ファイルの置き場所**
 
