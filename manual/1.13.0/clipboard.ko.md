@@ -13,6 +13,7 @@
 ## 목차
 
 - [Android](#android)
+  - [1.13.0 변경 사항](#1130-변경-사항)
   - [설정](#설정)
   - [일반 텍스트 복사](#일반-텍스트-복사)
   - [일반 텍스트 복사 (빈 문자열, 허용됨)](#일반-텍스트-복사-빈-문자열-허용됨)
@@ -113,24 +114,87 @@
 
 클립보드 기능은 Android·iOS·macOS·Windows에 구현되어 있습니다. 공통 추상화 대신 플랫폼마다 Manager와 API가 별도 계열입니다. 네 클립보드가 "클립보드란 무엇인가"에 대한 전제부터 다르기 때문입니다. iOS 쪽은 [iOS](#ios)를 참고하세요.
 
+### 1.13.0 변경 사항
+
+1.13.0부터 Android 클립보드는 1.x의 Kotlin 브리지가 아니라 native-toolkit의 C ABI 2.0.0(`android-native-toolkit-capi-2.0.0.aar`)으로 동작합니다. `AndroidClipboardManager`의 메서드, 이벤트, `Operation*` 값, 페이로드 필드, 오류 코드, 대부분의 오류 메시지, 읽기 결과의 형태는 바뀌지 않았습니다. 고쳐야 할 부분과 1.12.0과 동작이 다른 부분은 다음과 같습니다.
+
+#### 코드 수정 방법
+
+- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Clipboard;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;`로 바꿔 주세요. iOS와 macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- 아래 표의 타입 이름을 바꿔 주세요. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.12.0의 이름을 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_ANDROID && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 Android Player를 빌드할 때 처음 나타납니다.
+- 1.12.0의 이름으로 `[SerializeReference]`에 저장한 데이터는 새 타입으로 값과 함께 불러와집니다. 이름이 바뀐 타입은 1.12.0의 이름을 `[MovedFrom]`으로 기록하고 있습니다.
+
+#### Android 전체 기능에 공통인 호환성이 깨지는 변경
+
+- **1.x 네이티브 라이브러리를 더 이상 포함하지 않습니다.** `android-native-toolkit-1.3.0.aar`와 `unity-android-native-toolkit-1.3.0.aar`를 제거했습니다. 패키지에 포함된 것은 `android-native-toolkit-2.0.0.aar`와 `android-native-toolkit-capi-2.0.0.aar`(native-toolkit의 C ABI 2.0.0)입니다. 이 라이브러리의 클래스(`android.unity.*`, `android.library.*`)를 직접 호출하던 코드는 동작하지 않습니다.
+- **"Configure Gradle Project"가 없어졌습니다.** 메뉴 Tools > Native Toolkit > Android > Configure Gradle Project와 그 창을 삭제했습니다. 실행 시 필요한 라이브러리(`kotlin-stdlib` 2.2.21, `kotlinx-coroutines-core` 1.9.0을 포함한 7개)는 빌드가 `unityLibrary/build.gradle`에 직접 추가합니다. Kotlin Gradle 플러그인은 더 이상 적용하지 않습니다. 직접 만든 Gradle 템플릿이나 EDM4U를 사용한다면 버전이 충돌하지 않는지 확인해 주세요.
+- **64비트와 IL2CPP만 지원합니다.** ARMv7(32비트)도 포함하는 빌드는 메시지를 표시하고 중단됩니다. Mono는 지원하지 않습니다. [Android 요구 사항](index.ko.md#android-요구-사항)을 참고해 주세요.
+
+#### 이름이 바뀐 타입과 삭제된 타입
+
+Android 클립보드 타입은 모두 `JonghyunKim.NativeToolkit.Runtime.Clipboard`에서 `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard`로 옮겨졌습니다. `AndroidClipboardManager`는 이름이 그대로이고, 나머지 타입은 이름 앞에 `Android`가 붙었습니다. iOS와 macOS 클립보드 타입(`Ios*`, `Mac*`)은 바뀌지 않았습니다.
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `ClipboardOperationResult` | `AndroidClipboardOperationResult` |
+| `ClipboardReadStatus` | `AndroidClipboardReadStatus` |
+| `ClipItem` | `AndroidClipItem` |
+| `ClipContents` | `AndroidClipContents` |
+| `ClipboardReadResult` | `AndroidClipboardReadResult` |
+| `ClipDescriptionInfo` | `AndroidClipDescriptionInfo` |
+| `ClipboardDescriptionResult` | `AndroidClipboardDescriptionResult` |
+| `CopyPlainTextPayload` | `AndroidCopyPlainTextPayload` |
+| `CopyHtmlTextPayload` | `AndroidCopyHtmlTextPayload` |
+| `CopyUriPayload` | `AndroidCopyUriPayload` |
+| `CopyMultipleTextPayload` | `AndroidCopyMultipleTextPayload` |
+| `AndroidClipboardManager` | `AndroidClipboardManager`(네임스페이스만 바뀜) |
+
+- **`AndroidClipboardJsonBuilder`를 삭제했습니다.** Manager는 JSON을 만들지 않고, 페이로드 필드를 그대로 C ABI에 전달합니다. 이 빌더를 호출하던 코드는 페이로드를 `AndroidClipboardManager`의 메서드에 전달하도록 고쳐 주세요. JSON 문자열을 반환하는 대체 API는 없습니다.
+
+#### 1.12.0과 다른 동작
+
+| 상황 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| 복사와 `Clear`가 적용되는 시점 | Android 메인 스레드에 쌓아 두었다가 나중에 실행됨 | 호출 안에서 실행됩니다. 메서드가 반환된 시점에 클립보드는 이미 바뀌어 있습니다. 결과는 이전처럼 나중에 `ClipboardOperationCompleted`로 전달됩니다. Unity 메인 스레드에서 호출하면 호출이 조금 길어집니다 |
+| `StartObserving` 직후의 복사 | `ClipboardChanged`가 발생함(시작과 복사가 Android 메인 스레드에서 순서대로 실행됨) | `ClipboardChanged`가 발생하지 않을 수 있습니다. 관찰은 나중에 Android 메인 스레드에서 시작되며, 언제 시작되는지는 보장되지 않습니다. `StartObserving`과 같은 프레임의 변경에 의존하지 마세요 |
+| Unity 메인 스레드가 아닌 스레드에서 호출 | 받아들이지 않음. 비동기 작업은 `<operation> could not be started.`, `Read`와 `GetDescription`은 `CLIPBOARD_BRIDGE_UNAVAILABLE`로 실패함 | 받아들입니다. 결과와 이벤트는 Unity 메인 스레드로 전달됩니다. `AndroidClipboardManager.Instance`는 처음에 GameObject를 만들므로, 처음 가져오는 것은 Unity 메인 스레드에서 해 주세요 |
+| 현재 Activity가 없을 때 | 작업이 `<operation> could not be started.`로 실패함 | Activity가 필요하지 않습니다. 라이브러리는 애플리케이션 Context를 사용합니다 |
+| 결과가 오기 전에 같은 작업을 다시 호출 | 나중 호출의 콜백이 앞 호출의 결과를 받을 수 있었음 | 각 호출이 자신의 결과를 받습니다 |
+| 페이로드의 문자열이 null | 문자열 `"null"`로 전달함(`text = null`은 `null`이라는 글자를 복사함) | `""`로 전달합니다. `text`와 목록 요소는 빈 문자열을 복사하고, `htmlText`의 null은 `Clipboard content is empty. Please provide text or HTML.`, `uri`의 null은 `Invalid URI: `로 실패합니다 |
+| 페이로드나 `texts`가 null | `NullReferenceException` | `ArgumentNullException` |
+| 문자열 중간의 U+0000 | 그대로 복사함 | 첫 U+0000에서 문자열이 잘립니다 |
+| 짝이 맞지 않는 서로게이트 | 그대로 복사함 | 복사할 때도 읽을 때도 U+FFFD가 됩니다 |
+| `CLIPBOARD_SECURITY` 메시지 | `Security restriction while accessing clipboard: <예외 메시지>` | `Security restriction while accessing clipboard.` |
+| 그 밖의 실패 메시지(`CLIPBOARD_UNKNOWN` 등) | `Failed: <예외 메시지>` | `Failed: <오류 이름>`(`Failed: UNKNOWN`, `Failed: OUT_OF_MEMORY` 등) |
+| `Read` / `GetDescription` 중 메모리 부족 | 예외 메시지와 함께 `CLIPBOARD_BRIDGE_UNAVAILABLE`(`HasClip`은 `false`) | `Failed: OUT_OF_MEMORY`와 함께 `CLIPBOARD_UNKNOWN`(`HasClip`은 여전히 `false`) |
+| 앱 시작 직후의 호출 | 그런 상태가 없었음 | native-toolkit의 초기화가 끝날 때까지 `<operation> could not be started.`(`Read`와 `GetDescription`은 `CLIPBOARD_BRIDGE_UNAVAILABLE`)로 실패할 수 있습니다 |
+| `StopObserving`의 결과 | 항상 성공. 관찰이 멈춘 뒤에 전달됨 | 중지를 Android 메인 스레드에 넘길 수 있으면 성공이며, 실제로 멈추기 전에 전달됩니다. 넘기지 못하면 실패합니다 |
+| `StopObserving` 이후의 변경 | Android 메인 스레드에서 멈출 때까지의 변경은 전달됨 | 호출이 반환된 뒤에는 전달 대기 중인 것까지 포함해 `ClipboardChanged`가 발생하지 않습니다. 다른 스레드에서 호출한 경우, 그 순간 Unity 메인 스레드에서 발생 중인 1회가 전달될 수 있습니다 |
+| 같은 앱에서 native-toolkit의 Kotlin API도 관찰할 때 | 별개였음(브리지 전용 모니터) | 프로세스에서 하나를 공유합니다. `StopObserving`과, Unity가 관찰 중일 때의 Manager 파괴는 Kotlin API의 관찰도 멈춥니다. Kotlin API를 위한 관찰이 잡은 변경은 Unity가 `StartObserving`을 호출할 때까지 `ClipboardChanged`에 나오지 않습니다. Kotlin API의 `stopObserving()`은 `ClipboardChanged`도 멈춥니다 |
+| Manager 파괴 전후에 오는 결과와 변경 | 파괴 전에 쌓인 결과는 파괴된 Manager의 이벤트로 전달됨 | 전달 시점에 살아 있는 Manager(다시 만들었다면 새 Manager)로 전달하고, 없으면 버립니다 |
+| 결과가 전달되는 프레임 | Editor의 결과와 C# 측에서 발견한 실패는 호출과 같은 루프에서 전달될 수 있었음 | 항상 메서드가 반환된 뒤입니다. 패키지의 결과 큐보다 먼저 실행되는 `Update`에서 호출하면 같은 프레임, 그렇지 않으면 다음 프레임입니다 |
+| Editor | `AndroidClipboardManager`는 Android 빌드 타겟일 때만 있었음 | 모든 빌드 타겟에서 Editor에 있으며, 모든 호출이 실패합니다(`<operation> could not be started.`, `CLIPBOARD_BRIDGE_UNAVAILABLE`, `HasClip`은 `false`) |
+| `Initialize()` | 브리지를 다시 가져오고 리스너를 교체함 | 변경 리스너를 프로세스당 한 번만 등록합니다. 다시 호출해도 아무 일도 하지 않습니다 |
+| 로그 수준 | 플러그인 인스턴스나 현재 Activity가 없으면 `LogError` | 네이티브 라이브러리를 쓸 수 없으면 `LogWarning` |
+
 ### 설정
 
 #### 네임스페이스 가져오기
 
-`AndroidClipboardManager`는 Android 빌드 타겟이 선택된 경우에만 컴파일됩니다.
+`AndroidClipboardManager`는 Android Player와 Editor(모든 빌드 타겟)에 컴파일됩니다. 다른 Player에는 없습니다.
 
 ```csharp
-// 가드: Android 전용. AndroidClipboardManager는 다른 빌드 타겟에는 존재하지 않습니다.
-#if UNITY_ANDROID
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+// 가드: AndroidClipboardManager는 Android Player와 Editor에만 존재합니다.
+#if UNITY_ANDROID || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
 #endif
 ```
 
-네이티브 브리지는 실제 기기에서만 존재하므로, 에디터에서도 실행되는 MonoBehaviour 등 자체 스크립트의 호출 지점에서는 에디터를 추가로 제외해야 합니다.
+네이티브 라이브러리는 실제 기기에서만 존재하므로, 에디터에서도 실행되는 MonoBehaviour 등 자체 스크립트의 호출 지점에서는 에디터를 추가로 제외해야 합니다.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = "Hello" });
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = "Hello" });
 #endif
 ```
 
@@ -167,7 +231,7 @@ private static string CreateContentUri(string path)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "Hello from Unity Native Toolkit",
     label = "sample"
@@ -187,7 +251,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = ""
 });
@@ -204,7 +268,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = "<b>Hello</b>"
@@ -224,7 +288,7 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "",
     htmlText = "<b>Html only</b>"
@@ -248,7 +312,7 @@ string path = Path.Combine(Application.persistentDataPath, "clipboard_sample.txt
 File.WriteAllText(path, "Clipboard sample file content");
 string uri = CreateContentUri(path);
 
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = uri
 });
@@ -269,7 +333,7 @@ AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = new[] { "First", "", "Third" }
 });
@@ -288,7 +352,7 @@ AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "P@ssw0rd-sample",
     isSensitive = true
@@ -310,7 +374,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "NTK-7F3A-92QX",
     label = "invite code"
@@ -331,11 +395,11 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
+    case AndroidClipboardReadStatus.HasContent:
         string? code = ExtractFirstText(result.Contents!);
         // 클립에 일반 텍스트 항목이 없으면(URI 전용 클립 등) null
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // 클립보드가 비어 있음. 실패가 아닌 정상적인 결과
         break;
     default:
@@ -343,7 +407,7 @@ switch (result.Status)
         break;
 }
 
-static string? ExtractFirstText(ClipContents contents)
+static string? ExtractFirstText(AndroidClipContents contents)
 {
     foreach (var item in contents.Items)
     {
@@ -385,7 +449,7 @@ private IEnumerator CaptureAndCopyScreenshot()
         if (screenshot != null) Destroy(screenshot);
     }
 
-    AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+    AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
     {
         uri = uri,
         label = "screenshot"
@@ -411,11 +475,11 @@ private IEnumerator CaptureAndCopyScreenshot()
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipContents contents = result.Contents!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipContents contents = result.Contents!;
         // contents.Label, contents.MimeTypes, contents.Items (각 항목의 Text / HtmlText / Uri / CoercedText)
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // 실패가 아닌 정상적인 결과
         break;
     default:
@@ -458,11 +522,11 @@ bool hasClip = AndroidClipboardManager.Instance.HasClip();
 var result = AndroidClipboardManager.Instance.GetDescription();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipDescriptionInfo info = result.Description!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipDescriptionInfo info = result.Description!;
         // info.Label, info.MimeTypes, info.IsStyledText, info.ClassificationStatus (API 31 미만에서는 null)
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         break;
     default:
         break;
@@ -494,9 +558,9 @@ AndroidClipboardManager.Instance.Clear();
 
 ### 관찰 시작·중지
 
-`StartObserving`은 성공·실패 여부와 관계없이 결과를 전혀 알리지 않습니다. 성공으로 표시하지 마세요. 관찰 중 클립보드 변경은 `ClipboardChanged` 이벤트로 전달됩니다([이벤트 수신](#이벤트-수신) 참고). 이미 관찰 중인 상태에서 다시 호출하면 네이티브 측에서는 아무 동작도 하지 않습니다. 관찰은 앱이 포그라운드에 있는 동안에만 안정적으로 동작합니다(Android 10 이상의 플랫폼 제약).
+`StartObserving`은 성공·실패 여부와 관계없이 결과를 전혀 알리지 않습니다. 성공으로 표시하지 마세요. 관찰 중 클립보드 변경은 `ClipboardChanged` 이벤트로 전달됩니다([이벤트 수신](#이벤트-수신) 참고). 이미 관찰 중인 상태에서 다시 호출하면 네이티브 측에서는 아무 동작도 하지 않습니다. 관찰은 조금 뒤에 Android 메인 스레드에서 시작되며, 언제 시작되는지는 보장되지 않습니다. `StartObserving` 직후(예: 같은 프레임)의 변경에서는 `ClipboardChanged`가 발생하지 않을 수 있습니다. 관찰은 앱이 포그라운드에 있는 동안에만 안정적으로 동작합니다(Android 10 이상의 플랫폼 제약).
 
-`StopObserving`은 다른 작업과 마찬가지로 비동기 API이며 `ClipboardOperationCompleted`를 통해 결과가 통보됩니다. 화면이 숨겨진 뒤에도 관찰이 계속되지 않도록 `OnDisable`에서 호출하세요.
+`StopObserving`은 다른 작업과 마찬가지로 비동기 API이며 `ClipboardOperationCompleted`를 통해 결과가 통보됩니다. 화면이 숨겨진 뒤에도 관찰이 계속되지 않도록 `OnDisable`에서 호출하세요. `StopObserving`이 반환된 뒤에는 `ClipboardChanged`가 발생하지 않습니다. 관찰은 같은 앱의 native-toolkit Kotlin API와 공유되므로, `StopObserving`은 그쪽의 관찰도 멈춥니다.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -537,7 +601,7 @@ private void OnDisable()
 }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-private void OnClipboardOperationCompleted(ClipboardOperationResult result)
+private void OnClipboardOperationCompleted(AndroidClipboardOperationResult result)
 {
     string status = result.IsSuccess ? "Success" : "Failed";
     Debug.Log($"[event] {result.Operation}: {status}");
@@ -564,7 +628,7 @@ private void OnClipboardChanged()
 #if UNITY_ANDROID && !UNITY_EDITOR
 // HTML 텍스트가 빈 문자열이면 실패: CLIPBOARD_EMPTY_CONTENT
 // ErrorMessage: "Clipboard content is empty. Please provide text or HTML."
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = ""
@@ -572,20 +636,20 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 // 항목 배열이 비어 있으면 실패: CLIPBOARD_EMPTY_ITEMS
 // ErrorMessage: "No items provided for clipboard copy."
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = Array.Empty<string>()
 });
 
 // URI가 빈 문자열이면 실패: CLIPBOARD_INVALID_URI
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = ""
 });
 
-// http:// 스킴은 거부됨. content:// URI만 지원: CLIPBOARD_INVALID_URI
+// http:// 스킴은 거부됨. content://와 file:// URI만 허용: CLIPBOARD_INVALID_URI
 // ErrorMessage는 "Invalid URI:"로 시작함
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = "http://example.com/x"
 });
@@ -598,13 +662,13 @@ AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
 | --- | --- |
 | `CLIPBOARD_EMPTY_CONTENT` | `CopyHtmlText`가 빈 문자열 `htmlText`로 호출됨 |
 | `CLIPBOARD_EMPTY_ITEMS` | `CopyMultipleText`가 빈 `texts` 배열로 호출됨 |
-| `CLIPBOARD_INVALID_URI` | `CopyUri`가 빈 문자열, 잘못된 형식, 또는 `content://`가 아닌 URI로 호출됨 |
+| `CLIPBOARD_INVALID_URI` | `CopyUri`가 빈 문자열이나 잘못된 형식의 URI, 또는 스킴이 `content://`도 `file://`도 아닌 URI로 호출됨 |
 | `CLIPBOARD_READ_NOT_ALLOWED` | 네이티브 계층이 읽기를 거부함(포커스·권한 제약 등) |
 | `CLIPBOARD_SECURITY` | 네이티브 계층이 보안상의 이유로 작업을 거부함 |
 | `CLIPBOARD_UNAVAILABLE` | 시스템 `ClipboardManager`를 가져올 수 없었음 |
-| `CLIPBOARD_UNKNOWN` | 분류되지 않은 실패. Unity 측 파싱 실패에도 사용됨 |
+| `CLIPBOARD_UNKNOWN` | 분류되지 않은 실패. 네이티브 계층의 메모리 부족(`Failed: OUT_OF_MEMORY`)도 여기에 해당함 |
 
-`Read`와 `GetDescription`은 네이티브 브리지 자체에 접근할 수 없는 경우(Android에서 실행 중이 아님, 플러그인 미초기화, currentActivity를 가져올 수 없음 등) 추가로 `CLIPBOARD_BRIDGE_UNAVAILABLE`을 반환할 수 있습니다. 이는 네이티브 계층이 반환하는 값이 아니라 Unity 측 에러 코드입니다.
+`Read`와 `GetDescription`은 네이티브 라이브러리를 호출할 수 없는 경우(Android에서 실행 중이 아님, 네이티브 라이브러리를 쓸 수 없음(ARM64와 x86_64용만 포함), 앱 시작 직후라 native-toolkit이 아직 초기화되지 않음, 호출 중 예외 발생 등) 추가로 `CLIPBOARD_BRIDGE_UNAVAILABLE`을 반환할 수 있습니다. 이는 네이티브 계층이 반환하는 값이 아니라 Unity 측 에러 코드입니다.
 
 ---
 
@@ -2209,7 +2273,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 1.12.0부터 Windows 클립보드는 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, `Operation*` 값, 결과 타입, 오류 코드 값, `WindowsClipboardJsonBuilder`, 페이로드 타입, 스레드 규칙은 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
 
-- **네임스페이스.** `WindowsClipboardManager`와 결과·페이로드·빌더 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Clipboard;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+- **네임스페이스.** `WindowsClipboardManager`와 결과·페이로드·빌더 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Clipboard;`를 바꿔 주세요. iOS와 macOS 타입의 네임스페이스는 그대로입니다. Android 타입은 1.13.0에서 `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard`로 옮겨졌습니다([1.13.0 변경 사항](#1130-변경-사항) 참고).
 
 | 상황 | 1.11.0 | 1.12.0 |
 | --- | --- | --- |
