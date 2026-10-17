@@ -100,7 +100,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 
         /// <summary>
         /// The copy options. A null or blank label is no label (NULL), as 1.x left it out of the JSON
-        /// (<c>AndroidClipboardJsonBuilder</c>); the library then labels the clip "".
+        /// (its JSON builder, removed in stage 4); the library then labels the clip "".
         /// </summary>
         internal static CopyOptions BuildOptions(string? label, bool sensitive, List<IntPtr> allocated) => new()
         {

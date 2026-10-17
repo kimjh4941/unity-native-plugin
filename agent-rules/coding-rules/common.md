@@ -516,6 +516,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 - 複雑な構造（通知コンテンツ等）はネイティブとの境界を JSON 文字列で渡す
 - `XxxJsonBuilder` クラスで JSON 組み立てを担い、Manager から呼び出す
+  - Android の例外: Share・Clipboard の Manager は Payload を C ABI の構造体に移して渡し、JSON ビルダーを持たない（1.x の Share・Clipboard の JSON ビルダーは段 4 で消した。2026-10-17）。`AndroidNotificationJsonBuilder` は、利用者が Manager に渡す JSON を組むための道具で、Manager からは呼ばない
 - JSON のスキーマ変更はネイティブ側との整合を必ず確認する
 
 ---

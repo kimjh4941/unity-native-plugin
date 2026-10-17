@@ -11,9 +11,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Builds JSON strings for Android notification APIs with full control over optional fields.
     /// </summary>
     /// <remarks>
-    /// Since 2.0.0, <see cref="AndroidNotificationManager"/> reads the JSON itself and does not use
-    /// this class; it stays public for the apps that build their JSON with it, and goes in stage 4
-    /// (artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md, J-N17).
+    /// The manager's operations take JSON, and this is the way to build it: the manager reads what it
+    /// writes by the rules 1.x's parser had (artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md,
+    /// 4.2). The manager does not call this class itself.
     /// </remarks>
     public static class AndroidNotificationJsonBuilder
     {
