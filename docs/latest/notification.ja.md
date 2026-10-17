@@ -13,6 +13,7 @@
 ## 目次
 
 - [Android](#android)
+  - [1.13.0 での変更](#1130-での変更)
   - [セットアップ](#セットアップ)
   - [権限](#権限)
   - [チャンネル管理](#チャンネル管理)
@@ -58,6 +59,82 @@
 
 ## Android
 
+### 1.13.0 での変更
+
+1.13.0 から、Android の通知は 1.x の Kotlin のブリッジではなく、native-toolkit の C ABI 2.0.0 で動きます。`AndroidNotificationManager` のメソッド、イベント、定数は変わらず、今も `AndroidNotificationJsonBuilder` で組み立てた JSON を受け取り、1.12.0 と同じ規則で読みます。直すことと、1.12.0 との違いは次のとおりです。
+
+#### コードの直し方
+
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- 下の表の型の名前を書き換えてください。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
+- 1.12.0 の名前で `[SerializeReference]` に保存したデータは、新しい型として値ごと読み込まれます。改名した型は、1.12.0 の名前を `[MovedFrom]` で記録しています。
+
+名前が変わった型です。`AndroidNotificationManager` と `AndroidNotificationJsonBuilder` は名前が変わらず、名前空間だけが移りました。
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `NotificationResult` | `AndroidNotificationResult` |
+| `NotificationActionResult` | `AndroidNotificationActionResult` |
+| `NotificationReceivedResult` | `AndroidNotificationReceivedResult` |
+| `NotificationResourcePayload` | `AndroidNotificationResourcePayload` |
+| `ChannelPayload` | `AndroidChannelPayload` |
+| `NotificationPayload` | `AndroidNotificationPayload` |
+| `NotificationActionPayload` | `AndroidNotificationActionPayload` |
+| `ScheduledNotificationEnvelopePayload` | `AndroidScheduledNotificationEnvelopePayload` |
+| `NotificationSchedulePayload` | `AndroidNotificationSchedulePayload` |
+| `NotificationProgressPayload` | `AndroidNotificationProgressPayload` |
+| `NotificationStylePayload` | `AndroidNotificationStylePayload` |
+| `NotificationMessagePayload` | `AndroidNotificationMessagePayload` |
+| `NotificationDataEntryPayload` | `AndroidNotificationDataEntryPayload` |
+| `NotificationViewActionPayload` | `AndroidNotificationViewActionPayload` |
+
+#### Android の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `android-native-toolkit-1.3.0.aar` と `unity-android-native-toolkit-1.3.0.aar` を外しました。パッケージに入っているのは `android-native-toolkit-2.0.0.aar` と `android-native-toolkit-capi-2.0.0.aar`（native-toolkit の C ABI 2.0.0）です。これらのクラス（`android.unity.*`、`android.library.*`）を直接呼んでいたコードは動きません。
+- **「Configure Gradle Project」は無くなりました。** メニューの Tools > Native Toolkit > Android > Configure Gradle Project と、そのウィンドウを削除しました。実行時に要るライブラリ（`kotlin-stdlib` 2.2.21、`kotlinx-coroutines-core` 1.9.0 を含む 7 つ）は、ビルドが `unityLibrary/build.gradle` に自分で足します。Kotlin の Gradle プラグインは適用しなくなりました。独自の Gradle のテンプレートや EDM4U を使っている場合は、版がぶつからないか確かめてください。
+- **64 ビットと IL2CPP だけに対応します。** ARMv7（32 ビット）も含むビルドはメッセージを出して止まります。Mono には対応しません。[Android の要件](index.ja.md#android-の要件)を見てください。
+
+#### 通知の変更
+
+- **1.12.0 のために足した `<service>` の行を消してください。** 1.12.0 のマニュアルは、`AndroidManifest.xml` に `<service android:name="android.library.notification.presentation.progress.ProgressForegroundService" ... />` を足すよう案内していました。このクラスは 1.x のライブラリにあったもので、今はありません。この行を消してください。フォアグラウンドサービスはライブラリが自分のマニフェストで宣言するので、プログレス通知のためにアプリのマニフェストに書くものはありません。
+- **権限が無いときの通知の表示は失敗になりました。** `POST_NOTIFICATIONS` の権限が無いとき（Android 13 以降）や、アプリの通知がオフのとき、`ShowNotification`、`UpdateNotification`、過ぎた時刻への `ScheduleNotification` は `NotificationOperationCompleted` で失敗を知らせます。1.12.0 は成功を知らせ、何も表示しませんでした。先に `HasPermission()` と `AreNotificationsEnabled()` を確かめるか、`RequestPermission` を呼んでください。
+- **見つからないリソースの名前は失敗になりました。** アイコン、画像、レイアウト、ビューの ID は名前で指定し、通知を表示・更新・予約するとき、またはプログレスのメソッドに渡したときに探します。アプリに無い名前はその呼び出しを失敗させ、何も表示しません。1.12.0 はアプリのアイコンや既定のスタイルで代えていました。`AndroidNotificationResourcePayload` の `type` は使わなくなりました（アイコンと画像は `drawable`、次に `mipmap` から探します）。名前でしか参照されないリソースはリソースの縮小で消えることがあるので、`tools:keep` で残してください（[名前で指定するリソースを残す](#名前で指定するリソースを残す)）。
+- **1.12.0 が保存した予約は消えます。** 1.13.0 でアプリが初めて起動したとき、ライブラリは 1.12.0 が保存した予約を読めないため、そのアラームを取り消して 1 回だけ削除します。更新の後に予約し直してください。`persistAcrossBoot = false` で作った 1.12.0 の予約は見つけられません。Android に残りますが、発火しても何も表示しません。
+- **1.12.0 が表示した通知は反応しなくなります。** 更新の前に出した通知は通知シェードに残りますが、更新の後は本体をタップしてもボタンを押しても何も起きません（タップを受け取っていたクラスが無くなったため）。
+- **`IsNotificationScheduled` が見るのは再起動の後も残る予約だけです。** 1.12.0 と同じく、`IsNotificationScheduled` と `CancelAllScheduledNotifications` は `persistAcrossBoot = true`（既定）で作った予約だけを見つけます。それ以外の予約は `CancelScheduledNotification` で ID を指定して取り消してください。
+
+#### 1.12.0 との動作の違い
+
+`{op}` は `showNotification` などの操作の名前です。
+
+| 場面 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| 通知の権限が無い、またはアプリの通知がオフのときの表示、更新、過ぎた時刻への予約 | 成功（何も表示しない） | 失敗: `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` |
+| アプリに無いリソースの名前（アイコン、画像、レイアウト、ビューの ID） | アプリのアイコン、項目の省略、既定のスタイルで代えた | 失敗: `Failed to {op}: a resource named in the notification was not found.` 何も表示しない |
+| リソースの `type` | その種類だけを探した | 使わない。`drawable`、次に `mipmap`（レイアウトは `layout`、ビューの ID は `id`） |
+| プラットフォームの範囲の外の値（`groupAlertBehavior`、`timestamp`、`timeoutAfter`、`semanticAction`、`alarmType`、振動の負の値、メッセージの負の時刻） | 検査せずに渡した | `Invalid argument for {op}: Please verify the input parameters.` |
+| JSON の構文の誤り、`null` や空の JSON | `Failed to {op}:` と JSON パーサーの文言 | `Failed to {op}: the JSON could not be read.` |
+| 緩い JSON（引用符の無いキー、単引用符、コメント） | 受け付けた | 構文の誤り |
+| 型の違う JSON の値（文字列で書いた数など） | 変換した | 無いものとして扱う。整数の項目の小数は 0 の方向に切り捨てる |
+| 文字列でない `data` の値、`lines` の中の `null` | 文字列にした（`null` は `"null"`） | 捨てる |
+| `AndroidNotificationActionResult.Data` の値 | JSON のエスケープが残った（`a\"b`、`c\/d`） | 送ったとおりの値 |
+| 本体のタップや、`launchApp` のアクション | アプリが前面に来なかった（Android 16 で確認） | アプリが開く |
+| タップからアプリを開く Intent の action | アクション ID | 無い（ランチャーの Intent） |
+| アプリを開く Intent のフラグ（タップとフルスクリーンインテント） | `NEW_TASK \| CLEAR_TOP` | `NEW_TASK \| RESET_TASK_IF_NEEDED` |
+| Manager が無い間のタップ（アプリの起動前を含む） | 捨てた | 32 件まで保ち、Manager を初めて作った後のフレームで届く。`Instance` を初めて読んだフレームで `NotificationActionTapped` を購読する |
+| Unity のメインスレッド以外からの呼び出し | `{op} could not be started.` | 受け付ける（`RequestPermission` と、`Instance` の最初の読み出しは今もメインスレッドで） |
+| `OpenNotificationSettings` | アプリの詳細の画面に落ちた | アプリの通知の設定の画面を開く |
+| アプリが背面にあるときに設定の画面を開く | 別のスレッドから呼ぶと（背面では Unity のメインスレッドが止まっている）、`{op} could not be started.` で失敗した | `Failed to {op}: the app is not in the foreground.` |
+| アプリが背面にあるときのプログレスのメソッド | システムの例外の文言で失敗した | `Failed to {op}: the system did not allow the foreground service from the background.` |
+| `DeleteChannel(null)` | `NullPointerException` の文言で失敗した | 成功（チャンネル `""` を消す） |
+| 正確なアラームの権限が無く不正確にした予約の、再起動の後 | 権限があれば正確に戻した | 不正確のまま |
+| Manager を破棄する前後に届く結果とイベント | 破棄した Manager で発生した | その時点で生きている Manager で発生し、無ければ捨てる |
+| 1.12.0 が保存した予約 | 残った | 最初の起動で 1 回だけ取り消して削除する |
+| 1.12.0 が表示した通知 | タップとボタンに反応した | 反応しない |
+| Editor での型 | ビルドターゲットが Android のときだけあった | どのビルドターゲットでもある（Editor では今も操作は何もせず、開始できなかったと知らせる） |
+
+変わらないもの: メソッド、イベント、`Operation*` と `Action*` の定数、JSON の形。正確なアラームの権限が無いときに、正確な予約を不正確にすること。1.12.0 の JSON の補正（たとえば 0〜4 の外の `importance` は 3 に、`priority` は -2〜2 に丸めます）。
+
 ### セットアップ
 
 #### AndroidManifest.xml
@@ -82,11 +159,22 @@
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
 #endif
 ```
 
-> **注記:** `ChannelPayload` / `NotificationPayload` などの DTO と `AndroidNotificationJsonBuilder` はランタイムに含まれています。`JsonUtility.ToJson(...)` ではなく、`AndroidNotificationJsonBuilder` を使うと optional フィールドや `data` を含む spec 準拠 JSON を組み立てられます。
+> **注記:** `AndroidChannelPayload` / `AndroidNotificationPayload` などの DTO と `AndroidNotificationJsonBuilder` はランタイムに含まれています。`JsonUtility.ToJson(...)` ではなく、`AndroidNotificationJsonBuilder` を使うと optional フィールドや `data` を含む spec 準拠 JSON を組み立てられます。
+
+#### 名前で指定するリソースを残す
+
+通知のアイコン、画像、レイアウト、ビューの ID は名前で指定し、通知を表示・更新・予約するとき、またはプログレスのメソッドに渡したときに探します。アイコンと画像は `drawable`、次に `mipmap`、レイアウトは `layout`、ビューの ID は `id` から探します。`AndroidNotificationResourcePayload` の `type` は使いません。アプリに無い名前は、その呼び出しを `Failed to {op}: a resource named in the notification was not found.` で失敗させ、何も表示しません。
+
+リソースの縮小は、名前でしか参照されないリソースを消します。ビルドでリソースを縮小する場合は、`tools:keep` で残してください。たとえば Android ライブラリのフォルダ（`Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/` など）の `res/raw/keep.xml` に書きます。
+
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/my_image,@layout/nt_notification_custom_view_sample,@layout/nt_notification_custom_view_sample_expanded" />
+```
 
 ---
 
@@ -126,7 +214,7 @@ AndroidNotificationManager.Instance.OpenExactAlarmSettings();
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new ChannelPayload
+string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
 {
     id = "my_channel",
     name = "マイチャンネル",
@@ -170,7 +258,7 @@ AndroidNotificationManager.Instance.DeleteChannel("my_channel");
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation    — どの操作が完了したかを示す
     // result.IsSuccess    — 成功の場合 true
@@ -186,7 +274,7 @@ private void OnOperationCompleted(NotificationResult result)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "エネルギー回復",
@@ -201,7 +289,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     category = "recommendation",
     ticker = "Energy refilled",
     number = 3,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "あなたの部隊は完全に回復しました。スタミナ上限があふれる前に次のレイドへ戻りましょう。",
@@ -222,13 +310,15 @@ AndroidNotificationManager.Instance.ShowNotification(notificationJson);
 
 > **注意:** これらのコード例は、`AndroidNotificationManagerExampleController` と同じ `CreateGameplayChannelReference()` と `CreateUnityAppIconResource()` をそのまま使う形にそろえています。
 
+> **注意:** `POST_NOTIFICATIONS` の権限が無いとき（Android 13 以降）や、アプリの通知がオフのとき、`ShowNotification` と `UpdateNotification` は失敗し、`NotificationOperationCompleted` に `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` が届きます。先に `HasPermission()` と `AreNotificationsEnabled()` を確かめてください。
+
 #### 更新
 
 同じ `id` / `tag` のペイロードを渡すと、表示中の通知を上書きします。
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "デイリー報酬の受け取り準備完了",
@@ -240,7 +330,7 @@ string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificatio
     subText = "街の報酬",
     autoCancel = true,
     priority = 1,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigPicture",
         picture = CreateUnityAppIconResource(),
@@ -290,7 +380,7 @@ AndroidNotificationManager.Instance.CancelAllNotifications();
 展開時に長いテキストを表示します。
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigText",
     bigText = "展開時に表示される長い本文テキストです。",
@@ -304,7 +394,7 @@ style = new NotificationStylePayload
 展開時に複数行をリスト形式で表示します。`lines` に各行を配列で渡します。
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "inbox",
     lines = new[] { "項目 1", "項目 2", "項目 3" },
@@ -318,10 +408,10 @@ style = new NotificationStylePayload
 展開時に画像を表示します。`picture` に画像リソース参照を渡します。
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigPicture",
-    picture = new NotificationResourcePayload { name = "my_image", type = "drawable" },
+    picture = new AndroidNotificationResourcePayload { name = "my_image", type = "drawable" },
     bigContentTitle = "展開時のタイトル",
     summaryText = "画像の説明"
 }
@@ -339,7 +429,7 @@ style = new NotificationStylePayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1601,
     title = "カスタムレイアウト通知",
@@ -347,14 +437,14 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     channel = CreateGameplayChannelReference(),
     smallIcon = CreateUnityAppIconResource(),
     autoCancel = true,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "decoratedCustomView",
         customViewLayout = "nt_notification_custom_view_sample",         // 折りたたみレイアウト
         bigCustomViewLayout = "nt_notification_custom_view_sample_expanded", // 展開レイアウト（任意）
         viewActions = new[]
         {
-            new NotificationViewActionPayload
+            new AndroidNotificationViewActionPayload
             {
                 type = "setClickIntent",
                 viewId = "nt_notification_btn_dismiss",  // レイアウト内のビュー ID
@@ -387,7 +477,7 @@ AndroidNotificationManager.Instance.ShowNotification(notificationJson);
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation    — 例: AndroidNotificationManager.OperationShowNotification
     // result.IsSuccess    — 成功の場合 true
@@ -420,7 +510,7 @@ private void OnOperationCompleted(NotificationResult result)
 AndroidNotificationManager.Instance.NotificationActionTapped += OnActionTapped;
 #endif
 
-private void OnActionTapped(NotificationActionResult result)
+private void OnActionTapped(AndroidNotificationActionResult result)
 {
     bool isBodyTap = result.ActionId == AndroidNotificationManager.ActionBodyTap;
     bool isDismiss = result.ActionId == AndroidNotificationManager.ActionNotificationDismissed;
@@ -436,8 +526,8 @@ private void OnActionTapped(NotificationActionResult result)
 ```csharp
 payload.data = new[]
 {
-    new NotificationDataEntryPayload { key = "screen", value = "battle" },
-    new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+    new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+    new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
 };
 
 string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
@@ -452,7 +542,7 @@ string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
 AndroidNotificationManager.Instance.NotificationReceived += OnNotificationReceived;
 #endif
 
-private void OnNotificationReceived(NotificationReceivedResult result)
+private void OnNotificationReceived(AndroidNotificationReceivedResult result)
 {
     // result.NotificationId — 通知 ID
     // result.Tag            — タグ（null の場合あり）
@@ -465,7 +555,7 @@ private void OnNotificationReceived(NotificationReceivedResult result)
 通知にアクションボタンを追加します。
 
 ```csharp
-NotificationPayload payload = new NotificationPayload
+AndroidNotificationPayload payload = new AndroidNotificationPayload
 {
     id = 1401,
     title = "マッチ成立",
@@ -477,7 +567,7 @@ NotificationPayload payload = new NotificationPayload
     launchAction = "open_battle_screen",
     actions = new[]
     {
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "今すぐプレイ",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW",
@@ -485,7 +575,7 @@ NotificationPayload payload = new NotificationPayload
             launchApp = true,
             showsUserInterface = true
         },
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "閉じる",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS",
@@ -495,8 +585,8 @@ NotificationPayload payload = new NotificationPayload
     },
     data = new[]
     {
-        new NotificationDataEntryPayload { key = "screen", value = "battle" },
-        new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+        new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+        new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
     }
 };
 
@@ -512,7 +602,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(p
 デバイスがロック中またはスリープ中にフルスクリーンアクティビティを起動します（アラームや着信通知など）。`fullScreenIntent = true` を設定し、高優先度チャンネル（`importance = 4`）を使用します。
 
 ```csharp
-new NotificationPayload
+new AndroidNotificationPayload
 {
     id = 1501,
     title = "マッチ開始",
@@ -541,7 +631,7 @@ new NotificationPayload
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
 // 確定的プログレスバーで開始
-AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "ギルドバトル用アセットをダウンロード中",
@@ -550,8 +640,8 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
     smallIcon = CreateUnityAppIconResource(),
     ongoing = true,
     autoCancel = false,
-    progress = new NotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "次のマッチに向けてアリーナを準備しています。アセットのダウンロードが終わるまでアプリを終了しないでください。",
@@ -561,7 +651,7 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
 }));
 
 // プログレスを更新
-AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "レジェンダリー装備を鍛造中",
@@ -571,8 +661,8 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
     ongoing = true,
     autoCancel = false,
     onlyAlertOnce = true,
-    progress = new NotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "鍛冶場が最大出力で稼働しています。完成したらすぐ装備できるよう準備してください。",
@@ -582,7 +672,7 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
 }));
 
 // 完了 — サービスを停止して通常の通知に降格
-AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "鍛造完了",
@@ -591,8 +681,8 @@ AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNot
     smallIcon = CreateUnityAppIconResource(),
     ongoing = false,
     autoCancel = true,
-    progress = new NotificationProgressPayload { max = 100, current = 100, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = 100, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "レジェンダリーソードの受け取り準備ができました。次の戦闘前に鍛冶場へ戻って装備しましょう。",
@@ -614,14 +704,7 @@ AndroidNotificationManager.Instance.StopProgressForegroundService();
 
 ### フォアグラウンドサービス通知
 
-フォアグラウンドサービス通知には以下のマニフェストエントリが必要です。
-
-```xml
-<service
-    android:name="android.library.notification.presentation.progress.ProgressForegroundService"
-    android:foregroundServiceType="dataSync"
-    android:exported="false" />
-```
+フォアグラウンドサービス（種類は `dataSync`）はライブラリが自分のマニフェストで宣言するので、`<service>` の行を足す必要はありません。1.12.0 のために足した行は消してください（[1.13.0 での変更](#1130-での変更)）。
 
 `StartProgressForegroundService`、`UpdateProgressForegroundService`、`CompleteProgressForegroundService`、`StopProgressForegroundService` の使い方は[プログレス通知](#プログレス通知)を参照してください。
 
@@ -635,9 +718,9 @@ AndroidNotificationManager.Instance.StopProgressForegroundService();
 #if UNITY_ANDROID && !UNITY_EDITOR
 long triggerTime = DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds();
 
-string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
 {
-    notification = new NotificationPayload
+    notification = new AndroidNotificationPayload
     {
         id = 1201,
         title = "ギルドバトル間もなく開始",
@@ -649,7 +732,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
         priority = 1,
         groupKey = "guild-events",
         sortKey = "001",
-        style = new NotificationStylePayload
+        style = new AndroidNotificationStylePayload
         {
             type = "bigText",
             bigText = "チームキューが15秒後にオープンします。ロードアウトを最終確認し、出撃準備を整えてください。",
@@ -657,7 +740,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
             summaryText = "ギルドイベント"
         }
     },
-    schedule = new NotificationSchedulePayload
+    schedule = new AndroidNotificationSchedulePayload
     {
         triggerAtMillis = triggerTime,
         exact = true,           // 正確なアラーム（SCHEDULE_EXACT_ALARM が必要）
@@ -691,6 +774,8 @@ AndroidNotificationManager.Instance.CancelAllScheduledNotifications();
 bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1201, "guild-battle");
 #endif
 ```
+
+> **注意:** `IsNotificationScheduled` と `CancelAllScheduledNotifications` が見るのは、`persistAcrossBoot = true`（既定）で作った予約だけです。`persistAcrossBoot = false` で作った予約は、`CancelScheduledNotification` で ID を指定して取り消してください。
 
 ---
 
@@ -909,7 +994,7 @@ Windows 通知は `WindowsNotificationManager` を通じて提供されます。
 
 1.12.0 から、Windows の通知は native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、JSON のペイロードとその単位は変わりません。1.11.0 との違いは次のとおりです。
 
-- **名前空間。** `WindowsNotificationManager` と、ペイロード・ビルダー・結果の型は `JonghyunKim.NativeToolkit.Runtime.Windows.Notification` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+- **名前空間。** `WindowsNotificationManager` と、ペイロード・ビルダー・結果の型は `JonghyunKim.NativeToolkit.Runtime.Windows.Notification` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を書き換えてください。iOS / macOS の型の名前空間は変わりません。Android の型は 1.13.0 で `JonghyunKim.NativeToolkit.Runtime.Android.Notification` に移りました（[1.13.0 での変更](#1130-での変更)）。
 - **クリックが届くようになりました。** パッケージ化していないアプリ（Unity の Windows スタンドアロンビルドはすべてこれ）で、アプリが動いている間に通知やそのボタンをクリックすると、`NotificationInvoked` が発生します。1.11.0 ではクリックが届きませんでした。アプリが動いていないときにクリックするとアプリが起動し、`Initialize` の後にクリックが 1 回届きます。
 - **登録。** `Initialize` は `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator` も書き込み、これによってクリックがこの実行ファイルに届きます。**同じ `displayName` を使うアプリどうしはクリックを奪い合います。** ビルドごとに別の表示名にしてください。
 - **エラーコード `-4`**（「Native library unavailable」）。`Initialize` だけが返します。ネイティブライブラリが無い、関数が無い、読み込めない、または C ABI 2.x でないときです。Manager は作られないので、以後の操作は `1` で失敗します。

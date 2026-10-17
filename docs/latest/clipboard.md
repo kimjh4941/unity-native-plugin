@@ -13,6 +13,7 @@ Language:
 ## Table of Contents
 
 - [Android](#android)
+  - [Changes in 1.13.0](#changes-in-1130)
   - [Setup](#setup)
   - [Copy Plain Text](#copy-plain-text)
   - [Copy Plain Text (Empty, Allowed)](#copy-plain-text-empty-allowed)
@@ -113,24 +114,87 @@ Language:
 
 Clipboard is implemented on Android, iOS, macOS and Windows. Each platform has its own manager and its own API rather than a shared abstraction, because the four clipboards do not agree on what a clipboard is: see [iOS](#ios), [macOS](#macos) and [Windows](#windows).
 
+### Changes in 1.13.0
+
+Since 1.13.0 the Android clipboard runs on native-toolkit's C ABI 2.0.0 (`android-native-toolkit-capi-2.0.0.aar`) instead of the 1.x Kotlin bridge. The methods of `AndroidClipboardManager`, the events, the `Operation*` values, the payload fields, the error codes, most error messages and the shape of the read results are unchanged. What you need to change, and what behaves differently from 1.12.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
+- Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
+
+#### Breaking changes shared by every Android feature
+
+- **The 1.x native libraries are no longer bundled.** `android-native-toolkit-1.3.0.aar` and `unity-android-native-toolkit-1.3.0.aar` were removed. The package ships `android-native-toolkit-2.0.0.aar` and `android-native-toolkit-capi-2.0.0.aar` (native-toolkit's C ABI 2.0.0). Code that called their classes (`android.unity.*`, `android.library.*`) directly no longer works.
+- **"Configure Gradle Project" is gone.** The menu Tools > Native Toolkit > Android > Configure Gradle Project and its window were removed. The build now adds the runtime dependencies to `unityLibrary/build.gradle` itself (7 libraries, including `kotlin-stdlib` 2.2.21 and `kotlinx-coroutines-core` 1.9.0) and no longer applies the Kotlin Gradle plugin. If you use your own Gradle templates or EDM4U, check them for conflicting versions.
+- **64-bit and IL2CPP only.** A build that also targets ARMv7 (32-bit) stops with a message, and Mono is not supported. See [Android requirements](index.md#android-requirements).
+
+#### Renamed and removed types
+
+Every Android Clipboard type moved from `JonghyunKim.NativeToolkit.Runtime.Clipboard` to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard`. `AndroidClipboardManager` keeps its name; the other types gained the `Android` prefix. The iOS and macOS Clipboard types (`Ios*`, `Mac*`) did not change.
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `ClipboardOperationResult` | `AndroidClipboardOperationResult` |
+| `ClipboardReadStatus` | `AndroidClipboardReadStatus` |
+| `ClipItem` | `AndroidClipItem` |
+| `ClipContents` | `AndroidClipContents` |
+| `ClipboardReadResult` | `AndroidClipboardReadResult` |
+| `ClipDescriptionInfo` | `AndroidClipDescriptionInfo` |
+| `ClipboardDescriptionResult` | `AndroidClipboardDescriptionResult` |
+| `CopyPlainTextPayload` | `AndroidCopyPlainTextPayload` |
+| `CopyHtmlTextPayload` | `AndroidCopyHtmlTextPayload` |
+| `CopyUriPayload` | `AndroidCopyUriPayload` |
+| `CopyMultipleTextPayload` | `AndroidCopyMultipleTextPayload` |
+| `AndroidClipboardManager` | `AndroidClipboardManager` (namespace only) |
+
+- **`AndroidClipboardJsonBuilder` was removed.** The manager no longer builds JSON: it passes the payload fields to the C ABI. If your code called the builder, pass the payload to the `AndroidClipboardManager` method instead. There is no replacement that returns the JSON string.
+
+#### Behavior differences from 1.12.0
+
+| Case | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| When a copy or `Clear` takes effect | Queued to the Android main thread and run later | Runs inside the call: the clipboard has changed when the method returns. The result still arrives later through `ClipboardOperationCompleted`. Called on Unity's main thread, the call takes a little longer |
+| A copy right after `StartObserving` | Raised `ClipboardChanged`: the start and the copy ran in order on the Android main thread | May not raise `ClipboardChanged`. Observing starts later, on the Android main thread, with no guarantee of when. Do not rely on a change made in the same frame as `StartObserving` |
+| A call from a thread other than Unity's main thread | Refused: asynchronous operations failed with `<operation> could not be started.`, `Read` and `GetDescription` with `CLIPBOARD_BRIDGE_UNAVAILABLE` | Accepted. Results and events still arrive on Unity's main thread. `AndroidClipboardManager.Instance` creates a GameObject the first time, so get it on Unity's main thread first |
+| No current Activity | The operation failed with `<operation> could not be started.` | No Activity is needed: the library uses the application context |
+| The same operation called again before its result | The later call's callback could receive the earlier call's result | Each call receives its own result |
+| A null string in a payload | Passed as the string `"null"` (`text = null` copied the text `null`) | Passed as `""`: `text` and list elements copy an empty string, a null `htmlText` fails with `Clipboard content is empty. Please provide text or HTML.`, and a null `uri` fails with `Invalid URI: ` |
+| A null payload or `texts` | `NullReferenceException` | `ArgumentNullException` |
+| U+0000 inside a string | Copied as is | The string is cut at the first U+0000 |
+| Unpaired surrogates | Copied as is | Become U+FFFD, both when copying and when reading |
+| The `CLIPBOARD_SECURITY` message | `Security restriction while accessing clipboard: <exception message>` | `Security restriction while accessing clipboard.` |
+| Other failure messages (for example `CLIPBOARD_UNKNOWN`) | `Failed: <exception message>` | `Failed: <error name>`, for example `Failed: UNKNOWN` or `Failed: OUT_OF_MEMORY` |
+| Running out of memory in `Read` or `GetDescription` | `CLIPBOARD_BRIDGE_UNAVAILABLE` with the exception message (`HasClip` returned `false`) | `CLIPBOARD_UNKNOWN` with `Failed: OUT_OF_MEMORY` (`HasClip` still returns `false`) |
+| A call right after the app starts | No such state | Can fail with `<operation> could not be started.` (`CLIPBOARD_BRIDGE_UNAVAILABLE` for `Read` and `GetDescription`) until native-toolkit has initialized |
+| The `StopObserving` result | Always success, reported after observing had stopped | Success when the stop was handed to the Android main thread, reported before it takes effect. Failure when it could not be handed over |
+| Changes after `StopObserving` | Changes until the stop took effect on the Android main thread were still raised | No `ClipboardChanged` is raised after the call returns, even for a change already queued. Called from another thread, a change being raised on Unity's main thread at that moment can still reach its subscribers |
+| Observing together with native-toolkit's Kotlin API in the same app | Separate: the bridge had its own monitor | Shared by the process. `StopObserving`, and destroying the manager while Unity observes, also stop the Kotlin API's observing. Changes observed for the Kotlin API reach `ClipboardChanged` only after Unity calls `StartObserving`. The Kotlin API's `stopObserving()` stops `ClipboardChanged` too |
+| Results and changes around destroying the manager | A result queued before the manager was destroyed went to the destroyed manager's event | Goes to the manager alive when it is delivered (a new one if you created it again); dropped if there is none |
+| The frame a result arrives in | Results in the Editor and failures found on the C# side could arrive in the same loop as the call | Always after the method returns: in the same frame when called from an `Update` that runs before the package's result queue, otherwise in the next frame |
+| The Editor | `AndroidClipboardManager` existed only when the Android build target was selected | Exists in the Editor on every build target, and every call fails there (`<operation> could not be started.`, `CLIPBOARD_BRIDGE_UNAVAILABLE`, `HasClip` returns `false`) |
+| `Initialize()` | Fetched the bridge again and replaced the listener | Registers the change listener once per process. Calling it again does nothing |
+| Log level | `LogError` when the plugin instance or the current Activity was missing | `LogWarning` when the native library is not available |
+
 ### Setup
 
 #### Import the namespace
 
-`AndroidClipboardManager` compiles only when the Android build target is selected.
+`AndroidClipboardManager` is compiled into Android players and into the Editor (on every build target). Other players do not have it.
 
 ```csharp
-// Guard: Android only. AndroidClipboardManager does not exist on other build targets.
-#if UNITY_ANDROID
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+// Guard: AndroidClipboardManager exists only in Android players and in the Editor.
+#if UNITY_ANDROID || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
 #endif
 ```
 
-Call sites in your own scripts (for example a MonoBehaviour that also runs in the Editor) should additionally exclude the Editor at the call site, since the native bridge only exists on an Android device:
+Call sites in your own scripts (for example a MonoBehaviour that also runs in the Editor) should additionally exclude the Editor at the call site, since the native library only exists on an Android device:
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = "Hello" });
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = "Hello" });
 #endif
 ```
 
@@ -167,7 +231,7 @@ private static string CreateContentUri(string path)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "Hello from Unity Native Toolkit",
     label = "sample"
@@ -187,7 +251,7 @@ A blank `text` value is explicitly accepted by the native layer and does not fai
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = ""
 });
@@ -204,7 +268,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = "<b>Hello</b>"
@@ -224,7 +288,7 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "",
     htmlText = "<b>Html only</b>"
@@ -248,7 +312,7 @@ string path = Path.Combine(Application.persistentDataPath, "clipboard_sample.txt
 File.WriteAllText(path, "Clipboard sample file content");
 string uri = CreateContentUri(path);
 
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = uri
 });
@@ -269,7 +333,7 @@ Copies multiple plain-text items as one clip. Individual empty strings inside `t
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = new[] { "First", "", "Third" }
 });
@@ -288,7 +352,7 @@ Set `isSensitive` to request preview suppression in the system clipboard UI. Thi
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "P@ssw0rd-sample",
     isSensitive = true
@@ -310,7 +374,7 @@ Typical in-game clipboard flows: sharing an invite code, letting a player paste 
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "NTK-7F3A-92QX",
     label = "invite code"
@@ -331,11 +395,11 @@ Reads the clipboard synchronously and extracts the first item's plain text. This
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
+    case AndroidClipboardReadStatus.HasContent:
         string? code = ExtractFirstText(result.Contents!);
         // code is null when the clip holds no plain-text item (for example a URI-only clip).
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // Clipboard is empty. This is a normal outcome, not a failure.
         break;
     default:
@@ -343,7 +407,7 @@ switch (result.Status)
         break;
 }
 
-static string? ExtractFirstText(ClipContents contents)
+static string? ExtractFirstText(AndroidClipContents contents)
 {
     foreach (var item in contents.Items)
     {
@@ -385,7 +449,7 @@ private IEnumerator CaptureAndCopyScreenshot()
         if (screenshot != null) Destroy(screenshot);
     }
 
-    AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+    AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
     {
         uri = uri,
         label = "screenshot"
@@ -411,11 +475,11 @@ Synchronous. Returns clip content, an empty result, or a failure — an empty cl
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipContents contents = result.Contents!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipContents contents = result.Contents!;
         // contents.Label, contents.MimeTypes, contents.Items (Text / HtmlText / Uri / CoercedText per item)
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // Normal outcome, not a failure.
         break;
     default:
@@ -458,11 +522,11 @@ Synchronous. Reads clipboard metadata (label, MIME types, styled-text flag, clas
 var result = AndroidClipboardManager.Instance.GetDescription();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipDescriptionInfo info = result.Description!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipDescriptionInfo info = result.Description!;
         // info.Label, info.MimeTypes, info.IsStyledText, info.ClassificationStatus (null below API 31)
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         break;
     default:
         break;
@@ -494,9 +558,9 @@ AndroidClipboardManager.Instance.Clear();
 
 ### Start / Stop Observing
 
-`StartObserving` reports no result at all, on either success or failure — do not display it as a success. Clipboard changes while observing are delivered through the `ClipboardChanged` event (see [Receive Events](#receive-events)). A second call while already observing is a no-op on the native side. Observation is only reliable while the app is in the foreground (an Android 10+ platform restriction).
+`StartObserving` reports no result at all, on either success or failure — do not display it as a success. Clipboard changes while observing are delivered through the `ClipboardChanged` event (see [Receive Events](#receive-events)). A second call while already observing is a no-op on the native side. Observing starts a little later, on the Android main thread, with no guarantee of when: a change made right after `StartObserving` (for example in the same frame) may not raise `ClipboardChanged`. Observation is only reliable while the app is in the foreground (an Android 10+ platform restriction).
 
-`StopObserving` is asynchronous like the other operations and reports through `ClipboardOperationCompleted`. Call it in `OnDisable` so observation does not continue after your screen is hidden.
+`StopObserving` is asynchronous like the other operations and reports through `ClipboardOperationCompleted`. Call it in `OnDisable` so observation does not continue after your screen is hidden. No `ClipboardChanged` is raised after `StopObserving` returns. Observing is shared with native-toolkit's Kotlin API in the same app, so `StopObserving` stops its observing too.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -537,7 +601,7 @@ private void OnDisable()
 }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-private void OnClipboardOperationCompleted(ClipboardOperationResult result)
+private void OnClipboardOperationCompleted(AndroidClipboardOperationResult result)
 {
     string status = result.IsSuccess ? "Success" : "Failed";
     Debug.Log($"[event] {result.Operation}: {status}");
@@ -564,7 +628,7 @@ All asynchronous operations report success or failure via `ClipboardOperationCom
 #if UNITY_ANDROID && !UNITY_EDITOR
 // Blank HTML text fails: CLIPBOARD_EMPTY_CONTENT.
 // ErrorMessage: "Clipboard content is empty. Please provide text or HTML."
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = ""
@@ -572,20 +636,20 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 // Empty items array fails: CLIPBOARD_EMPTY_ITEMS.
 // ErrorMessage: "No items provided for clipboard copy."
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = Array.Empty<string>()
 });
 
 // Blank URI fails: CLIPBOARD_INVALID_URI.
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = ""
 });
 
-// http:// scheme is rejected; only content:// URIs are supported: CLIPBOARD_INVALID_URI.
+// http:// scheme is rejected; only content:// and file:// URIs are accepted: CLIPBOARD_INVALID_URI.
 // ErrorMessage starts with "Invalid URI:".
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = "http://example.com/x"
 });
@@ -598,13 +662,13 @@ The full set of stable error codes reported through `ErrorCode`:
 | --- | --- |
 | `CLIPBOARD_EMPTY_CONTENT` | `CopyHtmlText` was called with a blank `htmlText`. |
 | `CLIPBOARD_EMPTY_ITEMS` | `CopyMultipleText` was called with an empty `texts` array. |
-| `CLIPBOARD_INVALID_URI` | `CopyUri` was called with a blank, malformed, or non-`content://` URI. |
+| `CLIPBOARD_INVALID_URI` | `CopyUri` was called with a blank or malformed URI, or one whose scheme is neither `content://` nor `file://`. |
 | `CLIPBOARD_READ_NOT_ALLOWED` | The native layer refused a read (for example, a focus/permission restriction). |
 | `CLIPBOARD_SECURITY` | The native layer denied the operation for a security reason. |
 | `CLIPBOARD_UNAVAILABLE` | The system `ClipboardManager` could not be obtained. |
-| `CLIPBOARD_UNKNOWN` | An unrecognized failure; also used for parse failures on the Unity side. |
+| `CLIPBOARD_UNKNOWN` | An unrecognized failure, including the native layer running out of memory (`Failed: OUT_OF_MEMORY`). |
 
-`Read` and `GetDescription` can additionally fail with `CLIPBOARD_BRIDGE_UNAVAILABLE` when the native bridge itself could not be reached (not running on Android, plugin not initialized, or no current Activity) — this is a Unity-side error code, not one reported by the native layer.
+`Read` and `GetDescription` can additionally fail with `CLIPBOARD_BRIDGE_UNAVAILABLE` when the native library could not be called (not running on Android, the native library is not available because it ships for ARM64 and x86_64 only, native-toolkit is not initialized yet right after the app starts, or the call threw an exception) — this is a Unity-side error code, not one reported by the native layer.
 
 ---
 
@@ -2209,7 +2273,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 Since 1.12.0 the Windows clipboard runs on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the `Operation*` values, the result types, the error code values, `WindowsClipboardJsonBuilder`, the payload types and the threading rules are unchanged. What differs from 1.11.0:
 
-- **Namespace.** `WindowsClipboardManager` and its result, payload and builder types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`. Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` in Windows code. The Android, iOS and macOS types keep their namespace.
+- **Namespace.** `WindowsClipboardManager` and its result, payload and builder types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`. Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` in Windows code. The iOS and macOS types keep their namespace; the Android types moved to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
 
 | Case | 1.11.0 | 1.12.0 |
 | --- | --- | --- |
