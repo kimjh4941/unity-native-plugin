@@ -4,11 +4,11 @@
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知・共有などのネイティブ機能をシングルトン API で扱えます。
-- Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
+- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS と macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
 
 # バージョン
 
-## 1.12.0
+## 1.13.0
 
 # 対応 OS バージョン
 
@@ -16,6 +16,16 @@
 - iOS 18 以降
 - Windows 11 以降
 - macOS 15 以降
+
+## Android の要件
+
+- Scripting Backend: IL2CPP。Mono には対応しません（Unity の Android の Mono は ARMv7 しか組めません）。
+- Target Architectures: ARM64（x86_64 も動きます）。ARMv7（32 ビット）も含むビルドは、Gradle が走る前にメッセージを出して止まります。
+- Gradle: 設定は要りません。ネイティブライブラリの実行時の依存は、ビルドが `unityLibrary/build.gradle` に追加します。
+
+## 1.13.0 での変更（Android）
+
+1.13.0 から、Android のすべての機能が native-toolkit の C ABI 2.0.0 で動きます。Android の型は `JonghyunKim.NativeToolkit.Runtime.<Feature>` から `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>` に移り、`Android` の接頭辞が無かった Android の型は名前が変わりました。1.x のネイティブライブラリと「Configure Gradle Project」は無くなりました。Unity はスクリプトを自動では直しません。機能ごとの直し方: [ダイアログ](dialog.ja.md#1130-での変更)、[通知](notification.ja.md#1130-での変更)、[共有](share.ja.md#1130-での変更)、[クリップボード](clipboard.ja.md#1130-での変更)。
 
 # 機能一覧
 
@@ -163,7 +173,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.12.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -182,13 +192,6 @@
 - Android サンプル
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Android Profile」→ Export を実行します。
-  - Tools → Native Toolkit → Android → Configue Gradle Project を選択します。
-  <p align="center">
-    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-  </p>　
-
-  - 「Browse」ボタンを押下して、Export した Android Project を指定します。
-  - 「Run: Add Kotlin Dependencies」ボタンを押下して、Kotlin ライブラリを追加します。
   - Android Studio からサンプルアプリをインストールしてください。
     - <a href="https://developer.android.com/studio?hl=ja" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
