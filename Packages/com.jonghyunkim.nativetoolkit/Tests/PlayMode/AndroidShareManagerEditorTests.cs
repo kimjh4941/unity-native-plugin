@@ -66,7 +66,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             manager.ShareChooserActionTapped += r => events.Add($"Action|{r.ActionId}");
         }
 
-        private Action<ShareOperationResult> Call(string name) =>
+        private Action<AndroidShareOperationResult> Call(string name) =>
             r => _calls.Add($"{name}|{r.Operation}|{r.IsSuccess}|{r.ErrorMessage ?? "null"}");
 
         /// <summary>Lets the callback queue run (it runs on the frames after an action is posted).</summary>
@@ -85,14 +85,14 @@ namespace JonghyunKim.NativeToolkit.Tests
             var manager = Manager();
             var actions = new (string op, Action call)[]
             {
-                (AndroidShareManager.OperationShareText, () => manager.ShareText(new ShareTextPayload { text = "a" }, Call("text"))),
-                (AndroidShareManager.OperationShareImage, () => manager.ShareImage(new ShareImagePayload { filePath = "/a.png" }, Call("image"))),
-                (AndroidShareManager.OperationShareImages, () => manager.ShareImages(new ShareImagesPayload { filePaths = new[] { "/a.png" } }, Call("images"))),
-                (AndroidShareManager.OperationShareFile, () => manager.ShareFile(new ShareFilePayload { filePath = "/a" }, Call("file"))),
-                (AndroidShareManager.OperationShareFiles, () => manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { "/a" } }, Call("files"))),
-                (AndroidShareManager.OperationRegisterDirectShareTarget, () => manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "i", label = "l", iconBase64 = "AA==" }, Call("register"))),
-                (AndroidShareManager.OperationRemoveDirectShareTargets, () => manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = new[] { "i" } }, Call("remove"))),
-                (AndroidShareManager.OperationShareWithCallback, () => manager.ShareWithCallback(new ShareTextPayload { text = "a" }, Call("withCallback"))),
+                (AndroidShareManager.OperationShareText, () => manager.ShareText(new AndroidShareTextPayload { text = "a" }, Call("text"))),
+                (AndroidShareManager.OperationShareImage, () => manager.ShareImage(new AndroidShareImagePayload { filePath = "/a.png" }, Call("image"))),
+                (AndroidShareManager.OperationShareImages, () => manager.ShareImages(new AndroidShareImagesPayload { filePaths = new[] { "/a.png" } }, Call("images"))),
+                (AndroidShareManager.OperationShareFile, () => manager.ShareFile(new AndroidShareFilePayload { filePath = "/a" }, Call("file"))),
+                (AndroidShareManager.OperationShareFiles, () => manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new[] { "/a" } }, Call("files"))),
+                (AndroidShareManager.OperationRegisterDirectShareTarget, () => manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "i", label = "l", iconBase64 = "AA==" }, Call("register"))),
+                (AndroidShareManager.OperationRemoveDirectShareTargets, () => manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = new[] { "i" } }, Call("remove"))),
+                (AndroidShareManager.OperationShareWithCallback, () => manager.ShareWithCallback(new AndroidShareTextPayload { text = "a" }, Call("withCallback"))),
                 (AndroidShareManager.OperationCancelPendingShareCallback, () => manager.CancelPendingShareCallback(Call("cancel"))),
             };
             foreach (var (op, call) in actions)
@@ -112,8 +112,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator Editor_InvalidInput_FailsTheSameWay()
         {
             var manager = Manager();
-            manager.ShareText(new ShareTextPayload { text = "" });
-            manager.ShareFiles(new ShareFilesPayload { filePaths = new string[0] });
+            manager.ShareText(new AndroidShareTextPayload { text = "" });
+            manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new string[0] });
             yield return Frames();
             Assert.AreEqual(new[] { NotStarted("shareText"), NotStarted("shareFiles") }, _events);
         }
@@ -137,7 +137,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var manager = Manager();
             manager.ShareOperationCompleted += r => _calls.Add($"event|{r.Operation}|{r.IsSuccess}");
-            manager.ShareFile(new ShareFilePayload { filePath = "/a" }, r => _calls.Add($"perCall|{r.Operation}|{r.IsSuccess}"));
+            manager.ShareFile(new AndroidShareFilePayload { filePath = "/a" }, r => _calls.Add($"perCall|{r.Operation}|{r.IsSuccess}"));
             AndroidShareManager.SetPendingOperationForTests("shareImage", r => _calls.Add($"perCall|{r.Operation}|{r.IsSuccess}"));
             long key = AndroidShareManager.AddCall(new Api.ShareCall("shareImage", new[] { "/a.png" }));
             AndroidShareManager.OnDoneCore(new IntPtr(key), Api.ErrorNone);
@@ -153,9 +153,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator SameOperationTwiceInAFrame_EachGetsItsOwnResult()
         {
             var manager = Manager();
-            manager.ShareFile(new ShareFilePayload { filePath = "/a" }, Call("first"));
-            manager.ShareFile(new ShareFilePayload { filePath = "/b" }, Call("second"));
-            manager.ShareFile(new ShareFilePayload { filePath = "/c" }, null);
+            manager.ShareFile(new AndroidShareFilePayload { filePath = "/a" }, Call("first"));
+            manager.ShareFile(new AndroidShareFilePayload { filePath = "/b" }, Call("second"));
+            manager.ShareFile(new AndroidShareFilePayload { filePath = "/c" }, null);
             yield return Frames();
             Assert.AreEqual(new[] { "first|shareFile|False|shareFile could not be started.", "second|shareFile|False|shareFile could not be started." }, _calls);
             Assert.AreEqual(3, _events.Count);
@@ -178,7 +178,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator Editor_ShareWithCallbackFailure_ClearsOnSelected()
         {
             var manager = Manager();
-            manager.ShareWithCallback(new ShareTextPayload { text = "a" }, onSelected: r => _calls.Add("onSelected"));
+            manager.ShareWithCallback(new AndroidShareTextPayload { text = "a" }, onSelected: r => _calls.Add("onSelected"));
             AndroidShareManager.OnSelectionCore(1, "pkg");
             yield return Frames();
             Assert.AreEqual(new[] { NotStarted("shareWithCallback"), "Selected|shareWithCallback|pkg" }, _events);
@@ -264,17 +264,17 @@ namespace JonghyunKim.NativeToolkit.Tests
             var manager = Manager();
             Assert.Throws<ArgumentNullException>(() => manager.ShareText(null!, Call("text")));
             Assert.Throws<ArgumentNullException>(() => manager.ShareText(
-                new ShareTextPayload { text = "a", chooserActions = new ChooserActionPayload[] { null! } },
+                new AndroidShareTextPayload { text = "a", chooserActions = new AndroidChooserActionPayload[] { null! } },
                 Call("text"), r => _calls.Add("onChooserAction")));
             Assert.Throws<ArgumentNullException>(() => manager.ShareWithCallback(
-                new ShareTextPayload { text = "a", chooserActions = new ChooserActionPayload[] { null! } },
+                new AndroidShareTextPayload { text = "a", chooserActions = new AndroidChooserActionPayload[] { null! } },
                 Call("withCallback"), r => _calls.Add("onSelected")));
-            Assert.Throws<ArgumentNullException>(() => manager.ShareFiles(new ShareFilesPayload { filePaths = null! }, Call("files")));
-            Assert.Throws<ArgumentNullException>(() => manager.ShareImages(new ShareImagesPayload { filePaths = null! }, Call("images")));
+            Assert.Throws<ArgumentNullException>(() => manager.ShareFiles(new AndroidShareFilesPayload { filePaths = null! }, Call("files")));
+            Assert.Throws<ArgumentNullException>(() => manager.ShareImages(new AndroidShareImagesPayload { filePaths = null! }, Call("images")));
             Assert.Throws<ArgumentNullException>(() => manager.ShareImages(null!, Call("images")));
             Assert.Throws<ArgumentNullException>(() => manager.ShareFile(null!, Call("file")));
             Assert.Throws<ArgumentNullException>(() => manager.ShareImage(null!, Call("image")));
-            Assert.Throws<ArgumentNullException>(() => manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = null! }, Call("remove")));
+            Assert.Throws<ArgumentNullException>(() => manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = null! }, Call("remove")));
             Assert.Throws<ArgumentNullException>(() => manager.RegisterDirectShareTarget(null!, Call("register")));
             Assert.IsEmpty(_events, "nothing was reported");
 
@@ -383,7 +383,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var manager = Manager();
             manager.ShareChooserActionTapped += r => _calls.Add($"event|{r.ActionId}");
-            manager.ShareText(new ShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"perCall|{r.ActionId}"));
+            manager.ShareText(new AndroidShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"perCall|{r.ActionId}"));
             yield return Frames();
             AndroidShareManager.OnChooserActionCore("ntk.a");
             AndroidShareManager.OnChooserActionCore("android.intent.action.SEND");
@@ -397,10 +397,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator ChooserAction_KeepsThePerCallOfTheTap()
         {
             var manager = Manager();
-            manager.ShareText(new ShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"old|{r.ActionId}"));
+            manager.ShareText(new AndroidShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"old|{r.ActionId}"));
             yield return Frames();
             AndroidShareManager.OnChooserActionCore("ntk.a");
-            manager.ShareText(new ShareTextPayload { text = "b" }, onChooserAction: r => _calls.Add($"new|{r.ActionId}"));
+            manager.ShareText(new AndroidShareTextPayload { text = "b" }, onChooserAction: r => _calls.Add($"new|{r.ActionId}"));
             yield return Frames();
             Assert.AreEqual(new[] { "old|ntk.a" }, _calls);
         }
@@ -409,7 +409,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator ChooserAction_TakenThenManagerDestroyed_StillReachesItsSubscribers()
         {
             var manager = Manager();
-            manager.ShareText(new ShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"perCall|{r.ActionId}"));
+            manager.ShareText(new AndroidShareTextPayload { text = "a" }, onChooserAction: r => _calls.Add($"perCall|{r.ActionId}"));
             yield return Frames();
             _events.Clear();
             AndroidShareManager.OnChooserActionCore("ntk.a");

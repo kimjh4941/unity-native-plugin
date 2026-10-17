@@ -66,7 +66,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuildTextContent_PassesValuesAndLeavesAbsentOnesNull()
         {
-            Api.TextContent content = Api.BuildTextContent(new ShareTextPayload
+            Api.TextContent content = Api.BuildTextContent(new AndroidShareTextPayload
             {
                 text = "本文",
                 title = "T",
@@ -116,7 +116,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var icon = new byte[] { 9, 8 };
             Api.DirectTarget target = Api.BuildDirectTarget(
-                new DirectShareTargetPayload { id = "id1", label = "L", iconBase64 = "x", category = " " }, icon, _allocated);
+                new AndroidDirectShareTargetPayload { id = "id1", label = "L", iconBase64 = "x", category = " " }, icon, _allocated);
             Assert.AreEqual(48u, target.StructSize);
             Assert.AreEqual(0u, target.Reserved0);
             Assert.AreEqual("id1", Read(target.Id));
@@ -177,7 +177,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void CheckDirectTarget_InThe1xOrder()
         {
             string? Check(string? id, string? label, string? icon) =>
-                Api.CheckDirectTarget(new DirectShareTargetPayload { id = id!, label = label!, iconBase64 = icon! }, out _);
+                Api.CheckDirectTarget(new AndroidDirectShareTargetPayload { id = id!, label = label!, iconBase64 = icon! }, out _);
             Assert.AreEqual("Failed to registerDirectShareTarget: id is required", Check(" ", "", ""));
             Assert.AreEqual("Failed to registerDirectShareTarget: label is required", Check("i", null, ""));
             Assert.AreEqual("Failed to registerDirectShareTarget: iconBase64 is required", Check("i", "l", " "));
@@ -208,7 +208,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // ── Chooser actions (4.2.1) ──────────────────────────────────────────
 
-        private static ChooserActionPayload Action(string? label, string? icon, string? intent) =>
+        private static AndroidChooserActionPayload Action(string? label, string? icon, string? intent) =>
             new() { label = label!, iconBase64 = icon!, intentAction = intent };
 
         [Test]

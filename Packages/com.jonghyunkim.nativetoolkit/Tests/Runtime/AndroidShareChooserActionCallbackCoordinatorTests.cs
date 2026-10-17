@@ -14,8 +14,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// </summary>
     public sealed class AndroidShareChooserActionCallbackCoordinatorTests
     {
-        private static ShareChooserActionCallbackCoordinator CreateSync()
-            => new ShareChooserActionCallbackCoordinator(a => a());
+        private static AndroidShareChooserActionCallbackCoordinator CreateSync()
+            => new AndroidShareChooserActionCallbackCoordinator(a => a());
 
         // (1) Fire dispatches global event before per-call callback
         [Test]
@@ -27,7 +27,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             coordinator.ChooserActionTapped += _ => order.Add("event");
             coordinator.Register(_ => order.Add("callback"));
 
-            coordinator.Fire(new ShareChooserActionResult("action.test"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.test"));
 
             Assert.AreEqual(new[] { "event", "callback" }, order);
         }
@@ -41,7 +41,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             coordinator.ChooserActionTapped += _ => fired = true;
 
-            coordinator.Fire(new ShareChooserActionResult("action.test"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.test"));
 
             Assert.IsTrue(fired);
         }
@@ -57,7 +57,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             coordinator.Register(_ => firstFired = true);
             coordinator.Register(_ => secondFired = true);
 
-            coordinator.Fire(new ShareChooserActionResult("action.test"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.test"));
 
             Assert.IsFalse(firstFired, "First callback must not fire after being replaced.");
             Assert.IsTrue(secondFired);
@@ -73,7 +73,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             coordinator.Register(_ => fired = true);
             coordinator.Register(null); // clears
 
-            coordinator.Fire(new ShareChooserActionResult("action.test"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.test"));
 
             Assert.IsFalse(fired);
         }
@@ -87,9 +87,9 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             coordinator.Register(_ => count++);
 
-            coordinator.Fire(new ShareChooserActionResult("action.a"));
-            coordinator.Fire(new ShareChooserActionResult("action.b"));
-            coordinator.Fire(new ShareChooserActionResult("action.c"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.a"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.b"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.c"));
 
             Assert.AreEqual(3, count);
         }
@@ -104,7 +104,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             coordinator.ChooserActionTapped += _ => throw new InvalidOperationException("subscriber error");
             coordinator.Register(_ => callbackFired = true);
 
-            Assert.DoesNotThrow(() => coordinator.Fire(new ShareChooserActionResult("action.test")));
+            Assert.DoesNotThrow(() => coordinator.Fire(new AndroidShareChooserActionResult("action.test")));
             Assert.IsTrue(callbackFired);
         }
 
@@ -118,7 +118,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             coordinator.Register(_ => fired = true);
             coordinator.Clear();
 
-            coordinator.Fire(new ShareChooserActionResult("action.test"));
+            coordinator.Fire(new AndroidShareChooserActionResult("action.test"));
 
             Assert.IsFalse(fired);
         }
@@ -128,11 +128,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void Fire_PassesResultToSubscribers()
         {
             var coordinator = CreateSync();
-            ShareChooserActionResult? received = null;
+            AndroidShareChooserActionResult? received = null;
 
             coordinator.Register(r => received = r);
 
-            coordinator.Fire(new ShareChooserActionResult("com.example.action"));
+            coordinator.Fire(new AndroidShareChooserActionResult("com.example.action"));
 
             Assert.IsNotNull(received);
             Assert.AreEqual("com.example.action", received!.Value.ActionId);
@@ -144,7 +144,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void PerCallCallbackField_IsVolatile()
         {
-            FieldInfo? field = typeof(ShareChooserActionCallbackCoordinator).GetField("_pending", BindingFlags.Instance | BindingFlags.NonPublic);
+            FieldInfo? field = typeof(AndroidShareChooserActionCallbackCoordinator).GetField("_pending", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(field);
             Assert.That(field!.GetRequiredCustomModifiers(), Does.Contain(typeof(IsVolatile)));
         }

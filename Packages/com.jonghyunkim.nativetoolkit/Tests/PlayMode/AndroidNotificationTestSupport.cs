@@ -33,15 +33,15 @@ namespace JonghyunKim.NativeToolkit.Tests
         internal const string ChannelName = "NTK Tests";
 
         /// <summary>The player's own launcher icon, which every player has.</summary>
-        internal static NotificationResourcePayload AppIcon() => new() { name = "app_icon", type = "mipmap" };
+        internal static AndroidNotificationResourcePayload AppIcon() => new() { name = "app_icon", type = "mipmap" };
 
-        internal static ChannelPayload Channel() => new() { id = ChannelId, name = ChannelName, importance = 3 };
+        internal static AndroidChannelPayload Channel() => new() { id = ChannelId, name = ChannelName, importance = 3 };
 
         /// <summary>A unique title: NTK-AN-&lt;row&gt;-&lt;8 hex digits&gt; (plan 0).</summary>
         internal static string Title(string row) => $"NTK-AN-{row}-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
 
         /// <summary>A notification with the fields every test needs, as the tests change it.</summary>
-        internal static NotificationPayload Notification(int id, string title) => new()
+        internal static AndroidNotificationPayload Notification(int id, string title) => new()
         {
             id = id,
             title = title,
@@ -126,24 +126,24 @@ namespace JonghyunKim.NativeToolkit.Tests
         // Runtime/UI/Android/Notification/AndroidNotificationManagerExampleController.cs, Build*Json).
 
         /// <summary>The notifications AN-25 shows and cancels, by name.</summary>
-        internal static IEnumerable<(string Name, NotificationPayload Payload)> ImmediatePayloads()
+        internal static IEnumerable<(string Name, AndroidNotificationPayload Payload)> ImmediatePayloads()
         {
             // AndroidNotificationJsonBuilderTests.BuildNotificationJson_SerializesOptionalFieldsAndData
-            yield return ("builder 101", new NotificationPayload
+            yield return ("builder 101", new AndroidNotificationPayload
             {
                 id = 101, title = "Boss Alert", message = "The world boss has spawned.", tag = "boss",
-                channel = new ChannelPayload { id = "gameplay", name = "Gameplay", importance = 4, groupId = "events", groupName = "Events" },
+                channel = new AndroidChannelPayload { id = "gameplay", name = "Gameplay", importance = 4, groupId = "events", groupName = "Events" },
                 smallIcon = AppIcon(), largeIcon = AppIcon(), subText = "Limited Event", category = "alarm",
                 ticker = "Boss alert", number = 7, color = unchecked((int)0xFF4CAF50), groupKey = "live-events",
                 sortKey = "boss-001", timeoutAfterMillis = 30000, launchAction = "open_boss_screen",
-                style = new NotificationStylePayload
+                style = new AndroidNotificationStylePayload
                 {
                     type = "bigPicture", picture = AppIcon(), largeIcon = AppIcon(),
                     bigContentTitle = "Boss Alert", summaryText = "Limited Event",
                 },
                 actions = new[]
                 {
-                    new NotificationActionPayload
+                    new AndroidNotificationActionPayload
                     {
                         title = "Join", actionId = "action.join", icon = AppIcon(), launchApp = true,
                         allowGeneratedReplies = false, semanticAction = 10, contextual = true, showsUserInterface = true,
@@ -151,23 +151,23 @@ namespace JonghyunKim.NativeToolkit.Tests
                 },
                 data = new[]
                 {
-                    new NotificationDataEntryPayload { key = "screen", value = "boss" },
-                    new NotificationDataEntryPayload { key = "bossId", value = "boss_001" },
+                    new AndroidNotificationDataEntryPayload { key = "screen", value = "boss" },
+                    new AndroidNotificationDataEntryPayload { key = "bossId", value = "boss_001" },
                 },
             });
             // AndroidNotificationJsonBuilderTests.BuildNotificationJson_OmitsUnsetOptionalFields
-            yield return ("builder 303", new NotificationPayload
+            yield return ("builder 303", new AndroidNotificationPayload
             {
                 id = 303, title = "Simple", message = "Minimal payload.",
-                channel = new ChannelPayload { id = "default", name = "Default" },
+                channel = new AndroidChannelPayload { id = "default", name = "Default" },
             });
             // The sample's BuildImmediateNotificationJson
-            yield return ("sample 1101", new NotificationPayload
+            yield return ("sample 1101", new AndroidNotificationPayload
             {
                 id = 1101, title = "Energy Refilled", message = "Your squad is fully rested. Jump back in and clear the next raid.",
                 tag = "energy", channel = SampleChannel(), smallIcon = AppIcon(), largeIcon = AppIcon(), subText = "Raid Ready",
                 autoCancel = true, priority = 1, category = "recommendation", ticker = "Energy refilled", number = 3,
-                style = new NotificationStylePayload
+                style = new AndroidNotificationStylePayload
                 {
                     type = "bigText",
                     bigText = "Your squad is fully rested. Jump back in and clear the next raid before the stamina cap overflows.",
@@ -175,12 +175,12 @@ namespace JonghyunKim.NativeToolkit.Tests
                 },
             });
             // The sample's BuildUpdatedNotificationJson
-            yield return ("sample 1101 updated", new NotificationPayload
+            yield return ("sample 1101 updated", new AndroidNotificationPayload
             {
                 id = 1101, title = "Daily Reward Ready", message = "Your login streak chest is waiting in town.", tag = "energy",
                 channel = SampleChannel(), smallIcon = AppIcon(), largeIcon = AppIcon(), subText = "Town Reward",
                 autoCancel = true, priority = 1,
-                style = new NotificationStylePayload
+                style = new AndroidNotificationStylePayload
                 {
                     type = "bigPicture", picture = AppIcon(), largeIcon = AppIcon(), hideExpandedLargeIcon = false,
                     bigText = "Your login streak chest is waiting in town. Claim it now to keep your reward multiplier active.",
@@ -188,23 +188,23 @@ namespace JonghyunKim.NativeToolkit.Tests
                 },
             });
             // The sample's BuildActionNotificationJson
-            yield return ("sample 1401", new NotificationPayload
+            yield return ("sample 1401", new AndroidNotificationPayload
             {
                 id = 1401, title = "Match Found", message = "A ranked match is ready. Accept within 30 seconds.",
                 channel = SampleChannel(), smallIcon = AppIcon(), autoCancel = true, priority = 1, launchAction = "open_battle_screen",
                 actions = new[]
                 {
-                    new NotificationActionPayload { title = "Play Now", actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW", icon = AppIcon(), launchApp = true, showsUserInterface = true },
-                    new NotificationActionPayload { title = "Dismiss", actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS", launchApp = false, showsUserInterface = false },
+                    new AndroidNotificationActionPayload { title = "Play Now", actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW", icon = AppIcon(), launchApp = true, showsUserInterface = true },
+                    new AndroidNotificationActionPayload { title = "Dismiss", actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS", launchApp = false, showsUserInterface = false },
                 },
                 data = new[]
                 {
-                    new NotificationDataEntryPayload { key = "screen", value = "battle" },
-                    new NotificationDataEntryPayload { key = "matchId", value = "match_5678" },
+                    new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+                    new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" },
                 },
             });
             // The sample's BuildFullScreenNotificationJson
-            yield return ("sample 1501", new NotificationPayload
+            yield return ("sample 1501", new AndroidNotificationPayload
             {
                 id = 1501, title = "Match Starting", message = "Your match begins now. Launching game screen.",
                 channel = SampleChannel(), smallIcon = AppIcon(), autoCancel = true, priority = 2, category = "call", fullScreenIntent = true,
@@ -212,35 +212,35 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <summary>The scheduled notifications AN-25 schedules, ten minutes ahead (plan AN-25, R1-14).</summary>
-        internal static IEnumerable<(string Name, ScheduledNotificationEnvelopePayload Payload)> ScheduledPayloads()
+        internal static IEnumerable<(string Name, AndroidScheduledNotificationEnvelopePayload Payload)> ScheduledPayloads()
         {
             long later = DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeMilliseconds();
             // AndroidNotificationJsonBuilderTests.BuildScheduledNotificationJson_SerializesNestedScheduleObject
-            yield return ("builder 202", new ScheduledNotificationEnvelopePayload
+            yield return ("builder 202", new AndroidScheduledNotificationEnvelopePayload
             {
-                notification = new NotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new ChannelPayload { id = "events", name = "Events" } },
-                schedule = new NotificationSchedulePayload { triggerAtMillis = later, exact = true, allowWhileIdle = true, persistAcrossBoot = true, alarmType = 0 },
+                notification = new AndroidNotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new AndroidChannelPayload { id = "events", name = "Events" } },
+                schedule = new AndroidNotificationSchedulePayload { triggerAtMillis = later, exact = true, allowWhileIdle = true, persistAcrossBoot = true, alarmType = 0 },
             });
             // The sample's BuildScheduledNotificationJson
-            yield return ("sample 1201", new ScheduledNotificationEnvelopePayload
+            yield return ("sample 1201", new AndroidScheduledNotificationEnvelopePayload
             {
-                notification = new NotificationPayload
+                notification = new AndroidNotificationPayload
                 {
                     id = 1201, title = "Guild Battle Starts Soon",
                     message = "Your team queue opens in 15 seconds. Rally your guild and prepare to deploy.", tag = "guild-battle",
                     channel = SampleChannel(), smallIcon = AppIcon(), autoCancel = true, priority = 1, groupKey = "guild-events", sortKey = "001",
-                    style = new NotificationStylePayload
+                    style = new AndroidNotificationStylePayload
                     {
                         type = "bigText",
                         bigText = "Your team queue opens in 15 seconds. Rally your guild, finalize your loadout, and prepare to deploy.",
                         bigContentTitle = "Guild Battle Starts Soon", summaryText = "Guild Event",
                     },
                 },
-                schedule = new NotificationSchedulePayload { triggerAtMillis = later, exact = true, allowWhileIdle = true, persistAcrossBoot = true, alarmType = 0 },
+                schedule = new AndroidNotificationSchedulePayload { triggerAtMillis = later, exact = true, allowWhileIdle = true, persistAcrossBoot = true, alarmType = 0 },
             });
         }
 
-        private static ChannelPayload SampleChannel() => new() { id = "native_toolkit_gameplay", name = "Gameplay Alerts" };
+        private static AndroidChannelPayload SampleChannel() => new() { id = "native_toolkit_gameplay", name = "Gameplay Alerts" };
     }
 
     /// <summary>
@@ -254,7 +254,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         internal readonly List<string> Ops = new();
         internal readonly List<string> Taps = new();
         internal readonly List<string> Received = new();
-        internal readonly List<NotificationActionResult> TapResults = new();
+        internal readonly List<AndroidNotificationActionResult> TapResults = new();
         private readonly List<int> _threads = new();
         private readonly int _mainThread = Thread.CurrentThread.ManagedThreadId;
         private AndroidNotificationManager? _manager;
@@ -287,16 +287,16 @@ namespace JonghyunKim.NativeToolkit.Tests
             LastEventAt = Time.realtimeSinceStartup;
         }
 
-        private void OnOperation(NotificationResult r) => Note(Ops, $"Op|{r.Operation}|{r.IsSuccess}|{r.ErrorMessage ?? "null"}");
+        private void OnOperation(AndroidNotificationResult r) => Note(Ops, $"Op|{r.Operation}|{r.IsSuccess}|{r.ErrorMessage ?? "null"}");
 
-        private void OnTap(NotificationActionResult r)
+        private void OnTap(AndroidNotificationActionResult r)
         {
             TapResults.Add(r);
             string data = r.Data == null ? "null" : string.Join(",", r.Data.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"));
             Note(Taps, $"Tap|{r.ActionId}|{r.NotificationId}|{data}");
         }
 
-        private void OnReceived(NotificationReceivedResult r) => Note(Received, $"Recv|{r.NotificationId}|{r.Tag ?? "null"}|{r.ChannelId}");
+        private void OnReceived(AndroidNotificationReceivedResult r) => Note(Received, $"Recv|{r.NotificationId}|{r.Tag ?? "null"}|{r.ChannelId}");
 
         internal bool Reached(int ops, int taps, int received) =>
             Ops.Count >= ops && Taps.Count >= taps && Received.Count >= received;

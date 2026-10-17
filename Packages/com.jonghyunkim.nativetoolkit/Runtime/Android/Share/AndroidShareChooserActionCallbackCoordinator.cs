@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
@@ -10,17 +11,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// <see cref="Register"/>. Enforces last-registered-wins semantics and is exception-safe.
     /// Platform-agnostic — has no Unity or Android guards — so it can be tested in EditMode.
     /// </summary>
-    public sealed class ShareChooserActionCallbackCoordinator
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareChooserActionCallbackCoordinator")]
+    public sealed class AndroidShareChooserActionCallbackCoordinator
     {
         private readonly Action<Action> _dispatch;
         // Volatile: registered from the calling thread, read by Fire on the Android main thread.
-        private volatile Action<ShareChooserActionResult>? _pending;
+        private volatile Action<AndroidShareChooserActionResult>? _pending;
 
         /// <summary>
         /// Occurs when a custom chooser action is tapped. Always fired before the per-call
         /// callback registered via <see cref="Register"/>.
         /// </summary>
-        public event Action<ShareChooserActionResult>? ChooserActionTapped;
+        public event Action<AndroidShareChooserActionResult>? ChooserActionTapped;
 
         /// <summary>
         /// Initializes a new instance with the provided dispatcher.
@@ -30,13 +32,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <c>AndroidNativeCallbackQueue.Post</c>, which runs it on Unity's main thread; in EditMode
         /// tests pass <c>a => a()</c> for synchronous execution.
         /// </param>
-        public ShareChooserActionCallbackCoordinator(Action<Action> dispatch) => _dispatch = dispatch;
+        public AndroidShareChooserActionCallbackCoordinator(Action<Action> dispatch) => _dispatch = dispatch;
 
         /// <summary>
         /// Registers (or replaces) the per-call callback. Passing null clears the previous
         /// registration (last-registered-wins; null is treated as a valid registration value).
         /// </summary>
-        public void Register(Action<ShareChooserActionResult>? onChooserAction) => _pending = onChooserAction;
+        public void Register(Action<AndroidShareChooserActionResult>? onChooserAction) => _pending = onChooserAction;
 
         /// <summary>
         /// Clears the per-call callback. Call this on teardown to prevent stale references.
@@ -52,7 +54,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// Note: if <paramref name="_dispatch"/> itself throws, that exception propagates to the caller.
         /// No logging is performed here — this class is kept UnityEngine-free for EditMode testability.
         /// </summary>
-        public void Fire(ShareChooserActionResult result)
+        public void Fire(AndroidShareChooserActionResult result)
         {
             var cb = _pending; // snapshot: not cleared so same registration handles multiple taps
             _dispatch(() =>

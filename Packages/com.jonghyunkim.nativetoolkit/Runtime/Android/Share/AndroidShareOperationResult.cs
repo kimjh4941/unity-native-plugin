@@ -1,12 +1,14 @@
 #nullable enable
 
-#if UNITY_ANDROID || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
+using UnityEngine.Scripting.APIUpdating;
+
+namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
     /// <summary>
-    /// Represents the completion result of a native notification operation.
+    /// Represents the completion result of a native share operation.
     /// </summary>
-    public readonly struct NotificationResult
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareOperationResult")]
+    public readonly struct AndroidShareOperationResult
     {
         /// <summary>
         /// Gets the native operation name that produced this result.
@@ -27,8 +29,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// Creates a successful operation result.
         /// </summary>
         /// <param name="operation">The native operation name.</param>
-        /// <returns>A successful <see cref="NotificationResult"/>.</returns>
-        public static NotificationResult Success(string operation) =>
+        /// <returns>A successful <see cref="AndroidShareOperationResult"/>.</returns>
+        public static AndroidShareOperationResult Success(string operation) =>
             new(operation, true, null);
 
         /// <summary>
@@ -36,11 +38,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// </summary>
         /// <param name="operation">The native operation name.</param>
         /// <param name="error">The error message returned by the native layer.</param>
-        /// <returns>A failed <see cref="NotificationResult"/>.</returns>
-        public static NotificationResult Failure(string operation, string error) =>
+        /// <returns>A failed <see cref="AndroidShareOperationResult"/>.</returns>
+        public static AndroidShareOperationResult Failure(string operation, string error) =>
             new(operation, false, error);
 
-        private NotificationResult(string operation, bool isSuccess, string? errorMessage)
+        private AndroidShareOperationResult(string operation, bool isSuccess, string? errorMessage)
         {
             Operation = operation;
             IsSuccess = isSuccess;
@@ -48,4 +50,3 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         }
     }
 }
-#endif

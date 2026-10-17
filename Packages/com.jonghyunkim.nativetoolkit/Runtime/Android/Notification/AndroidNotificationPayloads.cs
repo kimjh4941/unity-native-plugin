@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
@@ -8,7 +9,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents an Android resource reference by name and optional type.
     /// </summary>
     [Serializable]
-    public sealed class NotificationResourcePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationResourcePayload")]
+    public sealed class AndroidNotificationResourcePayload
     {
         /// <summary>Resource entry name.</summary>
         public string name = string.Empty;
@@ -21,7 +23,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents Android notification channel metadata used in notification payloads.
     /// </summary>
     [Serializable]
-    public sealed class ChannelPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "ChannelPayload")]
+    public sealed class AndroidChannelPayload
     {
         /// <summary>Channel identifier.</summary>
         public string id = string.Empty;
@@ -67,7 +70,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents the primary notification payload sent to Android native APIs.
     /// </summary>
     [Serializable]
-    public class NotificationPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationPayload")]
+    public class AndroidNotificationPayload
     {
         /// <summary>Notification identifier.</summary>
         public int id;
@@ -82,13 +86,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public string? tag;
 
         /// <summary>Channel metadata for this notification.</summary>
-        public ChannelPayload channel = new ChannelPayload();
+        public AndroidChannelPayload channel = new AndroidChannelPayload();
 
         /// <summary>Optional small icon resource.</summary>
-        public NotificationResourcePayload? smallIcon;
+        public AndroidNotificationResourcePayload? smallIcon;
 
         /// <summary>Optional large icon resource.</summary>
-        public NotificationResourcePayload? largeIcon;
+        public AndroidNotificationResourcePayload? largeIcon;
 
         /// <summary>Optional sub text.</summary>
         public string? subText;
@@ -154,10 +158,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public bool usesChronometer;
 
         /// <summary>Optional progress configuration.</summary>
-        public NotificationProgressPayload? progress;
+        public AndroidNotificationProgressPayload? progress;
 
         /// <summary>Optional style configuration.</summary>
-        public NotificationStylePayload? style;
+        public AndroidNotificationStylePayload? style;
 
         /// <summary>Whether tapping the body should launch app UI.</summary>
         public bool launchAppOnTap = true;
@@ -169,20 +173,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public bool fullScreenIntent;
 
         /// <summary>Optional action buttons.</summary>
-        public NotificationActionPayload[] actions = Array.Empty<NotificationActionPayload>();
+        public AndroidNotificationActionPayload[] actions = Array.Empty<AndroidNotificationActionPayload>();
 
         /// <summary>
         /// Optional custom key-value payload.
         /// JsonUtility cannot serialize dictionary directly; for dynamic keys inject data manually.
         /// </summary>
-        public NotificationDataEntryPayload[] data = Array.Empty<NotificationDataEntryPayload>();
+        public AndroidNotificationDataEntryPayload[] data = Array.Empty<AndroidNotificationDataEntryPayload>();
     }
 
     /// <summary>
     /// Represents an action button displayed in a notification.
     /// </summary>
     [Serializable]
-    public sealed class NotificationActionPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationActionPayload")]
+    public sealed class AndroidNotificationActionPayload
     {
         /// <summary>Action button label.</summary>
         public string title = string.Empty;
@@ -191,7 +196,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public string actionId = string.Empty;
 
         /// <summary>Optional action icon resource.</summary>
-        public NotificationResourcePayload? icon;
+        public AndroidNotificationResourcePayload? icon;
 
         /// <summary>Whether action should launch the app.</summary>
         public bool launchApp;
@@ -213,20 +218,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Wraps a notification payload with schedule options.
     /// </summary>
     [Serializable]
-    public sealed class ScheduledNotificationEnvelopePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "ScheduledNotificationEnvelopePayload")]
+    public sealed class AndroidScheduledNotificationEnvelopePayload
     {
         /// <summary>Notification content.</summary>
-        public NotificationPayload notification = new NotificationPayload();
+        public AndroidNotificationPayload notification = new AndroidNotificationPayload();
 
         /// <summary>Schedule configuration.</summary>
-        public NotificationSchedulePayload schedule = new NotificationSchedulePayload();
+        public AndroidNotificationSchedulePayload schedule = new AndroidNotificationSchedulePayload();
     }
 
     /// <summary>
     /// Represents scheduling options for a notification.
     /// </summary>
     [Serializable]
-    public sealed class NotificationSchedulePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationSchedulePayload")]
+    public sealed class AndroidNotificationSchedulePayload
     {
         /// <summary>Trigger time in Unix milliseconds.</summary>
         public long triggerAtMillis;
@@ -248,7 +255,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents progress settings for foreground-service notifications.
     /// </summary>
     [Serializable]
-    public sealed class NotificationProgressPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationProgressPayload")]
+    public sealed class AndroidNotificationProgressPayload
     {
         /// <summary>Maximum progress value.</summary>
         public int max;
@@ -264,7 +272,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents style customization for notification rendering.
     /// </summary>
     [Serializable]
-    public sealed class NotificationStylePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationStylePayload")]
+    public sealed class AndroidNotificationStylePayload
     {
         /// <summary>Style type name.</summary>
         public string type = "default";
@@ -282,13 +291,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public string[] lines = Array.Empty<string>();
 
         /// <summary>Big picture resource reference.</summary>
-        public NotificationResourcePayload? picture;
+        public AndroidNotificationResourcePayload? picture;
 
         /// <summary>Big picture URI string.</summary>
         public string? pictureUri;
 
         /// <summary>Optional large icon override for big picture style.</summary>
-        public NotificationResourcePayload? largeIcon;
+        public AndroidNotificationResourcePayload? largeIcon;
 
         /// <summary>Whether to hide expanded large icon.</summary>
         public bool hideExpandedLargeIcon;
@@ -303,7 +312,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public bool? isGroupConversation;
 
         /// <summary>Message entries for messaging style.</summary>
-        public NotificationMessagePayload[] messages = Array.Empty<NotificationMessagePayload>();
+        public AndroidNotificationMessagePayload[] messages = Array.Empty<AndroidNotificationMessagePayload>();
 
         /// <summary>Custom collapsed layout resource name.</summary>
         public string? customViewLayout;
@@ -312,14 +321,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         public string? bigCustomViewLayout;
 
         /// <summary>Custom view action bindings.</summary>
-        public NotificationViewActionPayload[] viewActions = Array.Empty<NotificationViewActionPayload>();
+        public AndroidNotificationViewActionPayload[] viewActions = Array.Empty<AndroidNotificationViewActionPayload>();
     }
 
     /// <summary>
     /// Represents a messaging-style notification entry.
     /// </summary>
     [Serializable]
-    public sealed class NotificationMessagePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationMessagePayload")]
+    public sealed class AndroidNotificationMessagePayload
     {
         /// <summary>Message body text.</summary>
         public string text = string.Empty;
@@ -335,7 +345,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents a custom key-value entry for notification data payload.
     /// </summary>
     [Serializable]
-    public sealed class NotificationDataEntryPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationDataEntryPayload")]
+    public sealed class AndroidNotificationDataEntryPayload
     {
         /// <summary>Data key.</summary>
         public string key = string.Empty;
@@ -348,7 +359,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Represents an action binding for a specific custom notification view element.
     /// </summary>
     [Serializable]
-    public sealed class NotificationViewActionPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationViewActionPayload")]
+    public sealed class AndroidNotificationViewActionPayload
     {
         /// <summary>Binding action type.</summary>
         public string type = string.Empty;

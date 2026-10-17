@@ -186,14 +186,14 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ToClipContents_EmptyAndMissingValuesAreNull()
         {
-            ClipContents contents = Api.ToClipContents("", new[] { "text/plain" }, new[]
+            AndroidClipContents contents = Api.ToClipContents("", new[] { "text/plain" }, new[]
             {
                 new Api.RawItem("", null, "", null),
                 new Api.RawItem(null, "", null, ""),
             });
 
             Assert.IsNull(contents.Label);
-            foreach (ClipItem item in contents.Items)
+            foreach (AndroidClipItem item in contents.Items)
             {
                 Assert.IsNull(item.Text);
                 Assert.IsNull(item.HtmlText);
@@ -205,7 +205,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ToClipContents_KeepsValuesAndOrder()
         {
-            ClipContents contents = Api.ToClipContents("NTK label", new[] { "text/plain", "text/html" }, new[]
+            AndroidClipContents contents = Api.ToClipContents("NTK label", new[] { "text/plain", "text/html" }, new[]
             {
                 new Api.RawItem("a", "<b>a</b>", null, "a"),
                 new Api.RawItem(null, null, "content://x/1", "content://x/1"),
@@ -223,7 +223,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ToClipContents_NoItems()
         {
-            ClipContents contents = Api.ToClipContents(null, Array.Empty<string>(), Array.Empty<Api.RawItem>());
+            AndroidClipContents contents = Api.ToClipContents(null, Array.Empty<string>(), Array.Empty<Api.RawItem>());
             CollectionAssert.IsEmpty(contents.Items);
             CollectionAssert.IsEmpty(contents.MimeTypes);
         }
@@ -241,7 +241,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ToDescriptionInfo_LabelAndStyled()
         {
-            ClipDescriptionInfo info = Api.ToDescriptionInfo("", new[] { "text/html" }, 1, -1);
+            AndroidClipDescriptionInfo info = Api.ToDescriptionInfo("", new[] { "text/html" }, 1, -1);
             Assert.IsNull(info.Label);
             Assert.IsTrue(info.IsStyledText);
             CollectionAssert.AreEqual(new[] { "text/html" }, info.MimeTypes);

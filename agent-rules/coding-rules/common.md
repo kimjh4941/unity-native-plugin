@@ -452,14 +452,15 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 `UI/` は `UI/<Platform>/<Feature>/` の構造を採る（Runtime の正しい形と同じ順）。ファイル名の接頭辞は同じ規則に従う。
 
-**既知の逸脱（新規実装で真似しない）: Runtime 11 件**
+**既知の逸脱（新規実装で真似しない）: Runtime 9 件**
 
 | 逸脱している型 | 実際の所属 |
 |---|---|
-| `Android/Clipboard/ClipboardOperationResult` / `ClipboardReadResult`（`ClipItem` / `ClipContents` を含む） / `ClipboardDescriptionResult` | Android |
-| `Android/Notification/NotificationResult` / `NotificationActionResult` / `NotificationReceivedResult` | Android |
-| `Android/Share/ShareOperationResult` / `ShareCallbackResult` / `ShareChooserActionResult` / `ShareChooserActionCallbackCoordinator` | Android |
+| `Notification/IosNotificationPayloads.cs` の `NotificationContentPayload` / `NotificationAttachmentPayload` / `TimeIntervalTriggerPayload` / `CalendarTriggerPayload` / `LocationTriggerPayload` | iOS |
+| `Dialog/MacDialogManager.cs` の `DialogButtonsWrapper` / `DialogButton` / `DialogOptions` | macOS |
 | `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
+
+Android の接頭辞の無い 37 型（Result、Payload ほか）は、段 4 で `Android` を前に付けて改名した（`artifact/topics/android-c-abi-2/designs/2026-10-13-android-c-abi-stage4-design-v8.md`。2026-10-17）。各型には `[MovedFrom]` で旧い名前空間と名前を残す。iOS と macOS の 9 件は、その OS の C ABI 移行で直す（利用者の判断、2026-10-13）。
 
 **`Tests/` の逸脱 2 件は 2026-09-03 に解消済み。** テストファイルは公開 API ではないため、Runtime の改名方針を待たずに直せた。
 

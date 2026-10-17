@@ -7,6 +7,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     using System.Collections.Generic;
     using JonghyunKim.NativeToolkit.Runtime.Android.Common;
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
 #if UNITY_ANDROID && !UNITY_EDITOR
     using System.Runtime.InteropServices;
     using AOT;
@@ -45,6 +46,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// main thread, first through the shared event and then the per-call callback; for a call made on
     /// Unity's main thread, after the method has returned.
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard")]
     public class AndroidClipboardManager : MonoBehaviour
     {
         private const string LogTag = "AndroidClipboardManager";
@@ -105,7 +107,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Raised when a copy, clear, or stopObserving operation completes, on both success and
         /// failure. Always invoked before the per-call callback.
         /// </summary>
-        public event Action<ClipboardOperationResult>? ClipboardOperationCompleted;
+        public event Action<AndroidClipboardOperationResult>? ClipboardOperationCompleted;
 
         /// <summary>
         /// Raised when the clipboard content changes while observing. Never raised before
@@ -195,7 +197,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         // ---- Async: copy / clear / stopObserving ----
 
         /// <summary>
-        /// Copies plain text to the clipboard. A blank <see cref="CopyPlainTextPayload.text"/> is
+        /// Copies plain text to the clipboard. A blank <see cref="AndroidCopyPlainTextPayload.text"/> is
         /// accepted and succeeds; it is not treated as an error.
         /// </summary>
         /// <param name="payload">Plain text content and optional metadata to copy.</param>
@@ -203,7 +205,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <see cref="ClipboardOperationCompleted"/> event always fires first, regardless of this
         /// parameter.</param>
         /// <exception cref="ArgumentNullException"><paramref name="payload"/> is null.</exception>
-        public void CopyPlainText(CopyPlainTextPayload payload, Action<ClipboardOperationResult>? onResult = null)
+        public void CopyPlainText(AndroidCopyPlainTextPayload payload, Action<AndroidClipboardOperationResult>? onResult = null)
         {
             if (payload == null) throw new ArgumentNullException(nameof(payload));
             AndroidNativeCallbackQueue.EnsureCreated();
@@ -224,13 +226,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         }
 
         /// <summary>
-        /// Copies HTML text to the clipboard. A blank <see cref="CopyHtmlTextPayload.htmlText"/>
+        /// Copies HTML text to the clipboard. A blank <see cref="AndroidCopyHtmlTextPayload.htmlText"/>
         /// fails with "Clipboard content is empty. Please provide text or HTML."
         /// </summary>
         /// <param name="payload">HTML text content and optional metadata to copy.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException"><paramref name="payload"/> is null.</exception>
-        public void CopyHtmlText(CopyHtmlTextPayload payload, Action<ClipboardOperationResult>? onResult = null)
+        public void CopyHtmlText(AndroidCopyHtmlTextPayload payload, Action<AndroidClipboardOperationResult>? onResult = null)
         {
             if (payload == null) throw new ArgumentNullException(nameof(payload));
             AndroidNativeCallbackQueue.EnsureCreated();
@@ -256,7 +258,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <param name="payload">URI content and optional metadata to copy.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException"><paramref name="payload"/> is null.</exception>
-        public void CopyUri(CopyUriPayload payload, Action<ClipboardOperationResult>? onResult = null)
+        public void CopyUri(AndroidCopyUriPayload payload, Action<AndroidClipboardOperationResult>? onResult = null)
         {
             if (payload == null) throw new ArgumentNullException(nameof(payload));
             AndroidNativeCallbackQueue.EnsureCreated();
@@ -276,12 +278,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 
         /// <summary>
         /// Copies multiple plain-text items (same form) to the clipboard. Individual empty strings
-        /// inside <see cref="CopyMultipleTextPayload.texts"/> are accepted; only an empty array fails.
+        /// inside <see cref="AndroidCopyMultipleTextPayload.texts"/> are accepted; only an empty array fails.
         /// </summary>
         /// <param name="payload">Text items and optional metadata to copy.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException"><paramref name="payload"/> or its texts is null.</exception>
-        public void CopyMultipleText(CopyMultipleTextPayload payload, Action<ClipboardOperationResult>? onResult = null)
+        public void CopyMultipleText(AndroidCopyMultipleTextPayload payload, Action<AndroidClipboardOperationResult>? onResult = null)
         {
             if (payload == null) throw new ArgumentNullException(nameof(payload));
             if (payload.texts == null) throw new ArgumentNullException(nameof(payload), "payload.texts is null.");
@@ -306,7 +308,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Clears the clipboard.
         /// </summary>
         /// <param name="onResult">Optional per-call result callback.</param>
-        public void Clear(Action<ClipboardOperationResult>? onResult = null)
+        public void Clear(Action<AndroidClipboardOperationResult>? onResult = null)
         {
             AndroidNativeCallbackQueue.EnsureCreated();
             Debug.Log($"[{LogTag}][{nameof(Clear)}] hasCallback: {onResult != null}");
@@ -325,7 +327,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// native-toolkit's Kotlin API in the same app too, even when Unity did not start it.
         /// </summary>
         /// <param name="onResult">Optional per-call result callback.</param>
-        public void StopObserving(Action<ClipboardOperationResult>? onResult = null)
+        public void StopObserving(Action<AndroidClipboardOperationResult>? onResult = null)
         {
             AndroidNativeCallbackQueue.EnsureCreated();
             Debug.Log($"[{LogTag}][{nameof(StopObserving)}] hasCallback: {onResult != null}");
@@ -347,17 +349,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Reads the current clipboard content. Synchronous: does not raise
         /// <see cref="ClipboardOperationCompleted"/>. May be called from any thread. Android lets an
         /// app read the clipboard only while it has the input focus; without it, the clipboard reads
-        /// as <see cref="ClipboardReadStatus.Empty"/>.
+        /// as <see cref="AndroidClipboardReadStatus.Empty"/>.
         /// </summary>
         /// <returns>The clipboard content, an empty result, or a failure with an error code.</returns>
-        public ClipboardReadResult Read()
+        public AndroidClipboardReadResult Read()
         {
             AndroidNativeCallbackQueue.EnsureCreated();
             Debug.Log($"[{LogTag}][{nameof(Read)}]");
             if (!CanRead(OperationRead))
-                return ClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationRead));
+                return AndroidClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationRead));
 #if UNITY_ANDROID && !UNITY_EDITOR
-            ClipboardReadResult result;
+            AndroidClipboardReadResult result;
             try
             {
                 int code = AndroidClipboardCApi.ntk_clipboard_read(out IntPtr content);
@@ -365,27 +367,27 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
                 {
                     LogFailure(OperationRead, code);
                     var (errorCode, message) = AndroidClipboardCApi.ReadFailure(OperationRead, code);
-                    result = ClipboardReadResult.Failed(errorCode, message);
+                    result = AndroidClipboardReadResult.Failed(errorCode, message);
                 }
                 else if (content == IntPtr.Zero)
                 {
-                    result = ClipboardReadResult.Empty();
+                    result = AndroidClipboardReadResult.Empty();
                 }
                 else
                 {
-                    result = ClipboardReadResult.FromContents(
+                    result = AndroidClipboardReadResult.FromContents(
                         ReadAndFree(content, AndroidClipboardCApi.ReadContent, handle => AndroidClipboardCApi.ntk_clipboard_content_free(handle)));
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}] {OperationRead} error: {ex.Message}");
-                result = ClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, ex.Message);
+                result = AndroidClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, ex.Message);
             }
             Debug.Log($"[{LogTag}][{nameof(Read)}] status: {result.Status}, errorCode: {result.ErrorCode}");
             return result;
 #else
-            return ClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationRead));
+            return AndroidClipboardReadResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationRead));
 #endif
         }
 
@@ -427,14 +429,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <see cref="ClipboardOperationCompleted"/>. May be called from any thread.
         /// </summary>
         /// <returns>The clipboard metadata, an empty result, or a failure with an error code.</returns>
-        public ClipboardDescriptionResult GetDescription()
+        public AndroidClipboardDescriptionResult GetDescription()
         {
             AndroidNativeCallbackQueue.EnsureCreated();
             Debug.Log($"[{LogTag}][{nameof(GetDescription)}]");
             if (!CanRead(OperationGetDescription))
-                return ClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationGetDescription));
+                return AndroidClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationGetDescription));
 #if UNITY_ANDROID && !UNITY_EDITOR
-            ClipboardDescriptionResult result;
+            AndroidClipboardDescriptionResult result;
             try
             {
                 int code = AndroidClipboardCApi.ntk_clipboard_get_description(out IntPtr description);
@@ -442,27 +444,27 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
                 {
                     LogFailure(OperationGetDescription, code);
                     var (errorCode, message) = AndroidClipboardCApi.ReadFailure(OperationGetDescription, code);
-                    result = ClipboardDescriptionResult.Failed(errorCode, message);
+                    result = AndroidClipboardDescriptionResult.Failed(errorCode, message);
                 }
                 else if (description == IntPtr.Zero)
                 {
-                    result = ClipboardDescriptionResult.Empty();
+                    result = AndroidClipboardDescriptionResult.Empty();
                 }
                 else
                 {
-                    result = ClipboardDescriptionResult.FromDescription(
+                    result = AndroidClipboardDescriptionResult.FromDescription(
                         ReadAndFree(description, AndroidClipboardCApi.ReadDescription, handle => AndroidClipboardCApi.ntk_clipboard_description_free(handle)));
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}] {OperationGetDescription} error: {ex.Message}");
-                result = ClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, ex.Message);
+                result = AndroidClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, ex.Message);
             }
             Debug.Log($"[{LogTag}][{nameof(GetDescription)}] status: {result.Status}, errorCode: {result.ErrorCode}");
             return result;
 #else
-            return ClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationGetDescription));
+            return AndroidClipboardDescriptionResult.Failed(AndroidClipboardCApi.BridgeUnavailableErrorCode, AndroidClipboardCApi.NotStartedMessage(OperationGetDescription));
 #endif
         }
 
@@ -532,17 +534,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Whether an asynchronous operation can reach the library. When not, posts 1.x's
         /// "&lt;op&gt; could not be started." failure (design 4.4, J-C6).
         /// </summary>
-        private static bool CanCall(string operation, Action<ClipboardOperationResult>? onResult)
+        private static bool CanCall(string operation, Action<AndroidClipboardOperationResult>? onResult)
         {
             if (Application.platform != RuntimePlatform.Android)
             {
                 Debug.LogWarning($"[{LogTag}] {operation} can only be called on Android.");
-                Post(ClipboardOperationResult.Failure(operation, AndroidClipboardCApi.NotStartedMessage(operation)), onResult);
+                Post(AndroidClipboardOperationResult.Failure(operation, AndroidClipboardCApi.NotStartedMessage(operation)), onResult);
                 return false;
             }
             if (!NativeAvailable(operation))
             {
-                Post(ClipboardOperationResult.Failure(operation, AndroidClipboardCApi.NotStartedMessage(operation)), onResult);
+                Post(AndroidClipboardOperationResult.Failure(operation, AndroidClipboardCApi.NotStartedMessage(operation)), onResult);
                 return false;
             }
             return true;
@@ -570,28 +572,28 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Runs one synchronous C call, frees what it allocated, and posts its result with the call's
         /// own callback (J-C1, J-C2).
         /// </summary>
-        private static void Invoke(string operation, Action<ClipboardOperationResult>? onResult, string? uri, Func<List<IntPtr>, int> call)
+        private static void Invoke(string operation, Action<AndroidClipboardOperationResult>? onResult, string? uri, Func<List<IntPtr>, int> call)
         {
             List<IntPtr>? allocated = null;
-            ClipboardOperationResult result;
+            AndroidClipboardOperationResult result;
             try
             {
                 allocated = new List<IntPtr>();
                 int code = call(allocated);
                 if (code == AndroidClipboardCApi.ErrorNone)
                 {
-                    result = ClipboardOperationResult.Success(operation);
+                    result = AndroidClipboardOperationResult.Success(operation);
                 }
                 else
                 {
                     LogFailure(operation, code);
-                    result = ClipboardOperationResult.Failure(operation, AndroidClipboardCApi.OperationFailureMessage(operation, code, uri));
+                    result = AndroidClipboardOperationResult.Failure(operation, AndroidClipboardCApi.OperationFailureMessage(operation, code, uri));
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}] {operation} error: {ex.Message}");
-                result = ClipboardOperationResult.Failure(operation, ex.Message);
+                result = AndroidClipboardOperationResult.Failure(operation, ex.Message);
             }
             finally
             {
@@ -630,14 +632,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
                 Debug.LogWarning($"[{LogTag}][{operation}] failed: {AndroidClipboardCApi.ErrorName(code)}");
         }
 
-        private static void Post(ClipboardOperationResult result, Action<ClipboardOperationResult>? onResult) =>
+        private static void Post(AndroidClipboardOperationResult result, Action<AndroidClipboardOperationResult>? onResult) =>
             AndroidNativeCallbackQueue.Post(() => Deliver(result, onResult));
 
         /// <summary>
         /// Raises a result on Unity's main thread: the shared event, then the per-call callback. Goes
         /// to the manager alive when the queue runs; without one, the result is dropped (J-C3).
         /// </summary>
-        private static void Deliver(ClipboardOperationResult result, Action<ClipboardOperationResult>? onResult)
+        private static void Deliver(AndroidClipboardOperationResult result, Action<AndroidClipboardOperationResult>? onResult)
         {
             AndroidClipboardManager? manager = _instance;
             if (manager == null)
@@ -657,9 +659,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// <param name="common">Common event snapshot (invoked first).</param>
         /// <param name="perCall">Per-call callback snapshot (invoked second).</param>
         internal static void InvokeInOrder(
-            ClipboardOperationResult result,
-            Action<ClipboardOperationResult>? common,
-            Action<ClipboardOperationResult>? perCall)
+            AndroidClipboardOperationResult result,
+            Action<AndroidClipboardOperationResult>? common,
+            Action<AndroidClipboardOperationResult>? perCall)
         {
             // Separate try/catch blocks: an exception from `common` must not prevent `perCall`
             // from being invoked, and vice versa.

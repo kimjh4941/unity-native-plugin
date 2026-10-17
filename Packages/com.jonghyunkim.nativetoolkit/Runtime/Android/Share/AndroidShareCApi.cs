@@ -194,7 +194,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// Checks a Direct Share target in 1.x's order (id, label, iconBase64, then the icon's Base64)
         /// and hands back the decoded icon.
         /// </summary>
-        internal static string? CheckDirectTarget(DirectShareTargetPayload payload, out byte[]? icon)
+        internal static string? CheckDirectTarget(AndroidDirectShareTargetPayload payload, out byte[]? icon)
         {
             const string operation = AndroidShareManager.OperationRegisterDirectShareTarget;
             icon = null;
@@ -259,12 +259,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// intentAction (compared as passed). Keeps android.intent.action.SEND, which shows but is not
         /// reported when tapped. The elements must not be null (checked before).
         /// </summary>
-        internal static List<NormalizedAction> NormalizeActions(ChooserActionPayload[]? actions)
+        internal static List<NormalizedAction> NormalizeActions(AndroidChooserActionPayload[]? actions)
         {
             var normalized = new List<NormalizedAction>();
             if (actions == null) return normalized;
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (ChooserActionPayload action in actions)
+            foreach (AndroidChooserActionPayload action in actions)
             {
                 if (IsBlank(action.label) || IsBlank(action.iconBase64) || IsAbsent(action.intentAction)) continue;
                 byte[]? icon = DecodeIcon(action.iconBase64);
@@ -284,7 +284,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         internal static IntPtr AllocOptional(string? value, List<IntPtr> allocated) =>
             IsAbsent(value) ? IntPtr.Zero : AndroidNativeToolkitCApi.AllocUtf8(value, allocated);
 
-        internal static TextContent BuildTextContent(ShareTextPayload payload, List<IntPtr> allocated) => new()
+        internal static TextContent BuildTextContent(AndroidShareTextPayload payload, List<IntPtr> allocated) => new()
         {
             StructSize = (uint)Marshal.SizeOf<TextContent>(),
             Reserved0 = 0,
@@ -315,7 +315,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
             return block;
         }
 
-        internal static DirectTarget BuildDirectTarget(DirectShareTargetPayload payload, byte[] icon, List<IntPtr> allocated) => new()
+        internal static DirectTarget BuildDirectTarget(AndroidDirectShareTargetPayload payload, byte[] icon, List<IntPtr> allocated) => new()
         {
             StructSize = (uint)Marshal.SizeOf<DirectTarget>(),
             Reserved0 = 0,

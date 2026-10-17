@@ -168,7 +168,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnShareTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Share plain text");
-        AndroidShareManager.Instance.ShareText(new ShareTextPayload
+        AndroidShareManager.Instance.ShareText(new AndroidShareTextPayload
         {
             text = "Hello from Unity! This is a plain text share sample."
         });
@@ -182,7 +182,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnShareUrlClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Share URL");
-        AndroidShareManager.Instance.ShareText(new ShareTextPayload
+        AndroidShareManager.Instance.ShareText(new AndroidShareTextPayload
         {
             text = "https://unity.com",
             mimeType = "text/plain"
@@ -210,18 +210,18 @@ public class AndroidShareManagerExampleController : MonoBehaviour
             return;
         }
 
-        AndroidShareManager.Instance.ShareText(new ShareTextPayload
+        AndroidShareManager.Instance.ShareText(new AndroidShareTextPayload
         {
             text = "Sharing with custom chooser actions (Android 14 / API 34+ only).",
             chooserActions = new[]
             {
-                new ChooserActionPayload
+                new AndroidChooserActionPayload
                 {
                     label = "Save",
                     iconBase64 = iconBase64,
                     intentAction = SampleChooserActionIdSave
                 },
-                new ChooserActionPayload
+                new AndroidChooserActionPayload
                 {
                     label = "Open",
                     iconBase64 = iconBase64,
@@ -239,7 +239,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnShareWithSubjectTitleClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Share with subject and title");
-        AndroidShareManager.Instance.ShareText(new ShareTextPayload
+        AndroidShareManager.Instance.ShareText(new AndroidShareTextPayload
         {
             text = "This is a share sample with subject and title from Unity.",
             title = "Unity Share Sample",
@@ -268,7 +268,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Share with rich preview");
-        AndroidShareManager.Instance.ShareText(new ShareTextPayload
+        AndroidShareManager.Instance.ShareText(new AndroidShareTextPayload
         {
             text = "Check out this rich preview share from Unity!",
             previewTitle = "Unity Rich Preview Sample",
@@ -302,7 +302,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Share image");
-        AndroidShareManager.Instance.ShareImage(new ShareImagePayload
+        AndroidShareManager.Instance.ShareImage(new AndroidShareImagePayload
         {
             filePath = imagePath,
             mimeType = "image/png"
@@ -337,7 +337,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Share multiple images");
-        AndroidShareManager.Instance.ShareImages(new ShareImagesPayload
+        AndroidShareManager.Instance.ShareImages(new AndroidShareImagesPayload
         {
             filePaths = new[] { imagePath1, imagePath2 }
         });
@@ -369,7 +369,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Share file");
-        AndroidShareManager.Instance.ShareFile(new ShareFilePayload
+        AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
         {
             filePath = filePath
         });
@@ -403,7 +403,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Share multiple files");
-        AndroidShareManager.Instance.ShareFiles(new ShareFilesPayload
+        AndroidShareManager.Instance.ShareFiles(new AndroidShareFilesPayload
         {
             filePaths = new[] { filePath1, filePath2 }
         });
@@ -429,7 +429,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Register Direct Share target");
-        AndroidShareManager.Instance.RegisterDirectShareTarget(new DirectShareTargetPayload
+        AndroidShareManager.Instance.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload
         {
             id = SampleDirectShareTargetId,
             label = "Unity Sample Target",
@@ -445,7 +445,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnRemoveDirectShareTargetClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Remove Direct Share targets");
-        AndroidShareManager.Instance.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload
+        AndroidShareManager.Instance.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload
         {
             ids = new[] { SampleDirectShareTargetId }
         });
@@ -461,7 +461,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         SetPendingOperation("Share with callback");
 
         AndroidShareManager.Instance.ShareWithCallback(
-            new ShareTextPayload
+            new AndroidShareTextPayload
             {
                 text = "Share with callback sample from Unity. Select an app to receive the selection result."
             },
@@ -502,7 +502,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnShareInvalidFileClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Share invalid file (error handling demo)");
-        AndroidShareManager.Instance.ShareFile(new ShareFilePayload
+        AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
         {
             filePath = "/invalid/path/that/does/not/exist/sample.txt"
         });
@@ -512,7 +512,7 @@ public class AndroidShareManagerExampleController : MonoBehaviour
     }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-    private void OnShareOperationCompleted(ShareOperationResult result)
+    private void OnShareOperationCompleted(AndroidShareOperationResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareOperationCompleted)}] operation: {result.Operation}, isSuccess: {result.IsSuccess}");
         string status = result.IsSuccess ? "Success" : "Failed";
@@ -528,14 +528,14 @@ public class AndroidShareManagerExampleController : MonoBehaviour
         SetResult(msg);
     }
 
-    private void OnShareCallbackReceived(ShareCallbackResult result)
+    private void OnShareCallbackReceived(AndroidShareCallbackResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareCallbackReceived)}] operation: {result.Operation}, package: {result.SelectedPackageName}");
         string pkg = result.SelectedPackageName ?? "(unknown)";
         SetResult($"[event] ShareCallback: Selected {pkg}");
     }
 
-    private void OnShareChooserActionTapped(ShareChooserActionResult result)
+    private void OnShareChooserActionTapped(AndroidShareChooserActionResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnShareChooserActionTapped)}] actionId: {result.ActionId}");
         SetResult($"[event] ChooserAction: {result.ActionId}");

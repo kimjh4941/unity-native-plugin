@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
@@ -15,6 +16,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// writes by the rules 1.x's parser had (artifact/android/notification/designs/2026-10-12-android-notification-design-v4.md,
     /// 4.2). The manager does not call this class itself.
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification")]
     public static class AndroidNotificationJsonBuilder
     {
         /// <summary>
@@ -22,7 +24,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// </summary>
         /// <param name="channel">Channel payload to serialize.</param>
         /// <returns>JSON string matching the Android notification channel schema.</returns>
-        public static string BuildChannelJson(ChannelPayload channel)
+        public static string BuildChannelJson(AndroidChannelPayload channel)
         {
             return SerializeObject(BuildChannelObject(channel));
         }
@@ -32,7 +34,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// </summary>
         /// <param name="notification">Notification payload to serialize.</param>
         /// <returns>JSON string matching the Android notification schema.</returns>
-        public static string BuildNotificationJson(NotificationPayload notification)
+        public static string BuildNotificationJson(AndroidNotificationPayload notification)
         {
             return SerializeObject(BuildNotificationObject(notification));
         }
@@ -42,7 +44,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// </summary>
         /// <param name="scheduledNotification">Scheduled notification payload to serialize.</param>
         /// <returns>JSON string matching the scheduled notification schema.</returns>
-        public static string BuildScheduledNotificationJson(ScheduledNotificationEnvelopePayload scheduledNotification)
+        public static string BuildScheduledNotificationJson(AndroidScheduledNotificationEnvelopePayload scheduledNotification)
         {
             var root = new Dictionary<string, object?>
             {
@@ -53,7 +55,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return SerializeObject(root);
         }
 
-        private static Dictionary<string, object?> BuildChannelObject(ChannelPayload channel)
+        private static Dictionary<string, object?> BuildChannelObject(AndroidChannelPayload channel)
         {
             var result = new Dictionary<string, object?>
             {
@@ -75,7 +77,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static Dictionary<string, object?> BuildNotificationObject(NotificationPayload notification)
+        private static Dictionary<string, object?> BuildNotificationObject(AndroidNotificationPayload notification)
         {
             var result = new Dictionary<string, object?>
             {
@@ -119,7 +121,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static Dictionary<string, object?> BuildScheduleObject(NotificationSchedulePayload schedule)
+        private static Dictionary<string, object?> BuildScheduleObject(AndroidNotificationSchedulePayload schedule)
         {
             return new Dictionary<string, object?>
             {
@@ -131,7 +133,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             };
         }
 
-        private static Dictionary<string, object?>? BuildResourceObject(NotificationResourcePayload? resource)
+        private static Dictionary<string, object?>? BuildResourceObject(AndroidNotificationResourcePayload? resource)
         {
             if (resource == null || string.IsNullOrWhiteSpace(resource.name))
             {
@@ -146,7 +148,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static Dictionary<string, object?>? BuildProgressObject(NotificationProgressPayload? progress)
+        private static Dictionary<string, object?>? BuildProgressObject(AndroidNotificationProgressPayload? progress)
         {
             if (progress == null)
             {
@@ -161,7 +163,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             };
         }
 
-        private static Dictionary<string, object?>? BuildStyleObject(NotificationStylePayload? style)
+        private static Dictionary<string, object?>? BuildStyleObject(AndroidNotificationStylePayload? style)
         {
             if (style == null)
             {
@@ -191,7 +193,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static List<object?> BuildActionObjects(NotificationActionPayload[] actions)
+        private static List<object?> BuildActionObjects(AndroidNotificationActionPayload[] actions)
         {
             var result = new List<object?>();
             foreach (var action in actions)
@@ -218,7 +220,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static List<object?> BuildMessageObjects(NotificationMessagePayload[] messages)
+        private static List<object?> BuildMessageObjects(AndroidNotificationMessagePayload[] messages)
         {
             var result = new List<object?>();
             foreach (var message in messages)
@@ -240,7 +242,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static List<object?> BuildViewActionObjects(NotificationViewActionPayload[] viewActions)
+        private static List<object?> BuildViewActionObjects(AndroidNotificationViewActionPayload[] viewActions)
         {
             var result = new List<object?>();
             foreach (var viewAction in viewActions)
@@ -262,7 +264,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             return result;
         }
 
-        private static Dictionary<string, object?>? BuildDataObject(NotificationDataEntryPayload[] dataEntries)
+        private static Dictionary<string, object?>? BuildDataObject(AndroidNotificationDataEntryPayload[] dataEntries)
         {
             var result = new Dictionary<string, object?>();
             foreach (var entry in dataEntries)

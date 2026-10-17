@@ -1,11 +1,14 @@
 #nullable enable
 
+using UnityEngine.Scripting.APIUpdating;
+
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
     /// <summary>
     /// Represents the completion result of a copy, clear, or stopObserving clipboard operation.
     /// </summary>
-    public readonly struct ClipboardOperationResult
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard", sourceClassName: "ClipboardOperationResult")]
+    public readonly struct AndroidClipboardOperationResult
     {
         /// <summary>
         /// Gets the native operation name that produced this result.
@@ -27,8 +30,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// Creates a successful operation result.
         /// </summary>
         /// <param name="operation">The native operation name.</param>
-        /// <returns>A successful <see cref="ClipboardOperationResult"/>.</returns>
-        public static ClipboardOperationResult Success(string operation) =>
+        /// <returns>A successful <see cref="AndroidClipboardOperationResult"/>.</returns>
+        public static AndroidClipboardOperationResult Success(string operation) =>
             new(operation, true, null);
 
         /// <summary>
@@ -36,11 +39,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         /// </summary>
         /// <param name="operation">The native operation name.</param>
         /// <param name="error">The error message returned by the native layer.</param>
-        /// <returns>A failed <see cref="ClipboardOperationResult"/>.</returns>
-        public static ClipboardOperationResult Failure(string operation, string error) =>
+        /// <returns>A failed <see cref="AndroidClipboardOperationResult"/>.</returns>
+        public static AndroidClipboardOperationResult Failure(string operation, string error) =>
             new(operation, false, error);
 
-        private ClipboardOperationResult(string operation, bool isSuccess, string? errorMessage)
+        private AndroidClipboardOperationResult(string operation, bool isSuccess, string? errorMessage)
         {
             Operation = operation;
             IsSuccess = isSuccess;

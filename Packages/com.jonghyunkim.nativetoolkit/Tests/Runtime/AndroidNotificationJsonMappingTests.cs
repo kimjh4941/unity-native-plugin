@@ -371,56 +371,56 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // ── What the builder writes, read back (design 7.1) ──────────────────────
 
-        private static IEnumerable<NotificationPayload> Payloads()
+        private static IEnumerable<AndroidNotificationPayload> Payloads()
         {
-            NotificationResourcePayload Icon() => new() { name = "app_icon", type = "mipmap" };
+            AndroidNotificationResourcePayload Icon() => new() { name = "app_icon", type = "mipmap" };
             // The three payloads of AndroidNotificationJsonBuilderTests.
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
                 id = 101, title = "Boss Alert", message = "The world boss has spawned.", tag = "boss",
-                channel = new ChannelPayload { id = "gameplay", name = "Gameplay", importance = 4, groupId = "events", groupName = "Events" },
+                channel = new AndroidChannelPayload { id = "gameplay", name = "Gameplay", importance = 4, groupId = "events", groupName = "Events" },
                 smallIcon = Icon(), largeIcon = Icon(), subText = "Limited Event", category = "alarm", ticker = "Boss alert", number = 7,
                 color = unchecked((int)0xFF4CAF50), groupKey = "live-events", sortKey = "boss-001", timeoutAfterMillis = 30000,
                 launchAction = "open_boss_screen",
-                style = new NotificationStylePayload { type = "bigPicture", picture = Icon(), largeIcon = Icon(), bigContentTitle = "Boss Alert", summaryText = "Limited Event" },
-                actions = new[] { new NotificationActionPayload { title = "Join", actionId = "action.join", icon = Icon(), launchApp = true, semanticAction = 10, contextual = true } },
-                data = new[] { new NotificationDataEntryPayload { key = "screen", value = "boss" }, new NotificationDataEntryPayload { key = "bossId", value = "boss_001" } },
+                style = new AndroidNotificationStylePayload { type = "bigPicture", picture = Icon(), largeIcon = Icon(), bigContentTitle = "Boss Alert", summaryText = "Limited Event" },
+                actions = new[] { new AndroidNotificationActionPayload { title = "Join", actionId = "action.join", icon = Icon(), launchApp = true, semanticAction = 10, contextual = true } },
+                data = new[] { new AndroidNotificationDataEntryPayload { key = "screen", value = "boss" }, new AndroidNotificationDataEntryPayload { key = "bossId", value = "boss_001" } },
             };
-            yield return new NotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new ChannelPayload { id = "events", name = "Events" } };
-            yield return new NotificationPayload { id = 303, title = "Simple", message = "Minimal payload.", channel = new ChannelPayload { id = "default", name = "Default" } };
+            yield return new AndroidNotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new AndroidChannelPayload { id = "events", name = "Events" } };
+            yield return new AndroidNotificationPayload { id = 303, title = "Simple", message = "Minimal payload.", channel = new AndroidChannelPayload { id = "default", name = "Default" } };
             // The sample's kinds: bigText with a priority, a progress, messaging, inbox, a custom view, a full screen.
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
-                id = 1101, title = "Energy Refilled", message = "Rested.", tag = "energy", channel = new ChannelPayload { id = "native_toolkit_gameplay", name = "Gameplay Alerts" },
+                id = 1101, title = "Energy Refilled", message = "Rested.", tag = "energy", channel = new AndroidChannelPayload { id = "native_toolkit_gameplay", name = "Gameplay Alerts" },
                 smallIcon = Icon(), priority = 1, category = "recommendation", number = 3, timestampMillis = 1_700_000_000_123,
-                style = new NotificationStylePayload { type = "bigText", bigText = "Big", bigContentTitle = "Energy Refilled", summaryText = "Raid Ready" },
+                style = new AndroidNotificationStylePayload { type = "bigText", bigText = "Big", bigContentTitle = "Energy Refilled", summaryText = "Raid Ready" },
             };
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
-                id = 1301, title = "Downloading", message = "Arena.", channel = new ChannelPayload { id = "native_toolkit_gameplay", name = "Gameplay Alerts", lightColor = -16711936, vibrationPattern = new long[] { 0, 250 }, lockscreenVisibility = 0 },
-                ongoing = true, autoCancel = false, onlyAlertOnce = true, progress = new NotificationProgressPayload { max = 100, current = 15 },
+                id = 1301, title = "Downloading", message = "Arena.", channel = new AndroidChannelPayload { id = "native_toolkit_gameplay", name = "Gameplay Alerts", lightColor = -16711936, vibrationPattern = new long[] { 0, 250 }, lockscreenVisibility = 0 },
+                ongoing = true, autoCancel = false, onlyAlertOnce = true, progress = new AndroidNotificationProgressPayload { max = 100, current = 15 },
             };
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
-                id = 1401, title = "Chat", message = "Hi", channel = new ChannelPayload { id = "c", name = "C" }, launchAppOnTap = false, fullScreenIntent = true, visibility = -1,
-                style = new NotificationStylePayload { type = "messaging", userDisplayName = "Me", conversationTitle = "Team", isGroupConversation = true,
-                    messages = new[] { new NotificationMessagePayload { text = "one", timestampMillis = 10, senderName = "A" } } },
+                id = 1401, title = "Chat", message = "Hi", channel = new AndroidChannelPayload { id = "c", name = "C" }, launchAppOnTap = false, fullScreenIntent = true, visibility = -1,
+                style = new AndroidNotificationStylePayload { type = "messaging", userDisplayName = "Me", conversationTitle = "Team", isGroupConversation = true,
+                    messages = new[] { new AndroidNotificationMessagePayload { text = "one", timestampMillis = 10, senderName = "A" } } },
             };
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
-                id = 1501, title = "Inbox", message = "3 new", channel = new ChannelPayload { id = "c", name = "C" },
-                style = new NotificationStylePayload { type = "inbox", lines = new[] { "a", "b" }, summaryText = "S" },
+                id = 1501, title = "Inbox", message = "3 new", channel = new AndroidChannelPayload { id = "c", name = "C" },
+                style = new AndroidNotificationStylePayload { type = "inbox", lines = new[] { "a", "b" }, summaryText = "S" },
             };
-            yield return new NotificationPayload
+            yield return new AndroidNotificationPayload
             {
-                id = 1601, title = "Custom", message = "View", channel = new ChannelPayload { id = "c", name = "C" },
-                style = new NotificationStylePayload { type = "decoratedCustomView", customViewLayout = "notification_custom", bigCustomViewLayout = "notification_custom_big",
-                    viewActions = new[] { new NotificationViewActionPayload { type = "setClickIntent", viewId = "dismiss_button", actionId = "dismiss" } } },
+                id = 1601, title = "Custom", message = "View", channel = new AndroidChannelPayload { id = "c", name = "C" },
+                style = new AndroidNotificationStylePayload { type = "decoratedCustomView", customViewLayout = "notification_custom", bigCustomViewLayout = "notification_custom_big",
+                    viewActions = new[] { new AndroidNotificationViewActionPayload { type = "setClickIntent", viewId = "dismiss_button", actionId = "dismiss" } } },
             };
         }
 
         [TestCaseSource(nameof(Payloads))]
-        public void BuilderJson_ReadsBackToThePayload(NotificationPayload payload)
+        public void BuilderJson_ReadsBackToThePayload(AndroidNotificationPayload payload)
         {
             AndroidNotificationSpec spec = Read(AndroidNotificationJsonBuilder.BuildNotificationJson(payload));
             Assert.AreEqual((payload.id, payload.title, payload.message, payload.tag), (spec.Id, spec.Title, spec.Message, spec.Tag));
@@ -442,7 +442,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             CollectionAssert.AreEqual(payload.actions.Select(a => (a.title, a.actionId, a.icon?.name, a.launchApp, a.allowGeneratedReplies, a.semanticAction, a.contextual, a.showsUserInterface)),
                 spec.Actions.Select(a => (a.Title, a.ActionId, a.IconName, a.LaunchApp, a.AllowGeneratedReplies, a.SemanticAction, a.Contextual, a.ShowsUserInterface)));
 
-            ChannelPayload c = payload.channel;
+            AndroidChannelPayload c = payload.channel;
             AndroidNotificationChannelSpec channel = spec.Channel;
             Assert.AreEqual((c.id, c.name, c.importance, c.description, c.showBadge, c.enableLights, c.enableVibration, c.soundUri, c.lockscreenVisibility, c.groupId),
                 (channel.Id, channel.Name, channel.Importance, channel.Description, channel.ShowBadge, channel.EnableLights, channel.EnableVibration, channel.SoundUri, channel.LockscreenVisibility, channel.GroupId));
@@ -450,7 +450,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(c.lightColor == null ? (uint?)null : unchecked((uint)c.lightColor.Value), channel.LightColor);
             Assert.AreEqual(c.vibrationPattern, channel.VibrationPattern);
 
-            NotificationStylePayload? s = payload.style;
+            AndroidNotificationStylePayload? s = payload.style;
             AndroidNotificationStyleSpec style = spec.Style;
             switch (s?.type)
             {
@@ -483,10 +483,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuilderScheduleJson_ReadsBackToThePayload()
         {
-            string json = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+            string json = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
             {
-                notification = new NotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new ChannelPayload { id = "events", name = "Events" } },
-                schedule = new NotificationSchedulePayload { triggerAtMillis = 1714377600000, exact = false, allowWhileIdle = false, persistAcrossBoot = false, alarmType = 1 },
+                notification = new AndroidNotificationPayload { id = 202, title = "Guild Battle", message = "Starts soon.", channel = new AndroidChannelPayload { id = "events", name = "Events" } },
+                schedule = new AndroidNotificationSchedulePayload { triggerAtMillis = 1714377600000, exact = false, allowWhileIdle = false, persistAcrossBoot = false, alarmType = 1 },
             });
             Assert.IsNull(Mapping.ReadSchedule(json, "scheduleNotification", Now, out AndroidNotificationScheduleSpec? spec));
             Assert.AreEqual((1714377600000L, false, false, false, 1), (spec!.TriggerAtMillis, spec.Exact, spec.AllowWhileIdle, spec.PersistAcrossBoot, spec.AlarmType));
@@ -496,7 +496,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuilderChannelJson_ReadsBackToThePayload()
         {
-            string json = AndroidNotificationJsonBuilder.BuildChannelJson(new ChannelPayload
+            string json = AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
             {
                 id = "ch", name = "Channel", importance = 2, description = "D", showBadge = false, enableLights = false, lightColor = 255,
                 enableVibration = false, vibrationPattern = new long[] { 1, 2 }, soundUri = "s", lockscreenVisibility = -1, groupId = "g", groupName = "G",

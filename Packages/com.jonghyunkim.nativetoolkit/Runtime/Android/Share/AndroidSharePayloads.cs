@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 {
@@ -8,7 +9,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Represents a single custom action shown in the Android share chooser (API 34+).
     /// </summary>
     [Serializable]
-    public sealed class ChooserActionPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ChooserActionPayload")]
+    public sealed class AndroidChooserActionPayload
     {
         /// <summary>Label displayed for this chooser action.</summary>
         public string label = string.Empty;
@@ -33,7 +35,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>shareText</c> and <c>shareWithCallback</c> native operations.
     /// </summary>
     [Serializable]
-    public sealed class ShareTextPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareTextPayload")]
+    public sealed class AndroidShareTextPayload
     {
         /// <summary>Text content to share. Required.</summary>
         public string text = string.Empty;
@@ -48,7 +51,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         public string? mimeType;
 
         /// <summary>Custom actions shown in the chooser (API 34+ only; ignored on lower API levels).</summary>
-        public ChooserActionPayload[]? chooserActions;
+        public AndroidChooserActionPayload[]? chooserActions;
 
         /// <summary>Preview title shown in the chooser content preview area.</summary>
         public string? previewTitle;
@@ -62,7 +65,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>shareImage</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class ShareImagePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareImagePayload")]
+    public sealed class AndroidShareImagePayload
     {
         /// <summary>Absolute file path to the image. Must be within a FileProvider-accessible directory.</summary>
         public string filePath = string.Empty;
@@ -76,7 +80,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>shareImages</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class ShareImagesPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareImagesPayload")]
+    public sealed class AndroidShareImagesPayload
     {
         /// <summary>Absolute file paths to the images. Must not be empty. Each file must be within a FileProvider-accessible directory.</summary>
         public string[] filePaths = Array.Empty<string>();
@@ -87,7 +92,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>shareFile</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class ShareFilePayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareFilePayload")]
+    public sealed class AndroidShareFilePayload
     {
         /// <summary>Absolute file path to the file. Must be within a FileProvider-accessible directory.</summary>
         public string filePath = string.Empty;
@@ -98,7 +104,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>shareFiles</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class ShareFilesPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "ShareFilesPayload")]
+    public sealed class AndroidShareFilesPayload
     {
         /// <summary>Absolute file paths to the files. Must not be empty. Each file must be within a FileProvider-accessible directory.</summary>
         public string[] filePaths = Array.Empty<string>();
@@ -109,7 +116,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>registerDirectShareTarget</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class DirectShareTargetPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "DirectShareTargetPayload")]
+    public sealed class AndroidDirectShareTargetPayload
     {
         /// <summary>Unique shortcut identifier for this Direct Share target.</summary>
         public string id = string.Empty;
@@ -131,7 +139,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// Maps to the <c>removeDirectShareTargets</c> native operation.
     /// </summary>
     [Serializable]
-    public sealed class RemoveDirectShareTargetsPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share", sourceClassName: "RemoveDirectShareTargetsPayload")]
+    public sealed class AndroidRemoveDirectShareTargetsPayload
     {
         /// <summary>Shortcut identifiers to remove. Must not be empty.</summary>
         public string[] ids = Array.Empty<string>();

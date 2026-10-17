@@ -13,7 +13,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void InvokeInOrder_CommonThenPerCall_InvokedOnceEachInOrder()
         {
             var order = new System.Collections.Generic.List<string>();
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
 
             AndroidClipboardManager.InvokeInOrder(
                 result,
@@ -26,9 +26,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_PassesResultToBothDelegates()
         {
-            var result = ClipboardOperationResult.Failure("clear", "Clipboard service is unavailable.");
-            ClipboardOperationResult? receivedByCommon = null;
-            ClipboardOperationResult? receivedByPerCall = null;
+            var result = AndroidClipboardOperationResult.Failure("clear", "Clipboard service is unavailable.");
+            AndroidClipboardOperationResult? receivedByCommon = null;
+            AndroidClipboardOperationResult? receivedByPerCall = null;
 
             AndroidClipboardManager.InvokeInOrder(
                 result,
@@ -42,7 +42,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_OnlyPerCall_DoesNotThrow()
         {
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
             bool invoked = false;
 
             Assert.DoesNotThrow(() => AndroidClipboardManager.InvokeInOrder(result, common: null, perCall: r => invoked = true));
@@ -52,7 +52,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_OnlyCommon_DoesNotThrow()
         {
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
             bool invoked = false;
 
             Assert.DoesNotThrow(() => AndroidClipboardManager.InvokeInOrder(result, common: r => invoked = true, perCall: null));
@@ -62,7 +62,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_BothNull_DoesNotThrow()
         {
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
 
             Assert.DoesNotThrow(() => AndroidClipboardManager.InvokeInOrder(result, common: null, perCall: null));
         }
@@ -70,7 +70,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_PerCallThrows_CommonAlreadyInvokedAndExceptionSwallowed()
         {
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
             bool commonInvoked = false;
 
             LogAssert.Expect(UnityEngine.LogType.Error, new System.Text.RegularExpressions.Regex(".*InvokeInOrder.*"));
@@ -86,7 +86,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void InvokeInOrder_CommonThrows_PerCallStillInvokedAndExceptionSwallowed()
         {
-            var result = ClipboardOperationResult.Success("copyPlainText");
+            var result = AndroidClipboardOperationResult.Success("copyPlainText");
             bool perCallInvoked = false;
 
             LogAssert.Expect(UnityEngine.LogType.Error, new System.Text.RegularExpressions.Regex(".*InvokeInOrder.*"));
@@ -102,7 +102,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void ClipboardOperationResult_Success_ErrorMessageIsNull_Invariant()
         {
-            var result = ClipboardOperationResult.Success("clear");
+            var result = AndroidClipboardOperationResult.Success("clear");
 
             Assert.IsTrue(result.IsSuccess);
             Assert.IsNull(result.ErrorMessage, "ErrorMessage must be null when IsSuccess is true.");

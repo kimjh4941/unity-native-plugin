@@ -174,24 +174,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         internal static string? Normalize(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
         /// <summary>The content a read returned, normalized as 1.x's parser did.</summary>
-        internal static ClipContents ToClipContents(string? label, IReadOnlyList<string> mimeTypes, IReadOnlyList<RawItem> items)
+        internal static AndroidClipContents ToClipContents(string? label, IReadOnlyList<string> mimeTypes, IReadOnlyList<RawItem> items)
         {
-            var clipItems = new List<ClipItem>(items.Count);
+            var clipItems = new List<AndroidClipItem>(items.Count);
             foreach (RawItem item in items)
-                clipItems.Add(new ClipItem(Normalize(item.Text), Normalize(item.Html), Normalize(item.Uri), Normalize(item.Coerced)));
-            return new ClipContents(Normalize(label), mimeTypes, clipItems);
+                clipItems.Add(new AndroidClipItem(Normalize(item.Text), Normalize(item.Html), Normalize(item.Uri), Normalize(item.Coerced)));
+            return new AndroidClipContents(Normalize(label), mimeTypes, clipItems);
         }
 
         /// <summary>
         /// The description a read returned. The library reports no classification as -1; 1.x's parser
         /// read a missing one as 0. Neither is a CLASSIFICATION_* value (1 to 3), so both are null.
         /// </summary>
-        internal static ClipDescriptionInfo ToDescriptionInfo(string? label, IReadOnlyList<string> mimeTypes, int styled, int classification) =>
+        internal static AndroidClipDescriptionInfo ToDescriptionInfo(string? label, IReadOnlyList<string> mimeTypes, int styled, int classification) =>
             new(Normalize(label), mimeTypes, styled != 0, classification == -1 || classification == 0 ? null : classification);
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         /// <summary>Reads every value out of an <c>ntk_clipboard_content</c>. Does not free it.</summary>
-        internal static ClipContents ReadContent(IntPtr content)
+        internal static AndroidClipContents ReadContent(IntPtr content)
         {
             string? label = AndroidNativeToolkitCApi.ReadUtf8OrNull(ntk_clipboard_content_label(content, out UIntPtr labelSize), labelSize);
             var mimeTypes = new List<string>();
@@ -216,7 +216,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
         }
 
         /// <summary>Reads every value out of an <c>ntk_clipboard_description</c>. Does not free it.</summary>
-        internal static ClipDescriptionInfo ReadDescription(IntPtr description)
+        internal static AndroidClipDescriptionInfo ReadDescription(IntPtr description)
         {
             string? label = AndroidNativeToolkitCApi.ReadUtf8OrNull(ntk_clipboard_description_label(description, out UIntPtr labelSize), labelSize);
             var mimeTypes = new List<string>();

@@ -92,7 +92,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 try
                 {
-                    Manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = _cleanupIds.ToArray() });
+                    Manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = _cleanupIds.ToArray() });
                 }
                 catch (Exception e)
                 {
@@ -235,12 +235,12 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         [UnityTest]
         public IEnumerator AS41a_PreviewText() => ShareTextAnd(
-            new ShareTextPayload { text = "ntk share preview 41", previewTitle = "ntk preview title 41" },
+            new AndroidShareTextPayload { text = "ntk share preview 41", previewTitle = "ntk preview title 41" },
             "present-in-sheet", Ui.Base64("ntk share preview 41"));
 
         [UnityTest]
         public IEnumerator AS41b_PreviewTitle() => ShareTextAnd(
-            new ShareTextPayload { text = "ntk share preview 41", previewTitle = "ntk preview title 41" },
+            new AndroidShareTextPayload { text = "ntk share preview 41", previewTitle = "ntk preview title 41" },
             "present-in-sheet", Ui.Base64("ntk preview title 41"));
 
         [UnityTest]
@@ -248,7 +248,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             Expect(ops: 1, actions: 1);
             yield return SendThen(() => Manager.ShareText(
-                    new ShareTextPayload { text = "ntk share 42", chooserActions = new[] { Action("A42", "ntk.a42") } },
+                    new AndroidShareTextPayload { text = "ntk share 42", chooserActions = new[] { Action("A42", "ntk.a42") } },
                     onChooserAction: r => _calls.Add($"onChooserAction|{r.ActionId}|after {_events.Actions.Count} event(s)")),
                 "tap-in-sheet", Ui.Base64("A42"));
             yield return Eventually(() => _calls.Count > 0);
@@ -283,7 +283,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AS45_SendAction_NoCallback()
         {
             Expect(ops: 1);
-            yield return SendThen(() => Manager.ShareText(new ShareTextPayload
+            yield return SendThen(() => Manager.ShareText(new AndroidShareTextPayload
             {
                 text = "ntk share 45",
                 chooserActions = new[] { Action("S45", "android.intent.action.SEND") },
@@ -296,10 +296,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AS46_BrokenIcon()
         {
             Expect(ops: 1);
-            var payload = new ShareTextPayload
+            var payload = new AndroidShareTextPayload
             {
                 text = "ntk share 46",
-                chooserActions = new[] { new ChooserActionPayload { label = "X46", iconBase64 = BrokenPngBase64(), intentAction = "ntk.x46" } },
+                chooserActions = new[] { new AndroidChooserActionPayload { label = "X46", iconBase64 = BrokenPngBase64(), intentAction = "ntk.x46" } },
             };
             yield return SendThen(() => Manager.ShareText(payload), "no-sheet", "5000");
             yield return ExpectOp("Op|shareText|False|Failed to shareText: a chooser action icon could not be read as an image.");
@@ -309,7 +309,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AS47_ShareWithCallback_Selected()
         {
             Expect(ops: 1, selected: 1);
-            yield return SendThen(() => Manager.ShareWithCallback(new ShareTextPayload { text = "ntk share 47" },
+            yield return SendThen(() => Manager.ShareWithCallback(new AndroidShareTextPayload { text = "ntk share 47" },
                     onStarted: r => _calls.Add($"onStarted|{r.IsSuccess}"),
                     onSelected: r => _calls.Add($"onSelected|{r.SelectedPackageName}|after {_events.Selected.Count} event(s)")),
                 "tap-in-sheet", Ui.Base64(AppLabel()));
@@ -322,7 +322,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AS48_ShareWithCallback_Closed()
         {
             Expect(ops: 1);
-            yield return SendThen(() => Manager.ShareWithCallback(new ShareTextPayload { text = "ntk share 48" },
+            yield return SendThen(() => Manager.ShareWithCallback(new AndroidShareTextPayload { text = "ntk share 48" },
                 onStarted: r => _calls.Add($"onStarted|{r.IsSuccess}"),
                 onSelected: r => _calls.Add("onSelected")), "close-sheet");
             yield return NotComing();
@@ -336,7 +336,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Expect(ops: 2);
             yield return SendThen(() =>
             {
-                Manager.ShareWithCallback(new ShareTextPayload { text = "ntk share 49" }, onSelected: r => _calls.Add("onSelected"));
+                Manager.ShareWithCallback(new AndroidShareTextPayload { text = "ntk share 49" }, onSelected: r => _calls.Add("onSelected"));
                 Manager.CancelPendingShareCallback();
             }, "tap-in-sheet", Ui.Base64(AppLabel()));
             yield return NotComing();
@@ -351,10 +351,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             Manager.Initialize();
             Expect(ops: 2, selected: 1, actions: 1);
             yield return SendThen(() => Manager.ShareText(
-                new ShareTextPayload { text = "ntk share 50", chooserActions = new[] { Action("A50", "ntk.a50") } }),
+                new AndroidShareTextPayload { text = "ntk share 50", chooserActions = new[] { Action("A50", "ntk.a50") } }),
                 "tap-in-sheet", Ui.Base64("A50"));
             yield return ExpectAction("Action|ntk.a50");
-            yield return SendThen(() => Manager.ShareWithCallback(new ShareTextPayload { text = "ntk share 50b" }),
+            yield return SendThen(() => Manager.ShareWithCallback(new AndroidShareTextPayload { text = "ntk share 50b" }),
                 "tap-in-sheet", Ui.Base64(AppLabel()));
             yield return Eventually(() => _events.Selected.Count > 0);
             yield return NotComing();
@@ -366,11 +366,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             string label = $"NTK AS51 {Guid.NewGuid().ToString("N").Substring(0, 6)}";
             _cleanupIds.Add("ntk_as51");
             Expect(ops: 4);
-            Manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = new[] { "ntk_as51" } });
+            Manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = new[] { "ntk_as51" } });
             yield return ExpectOp("Op|removeDirectShareTargets|True|null");
-            Manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "ntk_as51", label = label, iconBase64 = IconBase64() });
+            Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "ntk_as51", label = label, iconBase64 = IconBase64() });
             yield return ExpectOp("Op|registerDirectShareTarget|True|null");
-            yield return SendThen(() => Manager.ShareText(new ShareTextPayload { text = "ntk share 51" }),
+            yield return SendThen(() => Manager.ShareText(new AndroidShareTextPayload { text = "ntk share 51" }),
                 "present-in-sheet", Ui.Base64(label));
         }
 
@@ -400,7 +400,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                         return;
                     }
                     if (abandon.IsCancellationRequested) return;
-                    Manager.ShareText(new ShareTextPayload { text = "ntk share 52" });
+                    Manager.ShareText(new AndroidShareTextPayload { text = "ntk share 52" });
                 }
                 catch (Exception e)
                 {
@@ -441,7 +441,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 {
                     try
                     {
-                        Manager.ShareText(new ShareTextPayload { text = "ntk share 53" });
+                        Manager.ShareText(new AndroidShareTextPayload { text = "ntk share 53" });
                     }
                     catch (Exception e)
                     {
@@ -495,7 +495,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             onAnswer(answer);
         }
 
-        private IEnumerator ShareTextAnd(ShareTextPayload payload, string command, params string[] args)
+        private IEnumerator ShareTextAnd(AndroidShareTextPayload payload, string command, params string[] args)
         {
             Expect(ops: 1);
             yield return SendThen(() => Manager.ShareText(payload), command, args);
@@ -556,23 +556,23 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return null;
         }
 
-        private static ChooserActionPayload Action(string label, string intentAction) =>
+        private static AndroidChooserActionPayload Action(string label, string intentAction) =>
             new() { label = label, iconBase64 = IconBase64(), intentAction = intentAction };
 
         /// <summary>AS-43: a blank label, an icon that is not Base64 (B43), one that is not an image (C43), and a good one (A43).</summary>
-        private static ShareTextPayload AS43Payload() => new()
+        private static AndroidShareTextPayload AS43Payload() => new()
         {
             text = "ntk share 43",
             chooserActions = new[]
             {
                 Action("  ", "ntk.blank43"),
-                new ChooserActionPayload { label = "B43", iconBase64 = "@@@ not base64 @@@", intentAction = "ntk.b43" },
-                new ChooserActionPayload { label = "C43", iconBase64 = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("abc")), intentAction = "ntk.c43" },
+                new AndroidChooserActionPayload { label = "B43", iconBase64 = "@@@ not base64 @@@", intentAction = "ntk.b43" },
+                new AndroidChooserActionPayload { label = "C43", iconBase64 = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes("abc")), intentAction = "ntk.c43" },
                 Action("A43", "ntk.a43"),
             },
         };
 
-        private static ShareTextPayload AS44Payload() => new()
+        private static AndroidShareTextPayload AS44Payload() => new()
         {
             text = "ntk share 44",
             chooserActions = new[] { Action("A44a", "ntk.a44"), Action("A44b", "ntk.a44") },

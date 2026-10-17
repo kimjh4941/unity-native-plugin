@@ -8,6 +8,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     using System.Threading;
     using JonghyunKim.NativeToolkit.Runtime.Android.Common;
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
 #if UNITY_ANDROID && !UNITY_EDITOR
     using System.Runtime.InteropServices;
     using AOT;
@@ -53,6 +54,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
     /// Every operation result, failures found before the native call included, arrives on Unity's main
     /// thread, after the method has returned for a call made there.
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification")]
     public class AndroidNotificationManager : MonoBehaviour
     {
         private const string LogTag = "AndroidNotificationManager";
@@ -174,17 +176,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// <summary>
         /// Occurs when a native notification operation completes.
         /// </summary>
-        public event Action<NotificationResult>? NotificationOperationCompleted;
+        public event Action<AndroidNotificationResult>? NotificationOperationCompleted;
 
         /// <summary>
         /// Occurs when a notification action or body tap is received.
         /// </summary>
-        public event Action<NotificationActionResult>? NotificationActionTapped;
+        public event Action<AndroidNotificationActionResult>? NotificationActionTapped;
 
         /// <summary>
         /// Occurs when a notification is shown while the app is in foreground.
         /// </summary>
-        public event Action<NotificationReceivedResult>? NotificationReceived;
+        public event Action<AndroidNotificationReceivedResult>? NotificationReceived;
 
         /// <summary>
         /// Singleton instance property for AndroidNotificationManager.
@@ -705,14 +707,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             {
                 Interlocked.Decrement(ref s_pendingSettings);
                 Debug.LogError($"[{LogTag}] {operation} error: {ex.Message}");
-                Post(NotificationResult.Failure(operation, ex.Message));
+                Post(AndroidNotificationResult.Failure(operation, ex.Message));
                 return;
             }
             if (code != AndroidNotificationCApi.ErrorNone)
             {
                 Interlocked.Decrement(ref s_pendingSettings);
                 LogFailure(operation, code);
-                Post(NotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, code)));
+                Post(AndroidNotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, code)));
             }
         }
 
@@ -725,12 +727,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             if (Application.platform != RuntimePlatform.Android)
             {
                 Debug.LogWarning($"[{LogTag}] {operation} can only be called on an Android device.");
-                Post(NotificationResult.Failure(operation, AndroidNotificationCApi.NotStartedMessage(operation)));
+                Post(AndroidNotificationResult.Failure(operation, AndroidNotificationCApi.NotStartedMessage(operation)));
                 return false;
             }
             if (!NativeAvailable(operation))
             {
-                Post(NotificationResult.Failure(operation, AndroidNotificationCApi.NotStartedMessage(operation)));
+                Post(AndroidNotificationResult.Failure(operation, AndroidNotificationCApi.NotStartedMessage(operation)));
                 return false;
             }
             return true;
@@ -776,25 +778,25 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         private static void Run(string operation, Func<List<IntPtr>, int> call)
         {
             List<IntPtr>? allocated = null;
-            NotificationResult result;
+            AndroidNotificationResult result;
             try
             {
                 allocated = new List<IntPtr>();
                 int code = call(allocated);
                 if (code == AndroidNotificationCApi.ErrorNone)
                 {
-                    result = NotificationResult.Success(operation);
+                    result = AndroidNotificationResult.Success(operation);
                 }
                 else
                 {
                     LogFailure(operation, code);
-                    result = NotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, code));
+                    result = AndroidNotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, code));
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}] {operation} error: {ex.Message}");
-                result = NotificationResult.Failure(operation, ex.Message);
+                result = AndroidNotificationResult.Failure(operation, ex.Message);
             }
             finally
             {
@@ -821,7 +823,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         private static void Refuse(string operation, string message)
         {
             Debug.LogWarning($"[{LogTag}][{operation}] {message}");
-            Post(NotificationResult.Failure(operation, message));
+            Post(AndroidNotificationResult.Failure(operation, message));
         }
 
         /// <summary>What a spec holds, as lengths and counts only (design 4.5): the text is the app's.</summary>
@@ -846,10 +848,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 
         private static long NowMillis() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        private static void Post(NotificationResult result) => AndroidNativeCallbackQueue.Post(() => Deliver(result));
+        private static void Post(AndroidNotificationResult result) => AndroidNativeCallbackQueue.Post(() => Deliver(result));
 
         /// <summary>Raises a result on Unity's main thread, on the manager alive then; without one it is dropped (J-N3).</summary>
-        private static void Deliver(NotificationResult result)
+        private static void Deliver(AndroidNotificationResult result)
         {
             AndroidNotificationManager? manager = _instance;
             if (manager == null)
@@ -940,7 +942,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
                 Debug.LogWarning($"[{LogTag}][{nameof(OnInteractionCore)}] dropping an event of kind {kind} (hasActionId: {!string.IsNullOrEmpty(actionId)})");
                 return;
             }
-            var result = new NotificationActionResult(id, notificationId, data);
+            var result = new AndroidNotificationActionResult(id, notificationId, data);
             AndroidNativeCallbackQueue.Post(() => RaiseTap(result));
         }
 
@@ -948,7 +950,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         internal static void OnShownCore(int notificationId, string? tag, string? channelId)
         {
             Debug.Log($"[{LogTag}][{nameof(OnShownCore)}] notificationId: {notificationId}, hasTag: {!string.IsNullOrEmpty(tag)}, channelId: {channelId}");
-            var result = new NotificationReceivedResult(notificationId, AndroidNotificationCApi.ShownTag(tag), channelId ?? "");
+            var result = new AndroidNotificationReceivedResult(notificationId, AndroidNotificationCApi.ShownTag(tag), channelId ?? "");
             AndroidNativeCallbackQueue.Post(() => RaiseReceived(result));
         }
 
@@ -976,16 +978,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             if (error == AndroidNotificationCApi.ErrorNone)
             {
                 Debug.Log($"[{LogTag}][{nameof(OnSettingsCore)}] {operation} opened{(result == AndroidNotificationCApi.ResultOpenedFallback ? " the app's details instead" : "")}");
-                Post(NotificationResult.Success(operation));
+                Post(AndroidNotificationResult.Success(operation));
             }
             else
             {
                 LogFailure(operation, error);
-                Post(NotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, error)));
+                Post(AndroidNotificationResult.Failure(operation, AndroidNotificationCApi.FailureMessage(operation, error)));
             }
         }
 
-        private static void RaiseTap(NotificationActionResult result)
+        private static void RaiseTap(AndroidNotificationActionResult result)
         {
             AndroidNotificationManager? manager = _instance;
             if (manager == null)
@@ -1003,7 +1005,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
             }
         }
 
-        private static void RaiseReceived(NotificationReceivedResult result)
+        private static void RaiseReceived(AndroidNotificationReceivedResult result)
         {
             AndroidNotificationManager? manager = _instance;
             if (manager == null)

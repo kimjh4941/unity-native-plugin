@@ -6,6 +6,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
     using System;
     using System.Collections.Generic;
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
     using JonghyunKim.NativeToolkit.Runtime.Android.Common;
 #if UNITY_ANDROID && !UNITY_EDITOR
     using System.Runtime.InteropServices;
@@ -41,6 +42,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Dialog
     /// rather than null. A failure reports (null, …, false, message).
     /// </para>
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Dialog")]
     public class AndroidDialogManager : MonoBehaviour
     {
         private const string LogTag = nameof(AndroidDialogManager);

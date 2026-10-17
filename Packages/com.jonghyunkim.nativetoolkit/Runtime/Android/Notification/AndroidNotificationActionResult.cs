@@ -2,13 +2,15 @@
 
 #if UNITY_ANDROID || UNITY_EDITOR
 using System.Collections.Generic;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Represents data delivered when a notification action is tapped.
     /// </summary>
-    public readonly struct NotificationActionResult
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationActionResult")]
+    public readonly struct AndroidNotificationActionResult
     {
         /// <summary>
         /// Gets the tapped action identifier.
@@ -30,7 +32,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// data entries as read (no escaping is left in the values; design J-N18). No entries is null,
         /// as in 1.x. A key written twice keeps its last value.
         /// </summary>
-        internal NotificationActionResult(string actionId, int notificationId, IReadOnlyList<KeyValuePair<string, string>> data)
+        internal AndroidNotificationActionResult(string actionId, int notificationId, IReadOnlyList<KeyValuePair<string, string>> data)
         {
             ActionId = actionId;
             NotificationId = notificationId;

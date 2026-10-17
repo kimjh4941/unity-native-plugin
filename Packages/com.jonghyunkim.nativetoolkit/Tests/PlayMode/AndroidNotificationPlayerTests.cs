@@ -287,7 +287,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 4);
-            NotificationPayload tagged = Notification(7012, Title("12a"));
+            AndroidNotificationPayload tagged = Notification(7012, Title("12a"));
             tagged.tag = "t";
             Show(tagged);
             yield return ExpectOps("showNotification", 1);
@@ -308,7 +308,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 2);
-            Manager.CreateChannel(AndroidNotificationJsonBuilder.BuildChannelJson(new ChannelPayload
+            Manager.CreateChannel(AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
             {
                 id = "ntk_test_13", name = "NTK 13", importance = 4, description = "NTK channel 13", showBadge = false,
                 enableLights = true, lightColor = unchecked((int)0xFF00FF00), enableVibration = true,
@@ -379,7 +379,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 2);
-            NotificationPayload payload = Notification(7019, Title("19"));
+            AndroidNotificationPayload payload = Notification(7019, Title("19"));
             payload.groupAlertBehavior = 3;
             Show(payload);
             yield return ExpectOps("showNotification", 1);
@@ -394,8 +394,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 2);
-            NotificationPayload payload = Notification(7020, Title("20"));
-            payload.smallIcon = new NotificationResourcePayload { name = "ntk_no_such_icon", type = "drawable" };
+            AndroidNotificationPayload payload = Notification(7020, Title("20"));
+            payload.smallIcon = new AndroidNotificationResourcePayload { name = "ntk_no_such_icon", type = "drawable" };
             Show(payload);
             yield return ExpectOps("showNotification", 1);
             Assert.AreEqual(Failed("showNotification", "Failed to showNotification: a resource named in the notification was not found."),
@@ -468,7 +468,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var scheduled = ScheduledPayloads().ToList();
             Expect(ops: immediate.Count * 2 + scheduled.Count);
             int shows = 0, cancels = 0, schedules = 0;
-            foreach ((string name, NotificationPayload payload) in immediate)
+            foreach ((string name, AndroidNotificationPayload payload) in immediate)
             {
                 Show(payload);
                 yield return ExpectOps("showNotification", ++shows);
@@ -478,7 +478,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return ExpectOps("cancelNotification", ++cancels);
                 yield return Goes(payload.id, payload.tag);
             }
-            foreach ((string name, ScheduledNotificationEnvelopePayload payload) in scheduled)
+            foreach ((string name, AndroidScheduledNotificationEnvelopePayload payload) in scheduled)
             {
                 Manager.ScheduleNotification(AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(payload));
                 yield return ExpectOps("scheduleNotification", ++schedules);
@@ -507,9 +507,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1, taps: 1);
             string title = Title("31");
-            NotificationPayload payload = Notification(7031, title);
+            AndroidNotificationPayload payload = Notification(7031, title);
             payload.launchAppOnTap = true;
-            payload.data = new[] { new NotificationDataEntryPayload { key = "k", value = "v" } };
+            payload.data = new[] { new AndroidNotificationDataEntryPayload { key = "k", value = "v" } };
             yield return ShowAndWait(payload);
             yield return Driver("notification-tap", Ui.Base64(title), "front");
             // 1.x brought no app to the front from a notification, opening or not (recorded, 2026-10-12; design K-1).
@@ -523,7 +523,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1, taps: 1);
             string title = Title("32");
-            NotificationPayload payload = Notification(7032, title);
+            AndroidNotificationPayload payload = Notification(7032, title);
             payload.launchAppOnTap = false;
             yield return ShowAndWait(payload);
             yield return Driver("notification-tap", Ui.Base64(title), "front");
@@ -575,7 +575,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1);
             string title = Title("36");
-            NotificationPayload payload = Notification(7036, title);
+            AndroidNotificationPayload payload = Notification(7036, title);
             payload.fullScreenIntent = true;
             payload.priority = 2;
             payload.category = "call";
@@ -590,7 +590,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1, received: 1);
             string title = Title("37");
-            NotificationPayload payload = Notification(7037, title);
+            AndroidNotificationPayload payload = Notification(7037, title);
             payload.tag = "t37";
             Schedule(payload, DateTimeOffset.UtcNow.AddSeconds(5), exact: true);
             yield return ExpectOp(Ok("scheduleNotification"));
@@ -605,7 +605,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             yield return EnsureGranted();
             Expect(ops: 2);
-            NotificationPayload payload = Notification(7038, Title("38"));
+            AndroidNotificationPayload payload = Notification(7038, Title("38"));
             payload.tag = "t";
             Show(payload);
             yield return ExpectOp(Ok("showNotification"));
@@ -621,13 +621,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return EnsureGranted();
             Expect(ops: 1, taps: 1);
             string title = Title("39");
-            NotificationPayload payload = Notification(7039, title);
+            AndroidNotificationPayload payload = Notification(7039, title);
             var data = new Dictionary<string, string> { ["quote"] = "a\"b", ["slash"] = "c/d", ["jp"] = "日本語の値" };
-            payload.data = data.Select(p => new NotificationDataEntryPayload { key = p.Key, value = p.Value }).ToArray();
+            payload.data = data.Select(p => new AndroidNotificationDataEntryPayload { key = p.Key, value = p.Value }).ToArray();
             yield return ShowAndWait(payload);
             yield return Driver("notification-tap", Ui.Base64(title), "stay");
             yield return Until(() => _events.TapResults.Count >= 1);
-            NotificationActionResult tap = _events.TapResults.First();
+            AndroidNotificationActionResult tap = _events.TapResults.First();
             Assert.IsNotNull(tap.Data, "the data");
             // 1.x handed the values over as they were escaped in its JSON (recorded, 2026-10-12; design 5.3).
             CollectionAssert.AreEquivalent(data, tap.Data!.ToDictionary(p => p.Key, p => p.Value), _events.Describe());
@@ -785,40 +785,40 @@ namespace JonghyunKim.NativeToolkit.Tests
             _received = received;
         }
 
-        private static void Show(NotificationPayload payload) =>
+        private static void Show(AndroidNotificationPayload payload) =>
             Manager.ShowNotification(AndroidNotificationJsonBuilder.BuildNotificationJson(payload));
 
-        private static void Schedule(NotificationPayload payload, DateTimeOffset at, bool exact) =>
-            Manager.ScheduleNotification(AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+        private static void Schedule(AndroidNotificationPayload payload, DateTimeOffset at, bool exact) =>
+            Manager.ScheduleNotification(AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
             {
                 notification = payload,
                 // persistAcrossBoot: IsNotificationScheduled sees only the schedules kept for a reboot, in
                 // 1.x and in 2.0.0 alike (native-toolkit's NotificationRepositoryImpl.schedule stores
                 // nothing else; found on the device, 2026-10-12).
-                schedule = new NotificationSchedulePayload { triggerAtMillis = at.ToUnixTimeMilliseconds(), exact = exact, allowWhileIdle = true, persistAcrossBoot = true },
+                schedule = new AndroidNotificationSchedulePayload { triggerAtMillis = at.ToUnixTimeMilliseconds(), exact = exact, allowWhileIdle = true, persistAcrossBoot = true },
             }));
 
         private static string ProgressJson(int id, int current)
         {
-            NotificationPayload payload = Notification(id, "NTK progress");
+            AndroidNotificationPayload payload = Notification(id, "NTK progress");
             payload.ongoing = current < 100;
             payload.autoCancel = current >= 100;
-            payload.progress = new NotificationProgressPayload { max = 100, current = current };
+            payload.progress = new AndroidNotificationProgressPayload { max = 100, current = current };
             return AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
         }
 
-        private static NotificationPayload TwoActions(int id, string title, string suffix)
+        private static AndroidNotificationPayload TwoActions(int id, string title, string suffix)
         {
-            NotificationPayload payload = Notification(id, title);
+            AndroidNotificationPayload payload = Notification(id, title);
             payload.actions = new[]
             {
-                new NotificationActionPayload { title = $"Play-{suffix}", actionId = "play", launchApp = true, showsUserInterface = true },
-                new NotificationActionPayload { title = $"Later-{suffix}", actionId = "later", launchApp = false, showsUserInterface = false },
+                new AndroidNotificationActionPayload { title = $"Play-{suffix}", actionId = "play", launchApp = true, showsUserInterface = true },
+                new AndroidNotificationActionPayload { title = $"Later-{suffix}", actionId = "later", launchApp = false, showsUserInterface = false },
             };
             return payload;
         }
 
-        private IEnumerator ShowAndWait(NotificationPayload payload)
+        private IEnumerator ShowAndWait(AndroidNotificationPayload payload)
         {
             Show(payload);
             yield return ExpectOp(Ok("showNotification"));

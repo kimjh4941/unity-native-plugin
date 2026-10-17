@@ -13,13 +13,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuildNotificationJson_SerializesOptionalFieldsAndData()
         {
-            string json = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+            string json = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
             {
                 id = 101,
                 title = "Boss Alert",
                 message = "The world boss has spawned.",
                 tag = "boss",
-                channel = new ChannelPayload
+                channel = new AndroidChannelPayload
                 {
                     id = "gameplay",
                     name = "Gameplay",
@@ -27,8 +27,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                     groupId = "events",
                     groupName = "Events"
                 },
-                smallIcon = new NotificationResourcePayload { name = "app_icon", type = "mipmap" },
-                largeIcon = new NotificationResourcePayload { name = "app_icon", type = "mipmap" },
+                smallIcon = new AndroidNotificationResourcePayload { name = "app_icon", type = "mipmap" },
+                largeIcon = new AndroidNotificationResourcePayload { name = "app_icon", type = "mipmap" },
                 subText = "Limited Event",
                 category = "alarm",
                 ticker = "Boss alert",
@@ -38,21 +38,21 @@ namespace JonghyunKim.NativeToolkit.Tests
                 sortKey = "boss-001",
                 timeoutAfterMillis = 30000,
                 launchAction = "open_boss_screen",
-                style = new NotificationStylePayload
+                style = new AndroidNotificationStylePayload
                 {
                     type = "bigPicture",
-                    picture = new NotificationResourcePayload { name = "app_icon", type = "mipmap" },
-                    largeIcon = new NotificationResourcePayload { name = "app_icon", type = "mipmap" },
+                    picture = new AndroidNotificationResourcePayload { name = "app_icon", type = "mipmap" },
+                    largeIcon = new AndroidNotificationResourcePayload { name = "app_icon", type = "mipmap" },
                     bigContentTitle = "Boss Alert",
                     summaryText = "Limited Event"
                 },
                 actions = new[]
                 {
-                    new NotificationActionPayload
+                    new AndroidNotificationActionPayload
                     {
                         title = "Join",
                         actionId = "action.join",
-                        icon = new NotificationResourcePayload { name = "app_icon", type = "mipmap" },
+                        icon = new AndroidNotificationResourcePayload { name = "app_icon", type = "mipmap" },
                         launchApp = true,
                         allowGeneratedReplies = false,
                         semanticAction = 10,
@@ -62,8 +62,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                 },
                 data = new[]
                 {
-                    new NotificationDataEntryPayload { key = "screen", value = "boss" },
-                    new NotificationDataEntryPayload { key = "bossId", value = "boss_001" }
+                    new AndroidNotificationDataEntryPayload { key = "screen", value = "boss" },
+                    new AndroidNotificationDataEntryPayload { key = "bossId", value = "boss_001" }
                 }
             });
 
@@ -78,20 +78,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuildScheduledNotificationJson_SerializesNestedScheduleObject()
         {
-            string json = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+            string json = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
             {
-                notification = new NotificationPayload
+                notification = new AndroidNotificationPayload
                 {
                     id = 202,
                     title = "Guild Battle",
                     message = "Starts soon.",
-                    channel = new ChannelPayload
+                    channel = new AndroidChannelPayload
                     {
                         id = "events",
                         name = "Events"
                     }
                 },
-                schedule = new NotificationSchedulePayload
+                schedule = new AndroidNotificationSchedulePayload
                 {
                     triggerAtMillis = 1714377600000,
                     exact = true,
@@ -108,12 +108,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void BuildNotificationJson_OmitsUnsetOptionalFields()
         {
-            string json = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+            string json = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
             {
                 id = 303,
                 title = "Simple",
                 message = "Minimal payload.",
-                channel = new ChannelPayload
+                channel = new AndroidChannelPayload
                 {
                     id = "default",
                     name = "Default"

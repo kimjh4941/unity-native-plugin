@@ -1,12 +1,15 @@
 #nullable enable
 
 #if UNITY_ANDROID || UNITY_EDITOR
+using UnityEngine.Scripting.APIUpdating;
+
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
 {
     /// <summary>
     /// Represents data reported when a notification is shown while the app is in foreground.
     /// </summary>
-    public readonly struct NotificationReceivedResult
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification", sourceClassName: "NotificationReceivedResult")]
+    public readonly struct AndroidNotificationReceivedResult
     {
         /// <summary>
         /// Gets the shown notification identifier.
@@ -23,7 +26,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Notification
         /// </summary>
         public string ChannelId { get; }
 
-        internal NotificationReceivedResult(int notificationId, string? tag, string channelId)
+        internal AndroidNotificationReceivedResult(int notificationId, string? tag, string channelId)
         {
             NotificationId = notificationId;
             Tag = string.IsNullOrEmpty(tag) ? null : tag;

@@ -60,7 +60,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 try
                 {
-                    Manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = _cleanupIds.ToArray() });
+                    Manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = _cleanupIds.ToArray() });
                 }
                 catch (Exception e)
                 {
@@ -92,17 +92,17 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         [UnityTest]
         public IEnumerator AS21_ShareFile_Missing() => Fails(
-            () => Manager.ShareFile(new ShareFilePayload { filePath = Missing }),
+            () => Manager.ShareFile(new AndroidShareFilePayload { filePath = Missing }),
             $"Op|shareFile|False|File not found: {Missing}");
 
         [UnityTest]
         public IEnumerator AS22_ShareFile_OutsideTheProvider() => Fails(
-            () => Manager.ShareFile(new ShareFilePayload { filePath = Outside }),
+            () => Manager.ShareFile(new AndroidShareFilePayload { filePath = Outside }),
             $"Op|shareFile|False|File cannot be shared: {Outside}. Ensure the file is in a supported directory.");
 
         [UnityTest]
         public IEnumerator AS23_ShareFiles_OneMissing() => Fails(
-            () => Manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { ExistingFile(), Missing } }),
+            () => Manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new[] { ExistingFile(), Missing } }),
             $"Op|shareFiles|False|File not found: {Missing}");
 
         [UnityTest]
@@ -110,28 +110,28 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             string existing = ExistingFile();
             // Known difference (design v6 5.3): the C ABI names every path, 1.x the one that failed.
-            return Fails(() => Manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { existing, Outside } }),
+            return Fails(() => Manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new[] { existing, Outside } }),
                 $"Op|shareFiles|False|File cannot be shared: {existing}, {Outside}. Ensure the file is in a supported directory.");
         }
 
         [UnityTest]
         public IEnumerator AS25_ShareText_Empty() => Fails(
-            () => Manager.ShareText(new ShareTextPayload { text = "" }),
+            () => Manager.ShareText(new AndroidShareTextPayload { text = "" }),
             "Op|shareText|False|Failed to shareText: text is required");
 
         [UnityTest]
         public IEnumerator AS26_ShareText_Blank() => Fails(
-            () => Manager.ShareText(new ShareTextPayload { text = "   " }),
+            () => Manager.ShareText(new AndroidShareTextPayload { text = "   " }),
             "Op|shareText|False|Failed to shareText: text is required");
 
         [UnityTest]
         public IEnumerator AS27_ShareFile_EmptyPath() => Fails(
-            () => Manager.ShareFile(new ShareFilePayload { filePath = "" }),
+            () => Manager.ShareFile(new AndroidShareFilePayload { filePath = "" }),
             "Op|shareFile|False|Failed to shareFile: filePath is required");
 
         [UnityTest]
         public IEnumerator AS28_ShareFiles_None() => Fails(
-            () => Manager.ShareFiles(new ShareFilesPayload { filePaths = new string[0] }),
+            () => Manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new string[0] }),
             "Op|shareFiles|False|Failed to shareFiles: filePaths must not be empty");
 
         /// <summary>
@@ -140,22 +140,22 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// </summary>
         [UnityTest]
         public IEnumerator AS29_ShareFiles_NullPath() => Fails(
-            () => Manager.ShareFiles(new ShareFilesPayload { filePaths = new[] { ExistingFile(), null! } }),
+            () => Manager.ShareFiles(new AndroidShareFilesPayload { filePaths = new[] { ExistingFile(), null! } }),
             "Op|shareFiles|False|Failed to shareFiles: filePaths must not contain null");
 
         [UnityTest]
         public IEnumerator AS30_Register_EmptyId() => Fails(
-            () => Manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "", label = "L", iconBase64 = IconBase64() }),
+            () => Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "", label = "L", iconBase64 = IconBase64() }),
             "Op|registerDirectShareTarget|False|Failed to registerDirectShareTarget: id is required");
 
         [UnityTest]
         public IEnumerator AS31_Register_IconNotBase64() => Fails(
-            () => Manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "ntk_as31", label = "L", iconBase64 = "!!!" }),
+            () => Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "ntk_as31", label = "L", iconBase64 = "!!!" }),
             "Op|registerDirectShareTarget|False|Invalid icon data for Direct Share target: ntk_as31");
 
         [UnityTest]
         public IEnumerator AS32_Register_IconNotAnImage() => Fails(
-            () => Manager.RegisterDirectShareTarget(new DirectShareTargetPayload
+            () => Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload
             {
                 id = "ntk_as32",
                 label = "L",
@@ -165,7 +165,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         [UnityTest]
         public IEnumerator AS33_Remove_NoIds() => Fails(
-            () => Manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = new string[0] }),
+            () => Manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = new string[0] }),
             "Op|removeDirectShareTargets|False|Failed to removeDirectShareTargets: ids must not be empty");
 
         // ── Direct Share targets ─────────────────────────────────────────────────
@@ -176,10 +176,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             _cleanupIds.Add("ntk_as34");
             _ops = 3;
-            Manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "ntk_as34", label = "NTK AS34", iconBase64 = IconBase64() });
+            Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "ntk_as34", label = "NTK AS34", iconBase64 = IconBase64() });
             Assert.IsEmpty(_events.Ops, "a result arrived before RegisterDirectShareTarget returned");
             yield return ExpectOp("Op|registerDirectShareTarget|True|null");
-            Manager.RemoveDirectShareTargets(new RemoveDirectShareTargetsPayload { ids = new[] { "ntk_as34" } });
+            Manager.RemoveDirectShareTargets(new AndroidRemoveDirectShareTargetsPayload { ids = new[] { "ntk_as34" } });
             Assert.AreEqual(1, _events.Ops.Count, "a result arrived before RemoveDirectShareTargets returned");
             yield return ExpectOp("Op|removeDirectShareTargets|True|null");
         }
@@ -200,7 +200,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 try
                 {
-                    Manager.RegisterDirectShareTarget(new DirectShareTargetPayload { id = "ntk_as35", label = "NTK AS35", iconBase64 = icon });
+                    Manager.RegisterDirectShareTarget(new AndroidDirectShareTargetPayload { id = "ntk_as35", label = "NTK AS35", iconBase64 = icon });
                 }
                 catch (Exception e)
                 {

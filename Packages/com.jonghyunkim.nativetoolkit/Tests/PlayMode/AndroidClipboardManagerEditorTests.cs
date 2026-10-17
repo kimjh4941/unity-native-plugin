@@ -61,7 +61,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             return manager;
         }
 
-        private Action<ClipboardOperationResult> Call(string name) =>
+        private Action<AndroidClipboardOperationResult> Call(string name) =>
             r => _calls.Add($"{name}|{r.Operation}|{r.IsSuccess}|{r.ErrorMessage ?? "null"}");
 
         /// <summary>Lets the callback queue run (it runs on the frames after an action is posted).</summary>
@@ -83,10 +83,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             var manager = Manager();
             var actions = new (string op, Action call)[]
             {
-                (AndroidClipboardManager.OperationCopyPlainText, () => manager.CopyPlainText(new CopyPlainTextPayload { text = "a" }, Call("plain"))),
-                (AndroidClipboardManager.OperationCopyHtmlText, () => manager.CopyHtmlText(new CopyHtmlTextPayload { htmlText = "" }, Call("html"))),
-                (AndroidClipboardManager.OperationCopyUri, () => manager.CopyUri(new CopyUriPayload { uri = "http://x" }, Call("uri"))),
-                (AndroidClipboardManager.OperationCopyMultipleText, () => manager.CopyMultipleText(new CopyMultipleTextPayload { texts = Array.Empty<string>() }, Call("multi"))),
+                (AndroidClipboardManager.OperationCopyPlainText, () => manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = "a" }, Call("plain"))),
+                (AndroidClipboardManager.OperationCopyHtmlText, () => manager.CopyHtmlText(new AndroidCopyHtmlTextPayload { htmlText = "" }, Call("html"))),
+                (AndroidClipboardManager.OperationCopyUri, () => manager.CopyUri(new AndroidCopyUriPayload { uri = "http://x" }, Call("uri"))),
+                (AndroidClipboardManager.OperationCopyMultipleText, () => manager.CopyMultipleText(new AndroidCopyMultipleTextPayload { texts = Array.Empty<string>() }, Call("multi"))),
                 (AndroidClipboardManager.OperationClear, () => manager.Clear(Call("clear"))),
                 (AndroidClipboardManager.OperationStopObserving, () => manager.StopObserving(Call("stop"))),
             };
@@ -120,13 +120,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var manager = Manager();
 
-            ClipboardReadResult read = manager.Read();
-            Assert.AreEqual(ClipboardReadStatus.Failed, read.Status);
+            AndroidClipboardReadResult read = manager.Read();
+            Assert.AreEqual(AndroidClipboardReadStatus.Failed, read.Status);
             Assert.AreEqual("CLIPBOARD_BRIDGE_UNAVAILABLE", read.ErrorCode);
             Assert.AreEqual("read could not be started.", read.ErrorMessage);
 
-            ClipboardDescriptionResult description = manager.GetDescription();
-            Assert.AreEqual(ClipboardReadStatus.Failed, description.Status);
+            AndroidClipboardDescriptionResult description = manager.GetDescription();
+            Assert.AreEqual(AndroidClipboardReadStatus.Failed, description.Status);
             Assert.AreEqual("CLIPBOARD_BRIDGE_UNAVAILABLE", description.ErrorCode);
             Assert.AreEqual("getDescription could not be started.", description.ErrorMessage);
 
@@ -153,9 +153,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator PerCall_TwoCallsInOneFrame_EachGetsItsOwnResult()
         {
             var manager = Manager();
-            manager.CopyPlainText(new CopyPlainTextPayload { text = "a" }, Call("first"));
-            manager.CopyPlainText(new CopyPlainTextPayload { text = "b" }, Call("second"));
-            manager.CopyPlainText(new CopyPlainTextPayload { text = "c" });
+            manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = "a" }, Call("first"));
+            manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = "b" }, Call("second"));
+            manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = "c" });
             yield return Frames();
             Assert.AreEqual(3, _events.Count);
             Assert.AreEqual(2, _calls.Count);
@@ -173,7 +173,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.Throws<ArgumentNullException>(() => manager.CopyHtmlText(null!, Call("x")));
             Assert.Throws<ArgumentNullException>(() => manager.CopyUri(null!, Call("x")));
             Assert.Throws<ArgumentNullException>(() => manager.CopyMultipleText(null!, Call("x")));
-            Assert.Throws<ArgumentNullException>(() => manager.CopyMultipleText(new CopyMultipleTextPayload { texts = null! }, Call("x")));
+            Assert.Throws<ArgumentNullException>(() => manager.CopyMultipleText(new AndroidCopyMultipleTextPayload { texts = null! }, Call("x")));
             yield return Frames();
             Assert.IsEmpty(_events);
             Assert.IsEmpty(_calls);
@@ -185,7 +185,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator Delivery_AfterTheManagerIsDestroyed_IsDroppedWithoutANewManager()
         {
             var manager = Manager();
-            manager.CopyPlainText(new CopyPlainTextPayload { text = "a" }, Call("x"));
+            manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = "a" }, Call("x"));
             UnityEngine.Object.DestroyImmediate(manager.gameObject);
             yield return Frames();
             Assert.IsEmpty(_events);

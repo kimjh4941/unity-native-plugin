@@ -60,8 +60,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         // run on Unity's main thread, so an operation started late in one test (notably the teardown
         // cleanup) can surface a frame later, i.e. during the next test. Matching on the operation
         // name instead of "whatever arrived last" keeps tests independent of that timing.
-        private readonly List<ClipboardOperationResult> _results = new();
-        private ClipboardOperationResult? _lastResult;
+        private readonly List<AndroidClipboardOperationResult> _results = new();
+        private AndroidClipboardOperationResult? _lastResult;
         private bool _subscribed;
         private AndroidClipboardManager? _manager;
         private int _changes;
@@ -149,7 +149,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             AssertEventsOnMainThread();
         }
 
-        private void OnOperationCompleted(ClipboardOperationResult result)
+        private void OnOperationCompleted(AndroidClipboardOperationResult result)
         {
             _eventThreads.Add(Thread.CurrentThread.ManagedThreadId);
             _results.Add(result);
@@ -174,7 +174,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(_eventThreads.All(id => id == _mainThread),
                 $"an event was raised off Unity's main thread (threads {string.Join(", ", _eventThreads)}, main {_mainThread})");
 
-        private IEnumerator Copy(CopyPlainTextPayload payload)
+        private IEnumerator Copy(AndroidCopyPlainTextPayload payload)
         {
             AndroidClipboardManager.Instance.CopyPlainText(payload);
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
@@ -182,14 +182,14 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private IEnumerator CopyUriAndWait(string uri = SampleUri)
         {
-            AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload { uri = uri });
+            AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload { uri = uri });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyUri);
         }
 
-        private ClipItem ReadFirstItem()
+        private AndroidClipItem ReadFirstItem()
         {
             var read = AndroidClipboardManager.Instance.Read();
-            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}, message: {read.ErrorMessage}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}, message: {read.ErrorMessage}");
             Assert.GreaterOrEqual(read.Contents!.Items.Count, 1, "Expected at least one clip item.");
             return read.Contents.Items[0];
         }
@@ -278,7 +278,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyPlainText_OnDevice_Succeeds()
         {
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
             {
                 text = SampleText,
                 label = "sample"
@@ -296,7 +296,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             // Blank plain text is explicitly allowed by the native use case (design v4, 1.10).
             // Guards against a regression that would start rejecting it.
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = "" });
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = "" });
 
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
 
@@ -308,13 +308,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyPlainText_ThenRead_ReturnsCopiedText()
         {
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = SampleText });
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
             AssertSucceeded();
 
             var read = AndroidClipboardManager.Instance.Read();
 
-            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
             Assert.IsNotNull(read.Contents);
             Assert.GreaterOrEqual(read.Contents!.Items.Count, 1, "Expected at least one clip item.");
             Assert.AreEqual(SampleText, read.Contents.Items[0].Text);
@@ -323,7 +323,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyPlainText_ThenHasClip_ReturnsTrue()
         {
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = SampleText });
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
             AssertSucceeded();
 
@@ -333,13 +333,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyPlainText_ThenGetDescription_ReturnsHasContent()
         {
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = SampleText });
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
             AssertSucceeded();
 
             var description = AndroidClipboardManager.Instance.GetDescription();
 
-            Assert.AreEqual(ClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
             Assert.IsNotNull(description.Description);
             Assert.GreaterOrEqual(description.Description!.MimeTypes.Count, 1, "Expected at least one MIME type.");
         }
@@ -349,7 +349,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator Clear_ThenRead_ReturnsEmptyNotFailed()
         {
-            AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = SampleText });
+            AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
             AssertSucceeded();
 
@@ -361,7 +361,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var read = AndroidClipboardManager.Instance.Read();
 
             Assert.AreEqual(
-                ClipboardReadStatus.Empty,
+                AndroidClipboardReadStatus.Empty,
                 read.Status,
                 $"An empty clipboard must report Empty, not Failed. errorCode: {read.ErrorCode}");
             Assert.IsTrue(read.IsSuccess, "Empty must not be treated as a failure.");
@@ -407,7 +407,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyHtmlText_BlankHtml_FailsWithNativeMessage()
         {
-            AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+            AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
             {
                 plainText = "Hello",
                 htmlText = ""
@@ -424,7 +424,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyMultipleText_EmptyArray_FailsWithNativeMessage()
         {
-            AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+            AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
             {
                 texts = System.Array.Empty<string>()
             });
@@ -438,7 +438,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator CopyUri_BlankUri_FailsWithNativeMessage()
         {
-            AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload { uri = "" });
+            AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload { uri = "" });
 
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyUri);
 
@@ -451,12 +451,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC12_CopyHtmlText_ThenRead_ReturnsBothForms()
         {
-            AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload { plainText = "Hello plain", htmlText = "<b>Hello</b>" });
+            AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload { plainText = "Hello plain", htmlText = "<b>Hello</b>" });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyHtmlText);
             AssertSucceeded();
 
             var read = AndroidClipboardManager.Instance.Read();
-            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
             Assert.AreEqual("Hello plain", read.Contents!.Items[0].Text);
             Assert.AreEqual("<b>Hello</b>", read.Contents.Items[0].HtmlText);
             CollectionAssert.Contains(read.Contents.MimeTypes, "text/html");
@@ -465,11 +465,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC13_CopyHtmlText_EmptyPlainText_ReadsTextAsNull()
         {
-            AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload { plainText = "", htmlText = "<i>only html</i>" });
+            AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload { plainText = "", htmlText = "<i>only html</i>" });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyHtmlText);
             AssertSucceeded();
 
-            ClipItem item = ReadFirstItem();
+            AndroidClipItem item = ReadFirstItem();
             Assert.IsNull(item.Text, "An empty string is never returned; it is normalized to null.");
             Assert.AreEqual("<i>only html</i>", item.HtmlText);
         }
@@ -480,7 +480,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return CopyUriAndWait();
             AssertSucceeded();
 
-            ClipItem item = ReadFirstItem();
+            AndroidClipItem item = ReadFirstItem();
             Assert.AreEqual(SampleUri, item.Uri);
             Assert.AreEqual(SampleUri, item.CoercedText, "coercedText is text, else the URI");
             Assert.IsNull(item.Text);
@@ -498,23 +498,23 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC16_CopyMultipleText_ThenRead_KeepsEveryItem()
         {
-            AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload { texts = new[] { "a", "", "c" } });
+            AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload { texts = new[] { "a", "", "c" } });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyMultipleText);
             AssertSucceeded();
 
             var read = AndroidClipboardManager.Instance.Read();
-            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
             CollectionAssert.AreEqual(new[] { "a", null, "c" }, read.Contents!.Items.Select(i => i.Text).ToArray());
         }
 
         [UnityTest]
         public IEnumerator AC17_Label_IsReadBackByDescriptionAndRead()
         {
-            yield return Copy(new CopyPlainTextPayload { text = SampleText, label = "NTK label", isSensitive = true });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText, label = "NTK label", isSensitive = true });
             AssertSucceeded();
 
             var description = AndroidClipboardManager.Instance.GetDescription();
-            Assert.AreEqual(ClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
             Assert.AreEqual("NTK label", description.Description!.Label);
             var read = AndroidClipboardManager.Instance.Read();
             Assert.AreEqual("NTK label", read.Contents!.Label);
@@ -523,7 +523,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC18_BlankLabel_IsReadBackAsNull()
         {
-            yield return Copy(new CopyPlainTextPayload { text = SampleText, label = "   " });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText, label = "   " });
             AssertSucceeded();
 
             Assert.IsNull(AndroidClipboardManager.Instance.GetDescription().Description!.Label);
@@ -533,7 +533,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC19_Clear_ThenHasClipAndDescription_AreEmpty()
         {
-            yield return Copy(new CopyPlainTextPayload { text = SampleText });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText });
             AssertSucceeded();
             AndroidClipboardManager.Instance.Clear();
             yield return WaitForOperation(AndroidClipboardManager.OperationClear);
@@ -541,18 +541,18 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.IsFalse(AndroidClipboardManager.Instance.HasClip());
             var description = AndroidClipboardManager.Instance.GetDescription();
-            Assert.AreEqual(ClipboardReadStatus.Empty, description.Status, $"errorCode: {description.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.Empty, description.Status, $"errorCode: {description.ErrorCode}");
         }
 
         [UnityTest]
         public IEnumerator AC20_Result_ComesAfterTheCall_CommonEventFirst_OnMainThread()
         {
             var order = new List<string>();
-            void OnCommon(ClipboardOperationResult r) => order.Add("common");
+            void OnCommon(AndroidClipboardOperationResult r) => order.Add("common");
             AndroidClipboardManager.Instance.ClipboardOperationCompleted += OnCommon;
             try
             {
-                AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = SampleText }, r => order.Add("perCall"));
+                AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText }, r => order.Add("perCall"));
                 Assert.IsEmpty(order, "No result is raised inside the call.");
 
                 yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
@@ -588,7 +588,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AC21b_CopyInTheSameFrameAsStartObserving_IsRecorded()
         {
             AndroidClipboardManager.Instance.StartObserving();
-            AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload { uri = SampleUri });
+            AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload { uri = SampleUri });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyUri);
             AssertSucceeded();
             yield return WaitSeconds(ChangeWindowSeconds);
@@ -604,7 +604,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return WaitSeconds(ObserveSettleSeconds);
             _changes = 0;
 
-            yield return Copy(new CopyPlainTextPayload { text = SampleText });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText });
             AssertSucceeded();
             yield return WaitSeconds(ChangeWindowSeconds);
 
@@ -645,7 +645,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var manager = AndroidClipboardManager.Instance;
 
-            Exception? thrown = RunOnAnotherThread(() => manager.CopyPlainText(new CopyPlainTextPayload { text = SampleText }));
+            Exception? thrown = RunOnAnotherThread(() => manager.CopyPlainText(new AndroidCopyPlainTextPayload { text = SampleText }));
             Assert.IsNull(thrown, $"the call threw: {thrown}");
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
 
@@ -656,37 +656,37 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC25_ReadFromAnotherThread()
         {
-            yield return Copy(new CopyPlainTextPayload { text = SampleText });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText });
             AssertSucceeded();
             var manager = AndroidClipboardManager.Instance;
 
-            ClipboardReadResult read = default;
+            AndroidClipboardReadResult read = default;
             Exception? thrown = RunOnAnotherThread(() => read = manager.Read());
             Assert.IsNull(thrown, $"the call threw: {thrown}");
 
-            Assert.AreEqual(ClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, read.Status, $"errorCode: {read.ErrorCode}");
             Assert.AreEqual(SampleText, read.Contents!.Items[0].Text);
         }
 
         [UnityTest]
         public IEnumerator AC26a_NullText()
         {
-            yield return Copy(new CopyPlainTextPayload { text = null! });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = null! });
             AssertSucceeded();
 
             // A known difference: 1.x carried JSON null as the string "null" (design 5.3).
-            ClipItem item = ReadFirstItem();
+            AndroidClipItem item = ReadFirstItem();
             Assert.IsNull(item.Text);
         }
 
         [UnityTest]
         public IEnumerator AC26b_NullPlainText()
         {
-            AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload { plainText = null!, htmlText = "<b>html</b>" });
+            AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload { plainText = null!, htmlText = "<b>html</b>" });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyHtmlText);
             AssertSucceeded();
 
-            ClipItem item = ReadFirstItem();
+            AndroidClipItem item = ReadFirstItem();
             Assert.IsNull(item.Text);
             Assert.AreEqual("<b>html</b>", item.HtmlText);
         }
@@ -694,7 +694,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC26c_NullHtmlText()
         {
-            AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload { plainText = "plain", htmlText = null! });
+            AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload { plainText = "plain", htmlText = null! });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyHtmlText);
 
             Assert.IsFalse(_lastResult!.Value.IsSuccess);
@@ -704,7 +704,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC26d_NullUri()
         {
-            AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload { uri = null! });
+            AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload { uri = null! });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyUri);
 
             Assert.IsFalse(_lastResult!.Value.IsSuccess);
@@ -714,7 +714,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC26e_NullListElement()
         {
-            AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload { texts = new[] { "a", null!, "c" } });
+            AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload { texts = new[] { "a", null!, "c" } });
             yield return WaitForOperation(AndroidClipboardManager.OperationCopyMultipleText);
             AssertSucceeded();
 
@@ -738,10 +738,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             int sawNew = 0;
             for (int i = 0; i < rounds; i++)
             {
-                yield return Copy(new CopyPlainTextPayload { text = $"NTK-OLD-{i}" });
+                yield return Copy(new AndroidCopyPlainTextPayload { text = $"NTK-OLD-{i}" });
                 AssertSucceeded();
 
-                AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = $"NTK-NEW-{i}" });
+                AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = $"NTK-NEW-{i}" });
                 var read = AndroidClipboardManager.Instance.Read();
                 yield return WaitForOperation(AndroidClipboardManager.OperationCopyPlainText);
                 AssertSucceeded();
@@ -755,12 +755,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator AC29_ClassificationStatus_IsRecorded()
         {
-            yield return Copy(new CopyPlainTextPayload { text = SampleText });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = SampleText });
             AssertSucceeded();
             yield return WaitSeconds(1f);
 
             var description = AndroidClipboardManager.Instance.GetDescription();
-            Assert.AreEqual(ClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
+            Assert.AreEqual(AndroidClipboardReadStatus.HasContent, description.Status, $"errorCode: {description.ErrorCode}");
             Record("AC-29", $"classification={description.Description!.ClassificationStatus?.ToString() ?? "null"}, styled={description.Description.IsStyledText}");
         }
 
@@ -768,7 +768,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator AC30_JapaneseAndEmoji_RoundTrip()
         {
             const string text = "\u65E5\u672C\u8A9E\u306E\u30C6\u30AD\u30B9\u30C8 \uD83C\uDF89 NTK";
-            yield return Copy(new CopyPlainTextPayload { text = text });
+            yield return Copy(new AndroidCopyPlainTextPayload { text = text });
             AssertSucceeded();
 
             Assert.AreEqual(text, ReadFirstItem().Text);

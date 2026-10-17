@@ -43,7 +43,7 @@
        - **P3**: 既存型を再利用・共有と判断した箇所が、**プラットフォームガードの有無ではなく実際の利用箇所**に基づいているか
        - **P4**: `Runtime/Common/` への新規追加が、機能ロジックではなく横断インフラに限られているか。`Runtime/<Platform>/Common/` への追加は、そのプラットフォームの全機能が使うネイティブライブラリの共通部に限られているか（1 つの機能だけが使うものを置いていないか）
        - **P5**: クラスガード（`#if X \|\| UNITY_EDITOR`）と P/Invoke ガード（`#if X && !UNITY_EDITOR`）の二重構造になっており、Player ビルドに他プラットフォームのコードが入らない設計か
-       - **既知の逸脱 11 件を前例として引用していないか。** `ClipboardOperationResult` などの接頭辞なし型は Android / macOS 専用であり、共有型ではない（`artifact/topics/os-prefix-violations/README.md`）
+       - **既知の逸脱 9 件を前例として引用していないか。** `NotificationContentPayload`、`DialogButton` などの接頭辞なし型は iOS / macOS 専用であり、共有型ではない（`artifact/topics/os-prefix-violations/README.md`）
        - P1〜P5 の違反は **A1 区分**として扱う。後から直すと破壊的変更になるため、C（記述整合）に落とさない
    - **サンプルシーン計画書（`*-sample-scene-design*.md`）の場合:**
      - **入力欄（`TextField`）を置く計画になっていないか。** 既定は「設けない」

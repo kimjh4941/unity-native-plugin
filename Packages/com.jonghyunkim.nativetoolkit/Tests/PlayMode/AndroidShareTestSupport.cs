@@ -151,12 +151,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             LastEventAt = Time.realtimeSinceStartup;
         }
 
-        private void OnOperation(ShareOperationResult r) =>
+        private void OnOperation(AndroidShareOperationResult r) =>
             Note(Ops, $"Op|{r.Operation}|{r.IsSuccess}|{r.ErrorMessage ?? "null"}");
 
-        private void OnSelected(ShareCallbackResult r) => Note(Selected, $"Selected|{r.SelectedPackageName ?? "null"}");
+        private void OnSelected(AndroidShareCallbackResult r) => Note(Selected, $"Selected|{r.SelectedPackageName ?? "null"}");
 
-        private void OnAction(ShareChooserActionResult r) => Note(Actions, $"Action|{r.ActionId}");
+        private void OnAction(AndroidShareChooserActionResult r) => Note(Actions, $"Action|{r.ActionId}");
 
         internal bool Reached(int ops, int selected, int actions) =>
             Ops.Count >= ops && Selected.Count >= selected && Actions.Count >= actions;

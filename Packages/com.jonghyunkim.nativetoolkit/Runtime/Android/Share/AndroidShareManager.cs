@@ -8,6 +8,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     using System.Linq;
     using JonghyunKim.NativeToolkit.Runtime.Android.Common;
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
 #if UNITY_ANDROID && !UNITY_EDITOR
     using System.Runtime.InteropServices;
     using AOT;
@@ -40,6 +41,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
     /// first through the shared event and then the per-call callback; for a call made on Unity's main
     /// thread, after the method has returned.
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share")]
     public class AndroidShareManager : MonoBehaviour
     {
         private const string LogTag = nameof(AndroidShareManager);
@@ -73,19 +75,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
 
         private static AndroidShareManager? _instance;
 
-        private readonly ShareChooserActionCallbackCoordinator _chooserCoordinator =
-            new ShareChooserActionCallbackCoordinator(AndroidNativeCallbackQueue.Post);
+        private readonly AndroidShareChooserActionCallbackCoordinator _chooserCoordinator =
+            new AndroidShareChooserActionCallbackCoordinator(AndroidNativeCallbackQueue.Post);
 
         // The live manager's coordinator, read by the chooser action callback on the Android main
         // thread (design v6, 4.3; K-2). Unity's == is not used off the main thread, hence a plain field.
-        private static volatile ShareChooserActionCallbackCoordinator? s_coordinator;
+        private static volatile AndroidShareChooserActionCallbackCoordinator? s_coordinator;
 
         // The state the native callbacks touch, all under s_lock (J-S1, J-S5, J-S13, J-S14): the
         // per-call callbacks by operation, the onSelected callback, the calls in flight by key, and
         // the accepted selection requests. Only dictionary and list work happens under the lock.
         private static readonly object s_lock = new object();
-        private static readonly Dictionary<string, Action<ShareOperationResult>?> s_pendingOperations = new();
-        private static Action<ShareCallbackResult>? s_pendingSelected;
+        private static readonly Dictionary<string, Action<AndroidShareOperationResult>?> s_pendingOperations = new();
+        private static Action<AndroidShareCallbackResult>? s_pendingSelected;
         private static readonly Dictionary<long, AndroidShareCApi.ShareCall> s_calls = new();
         private static long s_nextKey;
         private static readonly List<ulong> s_selectionIds = new();
@@ -100,24 +102,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// all operations including <c>shareWithCallback</c> launch result. Always fired before the
         /// per-call callback.
         /// </summary>
-        public event Action<ShareOperationResult>? ShareOperationCompleted;
+        public event Action<AndroidShareOperationResult>? ShareOperationCompleted;
 
         /// <summary>
         /// Occurs when the user selects an application in the <c>shareWithCallback</c> chooser.
         /// Not fired when the user cancels or chooses Copy/Edit. Always fired before the per-call
         /// <c>onSelected</c> callback.
         /// </summary>
-        public event Action<ShareCallbackResult>? ShareCallbackReceived;
+        public event Action<AndroidShareCallbackResult>? ShareCallbackReceived;
 
         /// <summary>
         /// Occurs when the user taps a custom chooser action in the Sharesheet (API 34+, Android
         /// only). Chooser actions are only registered when using <see cref="ShareText"/>; this
         /// event is not fired for <see cref="ShareWithCallback"/> calls even if
-        /// <see cref="ShareTextPayload.chooserActions"/> is set. No callback fires if the action
+        /// <see cref="AndroidShareTextPayload.chooserActions"/> is set. No callback fires if the action
         /// is never tapped or on API levels below 34. Always fired before the per-call
         /// <c>onChooserAction</c> callback.
         /// </summary>
-        public event Action<ShareChooserActionResult>? ShareChooserActionTapped
+        public event Action<AndroidShareChooserActionResult>? ShareChooserActionTapped
         {
             add => _chooserCoordinator.ChooserActionTapped += value;
             remove => _chooserCoordinator.ChooserActionTapped -= value;
@@ -227,9 +229,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// parameter.</param>
         /// <exception cref="ArgumentNullException">The payload or one of its chooser actions is null.</exception>
         public void ShareText(
-            ShareTextPayload payload,
-            Action<ShareOperationResult>? onResult = null,
-            Action<ShareChooserActionResult>? onChooserAction = null)
+            AndroidShareTextPayload payload,
+            Action<AndroidShareOperationResult>? onResult = null,
+            Action<AndroidShareChooserActionResult>? onChooserAction = null)
         {
             const string op = OperationShareText;
             CheckNotNull(payload, nameof(payload));
@@ -267,7 +269,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">Image file path and optional MIME type.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload is null.</exception>
-        public void ShareImage(ShareImagePayload payload, Action<ShareOperationResult>? onResult = null)
+        public void ShareImage(AndroidShareImagePayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             const string op = OperationShareImage;
             CheckNotNull(payload, nameof(payload));
@@ -295,7 +297,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">Image file paths.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload or its file list is null.</exception>
-        public void ShareImages(ShareImagesPayload payload, Action<ShareOperationResult>? onResult = null)
+        public void ShareImages(AndroidShareImagesPayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             CheckNotNull(payload, nameof(payload));
             SharePaths(OperationShareImages, payload.filePaths, onResult, nameof(ShareImages));
@@ -308,7 +310,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">File path to share.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload is null.</exception>
-        public void ShareFile(ShareFilePayload payload, Action<ShareOperationResult>? onResult = null)
+        public void ShareFile(AndroidShareFilePayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             const string op = OperationShareFile;
             CheckNotNull(payload, nameof(payload));
@@ -334,7 +336,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">File paths to share.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload or its file list is null.</exception>
-        public void ShareFiles(ShareFilesPayload payload, Action<ShareOperationResult>? onResult = null)
+        public void ShareFiles(AndroidShareFilesPayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             CheckNotNull(payload, nameof(payload));
             SharePaths(OperationShareFiles, payload.filePaths, onResult, nameof(ShareFiles));
@@ -346,7 +348,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">Shortcut metadata including id, label, and Base64 icon.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload is null.</exception>
-        public void RegisterDirectShareTarget(DirectShareTargetPayload payload, Action<ShareOperationResult>? onResult = null)
+        public void RegisterDirectShareTarget(AndroidDirectShareTargetPayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             const string op = OperationRegisterDirectShareTarget;
             CheckNotNull(payload, nameof(payload));
@@ -373,7 +375,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="payload">Shortcut identifiers to remove.</param>
         /// <param name="onResult">Optional per-call result callback.</param>
         /// <exception cref="ArgumentNullException">The payload or its ID list is null.</exception>
-        public void RemoveDirectShareTargets(RemoveDirectShareTargetsPayload payload, Action<ShareOperationResult>? onResult = null)
+        public void RemoveDirectShareTargets(AndroidRemoveDirectShareTargetsPayload payload, Action<AndroidShareOperationResult>? onResult = null)
         {
             const string op = OperationRemoveDirectShareTargets;
             CheckNotNull(payload, nameof(payload));
@@ -400,7 +402,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <see cref="ShareCallbackReceived"/>). Cancelling or choosing Copy/Edit does not fire
         /// <paramref name="onSelected"/>.
         /// <para>
-        /// Note: <see cref="ShareTextPayload.chooserActions"/> are NOT registered for callbacks
+        /// Note: <see cref="AndroidShareTextPayload.chooserActions"/> are NOT registered for callbacks
         /// when using this method. Use <see cref="ShareText"/> with an
         /// <c>onChooserAction</c> callback to receive chooser action taps.
         /// </para>
@@ -410,9 +412,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// <param name="onSelected">Optional callback fired when the user selects a target app.</param>
         /// <exception cref="ArgumentNullException">The payload or one of its chooser actions is null.</exception>
         public void ShareWithCallback(
-            ShareTextPayload payload,
-            Action<ShareOperationResult>? onStarted = null,
-            Action<ShareCallbackResult>? onSelected = null)
+            AndroidShareTextPayload payload,
+            Action<AndroidShareOperationResult>? onStarted = null,
+            Action<AndroidShareCallbackResult>? onSelected = null)
         {
             const string op = OperationShareWithCallback;
             CheckNotNull(payload, nameof(payload));
@@ -451,7 +453,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// Cancels a pending share callback receiver registered by <see cref="ShareWithCallback"/>.
         /// </summary>
         /// <param name="onResult">Optional per-call result callback.</param>
-        public void CancelPendingShareCallback(Action<ShareOperationResult>? onResult = null)
+        public void CancelPendingShareCallback(Action<AndroidShareOperationResult>? onResult = null)
         {
             const string op = OperationCancelPendingShareCallback;
             lock (s_lock) s_pendingSelected = null;
@@ -471,7 +473,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         // ── Delivery (J-S2, J-S4, J-S5) ──────────────────────────────────────
 
         /// <summary>Puts the per-call callback in its operation's slot (last-registered wins; null too).</summary>
-        private static void SetPendingOperation(string operation, Action<ShareOperationResult>? callback)
+        private static void SetPendingOperation(string operation, Action<AndroidShareOperationResult>? callback)
         {
             lock (s_lock) s_pendingOperations[operation] = callback;
         }
@@ -482,18 +484,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// </summary>
         private static void PostImmediateResult(string operation, string? error)
         {
-            Action<ShareOperationResult>? callback = TakePending(operation, error == null);
-            ShareOperationResult result = error == null
-                ? ShareOperationResult.Success(operation)
-                : ShareOperationResult.Failure(operation, error);
+            Action<AndroidShareOperationResult>? callback = TakePending(operation, error == null);
+            AndroidShareOperationResult result = error == null
+                ? AndroidShareOperationResult.Success(operation)
+                : AndroidShareOperationResult.Failure(operation, error);
             AndroidNativeCallbackQueue.Post(() => Deliver(result, callback));
         }
 
-        private static Action<ShareOperationResult>? TakePending(string operation, bool success)
+        private static Action<AndroidShareOperationResult>? TakePending(string operation, bool success)
         {
             lock (s_lock)
             {
-                s_pendingOperations.TryGetValue(operation, out Action<ShareOperationResult>? callback);
+                s_pendingOperations.TryGetValue(operation, out Action<AndroidShareOperationResult>? callback);
                 s_pendingOperations.Remove(operation);
                 if (operation == OperationShareWithCallback && !success) s_pendingSelected = null;
                 return callback;
@@ -504,7 +506,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         /// Raises a result on Unity's main thread: the shared event, then the per-call callback. Goes
         /// to the manager alive when the queue runs; without one, the result is dropped (J-S4).
         /// </summary>
-        private static void Deliver(ShareOperationResult result, Action<ShareOperationResult>? callback)
+        private static void Deliver(AndroidShareOperationResult result, Action<AndroidShareOperationResult>? callback)
         {
             AndroidShareManager? manager = _instance;
             if (manager == null)
@@ -585,7 +587,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
                 return;
             }
             Debug.Log($"[{LogTag}][{nameof(OnDoneCore)}] operation: {call.Operation}, error: {AndroidShareCApi.ErrorName(error)}");
-            Action<ShareOperationResult>? callback = TakePending(call.Operation, error == AndroidShareCApi.ErrorNone);
+            Action<AndroidShareOperationResult>? callback = TakePending(call.Operation, error == AndroidShareCApi.ErrorNone);
             AndroidNativeCallbackQueue.Post(() => RaiseOperation(call, error, callback));
         }
 
@@ -593,16 +595,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         internal static void OnReleaseCore(IntPtr userData) => RemoveCall(userData.ToInt64());
 
         /// <summary>Words a completion on Unity's main thread (the file checks of J-S9 run here) and raises it.</summary>
-        private static void RaiseOperation(AndroidShareCApi.ShareCall call, int error, Action<ShareOperationResult>? callback)
+        private static void RaiseOperation(AndroidShareCApi.ShareCall call, int error, Action<AndroidShareOperationResult>? callback)
         {
             if (error == AndroidShareCApi.ErrorNone)
             {
-                Deliver(ShareOperationResult.Success(call.Operation), callback);
+                Deliver(AndroidShareOperationResult.Success(call.Operation), callback);
                 return;
             }
             string message = AndroidShareCApi.FailureMessage(call, error, entry: false);
             Debug.LogWarning($"[{LogTag}][{nameof(RaiseOperation)}] {message}");
-            Deliver(ShareOperationResult.Failure(call.Operation, message), callback);
+            Deliver(AndroidShareOperationResult.Failure(call.Operation, message), callback);
         }
 
         /// <summary>
@@ -620,9 +622,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
                     Debug.Log($"[{LogTag}][{nameof(OnSelectionCore)}] no manager; dropping the selection");
                     return;
                 }
-                var result = new ShareCallbackResult(OperationShareWithCallback, packageName);
+                var result = new AndroidShareCallbackResult(OperationShareWithCallback, packageName);
                 manager.ShareCallbackReceived?.Invoke(result);
-                Action<ShareCallbackResult>? callback;
+                Action<AndroidShareCallbackResult>? callback;
                 lock (s_lock)
                 {
                     callback = s_pendingSelected;
@@ -641,13 +643,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         {
             Debug.Log($"[{LogTag}][{nameof(OnChooserActionCore)}] actionId: {actionId}");
             if (!AndroidShareCApi.IsNotifiedActionId(actionId)) return;
-            ShareChooserActionCallbackCoordinator? coordinator = s_coordinator;
+            AndroidShareChooserActionCallbackCoordinator? coordinator = s_coordinator;
             if (coordinator == null)
             {
                 Debug.Log($"[{LogTag}][{nameof(OnChooserActionCore)}] no manager; dropping the action");
                 return;
             }
-            coordinator.Fire(new ShareChooserActionResult(actionId));
+            coordinator.Fire(new AndroidShareChooserActionResult(actionId));
         }
 
         // ── Test seams ────────────────────────────────────────────────────────
@@ -674,10 +676,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
             lock (s_lock) AndroidShareCApi.AddSelectionId(s_selectionIds, id);
         }
 
-        internal static void SetPendingOperationForTests(string operation, Action<ShareOperationResult>? callback) =>
+        internal static void SetPendingOperationForTests(string operation, Action<AndroidShareOperationResult>? callback) =>
             SetPendingOperation(operation, callback);
 
-        internal static void SetPendingSelectedForTests(Action<ShareCallbackResult>? callback)
+        internal static void SetPendingSelectedForTests(Action<AndroidShareCallbackResult>? callback)
         {
             lock (s_lock) s_pendingSelected = callback;
         }
@@ -702,17 +704,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
             if (value == null) throw new ArgumentNullException(name);
         }
 
-        private static void CheckActionsNotNull(ChooserActionPayload[]? actions)
+        private static void CheckActionsNotNull(AndroidChooserActionPayload[]? actions)
         {
             if (actions == null) return;
-            foreach (ChooserActionPayload? action in actions)
+            foreach (AndroidChooserActionPayload? action in actions)
             {
                 if (action == null) throw new ArgumentNullException("payload.chooserActions", "A chooser action is null.");
             }
         }
 
         /// <summary>The text and subject by length only (J-S10).</summary>
-        private static string Describe(ShareTextPayload payload) =>
+        private static string Describe(AndroidShareTextPayload payload) =>
             $"text: ({payload.text?.Length ?? 0} characters), title: {payload.title ?? "null"}, subject: ({payload.subject?.Length ?? 0} characters), mimeType: {payload.mimeType ?? "null"}, previewTitle: {payload.previewTitle ?? "null"}, previewThumbnailPath: {payload.previewThumbnailPath ?? "null"}";
 
         /// <summary>
@@ -737,7 +739,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Share
         }
 
         /// <summary>ShareImages and ShareFiles: the same checks and call, with their own operation.</summary>
-        private static void SharePaths(string op, string[] filePaths, Action<ShareOperationResult>? onResult, string method)
+        private static void SharePaths(string op, string[] filePaths, Action<AndroidShareOperationResult>? onResult, string method)
         {
             CheckNotNull(filePaths, "payload.filePaths");
             AndroidNativeCallbackQueue.EnsureCreated();

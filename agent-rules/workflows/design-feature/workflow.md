@@ -51,10 +51,11 @@
    | ----------- | ------- |
    | `Common/`       | `UnityMainThreadDispatcher`、`IconConfiguration` などの共通ユーティリティ |
    | `Windows/<Feature>/`、`Windows/Common/` | Windows の Manager・Bridge と、Windows の全機能の共通部（移行済みの形） |
-   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | Android / iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
+   | `Android/<Feature>/`、`Android/Common/` | Android の Manager・Bridge・Payload と、Android の全機能の共通部（移行済みの形） |
+   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
 
    置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う。正しい形は `Runtime/<Platform>/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>`）。
-   Windows は移行済み、Android / iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
+   Windows と Android は移行済み、iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
 
    - 既存の Singleton パターン・イベントシグネチャ・namespace を把握する
    - すでに実装済みのクラス・メソッドを重複追加しない

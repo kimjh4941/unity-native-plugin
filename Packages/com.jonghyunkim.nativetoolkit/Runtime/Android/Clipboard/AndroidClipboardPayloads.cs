@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
 {
@@ -8,11 +9,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// Payload for copying plain text to the clipboard via <see cref="AndroidClipboardManager.CopyPlainText"/>.
     /// </summary>
     [Serializable]
-    public sealed class CopyPlainTextPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard", sourceClassName: "CopyPlainTextPayload")]
+    public sealed class AndroidCopyPlainTextPayload
     {
         /// <summary>
         /// Text to copy. A blank value is accepted by the native layer; unlike
-        /// <see cref="CopyHtmlTextPayload.htmlText"/>, blank plain text never fails.
+        /// <see cref="AndroidCopyHtmlTextPayload.htmlText"/>, blank plain text never fails.
         /// </summary>
         public string text = string.Empty;
 
@@ -27,14 +29,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// Payload for copying HTML text to the clipboard via <see cref="AndroidClipboardManager.CopyHtmlText"/>.
     /// </summary>
     [Serializable]
-    public sealed class CopyHtmlTextPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard", sourceClassName: "CopyHtmlTextPayload")]
+    public sealed class AndroidCopyHtmlTextPayload
     {
         /// <summary>Plain-text fallback. A blank value is accepted.</summary>
         public string plainText = string.Empty;
 
         /// <summary>
         /// HTML representation. Required; a blank value fails with the CLIPBOARD_EMPTY_CONTENT
-        /// error, unlike <see cref="CopyPlainTextPayload.text"/> which accepts blank values.
+        /// error, unlike <see cref="AndroidCopyPlainTextPayload.text"/> which accepts blank values.
         /// </summary>
         public string htmlText = string.Empty;
 
@@ -50,7 +53,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// <see cref="AndroidClipboardManager.CopyUri"/>.
     /// </summary>
     [Serializable]
-    public sealed class CopyUriPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard", sourceClassName: "CopyUriPayload")]
+    public sealed class AndroidCopyUriPayload
     {
         /// <summary>URI string. Required; blank or unparseable values fail with CLIPBOARD_INVALID_URI.</summary>
         public string uri = string.Empty;
@@ -67,7 +71,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Android.Clipboard
     /// <see cref="AndroidClipboardManager.CopyMultipleText"/>.
     /// </summary>
     [Serializable]
-    public sealed class CopyMultipleTextPayload
+    [MovedFrom(false, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Clipboard", sourceClassName: "CopyMultipleTextPayload")]
+    public sealed class AndroidCopyMultipleTextPayload
     {
         /// <summary>
         /// Text items. Required; an empty array fails with CLIPBOARD_EMPTY_ITEMS. Individual empty
