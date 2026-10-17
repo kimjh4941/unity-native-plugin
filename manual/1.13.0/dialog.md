@@ -13,6 +13,7 @@ Language:
 ## Table of Contents
 
 - [Android](#android)
+  - [Changes in 1.13.0](#changes-in-1130)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
   - [IosDialogManager](#iosdialogmanager)
@@ -26,6 +27,57 @@ Language:
 
 ## Android
 
+### Changes in 1.13.0
+
+Since 1.13.0 the Android dialogs run on native-toolkit's C ABI 2.0.0 (`libntk.so`). The methods, the events, their parameters and the default values are unchanged. What differs from 1.12.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- No Dialog type was renamed, so the `using` line above is the only edit your code needs. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
+
+#### Breaking changes shared by every Android feature
+
+- **The 1.x native libraries are no longer bundled.** `android-native-toolkit-1.3.0.aar` and `unity-android-native-toolkit-1.3.0.aar` were removed. The package ships `android-native-toolkit-2.0.0.aar` and `android-native-toolkit-capi-2.0.0.aar` (native-toolkit's C ABI 2.0.0). Code that called their classes (`android.unity.*`, `android.library.*`) directly no longer works.
+- **"Configure Gradle Project" is gone.** The menu Tools > Native Toolkit > Android > Configure Gradle Project and its window were removed. The build now adds the runtime dependencies to `unityLibrary/build.gradle` itself (7 libraries, including `kotlin-stdlib` 2.2.21 and `kotlinx-coroutines-core` 1.9.0) and no longer applies the Kotlin Gradle plugin. If you use your own Gradle templates or EDM4U, check them for conflicting versions.
+- **64-bit and IL2CPP only.** A build that also targets ARMv7 (32-bit) stops with a message, and Mono is not supported. See [Android requirements](index.md#android-requirements).
+
+#### Differences in the dialogs
+
+| Case | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| A single or multiple choice dialog closed by Back or an outside tap | `checkedItem` / `checkedItems` held the selection at that moment | Both are `null`. `buttonText = "Cancel"`, `isSuccess = true` and `errorMessage = ""` are unchanged |
+| `checkedItem` below -1, or not less than the number of items | The dialog showed with nothing selected, and the positive button returned the value as passed | No dialog; the event reports `"checkedItem is out of range."` at once, in the Editor too. `-1` (nothing selected) still works |
+| `checkedItems` longer than the items | Returned at the length passed | Cut to the number of items |
+| `checkedItems` shorter than the items | Not supported (expected to throw on the Android main thread and end the app) | Padded with `false` |
+| A `null` item in `singleChoiceItems` / `multiChoiceItems` | Passed to Android, where it could end the app. The Editor let it through with a warning only | No dialog; the event reports `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` at once, in the Editor too |
+| U+0000 inside a string | Passed through | The string ends there |
+| Unpaired surrogates in strings | Passed through | Replaced with U+FFFD, both in the strings you pass and in the strings that come back |
+| Called while the app is not in the foreground | `"Failed to <method>: <exception message>"` | `"Failed to <method>: the app is not in the foreground."` |
+| The system closed the dialog (its host or Activity ended) | No event | A failure: `"Failed to <method>: the dialog was closed by the system."` |
+| The foreground Activity is not a `FragmentActivity` | `"Failed to cast context to FragmentActivity"` | The dialog shows in a transparent host Activity. Unity's Activity is a `FragmentActivity`, so this rarely applies |
+| Error messages | Included the exception text | The fixed texts below |
+| Logs | Failed checks were logged as errors; inputs, user names and passwords were logged as they are | Failed checks are logged as warnings; inputs, user names and passwords are logged by length only. The sample scene shows the password as its length too |
+| `Initialize()` | Connected to the native bridge | Only logs whether the native library can be used. You do not need to call it |
+
+The `errorMessage` texts are below. `<method>` is the same name as in 1.12.0: `showDialog`, `showConfirmDialog`, `showSingleChoiceItemDialog`, `showMultiChoiceItemDialog`, `showTextInputDialog` or `showLoginDialog`. "At once" means the event is raised before the `Show*` method returns; "later" means after it returns.
+
+| Cause | When | `errorMessage` |
+| --- | --- | --- |
+| An empty title, message or item list (unchanged) | At once | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` / `"singleChoiceItems cannot be null or empty."` / `"multiChoiceItems cannot be null or empty."` |
+| A `null` item | At once | `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` |
+| `checkedItem` out of range | At once | `"checkedItem is out of range."` |
+| The native library cannot be used (1.12.0: `"pluginInstance is null"`) | At once | `"Failed to <method>: the native library is not available (libntk.so ships for arm64-v8a and x86_64 only)."` |
+| The native library is not initialized yet | At once | `"Failed to <method>: the native library is not initialized yet."` |
+| The library rejected the request (a defect in this package) | At once | `"Failed to <method>: the request was rejected (INVALID_PARAMETER)."` (or `NOT_SUPPORTED`) |
+| The library refused the call for another reason | At once | `"Failed to <method>: <name>."` (`<name>` is the error's name, such as `OUT_OF_MEMORY` or `UNKNOWN`) |
+| The app is not in the foreground | Later | `"Failed to <method>: the app is not in the foreground."` |
+| The dialog host could not be started | Later | `"Failed to <method>: the dialog host could not be started."` |
+| The dialog could not be shown | Later | `"Failed to <method>: the dialog could not be shown."` |
+| The system closed the dialog | Later | `"Failed to <method>: the dialog was closed by the system."` |
+| Any other failure after the call was accepted | Later | `"Failed to <method>: <name>."` |
+| An exception in C# (unchanged) | At once | `"Internal error: <exception message>"` |
+
 ### AndroidDialogManager
 
 #### ShowDialog - Basic dialog
@@ -35,7 +87,7 @@ Language:
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -97,7 +149,7 @@ private void OnDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -162,7 +214,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -213,7 +265,7 @@ AndroidDialogManager.Instance.ShowSingleChoiceItemDialog(
 
 ```csharp
 // buttonText: The pressed button text. Null on error.
-// checkedItem: Selected index. Null on error.
+// checkedItem: Selected index. Null on error, on the negative button, when nothing is selected, or when the dialog is closed by Back or an outside tap.
 // isSuccess: True on success.
 // errorMessage: Error details (null on success).
 
@@ -232,7 +284,7 @@ private void OnSingleChoiceItemDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -283,7 +335,7 @@ AndroidDialogManager.Instance.ShowMultiChoiceItemDialog(
 
 ```csharp
 // buttonText: The pressed button text. Null on error.
-// checkedItems: Selection states. Null on error.
+// checkedItems: Selection states. Null on error, on the negative button, or when the dialog is closed by Back or an outside tap.
 // isSuccess: True on success.
 // errorMessage: Error details (null on success).
 
@@ -302,7 +354,7 @@ private void OnMultiChoiceItemDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -375,7 +427,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -832,7 +884,7 @@ private void OnLoginDialogResult(
 
 Since 1.12.0 the Windows dialogs run on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events and their parameters are unchanged. What differs from 1.11.0:
 
-- **Namespace.** `WindowsDialogManager`, `Win32MessageBox` and `WindowsDialogErrorCodes` are in `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`. Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` in Windows code. The Android, iOS and macOS types keep their namespace.
+- **Namespace.** `WindowsDialogManager`, `Win32MessageBox` and `WindowsDialogErrorCodes` are in `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`. Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` in Windows code. The iOS and macOS types keep their namespace; the Android types moved in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
 - **The Editor.** The Windows types also compile in the Editor. A call there shows nothing and reports `-5` through the event.
 - **Reserved error codes.** Besides the OS value, `errorCode` can be one of the values below. Compare with the constants rather than checking the sign: an OS `HRESULT` is negative too.
 
