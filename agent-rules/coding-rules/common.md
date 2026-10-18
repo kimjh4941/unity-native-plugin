@@ -462,6 +462,14 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 Android の接頭辞の無い 37 型（Result、Payload ほか）は、段 4 で `Android` を前に付けて改名した（`artifact/topics/android-c-abi-2/designs/2026-10-13-android-c-abi-stage4-design-v8.md`。2026-10-17）。各型には `[MovedFrom]` で旧い名前空間と名前を残す。iOS と macOS の 9 件は、その OS の C ABI 移行で直す（利用者の判断、2026-10-13）。
 
+**公開型を改名・移動するときの `[MovedFrom]`**（段 4 で Unity 6000.4.2f1 を実測・IL で確かめた。`artifact/topics/android-c-abi-2/results/2026-10-17-android-c-abi-stage4-result-v2.md` の 4 章）:
+
+- 名前を変える型は `[MovedFrom(false, sourceNamespace: "<旧い名前空間>", sourceClassName: "<旧名>")]`。**第 1 引数を `true` にしない**: `true` と `sourceClassName` の組を見ると Script Updater が `ArgumentException` を投げて止まり、ほかの型の名前空間の書き換えまで止まる
+- 名前空間だけが動く型は `[MovedFrom(true, sourceNamespace: "<旧い名前空間>")]`。`sourceAssembly` はアセンブリ名が変わらない限り渡さない。ファイルに `using UnityEngine.Scripting.APIUpdating;` を足す
+- **API Updater は、このパッケージの `[MovedFrom]` を使わない**（候補にするのは名前が `Unity` で始まるアセンブリだけ）。利用者のスクリプトの `using` も型名も自動では直らないので、マニュアルの移行の節に「手で直す」と書き、旧名 → 新名の表を載せる
+- `[SerializeReference]` で旧名のまま保存したデータは、第 1 引数が `false` でも新しい型に移る（`[MovedFrom]` を付ける意味はここにある）
+- 改名の後は、旧名が残っていないかを、識別子の境界（後ろに `_` が続く場合も含む）で検査する。テストのメソッド名に旧名が残りやすい
+
 **`Tests/` の逸脱 2 件は 2026-09-03 に解消済み。** テストファイルは公開 API ではないため、Runtime の改名方針を待たずに直せた。
 
 | 旧 | 新 |

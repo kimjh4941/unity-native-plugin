@@ -62,7 +62,8 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 | [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-10-03 | テスト方針（`testing.md`）の策定記録と、Windows の層 2b / 3 の導入の記録（検証を流すときの前提を含む）。Android / iOS / macOS は未導入 |
 | [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-10-03 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
 | [dispatcher-runs-under-lock](topics/dispatcher-runs-under-lock/README.md) | 契約 | 未着手 | 2026-10-11 | `UnityMainThreadDispatcher` がロックを持ったまま購読者の処理を走らせ、ネイティブのコールバックのスレッドを待たせる。Android の C ABI の受け口は使わずに避けた |
-| [android-c-abi-2](topics/android-c-abi-2/README.md) | 移行 | 進行中 | 2026-10-17 | Android の下の層が native-toolkit の C ABI 2.0.0（`libntk.so`）に置き換わる。**4 機能とも移行済み（段 3）**。段 4 で 1.x の AAR を外し、使われなくなった Share・Clipboard の JSON ビルダーを消し、接頭辞の無い 37 型を改名した（`[MovedFrom]` 付き）。マニュアルの版 1.13.0 も書いた。残りは 1.13.0 のリリース（native-toolkit の 1.13.0 のタグ待ち） |
+| [android-c-abi-2](topics/android-c-abi-2/README.md) | 移行 | 進行中 | 2026-10-18 | Android の下の層が native-toolkit の C ABI 2.0.0（`libntk.so`）に置き換わる。**4 機能とも移行済み（段 3）**。段 4 で 1.x の AAR を外し、使われなくなった Share・Clipboard の JSON ビルダーを消し、接頭辞の無い 37 型を改名した（`[MovedFrom]` 付き）。マニュアルの版 1.13.0 も書いた。native-toolkit のタグ 1.13.0 が打たれ、1.13.0 のリリースの途中（PR #31） |
+| [windows-version-meta](topics/windows-version-meta/README.md) | 同梱物 | 未着手 | 2026-10-18 | `Plugins/Windows/VERSION.txt.meta` が `.gitignore` で除外されていて、リポジトリに無い（Android の `VERSION.txt.meta` はある）。git URL で入れたときに警告が出るかは要確認 |
 
 | [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
 
