@@ -1,4 +1,4 @@
-# OS 接頭辞ルールの逸脱（Runtime 11 件。Tests 2 件は解消済み）
+# OS 接頭辞ルールの逸脱（Runtime は Android を改名して残り 9 件。Tests 2 件は解消済み）
 
 - 記録日: 2026-09-03
 - 更新: 2026-09-03 案 0（Tests 2 件）を実施。**残るのは Runtime 11 件のみ。**
@@ -6,7 +6,10 @@
 - 発見経緯: macOS Clipboard の設計レビュー中に、`IosClipboardJsonReader` を改名すべきかを検討して判明
 - 検査手段: 下記「検査コマンド」
 - 対応方針: **macOS Clipboard の実装には含めない。別途対応。**
-- 進捗: 案 0 **完了**（下記）／案 1〜3 は未着手
+- 進捗: 案 0 **完了**（下記）／案 1 は **Android の分を完了**（2026-10-17。下記の「段 4 での実施」）／案 2・3 は採らない
+- **決定（2026-10-12、利用者と相談）: 案 1（Runtime 11 件の一括改名。Android の 10 件と、macOS の `IconConfiguration` を `MacIconConfiguration` にして `Dialog/` へ移す 1 件の両方）を、Android の 4 機能の C ABI への移行（`artifact/topics/android-c-abi-2`）が終わった後に、1 つのタスクとして行う。出す版は 1.13.0**（メジャーにはしない）。利用者のコードが壊れる変更なので、CHANGELOG と移行ガイドに破壊的変更として書く。案 1 の「メジャーバージョンで行う」はこの決定で置き換える
+- **範囲の変更（2026-10-13、利用者の判断）**: 段 4 では Android だけを改名する。`IconConfiguration` と、後から数えに入れた iOS の 5 型（`IosNotificationPayloads.cs` の `NotificationContentPayload` ほか）・macOS の 3 型（`MacDialogManager.cs` の `DialogButton` ほか）は、その OS の C ABI 移行で直す
+- **段 4 での実施（2026-10-17）**: Android の接頭辞の無い public 型 **37**（上の 10 件に、同じファイルの `ClipboardReadStatus`・`ClipDescriptionInfo` と、Clipboard・Notification・Share の Payload 23 型を足した数）に `Android` を前に付けた。名前空間はそのまま（段 3-0 で `Runtime.Android.<Feature>` に移した）。`[Obsolete]` の別名は置かず、各型に `[MovedFrom]` で旧い名前空間と名前を残した（改名した 37 型は第 1 引数 `false`、名前を残した Manager など 5 型は `true`）。設計は `artifact/topics/android-c-abi-2/designs/2026-10-13-android-c-abi-stage4-design-v8.md`。**残りは Runtime 9 件**（iOS 5、macOS 3、`IconConfiguration`）。下の「影響範囲」の「公開 81 型・13%」は 2026-09-03 の数え方の記録で、改名の後は数え直していない
 
 ---
 

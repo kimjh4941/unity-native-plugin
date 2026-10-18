@@ -13,6 +13,7 @@
 ## 目次
 
 - [Android](#android)
+  - [1.13.0 での変更](#1130-での変更)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
   - [iOSDialogManager](#iosdialogmanager)
@@ -26,6 +27,57 @@
 
 ## Android
 
+### 1.13.0 での変更
+
+1.13.0 から、Android のダイアログは native-toolkit の C ABI 2.0.0（`libntk.so`）で動きます。メソッド、イベント、その引数と既定値は変わりません。1.12.0 との違いは次のとおりです。
+
+#### コードの直し方
+
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- Dialog の型は名前が変わっていないので、直すのは上の `using` の行だけです。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
+
+#### Android の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `android-native-toolkit-1.3.0.aar` と `unity-android-native-toolkit-1.3.0.aar` を外しました。パッケージに入っているのは `android-native-toolkit-2.0.0.aar` と `android-native-toolkit-capi-2.0.0.aar`（native-toolkit の C ABI 2.0.0）です。これらのクラス（`android.unity.*`、`android.library.*`）を直接呼んでいたコードは動きません。
+- **「Configure Gradle Project」は無くなりました。** メニューの Tools > Native Toolkit > Android > Configure Gradle Project と、そのウィンドウを削除しました。実行時に要るライブラリ（`kotlin-stdlib` 2.2.21、`kotlinx-coroutines-core` 1.9.0 を含む 7 つ）は、ビルドが `unityLibrary/build.gradle` に自分で足します。Kotlin の Gradle プラグインは適用しなくなりました。独自の Gradle のテンプレートや EDM4U を使っている場合は、版がぶつからないか確かめてください。
+- **64 ビットと IL2CPP だけに対応します。** ARMv7（32 ビット）も含むビルドはメッセージを出して止まります。Mono には対応しません。[Android の要件](index.ja.md#android-の要件)を見てください。
+
+#### ダイアログの動作の違い
+
+| 場面 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| 単一選択・複数選択のダイアログを、バックキーやダイアログの外のタップで閉じた | `checkedItem` / `checkedItems` に、その時点の選択が入った | どちらも `null` です。`buttonText = "Cancel"`、`isSuccess = true`、`errorMessage = ""` は変わりません |
+| `checkedItem` が -1 より小さい、または項目数以上 | 何も選ばれていないダイアログが出て、肯定ボタンで渡した値がそのまま返った | ダイアログは出ず、すぐに `"checkedItem is out of range."` のイベントが出ます。Editor でも同じです。`-1`（未選択）はこれまでどおり使えます |
+| `checkedItems` が項目より長い | 渡した長さのまま返った | 項目数で切ります |
+| `checkedItems` が項目より短い | 対応していない（Android のメインスレッドで例外になり、アプリが終わると見られる） | 足りない分を `false` で埋めます |
+| `singleChoiceItems` / `multiChoiceItems` に `null` の要素がある | そのまま Android に渡し、アプリが終わることがあった。Editor では警告だけで通った | ダイアログは出ず、すぐに `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` のイベントが出ます。Editor でも同じです |
+| 文字列の途中の U+0000 | そのまま渡した | そこで切れます |
+| 文字列の中の対になっていないサロゲート | そのまま | 渡す文字列も返ってくる文字列も、U+FFFD に置き換わります |
+| アプリが前面にないときに呼ぶ | `"Failed to <method>: <例外の文言>"` | `"Failed to <method>: the app is not in the foreground."` |
+| システムがダイアログを閉じた（宿主や Activity が終わった） | イベントは出なかった | 失敗のイベント `"Failed to <method>: the dialog was closed by the system."` が出ます |
+| 前面の Activity が `FragmentActivity` でない | `"Failed to cast context to FragmentActivity"` | 透明な宿主の Activity にダイアログを出します。Unity の Activity は `FragmentActivity` なので、ふつうは当てはまりません |
+| エラーの文言 | 例外の文言を含んだ | 下の表の決まった文言です |
+| ログ | 検査の失敗はエラーとして出した。入力・ユーザー名・パスワードをそのまま出した | 検査の失敗は警告として出します。入力・ユーザー名・パスワードは長さだけを出します。サンプルのシーンも、パスワードは長さだけを表示します |
+| `Initialize()` | ネイティブのブリッジにつないだ | ネイティブライブラリが使えるかをログに出すだけです。呼ぶ必要はありません |
+
+`errorMessage` の文言は次のとおりです。`<method>` には 1.12.0 と同じ名前（`showDialog`、`showConfirmDialog`、`showSingleChoiceItemDialog`、`showMultiChoiceItemDialog`、`showTextInputDialog`、`showLoginDialog` のどれか）が入ります。「すぐ」は `Show*` メソッドが戻る前に、「後で」は戻った後にイベントが出ることを表します。
+
+| 原因 | 時点 | `errorMessage` |
+| --- | --- | --- |
+| タイトル・メッセージ・選択肢が空（変更なし） | すぐ | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` / `"singleChoiceItems cannot be null or empty."` / `"multiChoiceItems cannot be null or empty."` |
+| `null` の要素 | すぐ | `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` |
+| `checkedItem` が範囲外 | すぐ | `"checkedItem is out of range."` |
+| ネイティブライブラリが使えない（1.12.0 では `"pluginInstance is null"`） | すぐ | `"Failed to <method>: the native library is not available (libntk.so ships for arm64-v8a and x86_64 only)."` |
+| ネイティブライブラリがまだ初期化されていない | すぐ | `"Failed to <method>: the native library is not initialized yet."` |
+| ライブラリが要求を拒んだ（このパッケージの不具合） | すぐ | `"Failed to <method>: the request was rejected (INVALID_PARAMETER)."`（または `NOT_SUPPORTED`） |
+| ライブラリがそのほかの理由で呼び出しを受け付けなかった | すぐ | `"Failed to <method>: <name>."`（`<name>` はエラーの名前。`OUT_OF_MEMORY`、`UNKNOWN` など） |
+| アプリが前面にない | 後で | `"Failed to <method>: the app is not in the foreground."` |
+| ダイアログの宿主を起動できない | 後で | `"Failed to <method>: the dialog host could not be started."` |
+| ダイアログを出せない | 後で | `"Failed to <method>: the dialog could not be shown."` |
+| システムがダイアログを閉じた | 後で | `"Failed to <method>: the dialog was closed by the system."` |
+| 受け付けた後のそのほかの失敗 | 後で | `"Failed to <method>: <name>."` |
+| C# の例外（変更なし） | すぐ | `"Internal error: <例外の文言>"` |
+
 ### AndroidDialogManager
 
 #### ShowDialog - 基本ダイアログ
@@ -35,7 +87,7 @@
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -97,7 +149,7 @@ private void OnDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -162,7 +214,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -213,7 +265,7 @@ AndroidDialogManager.Instance.ShowSingleChoiceItemDialog(
 
 ```csharp
 // buttonText:　押下したボタンのテキストを取得します。エラーの場合、null を返します。
-// checkedItem: 選択された項目のindex番号を取得します。エラーの場合、null を返します。
+// checkedItem: 選択された項目のindex番号を取得します。エラーの場合、否定ボタンを押した場合、何も選ばれていない場合、バックキーやダイアログの外のタップで閉じた場合は null を返します。
 // isSuccess: ダイアログ表示成功のプラグを取得します。成功の場合、true を返します。
 // errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
 
@@ -232,7 +284,7 @@ private void OnSingleChoiceItemDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -283,7 +335,7 @@ AndroidDialogManager.Instance.ShowMultiChoiceItemDialog(
 
 ```csharp
 // buttonText:　押下したボタンのテキストを取得します。エラーの場合、null を返します。
-// checkedItems: 選択された項目の選択状態を取得します。選択はtrue, 未選択はfalse。エラーの場合、null を返します。
+// checkedItems: 選択された項目の選択状態を取得します。選択はtrue, 未選択はfalse。エラーの場合、否定ボタンを押した場合、バックキーやダイアログの外のタップで閉じた場合は null を返します。
 // isSuccess: ダイアログ表示成功のプラグを取得します。成功の場合、true を返します。
 // errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
 
@@ -302,7 +354,7 @@ private void OnMultiChoiceItemDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -375,7 +427,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -832,7 +884,7 @@ private void OnLoginDialogResult(
 
 1.12.0 から、Windows のダイアログは native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、その引数は変わりません。1.11.0 との違いは次のとおりです。
 
-- **名前空間。** `WindowsDialogManager`、`Win32MessageBox`、`WindowsDialogErrorCodes` は `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+- **名前空間。** `WindowsDialogManager`、`Win32MessageBox`、`WindowsDialogErrorCodes` は `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を書き換えてください。iOS / macOS の型の名前空間は変わりません。Android の型は 1.13.0 で移りました（[1.13.0 での変更](#1130-での変更)を見てください）。
 - **Editor。** Windows の型は Editor でもコンパイルされます。Editor で呼ぶとダイアログは出ず、イベントで `-5` が返ります。
 - **予約されたエラーコード。** `errorCode` には、OS の値のほかに下の値が入ります。OS の `HRESULT` も負の値なので、符号ではなく定数と比べてください。
 

@@ -13,6 +13,7 @@ Language:
 ## Table of Contents
 
 - [Android](#android)
+  - [Changes in 1.13.0](#changes-in-1130)
   - [Setup](#setup)
   - [Permission](#permission)
   - [Channel Management](#channel-management)
@@ -58,6 +59,82 @@ Language:
 
 ## Android
 
+### Changes in 1.13.0
+
+Since 1.13.0 Android notifications run on native-toolkit's C ABI 2.0.0 instead of the 1.x Kotlin bridge. `AndroidNotificationManager` keeps its methods, events and constants, and they still take the JSON that `AndroidNotificationJsonBuilder` builds, read by the same rules as in 1.12.0. What to change, and what differs from 1.12.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
+- Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
+
+Renamed types. `AndroidNotificationManager` and `AndroidNotificationJsonBuilder` keep their names and only move to the new namespace.
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `NotificationResult` | `AndroidNotificationResult` |
+| `NotificationActionResult` | `AndroidNotificationActionResult` |
+| `NotificationReceivedResult` | `AndroidNotificationReceivedResult` |
+| `NotificationResourcePayload` | `AndroidNotificationResourcePayload` |
+| `ChannelPayload` | `AndroidChannelPayload` |
+| `NotificationPayload` | `AndroidNotificationPayload` |
+| `NotificationActionPayload` | `AndroidNotificationActionPayload` |
+| `ScheduledNotificationEnvelopePayload` | `AndroidScheduledNotificationEnvelopePayload` |
+| `NotificationSchedulePayload` | `AndroidNotificationSchedulePayload` |
+| `NotificationProgressPayload` | `AndroidNotificationProgressPayload` |
+| `NotificationStylePayload` | `AndroidNotificationStylePayload` |
+| `NotificationMessagePayload` | `AndroidNotificationMessagePayload` |
+| `NotificationDataEntryPayload` | `AndroidNotificationDataEntryPayload` |
+| `NotificationViewActionPayload` | `AndroidNotificationViewActionPayload` |
+
+#### Breaking changes shared by every Android feature
+
+- **The 1.x native libraries are no longer bundled.** `android-native-toolkit-1.3.0.aar` and `unity-android-native-toolkit-1.3.0.aar` were removed. The package ships `android-native-toolkit-2.0.0.aar` and `android-native-toolkit-capi-2.0.0.aar` (native-toolkit's C ABI 2.0.0). Code that called their classes (`android.unity.*`, `android.library.*`) directly no longer works.
+- **"Configure Gradle Project" is gone.** The menu Tools > Native Toolkit > Android > Configure Gradle Project and its window were removed. The build now adds the runtime dependencies to `unityLibrary/build.gradle` itself (7 libraries, including `kotlin-stdlib` 2.2.21 and `kotlinx-coroutines-core` 1.9.0) and no longer applies the Kotlin Gradle plugin. If you use your own Gradle templates or EDM4U, check them for conflicting versions.
+- **64-bit and IL2CPP only.** A build that also targets ARMv7 (32-bit) stops with a message, and Mono is not supported. See [Android requirements](index.md#android-requirements).
+
+#### Notification changes
+
+- **Remove the `<service>` entry you added for 1.12.0.** The 1.12.0 manual told you to add `<service android:name="android.library.notification.presentation.progress.ProgressForegroundService" ... />` to your `AndroidManifest.xml`. That class was in the 1.x libraries and no longer exists. Delete the entry: the library declares its own foreground service, so progress notifications need nothing in your manifest.
+- **Showing a notification without the permission now fails.** When the `POST_NOTIFICATIONS` permission is not granted (Android 13 and later) or the app's notifications are turned off, `ShowNotification`, `UpdateNotification` and `ScheduleNotification` for a time already past report a failure through `NotificationOperationCompleted`. 1.12.0 reported success and showed nothing. Check `HasPermission()` and `AreNotificationsEnabled()`, or call `RequestPermission`, first.
+- **A resource name that cannot be found now fails.** Icons, pictures, layouts and view IDs are given by name and looked up when the notification is shown, updated, scheduled, or passed to a progress method. A name the app does not have fails the call, and nothing is shown; 1.12.0 used the app's icon or the default style instead. The `type` of `AndroidNotificationResourcePayload` is no longer used (icons and pictures are looked up in `drawable`, then `mipmap`). Resource shrinking can remove resources that only a name refers to: keep them with `tools:keep` (see [Keep the resources you name](#keep-the-resources-you-name)).
+- **Schedules saved by 1.12.0 are cleared.** The first time the app starts with 1.13.0, the library cannot read the schedules 1.12.0 saved, so it cancels their alarms and deletes them, once. Schedule them again after the update. A 1.12.0 schedule made with `persistAcrossBoot = false` cannot be found: it stays with Android, but shows nothing when it fires.
+- **Notifications shown by 1.12.0 no longer respond.** A notification posted before the update stays in the notification shade, but tapping it or its buttons does nothing after the update (the classes that received the taps are gone).
+- **`IsNotificationScheduled` sees only the schedules kept across a reboot.** As in 1.12.0, `IsNotificationScheduled` and `CancelAllScheduledNotifications` find only the schedules made with `persistAcrossBoot = true` (the default). Cancel the others by ID with `CancelScheduledNotification`.
+
+#### Behavior differences from 1.12.0
+
+`{op}` stands for the operation name, such as `showNotification`.
+
+| Case | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| Showing, updating, or scheduling for a time already past, without the notification permission or with the app's notifications turned off | Succeeded; nothing was shown | Fails: `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` |
+| A resource name (icon, picture, layout, view ID) the app does not have | The app's icon, the item left out, or the default style in its place | Fails: `Failed to {op}: a resource named in the notification was not found.` Nothing is shown |
+| The `type` of a resource | Looked up in that type only | Not used: `drawable`, then `mipmap` (layouts in `layout`, view IDs in `id`) |
+| A value out of the platform's range (`groupAlertBehavior`, `timestamp`, `timeoutAfter`, `semanticAction`, `alarmType`, negative vibration values, negative message times) | Passed on unchecked | `Invalid argument for {op}: Please verify the input parameters.` |
+| A JSON syntax error, or `null` or empty JSON | `Failed to {op}:` and the JSON parser's message | `Failed to {op}: the JSON could not be read.` |
+| Lenient JSON (unquoted keys, single quotes, comments) | Accepted | A syntax error |
+| A JSON value of the wrong type (a number written as a string, and so on) | Converted | Treated as missing; a decimal for an integer field is cut toward zero |
+| A `data` value that is not a string, or a `null` in `lines` | Turned into a string (`null` became `"null"`) | Dropped |
+| Values in `AndroidNotificationActionResult.Data` | JSON escapes left in (`a\"b`, `c\/d`) | The values as sent |
+| Tapping the body, or an action with `launchApp` | The app did not come to the front (seen on Android 16) | The app opens |
+| The action of the Intent that opens the app from a tap | The action ID | None (the launcher Intent) |
+| The flags of the Intent that opens the app (a tap or a full-screen intent) | `NEW_TASK \| CLEAR_TOP` | `NEW_TASK \| RESET_TASK_IF_NEEDED` |
+| A tap made while no manager existed, even before the app started | Dropped | Kept (up to 32) and delivered in a frame after the manager is first created: subscribe to `NotificationActionTapped` in the frame you first read `Instance` |
+| A call from a thread other than Unity's main thread | `{op} could not be started.` | Accepted (`RequestPermission` and the first read of `Instance` still need the main thread) |
+| `OpenNotificationSettings` | Fell back to the app details screen | Opens the app's notification settings |
+| Opening a settings screen while the app is in the background | Called from another thread (Unity's main thread is paused in the background), it failed with `{op} could not be started.` | `Failed to {op}: the app is not in the foreground.` |
+| A progress method while the app is in the background | Failed with the system's exception message | `Failed to {op}: the system did not allow the foreground service from the background.` |
+| `DeleteChannel(null)` | Failed with a `NullPointerException` message | Succeeds (deletes the channel `""`) |
+| A schedule made inexact for lack of the exact alarm permission, after a reboot | Made exact again if the permission had been granted | Stays inexact |
+| Results and events that arrive around the time the manager is destroyed | Raised on the destroyed manager | Raised on the manager alive at that time, or dropped if there is none |
+| Schedules saved by 1.12.0 | Kept | Cancelled and deleted once, at the first start |
+| Notifications shown by 1.12.0 | Responded to taps and buttons | Do not respond |
+| The types in the Editor | Only with the Android build target | With any build target (in the Editor the operations still do nothing and report that they could not be started) |
+
+Unchanged: the methods, the events, the `Operation*` and `Action*` constants and the shape of the JSON; an exact schedule without the exact alarm permission is made inexact; 1.12.0's corrections of the JSON (for example an `importance` outside 0 to 4 becomes 3, and `priority` is clamped to -2 to 2).
+
 ### Setup
 
 #### AndroidManifest.xml
@@ -82,11 +159,22 @@ Add the permissions required for the features you use.
 ```csharp
 // Guard: Android (Player) only. Prevents native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
 #endif
 ```
 
-> **Note:** `ChannelPayload`, `NotificationPayload`, and `AndroidNotificationJsonBuilder` are included in the runtime package. Prefer `AndroidNotificationJsonBuilder` over `JsonUtility.ToJson(...)` when you need spec-aligned JSON for optional fields and `data`.
+> **Note:** `AndroidChannelPayload`, `AndroidNotificationPayload`, and `AndroidNotificationJsonBuilder` are included in the runtime package. Prefer `AndroidNotificationJsonBuilder` over `JsonUtility.ToJson(...)` when you need spec-aligned JSON for optional fields and `data`.
+
+#### Keep the resources you name
+
+Icons, pictures, layouts and view IDs in a notification are given by name and looked up when the notification is shown, updated, scheduled, or passed to a progress method: icons and pictures in `drawable`, then `mipmap`; layouts in `layout`; view IDs in `id`. The `type` of `AndroidNotificationResourcePayload` is not used. A name the app does not have fails the call with `Failed to {op}: a resource named in the notification was not found.`, and nothing is shown.
+
+Resource shrinking removes resources that only a name refers to. If your build shrinks resources, keep them with `tools:keep`, for example in `res/raw/keep.xml` of your Android library folder (such as `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/`):
+
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/my_image,@layout/nt_notification_custom_view_sample,@layout/nt_notification_custom_view_sample_expanded" />
+```
 
 ---
 
@@ -126,7 +214,7 @@ A notification channel must be created before posting notifications.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new ChannelPayload
+string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
 {
     id = "my_channel",
     name = "My Channel",
@@ -170,7 +258,7 @@ AndroidNotificationManager.Instance.DeleteChannel("my_channel");
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation  — identifies which operation completed
     // result.IsSuccess  — true on success
@@ -186,7 +274,7 @@ private void OnOperationCompleted(NotificationResult result)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "Energy Refilled",
@@ -201,7 +289,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     category = "recommendation",
     ticker = "Energy refilled",
     number = 3,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "Your squad is fully rested. Jump back in and clear the next raid before the stamina cap overflows.",
@@ -222,13 +310,15 @@ AndroidNotificationManager.Instance.ShowNotification(notificationJson);
 
 > **Note:** These snippets intentionally use the same helper calls as `AndroidNotificationManagerExampleController`, including `CreateGameplayChannelReference()` and `CreateUnityAppIconResource()`, so the manual stays aligned with the sample scene.
 
+> **Note:** `ShowNotification` and `UpdateNotification` fail when the `POST_NOTIFICATIONS` permission is not granted (Android 13 and later) or the app's notifications are turned off: `NotificationOperationCompleted` reports `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` Check `HasPermission()` and `AreNotificationsEnabled()` first.
+
 #### Update
 
 Pass a payload with the same `id` / `tag` to overwrite an active notification.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "Daily Reward Ready",
@@ -240,7 +330,7 @@ string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificatio
     subText = "Town Reward",
     autoCancel = true,
     priority = 1,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigPicture",
         picture = CreateUnityAppIconResource(),
@@ -290,7 +380,7 @@ Set the `style` field in the notification payload.
 Displays long text when the notification is expanded.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigText",
     bigText = "Long body text shown when the notification is expanded.",
@@ -304,7 +394,7 @@ style = new NotificationStylePayload
 Displays multiple lines in list format when expanded. Pass each line in the `lines` array.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "inbox",
     lines = new[] { "Item 1", "Item 2", "Item 3" },
@@ -318,10 +408,10 @@ style = new NotificationStylePayload
 Displays an image when the notification is expanded. Pass a resource reference in `picture`.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigPicture",
-    picture = new NotificationResourcePayload { name = "my_image", type = "drawable" },
+    picture = new AndroidNotificationResourcePayload { name = "my_image", type = "drawable" },
     bigContentTitle = "Expanded Title",
     summaryText = "Image description"
 }
@@ -339,7 +429,7 @@ Provide collapsed and optional expanded layout resource names. Layout XML files 
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1601,
     title = "Custom Layout Notification",
@@ -347,14 +437,14 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     channel = CreateGameplayChannelReference(),
     smallIcon = CreateUnityAppIconResource(),
     autoCancel = true,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "decoratedCustomView",
         customViewLayout = "nt_notification_custom_view_sample",         // collapsed layout
         bigCustomViewLayout = "nt_notification_custom_view_sample_expanded", // expanded layout (optional)
         viewActions = new[]
         {
-            new NotificationViewActionPayload
+            new AndroidNotificationViewActionPayload
             {
                 type = "setClickIntent",
                 viewId = "nt_notification_btn_dismiss",  // view ID in the layout
@@ -387,7 +477,7 @@ Fired after each operation (show, cancel, schedule, etc.) completes.
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation     — e.g. AndroidNotificationManager.OperationShowNotification
     // result.IsSuccess     — true on success
@@ -420,7 +510,7 @@ Fired when the user taps the notification body, a notification action button, or
 AndroidNotificationManager.Instance.NotificationActionTapped += OnActionTapped;
 #endif
 
-private void OnActionTapped(NotificationActionResult result)
+private void OnActionTapped(AndroidNotificationActionResult result)
 {
     bool isBodyTap = result.ActionId == AndroidNotificationManager.ActionBodyTap;
     bool isDismiss = result.ActionId == AndroidNotificationManager.ActionNotificationDismissed;
@@ -436,8 +526,8 @@ To send custom data, populate `data` entries and pass the payload through `Andro
 ```csharp
 payload.data = new[]
 {
-    new NotificationDataEntryPayload { key = "screen", value = "battle" },
-    new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+    new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+    new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
 };
 
 string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
@@ -452,7 +542,7 @@ Fired when a scheduled notification fires while the app is in the foreground.
 AndroidNotificationManager.Instance.NotificationReceived += OnNotificationReceived;
 #endif
 
-private void OnNotificationReceived(NotificationReceivedResult result)
+private void OnNotificationReceived(AndroidNotificationReceivedResult result)
 {
     // result.NotificationId — notification ID
     // result.Tag            — tag (may be null)
@@ -465,7 +555,7 @@ private void OnNotificationReceived(NotificationReceivedResult result)
 Add action buttons to a notification.
 
 ```csharp
-NotificationPayload payload = new NotificationPayload
+AndroidNotificationPayload payload = new AndroidNotificationPayload
 {
     id = 1401,
     title = "Match Found",
@@ -477,7 +567,7 @@ NotificationPayload payload = new NotificationPayload
     launchAction = "open_battle_screen",
     actions = new[]
     {
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "Play Now",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW",
@@ -485,7 +575,7 @@ NotificationPayload payload = new NotificationPayload
             launchApp = true,
             showsUserInterface = true
         },
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "Dismiss",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS",
@@ -495,8 +585,8 @@ NotificationPayload payload = new NotificationPayload
     },
     data = new[]
     {
-        new NotificationDataEntryPayload { key = "screen", value = "battle" },
-        new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+        new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+        new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
     }
 };
 
@@ -512,7 +602,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(p
 Launches a full-screen activity when the device is locked or the screen is off (e.g. alarms, incoming calls). Set `fullScreenIntent = true` and use a high-priority channel (`importance = 4`).
 
 ```csharp
-new NotificationPayload
+new AndroidNotificationPayload
 {
     id = 1501,
     title = "Match Starting",
@@ -541,7 +631,7 @@ Display a progress bar for downloads or long-running operations.
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
 // Start with a determinate progress bar
-AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "Downloading Guild Battle Assets",
@@ -550,8 +640,8 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
     smallIcon = CreateUnityAppIconResource(),
     ongoing = true,
     autoCancel = false,
-    progress = new NotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "Preparing the arena for your next match. Keep the app alive while assets finish downloading.",
@@ -561,7 +651,7 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
 }));
 
 // Update progress
-AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "Crafting Legendary Gear",
@@ -571,8 +661,8 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
     ongoing = true,
     autoCancel = false,
     onlyAlertOnce = true,
-    progress = new NotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "The forge is running at full power. Stay ready to equip the reward when crafting finishes.",
@@ -582,7 +672,7 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
 }));
 
 // Complete — stop service and demote to a regular notification
-AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "Crafting Complete",
@@ -591,8 +681,8 @@ AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNot
     smallIcon = CreateUnityAppIconResource(),
     ongoing = false,
     autoCancel = true,
-    progress = new NotificationProgressPayload { max = 100, current = 100, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = 100, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "Your legendary sword is ready to claim. Return to the forge and equip it before the next battle.",
@@ -614,14 +704,7 @@ AndroidNotificationManager.Instance.StopProgressForegroundService();
 
 ### Foreground Service Notifications
 
-Foreground service notifications require the following manifest entry:
-
-```xml
-<service
-    android:name="android.library.notification.presentation.progress.ProgressForegroundService"
-    android:foregroundServiceType="dataSync"
-    android:exported="false" />
-```
+The library declares the foreground service (type `dataSync`) in its own manifest, so you do not add a `<service>` entry. If you added one for 1.12.0, remove it: see [Changes in 1.13.0](#changes-in-1130).
 
 Use `StartProgressForegroundService`, `UpdateProgressForegroundService`, `CompleteProgressForegroundService`, and `StopProgressForegroundService` as shown in [Progress Notifications](#progress-notifications).
 
@@ -635,9 +718,9 @@ Automatically show a notification at a specified time.
 #if UNITY_ANDROID && !UNITY_EDITOR
 long triggerTime = DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds();
 
-string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
 {
-    notification = new NotificationPayload
+    notification = new AndroidNotificationPayload
     {
         id = 1201,
         title = "Guild Battle Starts Soon",
@@ -649,7 +732,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
         priority = 1,
         groupKey = "guild-events",
         sortKey = "001",
-        style = new NotificationStylePayload
+        style = new AndroidNotificationStylePayload
         {
             type = "bigText",
             bigText = "Your team queue opens in 15 seconds. Rally your guild, finalize your loadout, and prepare to deploy.",
@@ -657,7 +740,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
             summaryText = "Guild Event"
         }
     },
-    schedule = new NotificationSchedulePayload
+    schedule = new AndroidNotificationSchedulePayload
     {
         triggerAtMillis = triggerTime,
         exact = true,           // exact alarm (requires SCHEDULE_EXACT_ALARM)
@@ -691,6 +774,8 @@ AndroidNotificationManager.Instance.CancelAllScheduledNotifications();
 bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1201, "guild-battle");
 #endif
 ```
+
+> **Note:** `IsNotificationScheduled` and `CancelAllScheduledNotifications` see only the schedules made with `persistAcrossBoot = true` (the default). Cancel a schedule made with `persistAcrossBoot = false` by ID with `CancelScheduledNotification`.
 
 ---
 
@@ -909,7 +994,7 @@ Windows notifications are provided through `WindowsNotificationManager`. The sam
 
 Since 1.12.0 Windows notifications run on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the JSON payload and its units are unchanged. What differs from 1.11.0:
 
-- **Namespace.** `WindowsNotificationManager` and its payload, builder and result types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`. Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` in Windows code. The Android, iOS and macOS types keep their namespace.
+- **Namespace.** `WindowsNotificationManager` and its payload, builder and result types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`. Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` in Windows code. The iOS and macOS types keep their namespace; the Android types moved to `JonghyunKim.NativeToolkit.Runtime.Android.Notification` in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
 - **Clicks now arrive.** In an unpackaged app (every Unity Windows standalone build), clicking a notification or one of its buttons while the app is running raises `NotificationInvoked`. In 1.11.0 the click was not delivered. A click while the app is not running starts it, and the click is delivered once after `Initialize`.
 - **Registration.** `Initialize` also writes `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator`, which routes clicks to this executable. **Two applications that use the same `displayName` compete for the clicks**: give each build its own display name.
 - **Error code `-4`** ("Native library unavailable"). Only `Initialize` returns it: the native library is missing, lacks a function, cannot be loaded, or is not C ABI 2.x. No manager is created, so later operations fail with `1`.

@@ -59,7 +59,7 @@
    - **配置**: `UI/<Platform>/<Feature>/` に置かれているか。`UI/` は**ディレクトリでプラットフォームを分ける唯一の例外**であり、ファイル名の接頭辞も併せて必要
    - **P2**: **他プラットフォームの ExampleController / UXML / USS を変更していないか。** 共通化のために既存のサンプルへ手を入れていないか
    - **P4**: `UI/Common/`（`NativeToolkitSampleNavigator` 等）への追加が、特定プラットフォームの機能ロジックになっていないか
-   - **既知の逸脱 11 件を前例として引用していないか**（`artifact/topics/os-prefix-violations/README.md`）
+   - **既知の逸脱 9 件を前例として引用していないか**（`artifact/topics/os-prefix-violations/README.md`）
    - P1 / P2 / P4 と配置の違反は **A 区分**として扱う（止める基準の表を参照）
    - ハンドラ内部の実行ガード（`#if UNITY_<PLATFORM> && !UNITY_EDITOR`）の網羅性
    - Editor フォールバック（`SetResult("macOS Standalone only...")` 等）の実装漏れ

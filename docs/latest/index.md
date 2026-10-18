@@ -4,11 +4,11 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, and sharing via singleton APIs per platform.
-- Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build project setup.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
 
 # Version
 
-## 1.12.0
+## 1.13.0
 
 # Supported OS Versions
 
@@ -16,6 +16,19 @@
 - iOS 18+
 - Windows 11+
 - macOS 15+
+
+## Android requirements
+
+- Unity: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later. The AndroidX dependencies of the native libraries need Android Gradle Plugin 8.9.1.
+- Minimum API Level: 31 (Android 12).
+- Scripting Backend: IL2CPP. Mono is not supported (Unity's Mono builds ARMv7 only on Android).
+- Target Architectures: ARM64 (x86_64 also works). A build that also targets ARMv7 (32-bit) stops with a message before Gradle runs.
+- Gradle: nothing to set up. The build adds the runtime dependencies of the native libraries to `unityLibrary/build.gradle`.
+- Initialization: the native library initializes itself when the app starts, through AndroidX App Startup (`androidx.startup.InitializationProvider`, which the native libraries add to the merged manifest). Keep it. If your app removes App Startup, every call fails until you initialize the library yourself before the first call: `new AndroidJavaClass("com.jonghyunkim.nativetoolkit.capi.NativeToolkitCApi").GetStatic<AndroidJavaObject>("INSTANCE").Call<AndroidJavaObject>("init", activity)`.
+
+## Changes in 1.13.0 (Android)
+
+Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The Android types moved from `JonghyunKim.NativeToolkit.Runtime.<Feature>` to `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>`, the Android types without the `Android` prefix were renamed, and the 1.x native libraries and "Configure Gradle Project" were removed. Unity does not update your scripts for you. What to change, per feature: [Dialog](dialog.md#changes-in-1130), [Notification](notification.md#changes-in-1130), [Share](share.md#changes-in-1130), [Clipboard](clipboard.md#changes-in-1130).
 
 # Features
 
@@ -163,10 +176,10 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.12.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - Click "install".
 - Requirements:
-  - Unity 6+
+  - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
 
 ## Samples
@@ -182,13 +195,6 @@
 - Android sample
   - The sample UI appears in the Game view.
   - From Build Profiles, run "Android Profile" -> Export.
-  - Tools -> Native Toolkit -> Android -> Configure Gradle Project.
-  <p align="center">
-    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-  </p>
-
-  - Click "Browse" and select the exported Android project.
-  - Click "Run: Add Kotlin Dependencies" to add Kotlin libraries.
   - Install the sample app from Android Studio.
     - <a href="https://developer.android.com/studio" target="_blank" rel="noopener noreferrer">Reference</a>
 

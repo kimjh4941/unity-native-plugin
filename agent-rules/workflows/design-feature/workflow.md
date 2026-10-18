@@ -16,7 +16,7 @@
 
    | プラットフォーム | 参照パス |
    | -------------- | ------- |
-   | Android  | `/Users/jonghyunkim/Desktop/native-toolkit/android/unity_android_plugin/src/main/java/android/unity/` |
+   | Android  | C ABI のヘッダー `/Users/jonghyunkim/Desktop/native-toolkit/dist/<版>/android/include/NativeToolkitC/`（公開の契約）と、実装 `/Users/jonghyunkim/Desktop/native-toolkit/android/android_library_capi/`。版は `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/VERSION.txt` のピン（2.0.0 から。1.x の Unity 向けブリッジ `unity_android_plugin` は native-toolkit から消えた） |
    | iOS      | `/Users/jonghyunkim/Desktop/native-toolkit/ios/UnityIosPlugin/UnityIosPlugin/` |
    | macOS    | `/Users/jonghyunkim/Desktop/native-toolkit/mac/UnityMacPlugin/UnityMacPlugin/` |
    | Windows  | C ABI のヘッダー `C:\Users\User\Desktop\native-toolkit\dist\<版>\windows\include\NativeToolkitC\`（公開の契約）と、実装 `C:\Users\User\Desktop\native-toolkit\windows\WindowsLibraryCApi\`・`windows\WindowsLibrary\`。版は `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` のピン |
@@ -28,8 +28,9 @@
 
    Android の場合は `android_library` も追加で参照する:
 
-   - `/Users/jonghyunkim/Desktop/native-toolkit/android/android_library/src/main/java/android/library/`
-   - domain error 定義・repository 実装など、Unity 公開層（`unity_android_plugin`）の背後にある実装を把握する
+   - `/Users/jonghyunkim/Desktop/native-toolkit/android/android_library/src/main/java/com/jonghyunkim/nativetoolkit/`
+   - domain error 定義・repository 実装など、C ABI（`android_library_capi`）の背後にある実装を把握する
+   - C ABI の約束ごと（スレッド、寿命、`release`、エラー）は native-toolkit の `artifact/topics/android-c-abi/designs/` の C ABI 設計書（第 1 部・第 2 部）、構造体の大きさとフィールドの位置は `android/android_library_capi_test` の `StructLayoutTest.cpp` で確かめる。Windows の C ABI と同名でも、引数・値・配置が違うものがある（`artifact/topics/android-c-abi-2/README.md` 3 章）
 
    Android の場合は同梱 AAR の内容も確認する:
 
@@ -50,10 +51,11 @@
    | ----------- | ------- |
    | `Common/`       | `UnityMainThreadDispatcher`、`IconConfiguration` などの共通ユーティリティ |
    | `Windows/<Feature>/`、`Windows/Common/` | Windows の Manager・Bridge と、Windows の全機能の共通部（移行済みの形） |
-   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | Android / iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
+   | `Android/<Feature>/`、`Android/Common/` | Android の Manager・Bridge・Payload と、Android の全機能の共通部（移行済みの形） |
+   | `<Feature>/`（`Clipboard/`、`Dialog/`、`Notification/`、`Share/`） | iOS / macOS の Manager・Payload・JsonBuilder 実装（未移行の形） |
 
    置き場所と名前空間は `agent-rules/coding-rules/common.md`「Runtime のディレクトリと名前空間」 に従う。正しい形は `Runtime/<Platform>/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Platform>.<Feature>`）。
-   Windows は移行済み、Android / iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
+   Windows と Android は移行済み、iOS / macOS は `Runtime/<Feature>/` のまま（その OS の新しいファイルも、移すまでは今の場所に置く）。
 
    - 既存の Singleton パターン・イベントシグネチャ・namespace を把握する
    - すでに実装済みのクラス・メソッドを重複追加しない

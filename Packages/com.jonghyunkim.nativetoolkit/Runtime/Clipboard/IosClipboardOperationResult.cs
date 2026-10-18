@@ -12,7 +12,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Clipboard
     /// Completion result of an iOS clipboard operation that returns no payload
     /// (copy, append, clear, removePasteboard, cancelLoads, startObserving, stopObserving).
     /// <para>
-    /// Distinct from the Android <c>ClipboardOperationResult</c>: the iOS bridge reports a stable
+    /// Distinct from the Android <c>AndroidClipboardOperationResult</c>: the iOS bridge reports a stable
     /// error code alongside the message, so failures expose an <see cref="IosClipboardErrorInfo"/>.
     /// </para>
     /// </summary>

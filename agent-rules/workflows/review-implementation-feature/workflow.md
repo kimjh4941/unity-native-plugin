@@ -64,7 +64,7 @@
    - **P3**: 既存型を再利用した箇所で、**ガードの有無ではなく実際の利用箇所**を確認して単一専用か共有かを判定しているか
    - **P4**: `Runtime/Common/` への追加が横断インフラに限られているか
    - **P5**: クラスガードと P/Invoke ガードが二重構造（`#if X \|\| UNITY_EDITOR` / `#if X && !UNITY_EDITOR`）になっており、Player ビルドに他プラットフォームのコードが入らないか
-   - **既知の逸脱 11 件を前例として引用していないか**（`artifact/topics/os-prefix-violations/README.md`）
+   - **既知の逸脱 9 件を前例として引用していないか**（`artifact/topics/os-prefix-violations/README.md`）
    - P1〜P5 の違反は **A 区分**として扱う（止める基準の表を参照）
 
    **Bridge 実装品質**

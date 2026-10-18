@@ -56,11 +56,14 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 
 | トピック | 分類 | 状態 | 最終更新 | 概要 |
 |---|---|---|---|---|
-| [os-prefix-violations](topics/os-prefix-violations/README.md) | 命名規則 | 一部対応 | 2026-09-03 | OS 接頭辞ルールの逸脱 11 件（Runtime）。改名は `public` の破壊的変更。案 0 完了、案 1〜3 未着手 |
+| [os-prefix-violations](topics/os-prefix-violations/README.md) | 命名規則 | 一部対応 | 2026-10-17 | OS 接頭辞ルールの逸脱。改名は `public` の破壊的変更。案 0 完了。案 1 は Android の 37 型を改名済み（Android の C ABI 移行の段 4、`[MovedFrom]` 付き）。**残りは Runtime 9 件**（iOS 5、macOS 3、`IconConfiguration`。その OS の移行で直す） |
 | [event-subscriber-isolation](topics/event-subscriber-isolation/README.md) | 契約 | 一部対応 | 2026-09-08 | 共通イベントの購読者が互いから隔離されていない。1 人の例外が後続を止める。**Windows 完了**、Android / iOS / macOS 未着手 |
 | [device-verification-records](topics/device-verification-records/README.md) | ドキュメント | 一部対応 | 2026-09-10 | 実機確認済みなのに結果文書が「未実施」のまま。**9 文書**。注記のみ入れた段階 |
 | [cross-platform-testing](topics/cross-platform-testing/README.md) | テスト債務 | 一部対応 | 2026-10-03 | テスト方針（`testing.md`）の策定記録と、Windows の層 2b / 3 の導入の記録（検証を流すときの前提を含む）。Android / iOS / macOS は未導入 |
 | [windows-c-abi-2](topics/windows-c-abi-2/README.md) | 移行 | 完了 | 2026-10-03 | Windows の C ABI が 1.x から 2.0.0 に置き換わる。P/Invoke 47 本と JSON 依存層の書き直し。**3 機能とも移行済み**、1.x の DLL は同梱物から消えた。Mono と IL2CPP の Player テストが通る |
+| [dispatcher-runs-under-lock](topics/dispatcher-runs-under-lock/README.md) | 契約 | 未着手 | 2026-10-11 | `UnityMainThreadDispatcher` がロックを持ったまま購読者の処理を走らせ、ネイティブのコールバックのスレッドを待たせる。Android の C ABI の受け口は使わずに避けた |
+| [android-c-abi-2](topics/android-c-abi-2/README.md) | 移行 | 進行中 | 2026-10-18 | Android の下の層が native-toolkit の C ABI 2.0.0（`libntk.so`）に置き換わる。**4 機能とも移行済み（段 3）**。段 4 で 1.x の AAR を外し、使われなくなった Share・Clipboard の JSON ビルダーを消し、接頭辞の無い 37 型を改名した（`[MovedFrom]` 付き）。マニュアルの版 1.13.0 も書いた。native-toolkit のタグ 1.13.0 が打たれ、1.13.0 のリリースの途中（PR #31） |
+| [windows-version-meta](topics/windows-version-meta/README.md) | 同梱物 | 未着手 | 2026-10-18 | `Plugins/Windows/VERSION.txt.meta` が `.gitignore` で除外されていて、リポジトリに無い（Android の `VERSION.txt.meta` はある）。git URL で入れたときに警告が出るかは要確認 |
 
 | [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
 

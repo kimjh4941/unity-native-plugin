@@ -13,6 +13,7 @@
 ## 목차
 
 - [Android](#android)
+  - [1.13.0 변경 사항](#1130-변경-사항)
   - [설정](#설정)
   - [권한](#권한)
   - [채널 관리](#채널-관리)
@@ -58,6 +59,82 @@
 
 ## Android
 
+### 1.13.0 변경 사항
+
+1.13.0부터 Android 알림은 1.x의 Kotlin 브리지 대신 native-toolkit의 C ABI 2.0.0으로 동작합니다. `AndroidNotificationManager`의 메서드, 이벤트, 상수는 바뀌지 않았고, 지금도 `AndroidNotificationJsonBuilder`로 만든 JSON을 받아 1.12.0과 같은 규칙으로 읽습니다. 고쳐야 할 것과 1.12.0과 다른 점은 다음과 같습니다.
+
+#### 코드 수정 방법
+
+- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Notification;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;`로 바꿔 주세요. iOS와 macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- 아래 표의 타입 이름을 바꿔 주세요. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.12.0의 이름을 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_ANDROID && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 Android Player를 빌드할 때 처음 나타납니다.
+- 1.12.0의 이름으로 `[SerializeReference]`에 저장한 데이터는 새 타입으로 값과 함께 불러와집니다. 이름이 바뀐 타입은 1.12.0의 이름을 `[MovedFrom]`으로 기록하고 있습니다.
+
+이름이 바뀐 타입입니다. `AndroidNotificationManager`와 `AndroidNotificationJsonBuilder`는 이름이 그대로이고 네임스페이스만 옮겨졌습니다.
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `NotificationResult` | `AndroidNotificationResult` |
+| `NotificationActionResult` | `AndroidNotificationActionResult` |
+| `NotificationReceivedResult` | `AndroidNotificationReceivedResult` |
+| `NotificationResourcePayload` | `AndroidNotificationResourcePayload` |
+| `ChannelPayload` | `AndroidChannelPayload` |
+| `NotificationPayload` | `AndroidNotificationPayload` |
+| `NotificationActionPayload` | `AndroidNotificationActionPayload` |
+| `ScheduledNotificationEnvelopePayload` | `AndroidScheduledNotificationEnvelopePayload` |
+| `NotificationSchedulePayload` | `AndroidNotificationSchedulePayload` |
+| `NotificationProgressPayload` | `AndroidNotificationProgressPayload` |
+| `NotificationStylePayload` | `AndroidNotificationStylePayload` |
+| `NotificationMessagePayload` | `AndroidNotificationMessagePayload` |
+| `NotificationDataEntryPayload` | `AndroidNotificationDataEntryPayload` |
+| `NotificationViewActionPayload` | `AndroidNotificationViewActionPayload` |
+
+#### Android 전체 기능에 공통인 호환성이 깨지는 변경
+
+- **1.x 네이티브 라이브러리를 더 이상 포함하지 않습니다.** `android-native-toolkit-1.3.0.aar`와 `unity-android-native-toolkit-1.3.0.aar`를 제거했습니다. 패키지에 포함된 것은 `android-native-toolkit-2.0.0.aar`와 `android-native-toolkit-capi-2.0.0.aar`(native-toolkit의 C ABI 2.0.0)입니다. 이 라이브러리의 클래스(`android.unity.*`, `android.library.*`)를 직접 호출하던 코드는 동작하지 않습니다.
+- **"Configure Gradle Project"가 없어졌습니다.** 메뉴 Tools > Native Toolkit > Android > Configure Gradle Project와 그 창을 삭제했습니다. 실행 시 필요한 라이브러리(`kotlin-stdlib` 2.2.21, `kotlinx-coroutines-core` 1.9.0을 포함한 7개)는 빌드가 `unityLibrary/build.gradle`에 직접 추가합니다. Kotlin Gradle 플러그인은 더 이상 적용하지 않습니다. 직접 만든 Gradle 템플릿이나 EDM4U를 사용한다면 버전이 충돌하지 않는지 확인해 주세요.
+- **64비트와 IL2CPP만 지원합니다.** ARMv7(32비트)도 포함하는 빌드는 메시지를 표시하고 중단됩니다. Mono는 지원하지 않습니다. [Android 요구 사항](index.ko.md#android-요구-사항)을 참고해 주세요.
+
+#### 알림 변경 사항
+
+- **1.12.0을 위해 추가한 `<service>` 줄을 지워 주세요.** 1.12.0 매뉴얼은 `AndroidManifest.xml`에 `<service android:name="android.library.notification.presentation.progress.ProgressForegroundService" ... />`를 추가하도록 안내했습니다. 이 클래스는 1.x 라이브러리에 있던 것으로 지금은 없습니다. 이 줄을 지워 주세요. 포그라운드 서비스는 라이브러리가 자체 매니페스트에서 선언하므로, 진행 알림을 위해 앱의 매니페스트에 적을 것은 없습니다.
+- **권한이 없을 때의 알림 표시는 실패가 됩니다.** `POST_NOTIFICATIONS` 권한이 없을 때(Android 13 이상)나 앱의 알림이 꺼져 있을 때, `ShowNotification`, `UpdateNotification`, 이미 지난 시각으로의 `ScheduleNotification`은 `NotificationOperationCompleted`로 실패를 알립니다. 1.12.0은 성공을 알리고 아무것도 표시하지 않았습니다. 먼저 `HasPermission()`과 `AreNotificationsEnabled()`를 확인하거나 `RequestPermission`을 호출해 주세요.
+- **찾을 수 없는 리소스 이름은 실패가 됩니다.** 아이콘, 이미지, 레이아웃, 뷰 ID는 이름으로 지정하며, 알림을 표시·업데이트·예약할 때나 진행 메서드에 전달할 때 찾습니다. 앱에 없는 이름은 그 호출을 실패시키고 아무것도 표시하지 않습니다. 1.12.0은 앱 아이콘이나 기본 스타일로 대신했습니다. `AndroidNotificationResourcePayload`의 `type`은 더 이상 사용하지 않습니다(아이콘과 이미지는 `drawable`, 그다음 `mipmap`에서 찾습니다). 이름으로만 참조되는 리소스는 리소스 축소로 제거될 수 있으므로 `tools:keep`으로 유지해 주세요([이름으로 지정하는 리소스 유지](#이름으로-지정하는-리소스-유지) 참고).
+- **1.12.0이 저장한 예약은 지워집니다.** 1.13.0으로 앱이 처음 시작될 때, 라이브러리는 1.12.0이 저장한 예약을 읽을 수 없으므로 그 알람을 취소하고 한 번만 삭제합니다. 업데이트 후에 다시 예약해 주세요. `persistAcrossBoot = false`로 만든 1.12.0의 예약은 찾을 수 없습니다. Android에 남지만 발생해도 아무것도 표시하지 않습니다.
+- **1.12.0이 표시한 알림은 반응하지 않습니다.** 업데이트 전에 표시된 알림은 알림 창에 남지만, 업데이트 후에는 본문을 탭하거나 버튼을 눌러도 아무 일도 일어나지 않습니다(탭을 받던 클래스가 없어졌기 때문입니다).
+- **`IsNotificationScheduled`가 보는 것은 재부팅 후에도 남는 예약뿐입니다.** 1.12.0과 마찬가지로 `IsNotificationScheduled`와 `CancelAllScheduledNotifications`는 `persistAcrossBoot = true`(기본값)로 만든 예약만 찾습니다. 그 밖의 예약은 `CancelScheduledNotification`에 ID를 지정해 취소해 주세요.
+
+#### 1.12.0과의 동작 차이
+
+`{op}`는 `showNotification` 같은 작업 이름입니다.
+
+| 상황 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| 알림 권한이 없거나 앱의 알림이 꺼져 있을 때의 표시, 업데이트, 이미 지난 시각으로의 예약 | 성공(아무것도 표시하지 않음) | 실패: `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` |
+| 앱에 없는 리소스 이름(아이콘, 이미지, 레이아웃, 뷰 ID) | 앱 아이콘, 항목 생략, 기본 스타일로 대신함 | 실패: `Failed to {op}: a resource named in the notification was not found.` 아무것도 표시하지 않음 |
+| 리소스의 `type` | 그 종류에서만 찾음 | 사용하지 않음. `drawable`, 그다음 `mipmap`(레이아웃은 `layout`, 뷰 ID는 `id`) |
+| 플랫폼 범위를 벗어난 값(`groupAlertBehavior`, `timestamp`, `timeoutAfter`, `semanticAction`, `alarmType`, 진동의 음수 값, 메시지의 음수 시각) | 검사 없이 전달 | `Invalid argument for {op}: Please verify the input parameters.` |
+| JSON 구문 오류, `null`이나 빈 JSON | `Failed to {op}:`와 JSON 파서의 메시지 | `Failed to {op}: the JSON could not be read.` |
+| 느슨한 JSON(따옴표 없는 키, 작은따옴표, 주석) | 받아들임 | 구문 오류 |
+| 타입이 다른 JSON 값(문자열로 쓴 숫자 등) | 변환함 | 없는 것으로 취급. 정수 항목의 소수는 0 방향으로 버림 |
+| 문자열이 아닌 `data` 값, `lines` 안의 `null` | 문자열로 바꿈(`null`은 `"null"`) | 버림 |
+| `AndroidNotificationActionResult.Data`의 값 | JSON 이스케이프가 남음(`a\"b`, `c\/d`) | 보낸 그대로의 값 |
+| 본문 탭이나 `launchApp` 액션 | 앱이 앞으로 나오지 않음(Android 16에서 확인) | 앱이 열림 |
+| 탭으로 앱을 여는 Intent의 action | 액션 ID | 없음(런처 Intent) |
+| 앱을 여는 Intent의 플래그(탭과 전체 화면 인텐트) | `NEW_TASK \| CLEAR_TOP` | `NEW_TASK \| RESET_TASK_IF_NEEDED` |
+| Manager가 없는 동안의 탭(앱 시작 전 포함) | 버림 | 32개까지 보관하고, Manager를 처음 만든 뒤의 프레임에서 전달. `Instance`를 처음 읽은 프레임에서 `NotificationActionTapped`를 구독 |
+| Unity 메인 스레드가 아닌 곳에서의 호출 | `{op} could not be started.` | 받아들임(`RequestPermission`과 `Instance`의 첫 읽기는 여전히 메인 스레드에서) |
+| `OpenNotificationSettings` | 앱 상세 화면으로 넘어감 | 앱의 알림 설정 화면을 엶 |
+| 앱이 백그라운드에 있을 때 설정 화면 열기 | 다른 스레드에서 호출하면(백그라운드에서는 Unity의 메인 스레드가 멈춰 있음) `{op} could not be started.`로 실패했음 | `Failed to {op}: the app is not in the foreground.` |
+| 앱이 백그라운드에 있을 때의 진행 메서드 | 시스템 예외 메시지로 실패 | `Failed to {op}: the system did not allow the foreground service from the background.` |
+| `DeleteChannel(null)` | `NullPointerException` 메시지로 실패 | 성공(채널 `""`를 삭제) |
+| 정확한 알람 권한이 없어 부정확하게 바꾼 예약의 재부팅 후 | 권한이 있으면 정확하게 되돌림 | 부정확한 채로 남음 |
+| Manager를 파괴하기 전후에 도착하는 결과와 이벤트 | 파괴한 Manager에서 발생 | 그 시점에 살아 있는 Manager에서 발생하고, 없으면 버림 |
+| 1.12.0이 저장한 예약 | 남음 | 첫 시작 때 한 번만 취소하고 삭제 |
+| 1.12.0이 표시한 알림 | 탭과 버튼에 반응 | 반응하지 않음 |
+| Editor에서의 타입 | 빌드 타깃이 Android일 때만 있음 | 모든 빌드 타깃에서 있음(Editor에서는 여전히 작업이 아무 일도 하지 않고, 시작할 수 없었다고 알림) |
+
+바뀌지 않은 것: 메서드, 이벤트, `Operation*`와 `Action*` 상수, JSON의 형태. 정확한 알람 권한이 없을 때 정확한 예약을 부정확하게 바꾸는 것. 1.12.0의 JSON 보정(예: 0~4 밖의 `importance`는 3으로, `priority`는 -2~2로 맞춤).
+
 ### 설정
 
 #### AndroidManifest.xml
@@ -82,11 +159,22 @@
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
 #endif
 ```
 
-> **참고:** `ChannelPayload`, `NotificationPayload`, `AndroidNotificationJsonBuilder` 는 런타임 패키지에 포함되어 있습니다. optional 필드와 `data` 를 포함한 spec 정합 JSON 이 필요하면 `JsonUtility.ToJson(...)` 대신 `AndroidNotificationJsonBuilder` 를 사용하세요.
+> **참고:** `AndroidChannelPayload`, `AndroidNotificationPayload`, `AndroidNotificationJsonBuilder` 는 런타임 패키지에 포함되어 있습니다. optional 필드와 `data` 를 포함한 spec 정합 JSON 이 필요하면 `JsonUtility.ToJson(...)` 대신 `AndroidNotificationJsonBuilder` 를 사용하세요.
+
+#### 이름으로 지정하는 리소스 유지
+
+알림의 아이콘, 이미지, 레이아웃, 뷰 ID는 이름으로 지정하며, 알림을 표시·업데이트·예약할 때나 진행 메서드에 전달할 때 찾습니다. 아이콘과 이미지는 `drawable`, 그다음 `mipmap`, 레이아웃은 `layout`, 뷰 ID는 `id`에서 찾습니다. `AndroidNotificationResourcePayload`의 `type`은 사용하지 않습니다. 앱에 없는 이름은 그 호출을 `Failed to {op}: a resource named in the notification was not found.`로 실패시키고 아무것도 표시하지 않습니다.
+
+리소스 축소는 이름으로만 참조되는 리소스를 제거합니다. 빌드에서 리소스를 축소한다면 `tools:keep`으로 유지해 주세요. 예를 들어 Android 라이브러리 폴더(`Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/` 등)의 `res/raw/keep.xml`에 적습니다.
+
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/my_image,@layout/nt_notification_custom_view_sample,@layout/nt_notification_custom_view_sample_expanded" />
+```
 
 ---
 
@@ -126,7 +214,7 @@ AndroidNotificationManager.Instance.OpenExactAlarmSettings();
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new ChannelPayload
+string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
 {
     id = "my_channel",
     name = "내 채널",
@@ -170,7 +258,7 @@ AndroidNotificationManager.Instance.DeleteChannel("my_channel");
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation    — 어떤 작업이 완료되었는지 나타냄
     // result.IsSuccess    — 성공 시 true
@@ -186,7 +274,7 @@ private void OnOperationCompleted(NotificationResult result)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "에너지 회복",
@@ -201,7 +289,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     category = "recommendation",
     ticker = "Energy refilled",
     number = 3,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "부대가 완전히 회복되었습니다. 스태미나가 넘치기 전에 다음 레이드로 복귀하세요.",
@@ -222,13 +310,15 @@ AndroidNotificationManager.Instance.ShowNotification(notificationJson);
 
 > **참고:** 이 코드 예제들은 `AndroidNotificationManagerExampleController` 와 동일하게 `CreateGameplayChannelReference()` 와 `CreateUnityAppIconResource()` 를 사용하도록 맞췄습니다.
 
+> **참고:** `POST_NOTIFICATIONS` 권한이 없을 때(Android 13 이상)나 앱의 알림이 꺼져 있을 때 `ShowNotification`과 `UpdateNotification`은 실패하고, `NotificationOperationCompleted`에 `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).`가 전달됩니다. 먼저 `HasPermission()`과 `AreNotificationsEnabled()`를 확인해 주세요.
+
 #### 업데이트
 
 동일한 `id` / `tag` 페이로드를 전달하면 현재 표시 중인 알림을 덮어씁니다.
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1101,
     title = "일일 보상 준비 완료",
@@ -240,7 +330,7 @@ string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificatio
     subText = "마을 보상",
     autoCancel = true,
     priority = 1,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "bigPicture",
         picture = CreateUnityAppIconResource(),
@@ -290,7 +380,7 @@ AndroidNotificationManager.Instance.CancelAllNotifications();
 확장 시 긴 텍스트를 표시합니다.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigText",
     bigText = "확장 시 표시되는 긴 본문 텍스트입니다.",
@@ -304,7 +394,7 @@ style = new NotificationStylePayload
 확장 시 여러 줄을 목록 형식으로 표시합니다. `lines` 배열에 각 줄을 전달합니다.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "inbox",
     lines = new[] { "항목 1", "항목 2", "항목 3" },
@@ -318,10 +408,10 @@ style = new NotificationStylePayload
 확장 시 이미지를 표시합니다. `picture` 에 이미지 리소스 참조를 전달합니다.
 
 ```csharp
-style = new NotificationStylePayload
+style = new AndroidNotificationStylePayload
 {
     type = "bigPicture",
-    picture = new NotificationResourcePayload { name = "my_image", type = "drawable" },
+    picture = new AndroidNotificationResourcePayload { name = "my_image", type = "drawable" },
     bigContentTitle = "확장 제목",
     summaryText = "이미지 설명"
 }
@@ -339,7 +429,7 @@ style = new NotificationStylePayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1601,
     title = "커스텀 레이아웃 알림",
@@ -347,14 +437,14 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(n
     channel = CreateGameplayChannelReference(),
     smallIcon = CreateUnityAppIconResource(),
     autoCancel = true,
-    style = new NotificationStylePayload
+    style = new AndroidNotificationStylePayload
     {
         type = "decoratedCustomView",
         customViewLayout = "nt_notification_custom_view_sample",         // 접힘 레이아웃
         bigCustomViewLayout = "nt_notification_custom_view_sample_expanded", // 펼침 레이아웃 (선택)
         viewActions = new[]
         {
-            new NotificationViewActionPayload
+            new AndroidNotificationViewActionPayload
             {
                 type = "setClickIntent",
                 viewId = "nt_notification_btn_dismiss",  // 레이아웃 내 뷰 ID
@@ -387,7 +477,7 @@ AndroidNotificationManager.Instance.ShowNotification(notificationJson);
 AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
 #endif
 
-private void OnOperationCompleted(NotificationResult result)
+private void OnOperationCompleted(AndroidNotificationResult result)
 {
     // result.Operation    — 예: AndroidNotificationManager.OperationShowNotification
     // result.IsSuccess    — 성공 시 true
@@ -420,7 +510,7 @@ private void OnOperationCompleted(NotificationResult result)
 AndroidNotificationManager.Instance.NotificationActionTapped += OnActionTapped;
 #endif
 
-private void OnActionTapped(NotificationActionResult result)
+private void OnActionTapped(AndroidNotificationActionResult result)
 {
     bool isBodyTap = result.ActionId == AndroidNotificationManager.ActionBodyTap;
     bool isDismiss = result.ActionId == AndroidNotificationManager.ActionNotificationDismissed;
@@ -436,8 +526,8 @@ private void OnActionTapped(NotificationActionResult result)
 ```csharp
 payload.data = new[]
 {
-    new NotificationDataEntryPayload { key = "screen", value = "battle" },
-    new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+    new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+    new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
 };
 
 string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
@@ -452,7 +542,7 @@ string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
 AndroidNotificationManager.Instance.NotificationReceived += OnNotificationReceived;
 #endif
 
-private void OnNotificationReceived(NotificationReceivedResult result)
+private void OnNotificationReceived(AndroidNotificationReceivedResult result)
 {
     // result.NotificationId — 알림 ID
     // result.Tag            — 태그 (null일 수 있음)
@@ -465,7 +555,7 @@ private void OnNotificationReceived(NotificationReceivedResult result)
 알림에 액션 버튼을 추가합니다.
 
 ```csharp
-NotificationPayload payload = new NotificationPayload
+AndroidNotificationPayload payload = new AndroidNotificationPayload
 {
     id = 1401,
     title = "매치 발견",
@@ -477,7 +567,7 @@ NotificationPayload payload = new NotificationPayload
     launchAction = "open_battle_screen",
     actions = new[]
     {
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "지금 플레이",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW",
@@ -485,7 +575,7 @@ NotificationPayload payload = new NotificationPayload
             launchApp = true,
             showsUserInterface = true
         },
-        new NotificationActionPayload
+        new AndroidNotificationActionPayload
         {
             title = "닫기",
             actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS",
@@ -495,8 +585,8 @@ NotificationPayload payload = new NotificationPayload
     },
     data = new[]
     {
-        new NotificationDataEntryPayload { key = "screen", value = "battle" },
-        new NotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+        new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+        new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
     }
 };
 
@@ -512,7 +602,7 @@ string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(p
 기기가 잠겨 있거나 화면이 꺼져 있을 때 전체 화면 액티비티를 실행합니다（알람, 수신 통화 등）. `fullScreenIntent = true`를 설정하고 높은 우선순위 채널（`importance = 4`）을 사용합니다.
 
 ```csharp
-new NotificationPayload
+new AndroidNotificationPayload
 {
     id = 1501,
     title = "매치 시작",
@@ -541,7 +631,7 @@ new NotificationPayload
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
 // 결정적 진행 바로 시작
-AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "길드 배틀 에셋 다운로드 중",
@@ -550,8 +640,8 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
     smallIcon = CreateUnityAppIconResource(),
     ongoing = true,
     autoCancel = false,
-    progress = new NotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "다음 매치를 위해 경기장을 준비하고 있습니다. 에셋 다운로드가 끝날 때까지 앱을 종료하지 마세요.",
@@ -561,7 +651,7 @@ AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotifi
 }));
 
 // 진행 업데이트
-AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "전설 장비 제작 중",
@@ -571,8 +661,8 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
     ongoing = true,
     autoCancel = false,
     onlyAlertOnce = true,
-    progress = new NotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "대장간이 최대 출력으로 가동 중입니다. 제작이 끝나면 바로 장착할 수 있도록 준비하세요.",
@@ -582,7 +672,7 @@ AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotif
 }));
 
 // 완료 — 서비스 중지 및 일반 알림으로 강등
-AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new NotificationPayload
+AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
 {
     id = 1301,
     title = "제작 완료",
@@ -591,8 +681,8 @@ AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNot
     smallIcon = CreateUnityAppIconResource(),
     ongoing = false,
     autoCancel = true,
-    progress = new NotificationProgressPayload { max = 100, current = 100, indeterminate = false },
-    style = new NotificationStylePayload
+    progress = new AndroidNotificationProgressPayload { max = 100, current = 100, indeterminate = false },
+    style = new AndroidNotificationStylePayload
     {
         type = "bigText",
         bigText = "전설 검을 수령할 준비가 되었습니다. 다음 전투 전에 대장간으로 돌아가 장착하세요.",
@@ -614,14 +704,7 @@ AndroidNotificationManager.Instance.StopProgressForegroundService();
 
 ### 포그라운드 서비스 알림
 
-포그라운드 서비스 알림에는 다음 매니페스트 항목이 필요합니다.
-
-```xml
-<service
-    android:name="android.library.notification.presentation.progress.ProgressForegroundService"
-    android:foregroundServiceType="dataSync"
-    android:exported="false" />
-```
+포그라운드 서비스(종류는 `dataSync`)는 라이브러리가 자체 매니페스트에서 선언하므로 `<service>` 줄을 추가할 필요가 없습니다. 1.12.0을 위해 추가한 줄은 지워 주세요([1.13.0 변경 사항](#1130-변경-사항) 참고).
 
 `StartProgressForegroundService`, `UpdateProgressForegroundService`, `CompleteProgressForegroundService`, `StopProgressForegroundService`의 사용법은 [진행 알림](#진행-알림)을 참조하세요.
 
@@ -635,9 +718,9 @@ AndroidNotificationManager.Instance.StopProgressForegroundService();
 #if UNITY_ANDROID && !UNITY_EDITOR
 long triggerTime = DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds();
 
-string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new ScheduledNotificationEnvelopePayload
+string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
 {
-    notification = new NotificationPayload
+    notification = new AndroidNotificationPayload
     {
         id = 1201,
         title = "길드 배틀 곧 시작",
@@ -649,7 +732,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
         priority = 1,
         groupKey = "guild-events",
         sortKey = "001",
-        style = new NotificationStylePayload
+        style = new AndroidNotificationStylePayload
         {
             type = "bigText",
             bigText = "팀 큐가 15초 후에 열립니다. 장비를 최종 점검하고 출격 준비를 마치세요.",
@@ -657,7 +740,7 @@ string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJ
             summaryText = "길드 이벤트"
         }
     },
-    schedule = new NotificationSchedulePayload
+    schedule = new AndroidNotificationSchedulePayload
     {
         triggerAtMillis = triggerTime,
         exact = true,           // 정확한 알람 (SCHEDULE_EXACT_ALARM 필요)
@@ -691,6 +774,8 @@ AndroidNotificationManager.Instance.CancelAllScheduledNotifications();
 bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1201, "guild-battle");
 #endif
 ```
+
+> **참고:** `IsNotificationScheduled`와 `CancelAllScheduledNotifications`가 보는 것은 `persistAcrossBoot = true`(기본값)로 만든 예약뿐입니다. `persistAcrossBoot = false`로 만든 예약은 `CancelScheduledNotification`에 ID를 지정해 취소해 주세요.
 
 ---
 
@@ -909,7 +994,7 @@ Windows 알림은 `WindowsNotificationManager`를 통해 제공됩니다. 샘플
 
 1.12.0부터 Windows 알림은 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, JSON 페이로드와 그 단위는 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
 
-- **네임스페이스.** `WindowsNotificationManager`와 페이로드·빌더·결과 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Notification;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+- **네임스페이스.** `WindowsNotificationManager`와 페이로드·빌더·결과 타입은 `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Notification;`를 바꿔 주세요. iOS / macOS 타입의 네임스페이스는 그대로입니다. Android 타입은 1.13.0에서 `JonghyunKim.NativeToolkit.Runtime.Android.Notification`으로 옮겨졌습니다([1.13.0 변경 사항](#1130-변경-사항) 참고).
 - **클릭이 전달됩니다.** 패키지화하지 않은 앱(Unity의 Windows 스탠드얼론 빌드는 모두 해당)에서 앱이 실행 중일 때 알림이나 그 버튼을 클릭하면 `NotificationInvoked`가 발생합니다. 1.11.0에서는 클릭이 전달되지 않았습니다. 앱이 실행 중이 아닐 때 클릭하면 앱이 시작되고, `Initialize` 후에 클릭이 한 번 전달됩니다.
 - **등록.** `Initialize`는 `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator`도 기록하며, 이를 통해 클릭이 이 실행 파일로 전달됩니다. **같은 `displayName`을 쓰는 앱끼리는 클릭을 서로 가져갑니다.** 빌드마다 다른 표시 이름을 사용해 주세요.
 - **오류 코드 `-4`**("Native library unavailable"). `Initialize`만 반환합니다. 네이티브 라이브러리가 없거나, 함수가 없거나, 불러올 수 없거나, C ABI 2.x가 아닐 때입니다. Manager가 만들어지지 않으므로 이후 작업은 `1`로 실패합니다.
