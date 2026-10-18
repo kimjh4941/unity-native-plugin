@@ -162,7 +162,7 @@
   - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - install をクリックします。
 - 必要条件:
-  - Unity 6 以降
+  - Unity 6 以降（Android は 6000.0.61f1、6000.3.1f1、6000.4.1f1 以降）
   - 依存パッケージ: Localization, Addressables, Input System
 - 1.12.0 から上げる場合: 1.13.0 では Android の名前空間と型の名前が変わり、1.x のネイティブライブラリと、Android の Gradle 設定のウィンドウが無くなりました。[1.13.0 での変更（Android）](docs/latest/index.ja.md#1130-での変更android)を見てください。
 

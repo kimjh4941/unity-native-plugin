@@ -19,9 +19,12 @@
 
 ## Android 요구 사항
 
+- Unity: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상. 네이티브 라이브러리의 AndroidX 의존성에 Android Gradle Plugin 8.9.1이 필요합니다.
+- Minimum API Level: 31(Android 12).
 - Scripting Backend: IL2CPP. Mono는 지원하지 않습니다(Unity의 Android용 Mono는 ARMv7만 빌드할 수 있습니다).
 - Target Architectures: ARM64(x86_64도 동작합니다). ARMv7(32비트)도 포함하는 빌드는 Gradle이 실행되기 전에 메시지를 표시하고 중단됩니다.
 - Gradle: 설정할 것이 없습니다. 네이티브 라이브러리의 실행 시 의존성은 빌드가 `unityLibrary/build.gradle`에 추가합니다.
+- 초기화: 네이티브 라이브러리는 앱이 시작될 때 AndroidX App Startup(`androidx.startup.InitializationProvider`. 네이티브 라이브러리가 merged manifest에 추가합니다)으로 자동 초기화됩니다. 제거하지 마세요. 앱에서 App Startup을 제거하면, 라이브러리를 직접 초기화할 때까지 모든 호출이 실패합니다. 첫 호출 전에 `new AndroidJavaClass("com.jonghyunkim.nativetoolkit.capi.NativeToolkitCApi").GetStatic<AndroidJavaObject>("INSTANCE").Call<AndroidJavaObject>("init", activity)`를 호출해 주세요.
 
 ## 1.13.0 변경 사항 (Android)
 
@@ -176,7 +179,7 @@
   - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - "install"을 클릭합니다.
 - 요구 사항:
-  - Unity 6 이상
+  - Unity 6 이상 (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상)
   - 의존 패키지: Localization, Addressables, Input System
 
 ## 샘플

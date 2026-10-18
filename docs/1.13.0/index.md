@@ -19,9 +19,12 @@
 
 ## Android requirements
 
+- Unity: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later. The AndroidX dependencies of the native libraries need Android Gradle Plugin 8.9.1.
+- Minimum API Level: 31 (Android 12).
 - Scripting Backend: IL2CPP. Mono is not supported (Unity's Mono builds ARMv7 only on Android).
 - Target Architectures: ARM64 (x86_64 also works). A build that also targets ARMv7 (32-bit) stops with a message before Gradle runs.
 - Gradle: nothing to set up. The build adds the runtime dependencies of the native libraries to `unityLibrary/build.gradle`.
+- Initialization: the native library initializes itself when the app starts, through AndroidX App Startup (`androidx.startup.InitializationProvider`, which the native libraries add to the merged manifest). Keep it. If your app removes App Startup, every call fails until you initialize the library yourself before the first call: `new AndroidJavaClass("com.jonghyunkim.nativetoolkit.capi.NativeToolkitCApi").GetStatic<AndroidJavaObject>("INSTANCE").Call<AndroidJavaObject>("init", activity)`.
 
 ## Changes in 1.13.0 (Android)
 
@@ -176,7 +179,7 @@ Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The And
   - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - Click "install".
 - Requirements:
-  - Unity 6+
+  - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
 
 ## Samples

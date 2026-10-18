@@ -162,7 +162,7 @@ Other languages:
   - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - Click "install".
 - Requirements:
-  - Unity 6+
+  - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
 - Upgrading from 1.12.0: 1.13.0 changes the Android namespaces and type names, and removes the 1.x native libraries and the Android Gradle setup window. See [Changes in 1.13.0 (Android)](docs/latest/index.md#changes-in-1130-android).
 
