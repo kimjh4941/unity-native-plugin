@@ -2,7 +2,7 @@
   "name": "com.jonghyunkim.nativetoolkit",
   "displayName": "Native Toolkit",
   "description": "Toolkit for Unity 6+ providing native dialog, notification, share, and clipboard APIs (Android/iOS/Windows/macOS), sample content, a build step that adds the Android libraries and their Gradle dependencies, and editor workflows to add the native libraries to iOS and macOS Xcode projects.",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "unity": "6000.0",
   "unityRelease": "0f1",
   "type": "library",
