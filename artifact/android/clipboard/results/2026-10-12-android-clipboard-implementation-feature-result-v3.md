@@ -1,0 +1,204 @@
+# 実装結果レポート v3（Android Clipboard の C ABI 2.0.0 への移行）
+
+## 基本情報
+
+- 日付: 2026-10-12
+- 機能名: clipboard
+- 対象プラットフォーム: Android
+- ブランチ: feature/UNT-13
+- 計画ファイル: `artifact/android/clipboard/designs/2026-10-12-android-clipboard-design-v4.md`（以下「設計」）
+- 設計のレビュー: `artifact/android/clipboard/reviews/2026-10-12-android-clipboard-design-review-v1.md`、`-v2.md`
+- 実装のレビュー: `artifact/android/clipboard/reviews/2026-10-12-android-clipboard-implementation-feature-review-v1.md`（A が 3 件）、`...-review-v2.md`（A が 3 件。S2:A-1 と X2:A-1 は同じ種類）、`...-review-v3.md`（両方の A が 0。止めた）。どれもサブエージェントと Codex。直したことは各ファイルの 3 章
+- 親課題: `artifact/topics/android-c-abi-2/README.md`
+- 同梱: native-toolkit dist 1.13.0（`android-native-toolkit-2.0.0.aar`、`android-native-toolkit-capi-2.0.0.aar`）。移行の間は dist 1.12.0 の 2 本も追加のピンで置く（変えていない）
+
+## v2 からの変更（実装のレビュー v2 を受けて）
+
+- **開始と停止を、監視専用の `lock`（`s_observeLock`）で直列にした**（S2:A-1、X2:A-1）。印・F-9・失敗の戻し、印・F-10 が 1 つのまとまりになり、別のスレッドの開始と停止は、最後のものの状態で終わる。F-9 / F-10 は積むだけで待たないので、`lock` の中で呼ぶ。変更の受け口は `lock` を取らない
+- **止めるたびに数える世代（`s_generation`）を持つ**（S2:C-1）。止める前に積まれた変更は、配送の前に再開しても出ない
+- **`Invoke` の確保の一覧を `try` の中で作る**（X2:A-2）
+- **層 2a を 3 本足し、開始のテストを固めた**（S2:B-1）: F-9 の回数、F-9 の時点の印、例外の経路の 2 回目の失敗、別のスレッドの停止が開始を待つこと、止める前の変更が再開の後に出ないこと
+- 記述（S2:C-2、S2:C-3、X2:C-1、X2:C-2）
+
+## v1 からの変更（実装のレビュー v1 を受けて）
+
+- **配送待ちの変更も `StopObserving` の後に出さない**（S:A-1、X:C-1）。`RaiseChanged` が印を見直す
+- **2 回目の `StartObserving` の失敗が、1 回目の監視を止めない**（S:A-2）。失敗のとき、印を呼ぶ前の値に戻す
+- **`CopyMultipleText` の配列の写しを `Invoke` の `try` の中に移した**（X:A-1）。確保の失敗は結果の失敗になる
+- **層 2a を 9 本足した**（X:B-1〜X:B-3、S:A-1）: 開始の受け付け・拒否・例外・2 回目の失敗・リスナーが無いとき・登録のやり直し（`StartObservingCore` を切り出し、F-9 を差し替えられるようにした）、ハンドルの解放（`ReadAndFree`）、配送待ちの変更
+- **層 2b の後片付けで、イベントが UnityMain で出たことを照らす**（S:B-1）
+- 記述: `StopObserving`・`CopyHtmlText`・`CopyUri` の XML、テストのコメント、入口のログ、テスト名（S:C-1〜S:C-6、X:C-2）
+
+## 0. 状態サマリー
+
+設計 5.5 の手順 1〜9 を終えた。手順 3〜9 はまだコミットしていない（実装のレビューの後に利用者の確認を取る）。
+
+| 手順 | 内容 | コミット | 状態 |
+|---|---|---|---|
+| 1 | 設計（v1〜v3。レビュー 2 回） | `7d062ee` | 済み |
+| 2 | 1.x のまま 37 件を流して記録（37/37。設計 v4 の 7.3） | `8d71881` | 済み |
+| 3 | 共通部の `s_state`（J-C16） | 未コミット | 済み |
+| 4・5 | `AndroidClipboardCApi`（options、純粋な関数、`extern`、読み取り）、層 1 | 未コミット | 済み |
+| 6 | `AndroidClipboardManager` の置き換え、層 2a。`AndroidClipboardJsonParser` とそのテストを消す | 未コミット | 済み |
+| 7 | 実機で 7.3 を流す（C ABI の版。40/40） | 未コミット | 済み |
+| 8 | `common.md`、`testing.md`、親課題の README | 未コミット | 済み |
+| 9 | 実装結果ファイル（この文書） | 未コミット | 済み |
+
+## 1. 実装サマリー
+
+### 1.1 計画ファイル由来の実装
+
+- **2 層（Bridge + Manager）。** `Runtime/Android/Clipboard/AndroidClipboardCApi.cs`（Bridge）と `AndroidClipboardManager`。共通部（`AndroidNativeToolkitCApi`、`AndroidNativeCallbackQueue`）は Dialog と Share で作ったものを使う
+- **ガード。** Manager の型と Bridge の純粋な関数は `UNITY_ANDROID || UNITY_EDITOR`（Manager は B 群から A 群へ）。`DllImport`、読み取りの関数、受け口とその関数ポインタは `UNITY_ANDROID && !UNITY_EDITOR`
+- **J-C1、J-C2** copy・clear・stopObserving は C の関数を呼び出しスレッドで同期に呼び、戻り値から作った結果を、その呼び出しの `onResult` を閉じ込めて取り出し口に `Post` する（`Invoke`）。per-call の辞書は消した。順は `InvokeInOrder`（今のまま）
+- **J-C3** 結果と変更は、取り出した時点の `_instance` に出し、いなければ捨てる（`Deliver`、`RaiseChanged`）
+- **J-C4** 読み取りは呼び出しスレッドで C を呼び、ハンドルを読み（`ReadContent`、`ReadDescription`）、`finally` で `_free`。`""` と NULL を null に、分類の -1 と 0 を null にする（`ToClipContents`、`ToDescriptionInfo`）
+- **J-C5** `HasClip` の失敗は `false`
+- **J-C6** Editor・Android 以外は 1.x と同じ結果（`CanCall`、`CanRead`）
+- **J-C7** `payload` と `texts` の null は `ArgumentNullException`。文字列の null は `""`（`AsPassed`。配列は要素ごと）
+- **J-C8** C# は入力を検査しない。エラー値を 1.x の文言とコードに写す（`OperationFailureMessage`、`ReadFailure`）
+- **J-C9** 変更のリスナーはプロセスで 1 回だけ登録し、外さない（`EnsureChangeListener`。登録専用の `lock`。失敗は `LogWarning`、例外は `LogError` で、次の呼び出しでやり直す）。`Initialize()` と `StartObserving` から呼ぶ
+- **J-C10** `s_observing`（`volatile`）。`StartObserving` が F-9 の前に真にし、失敗なら呼ぶ前の値に戻す。`StopObserving` は F-10 の前に偽にする。受け口は偽なら捨てる（開始と停止は監視の `lock` の中で行い、止めるたびに世代を数える。1.2）
+- **J-C11** `StartObserving` は結果を出さない。監視が後で始まることを XML コメントに書いた
+- **J-C12** `OnDestroy` は自分が `_instance` のときだけ `StopIfObserving`（印が真なら下ろして F-10）。例外は `LogWarning`
+- **J-C13** どのスレッドから呼んでもよい。`Awake` と各メソッドで `EnsureCreated()`
+- **J-C14** `AndroidClipboardJsonBuilder` は公開のまま残し、Manager からは使わない（XML コメントに書いた）。`AndroidClipboardJsonParser` とそのテスト 39 本を消した
+- **J-C15** 今の C# のログ（長さ・有無）を保つ。失敗のログはエラー値の名前だけ（`INVALID_URI` の文言の URI を出さない）
+- **J-C16** `AndroidNativeToolkitCApi.s_state` を `volatile int`（0 が未確認、ほかは `(int)state + 1`）にした
+- **J-C17** UI の補助と UI テスト計画は作らず、設計 7.3 の表を使った
+
+### 1.2 実装時の追加判断
+
+- **AC-33 からライブラリ名と呼び出し規約の照合を外した**（設計 9 章の K-6 が実際に起きた）。IL2CPP の Player では、`DllImportAttribute` が反射で取れても `Value`（ライブラリ名）が空だった（2026-10-12、1 回目の通しの検証で AC-33 が落ちた）。名前・戻り値・引数・`internal static`・`PinvokeImpl` の照合は残した。ライブラリ名は、実機のすべての呼び出しが使っている
+- **公開の `StopObserving()` も、`OnDestroy` と同じ F-10 の関数（`StopNative`）を通す**（設計 v3 の X2-2）。層 2a の差し替えは `OnDestroy` の判断で数え、`StopObserving` の F-10 は実機の AC-34 で確かめた
+- **Editor の既定の登録と F-10 は「何もしない」（`NONE`）**。層 2a は `SetNativeForTests` で数える関数に替える
+- **監視の `lock` と世代**（実装のレビュー v2）: 設計 J-C10 は印を `volatile` とだけ書いていた。開始と停止を別のスレッドから呼んだときに印とネイティブの監視が食い違わないよう、`lock` で直列にした（J-C13 の範囲の中で、いちばん単純に揃う形）。世代は、`StopObserving` の XML の約束（止めた後は、配送待ちの変更も出さない）を、再開を挟んでも守るため
+- **`StartObservingCore` と `ReadAndFree`**（実装のレビュー v1）: 開始の本体と、読み取りのハンドルの解放を、層 2a から呼べる内部の関数にした。`StartObserving` が Editor とネイティブの判定の後に `StartObservingCore` を呼ぶこと、`Read` / `GetDescription` が `ReadAndFree` を使うことは、コードレビューで押さえる
+- **コードレビューで押さえる配線**（実装のレビュー v1 の S:B-2）: `Initialize` が `EnsureChangeListener` を呼ぶこと（消しても `StartObserving` が登録するので、実機のテストは落ちない）、`StopIfObserving` のネイティブの判定（層 2a の差し替えはこの判定を飛ばす）、`LogFailure` の重さ（判定の関数は層 1）、`Invoke` の `FreeAll`、MIME の NULL を `""` にすること、`Read` / `GetDescription` が `ReadAndFree` にそれぞれの `_free` を渡すこと、公開の `StartObserving` が `StartObservingCore` を呼ぶこと（実機の AC-21a と AC-31 も落ちる）、`StopObserving` の F-10 と `StopIfObserving` の F-10 が監視の `lock` の中にあること（層 2a の競合のテストは、開始の側の `lock` と印を下ろす所の `lock` だけを押さえる。停止の側は Editor では F-10 に届かない。実装のレビュー v3 の S3:B-1、X3:B-1。止める基準の網羅系として、テストは足さない）、受け口が世代を印より先に読むこと（並行でしか起きない）
+- **層 2b の後片付けは、イベントのスレッドだけを照らす**（設計 7.3 は Share の形〈数とスレッド〉としていた）。数は、後片付けの `StopObserving` と `Clear` の結果があり、テストごとに期待を持たせるほどの価値が無い。二重の配送は AC-20 が見る
+- **`ReadContent` / `ReadDescription` は Bridge の `extern` 側に置いた**（設計 5.1 のとおり）。MIME の NULL は `""` にした（ライブラリは MIME を NULL で返さないが、`List<string>` に null を入れないため）
+
+## 2. 変更ファイル
+
+### 2.1 新規作成
+
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Clipboard/AndroidClipboardCApi.cs`
+- `Packages/com.jonghyunkim.nativetoolkit/Tests/Runtime/AndroidClipboardCApiTests.cs`
+- `Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/AndroidClipboardManagerEditorTests.cs`
+
+### 2.2 既存変更
+
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Clipboard/AndroidClipboardManager.cs`（`AndroidJavaObject` / `AndroidJavaProxy` / `UnityMainThreadDispatcher` / per-call の辞書を消して書き直し。公開 API・イベント・既定値・文言は同じ。変わったのは 3.4 の既知の差分だけ）
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Common/AndroidNativeToolkitCApi.cs`（`s_state`）
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Clipboard/AndroidClipboardJsonBuilder.cs`（XML コメントだけ）
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Clipboard/ClipboardReadResult.cs`、`ClipboardDescriptionResult.cs`（XML コメントから JSON の言い回しを外した。約束は変えない）
+- `Packages/com.jonghyunkim.nativetoolkit/Tests/Runtime/AndroidClipboardManagerDispatchTests.cs`（ガードを `UNITY_ANDROID || UNITY_EDITOR` に）
+- `Packages/com.jonghyunkim.nativetoolkit/Tests/PlayMode/AndroidClipboardManagerIntegrationTests.cs`（AC-32〜AC-34 を `UNITY_ANDROID && !UNITY_EDITOR` の中に足した。AC-12〜AC-31 は手順 2 でコミット済み）
+- `agent-rules/coding-rules/common.md`（Android の節に「Clipboard の形」）、`agent-rules/coding-rules/testing.md`（ガードの表、層 1・2a・2b、機能の表）
+- `artifact/topics/android-c-abi-2/README.md`（J-9 に Clipboard、段の状況）
+
+### 2.3 削除
+
+- `Packages/com.jonghyunkim.nativetoolkit/Runtime/Android/Clipboard/AndroidClipboardJsonParser.cs`、`Tests/Runtime/AndroidClipboardJsonParserTests.cs`（J-C14）
+
+### 2.4 非変更（対象だが未変更）
+
+- Payload 4 型、`ClipboardOperationResult`、`AndroidClipboardJsonBuilderTests`、`AndroidClipboardSampleSceneWiringTests`、`AndroidClipboardManagerExampleController`、`Runtime/Resources/UI/Android/Clipboard/*`
+
+## 3. エラー契約反映
+
+### 3.1 エラーケース実装反映（設計 6 章）
+
+| # | 実装 | 検証 |
+|---|---|---|
+| E-1 | 各 copy の先頭の `ArgumentNullException` | 2a `NullPayload_ThrowsAndRaisesNothing`、2b AC-27 |
+| E-2 | `AsPassed` | 1 `AsPassed_*`、2b AC-26a〜e |
+| E-3 | `CanCall`、`CanRead`、`StartObserving` の判定 | 2a `Editor_*` |
+| E-4〜E-6、E-10〜E-13、E-15 | `OperationFailureMessage`、`ReadFailure`、`IsRequestDefect` | 1 `OperationFailureMessage_EveryValue_EveryOperation`、`ReadFailure_EveryValue`、`IsRequestDefect_*` |
+| E-7 | `EMPTY_CONTENT` の写し | 1、2b AC-09、AC-26c |
+| E-8 | `EMPTY_ITEMS` の写し | 1、2b AC-10 |
+| E-9 | `INVALID_URI` の写し（入力の URI） | 1、2b AC-11、AC-15、AC-26d |
+| E-14 | `HasClip` の `false` | コードレビュー（起こせない） |
+| E-16 | `EnsureChangeListener`、`StartObservingCore` の失敗の扱い | 2a `Listener_*`、`Start_*`（拒否・例外・2 回目の失敗・リスナーが無いとき・登録のやり直し） |
+| E-17、E-18 | `Invoke` と読み取りの `catch`、受け口の `try/catch` | コードレビュー（起こせない） |
+| E-19 | 空は `Empty` | 2b AC-06、AC-19 |
+
+### 3.2 イベントの返却仕様
+
+- `ClipboardOperationCompleted` → per-call の順。どれも呼び出しの後、UnityMain で 1 回（2a、2b AC-20）
+- `ClipboardChanged`: `StartObserving` の後、印が真の間だけ。UnityMain（2a、2b AC-21a〜c、AC-22、AC-23、AC-31、AC-32）
+
+### 3.3 success 時契約
+
+copy・clear の成功は、呼び出しが戻った時点でクリップボードが変わっていること（AC-28）。`StopObserving` の成功は、止める処理を Android の main に積めたこと（AC-34 で、その後に変更が来ないことを確かめた）。
+
+### 3.4 既知の差分（マニュアルへ引き継ぐ）
+
+設計 5.3 の表を写し、1.x の実測（設計 v4 の 7.3）で決まった行を書いた。
+
+| 差分 | 1.x | 2.0.0 移行後 |
+|---|---|---|
+| copy・clear が動く時点 | Android の main に積んで後で動いた。ただし直後の `Read` は 10 回すべてで新しい本文を読んだ（AC-28） | 呼び出しの中で動く。直後の `Read` は必ず新しい本文を読む（AC-28: 10/10） |
+| `StartObserving` の直後の変更（J-11 の例外。利用者の判断） | 同じフレームの URI のコピーで 1 回届いた（AC-21b） | 監視は Android の main が積んだ処理を走らせてから始まる（時間の保証は無い）。それより前のコピーの変更は届かないことがある。今回の実機では 2 回とも届いた（AC-21b: 1） |
+| 確保の失敗とメモリ不足 | C# の確保の例外は呼び出し側に出た。Kotlin の `OutOfMemoryError` は捕まえなかった | アンマネージの確保と引数の写し（`Invoke` の中）の例外は結果の失敗 `ex.Message`。ネイティブのメモリ不足は `Failed: OUT_OF_MEMORY`。ログの文字列などの確保は対象の外 |
+| `currentActivity` | 要った | 要らない |
+| 別のスレッドから呼ぶ | 受け付けなかった（AC-24: `copyPlainText could not be started.`、AC-25: `CLIPBOARD_BRIDGE_UNAVAILABLE` / `read could not be started.`。どちらもエラーのログ 2 行） | 受け付ける（AC-24: 成功が UnityMain で 1 回、AC-25: 読めた）。`Instance` の最初の取得は UnityMain で行う |
+| 同じ操作を結果の前にもう一度呼ぶ | 枠は後勝ち | それぞれが自分の per-call を受ける |
+| 文字列の null | 文字列 `"null"` として扱った（AC-26） | `""` として扱う（`text`・要素は成功して `Read` で null、`htmlText` は `EMPTY_CONTENT`、`uri` は `Invalid URI: `） |
+| `payload` / `texts` が null | `NullReferenceException`（AC-27） | `ArgumentNullException` |
+| 文字列の途中の U+0000、対になっていないサロゲート | JSON で運んだ | 切れる / U+FFFD |
+| `SECURITY` の文言 | `...: <例外の message>` | `Security restriction while accessing clipboard.` |
+| `UNKNOWN` などの文言 | `Failed: <例外の message>` | `Failed: <名前>` |
+| 未初期化 | その状態が無かった | `<op> could not be started.` |
+| `StopObserving` の結果 | いつも成功。止めた後に出た | 積めれば成功。積んだ時点で出る |
+| 監視の共有 | ブリッジ専用のモニター | プロセスに 1 つ。Unity の停止と破棄は Kotlin の利用者の監視も止める。Kotlin の利用者の監視は `ClipboardChanged` に出ない（AC-32）。Kotlin の利用者の停止は Unity にも効く |
+| `StopObserving` の後の変更 | 止まるまでの変更は届いた（dispatcher に積まれたものも） | 呼んだ後は出さない（配送待ちのものも、配送の前に再開しても。実装のレビュー v1 の S:A-1、v2 の S2:C-1）。ただし別のスレッドから呼んだときは、UnityMain でちょうど出ている最中の 1 回が、呼び出しの後に届くことがある（v3 の S3:C-1） |
+| 開始と停止を別のスレッドから同時に呼ぶ | 別のスレッドからは受け付けなかった | 最後に `lock` を取ったものの状態で終わる（実装のレビュー v2） |
+| 結果のフレーム | Editor と C# 側の即時の失敗は、同じループで出ることがあった | 呼び出しの後。取り出し口より前に走る `Update` から呼べば同じフレームのことがあり、取り出し口が走らせている処理の中から呼べば次のフレーム（設計 5.3 の「どれも次のフレーム以降」は不正確だった。実装のレビュー v1 の S:C-3） |
+| 結果と変更が Manager を壊す前後に来る、ログの重さ、logcat、Editor、`Initialize()`、32 ビットと Mono、`AndroidClipboardJsonBuilder` | 設計 5.3 のとおり | 設計 5.3 のとおり |
+
+## 4. ビルド結果
+
+- Editor のコンパイル: 成功（EditMode と Editor の PlayMode の実行で確かめた）
+- 実機の Player（Android™ Profile と Test Android™ Profile、IL2CPP、ARM64）: 成功
+
+## 5. テスト結果
+
+`scripts/verify_unity_android.sh --as-package-user` の通しの実行（2026-10-12、Pixel 6a、Android 16）。
+
+| 実行 | 結果 |
+|---|---|
+| UI の補助の doctest | passed |
+| EditMode（Android™ Profile） | 1263 通過、1 スキップ（前は 1278。parser のテスト 39 本を消し、層 1 を 24 本足した） |
+| Editor の PlayMode（層 2a） | 276 通過、37 スキップ（`AndroidClipboardManagerEditorTests` 30 本を足した。スキップは実機専用の Clipboard の 37 本） |
+| 実機（IL2CPP、Android™ Profile） | 123/123（Clipboard 40、Share 45、Dialog 36、共通部 2。補助の終了コード 0、`AndroidUiDriver` のテスト 65、スキップ 0） |
+| 実機（パッケージの利用者の条件） | 101 通過、22 スキップ（サンプル画面のケース） |
+| 全体 | `== PASS ==` |
+
+### 5.1 テスト詳細
+
+- 通しの実行は 4 回流した。1 回目は AC-33 だけが 2 つの実機の実行で落ちた（1.2 の 1 つ目）。2 回目からはどれも PASS。この表は、実装のレビュー v2 の直しの後の 4 回目
+- 2b の `[ClipboardRecord]`（C ABI の版）: AC-21a 1、AC-21b 1、AC-21c 2、AC-24 成功、AC-25 `HasContent`、AC-26a〜e `""` の扱い、AC-27 `ArgumentNullException`、AC-28 10/10、AC-29 分類 3、AC-31 1
+- 2b の各テストは、後片付けで、受けたすべてのイベントが UnityMain で出たことを照らす。AC-20、AC-21a、AC-24 はテストの中でも照らす
+
+### 5.2 未実施ケース詳細
+
+- E-14、E-17、E-18 は起こせない（文言は層 1、形はコードレビュー）。`StartObserving` の失敗は、実機では起こせないが、層 2a の差し替えで確かめた
+- サンプルアプリの手動確認（設計 7.4）は、利用者の確認で行う
+
+## 6. Definition of Done
+
+| 項目 | 状態 |
+|---|---|
+| 公開 API を保つ | 済み |
+| 設計の J-C1〜J-C17 | 済み |
+| 層 1・2a・2b | 済み |
+| 既知の差分を XML コメントと実装結果に書く | 済み |
+| 通しの検証スクリプト | 済み（PASS） |
+| 実装のレビュー | 済み（v1・v2 で A を直し、v3 で両方の A が 0） |
+
+## 7. 残作業
+
+- 設計 9 章 K-5 と同じ前提: 同じプロセスで `SubsystemRegistration` が 2 回走る形（Unity as a Library の作り直しなど）では、`ResetOnStart` がリスナーの登録済みの印を戻し、2 つ目のリスナーが登録されて `ClipboardChanged` が 2 回出うる（実装のレビュー v1 の要検証。Share も同じ）
+- 層 2b のテストの 1.x の分岐（`OnCApi` が偽の側）は、1.x のピンを外すときに消す
+- サンプルアプリの手動確認（設計 7.4）

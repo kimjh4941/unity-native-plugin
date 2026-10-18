@@ -4,7 +4,7 @@
 using System;
 using System.Collections;
 using System.IO;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -184,7 +184,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyPlainTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy plain text");
-        AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+        AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
         {
             text = "Hello from Unity Native Toolkit",
             label = "sample"
@@ -199,7 +199,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyEmptyPlainTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy empty plain text");
-        AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+        AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
         {
             text = ""
         });
@@ -213,7 +213,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyHtmlTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy HTML text");
-        AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+        AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
         {
             plainText = "Hello",
             htmlText = "<b>Hello</b>"
@@ -228,7 +228,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyHtmlEmptyPlainTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy HTML text (empty plain text)");
-        AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+        AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
         {
             plainText = "",
             htmlText = "<b>Html only</b>"
@@ -255,7 +255,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Copy URI");
-        AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+        AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
         {
             uri = uri
         });
@@ -269,7 +269,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyMultipleTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy multiple text");
-        AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+        AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
         {
             texts = new[] { "First", "", "Third" }
         });
@@ -285,7 +285,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopySensitiveTextClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy sensitive text");
-        AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+        AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
         {
             text = "P@ssw0rd-sample",
             isSensitive = true
@@ -302,7 +302,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyInviteCodeClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy invite code");
-        AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+        AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
         {
             text = "NTK-7F3A-92QX",
             label = "invite code"
@@ -321,13 +321,13 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnPasteCodeClicked)}] status: {result.Status}, errorCode: {result.ErrorCode}");
         switch (result.Status)
         {
-            case ClipboardReadStatus.HasContent:
+            case AndroidClipboardReadStatus.HasContent:
                 string? code = ExtractFirstText(result.Contents!);
                 SetResult(
                     code != null ? $"Success: Pasted code: {code}" : "Info: Clipboard has no text item",
                     logMessage: code == null);
                 break;
-            case ClipboardReadStatus.Empty:
+            case AndroidClipboardReadStatus.Empty:
                 SetResult("Info: Clipboard is empty (normal)");
                 break;
             default:
@@ -379,7 +379,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         }
 
         SetPendingOperation("Copy screenshot");
-        AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+        AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
         {
             uri = uri,
             label = "screenshot"
@@ -398,10 +398,10 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnReadClipboardClicked)}] status: {result.Status}, errorCode: {result.ErrorCode}");
         switch (result.Status)
         {
-            case ClipboardReadStatus.HasContent:
+            case AndroidClipboardReadStatus.HasContent:
                 SetResult($"Success: Read: {FormatContents(result.Contents!)}", logMessage: false);
                 break;
-            case ClipboardReadStatus.Empty:
+            case AndroidClipboardReadStatus.Empty:
                 SetResult("Info: Clipboard is empty (normal)");
                 break;
             default:
@@ -433,10 +433,10 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnGetDescriptionClicked)}] status: {result.Status}, errorCode: {result.ErrorCode}");
         switch (result.Status)
         {
-            case ClipboardReadStatus.HasContent:
+            case AndroidClipboardReadStatus.HasContent:
                 SetResult($"Success: {FormatDescription(result.Description!)}", logMessage: false);
                 break;
-            case ClipboardReadStatus.Empty:
+            case AndroidClipboardReadStatus.Empty:
                 SetResult("Info: Clipboard is empty (normal)");
                 break;
             default:
@@ -493,7 +493,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyEmptyHtmlClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy HTML (empty)");
-        AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+        AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
         {
             plainText = "Hello",
             htmlText = ""
@@ -508,7 +508,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyEmptyItemsClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy multiple (empty list)");
-        AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+        AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
         {
             texts = Array.Empty<string>()
         });
@@ -522,7 +522,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyBlankUriClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy URI (blank)");
-        AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+        AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
         {
             uri = ""
         });
@@ -536,7 +536,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
         Debug.Log($"[{LogTag}][{nameof(OnCopyHttpUriClicked)}]");
 #if UNITY_ANDROID && !UNITY_EDITOR
         SetPendingOperation("Copy URI (http scheme)");
-        AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+        AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
         {
             uri = "http://example.com/x"
         });
@@ -548,7 +548,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
     // ---- Event handlers ----
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-    private void OnClipboardOperationCompleted(ClipboardOperationResult result)
+    private void OnClipboardOperationCompleted(AndroidClipboardOperationResult result)
     {
         Debug.Log($"[{LogTag}][{nameof(OnClipboardOperationCompleted)}] operation: {result.Operation}, isSuccess: {result.IsSuccess}");
         string status = result.IsSuccess ? "Success" : "Failed";
@@ -591,7 +591,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
     // string. Falling back to it would make this button report a content:// URI as a "pasted code".
     // Null when the clip holds no text item (for example a URI-only clip). Mirrors how a coupon-code
     // input field would read the clipboard.
-    private static string? ExtractFirstText(ClipContents contents)
+    private static string? ExtractFirstText(AndroidClipContents contents)
     {
         foreach (var item in contents.Items)
         {
@@ -601,7 +601,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
     }
 
     // Formats clip contents for on-screen display only. Never logged: clipboard content is sensitive.
-    private static string FormatContents(ClipContents contents)
+    private static string FormatContents(AndroidClipContents contents)
     {
         var itemStrings = new System.Text.StringBuilder();
         itemStrings.Append('[');
@@ -618,7 +618,7 @@ public class AndroidClipboardManagerExampleController : MonoBehaviour
     }
 
     // Formats clip description for on-screen display only. Never logged.
-    private static string FormatDescription(ClipDescriptionInfo info)
+    private static string FormatDescription(AndroidClipDescriptionInfo info)
     {
         return $"label={info.Label ?? "(null)"}, mimeTypes=[{string.Join(", ", info.MimeTypes)}], " +
                $"isStyledText={info.IsStyledText}, classificationStatus={(info.ClassificationStatus?.ToString() ?? "(null)")}";

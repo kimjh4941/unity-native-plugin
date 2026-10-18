@@ -9,7 +9,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
     /// <summary>
     /// Builds JSON strings for the iOS <c>shareContent</c> native operation with full control over
     /// optional fields. Does not use external JSON libraries; matches the hand-written serializer
-    /// pattern used by <c>AndroidShareJsonBuilder</c>.
+    /// pattern the 1.x Android builder used.
     /// </summary>
     public static class IosShareJsonBuilder
     {

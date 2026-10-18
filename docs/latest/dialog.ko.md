@@ -13,6 +13,7 @@
 ## 목차
 
 - [Android](#android)
+  - [1.13.0 변경 사항](#1130-변경-사항)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
   - [IosDialogManager](#iosdialogmanager)
@@ -26,6 +27,57 @@
 
 ## Android
 
+### 1.13.0 변경 사항
+
+1.13.0부터 Android 다이얼로그는 native-toolkit의 C ABI 2.0.0(`libntk.so`)으로 동작합니다. 메서드, 이벤트, 인수와 기본값은 바뀌지 않았습니다. 1.12.0과 다른 점은 다음과 같습니다.
+
+#### 코드 수정 방법
+
+- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;`로 바꿔 주세요. iOS와 macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- Dialog 타입은 이름이 바뀌지 않았으므로, 고칠 것은 위의 `using` 줄뿐입니다. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.12.0의 이름을 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_ANDROID && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 Android Player를 빌드할 때 처음 나타납니다.
+
+#### Android 전체 기능에 공통인 호환성이 깨지는 변경
+
+- **1.x 네이티브 라이브러리를 더 이상 포함하지 않습니다.** `android-native-toolkit-1.3.0.aar`와 `unity-android-native-toolkit-1.3.0.aar`를 제거했습니다. 패키지에 포함된 것은 `android-native-toolkit-2.0.0.aar`와 `android-native-toolkit-capi-2.0.0.aar`(native-toolkit의 C ABI 2.0.0)입니다. 이 라이브러리의 클래스(`android.unity.*`, `android.library.*`)를 직접 호출하던 코드는 동작하지 않습니다.
+- **"Configure Gradle Project"가 없어졌습니다.** 메뉴 Tools > Native Toolkit > Android > Configure Gradle Project와 그 창을 삭제했습니다. 실행 시 필요한 라이브러리(`kotlin-stdlib` 2.2.21, `kotlinx-coroutines-core` 1.9.0을 포함한 7개)는 빌드가 `unityLibrary/build.gradle`에 직접 추가합니다. Kotlin Gradle 플러그인은 더 이상 적용하지 않습니다. 직접 만든 Gradle 템플릿이나 EDM4U를 사용한다면 버전이 충돌하지 않는지 확인해 주세요.
+- **64비트와 IL2CPP만 지원합니다.** ARMv7(32비트)도 포함하는 빌드는 메시지를 표시하고 중단됩니다. Mono는 지원하지 않습니다. [Android 요구 사항](index.ko.md#android-요구-사항)을 참고해 주세요.
+
+#### 다이얼로그 동작의 차이
+
+| 상황 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| 단일 선택·다중 선택 다이얼로그를 뒤로가기나 바깥 터치로 닫음 | `checkedItem` / `checkedItems`에 그 시점의 선택이 들어 있었음 | 둘 다 `null`입니다. `buttonText = "Cancel"`, `isSuccess = true`, `errorMessage = ""`는 그대로입니다 |
+| `checkedItem`이 -1보다 작거나 항목 수 이상 | 아무것도 선택되지 않은 다이얼로그가 표시되고, 긍정 버튼을 누르면 전달한 값이 그대로 반환됨 | 다이얼로그는 표시되지 않고, 바로 `"checkedItem is out of range."` 이벤트가 발생합니다. Editor에서도 같습니다. `-1`(선택 없음)은 지금처럼 사용할 수 있습니다 |
+| `checkedItems`가 항목보다 김 | 전달한 길이 그대로 반환됨 | 항목 수에 맞춰 자릅니다 |
+| `checkedItems`가 항목보다 짧음 | 지원하지 않음(Android 메인 스레드에서 예외가 나서 앱이 종료되는 것으로 보임) | 모자란 부분을 `false`로 채웁니다 |
+| `singleChoiceItems` / `multiChoiceItems`에 `null` 요소가 있음 | 그대로 Android에 전달했고, 앱이 종료될 수 있었음. Editor에서는 경고만 표시하고 통과 | 다이얼로그는 표시되지 않고, 바로 `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` 이벤트가 발생합니다. Editor에서도 같습니다 |
+| 문자열 중간의 U+0000 | 그대로 전달 | 그 위치에서 잘립니다 |
+| 문자열 안의 짝이 맞지 않는 서로게이트 | 그대로 | 전달하는 문자열과 돌아오는 문자열 모두 U+FFFD로 바뀝니다 |
+| 앱이 전면에 없을 때 호출 | `"Failed to <method>: <예외 메시지>"` | `"Failed to <method>: the app is not in the foreground."` |
+| 시스템이 다이얼로그를 닫음(호스트나 Activity가 종료됨) | 이벤트가 발생하지 않았음 | 실패 이벤트 `"Failed to <method>: the dialog was closed by the system."`이 발생합니다 |
+| 전면 Activity가 `FragmentActivity`가 아님 | `"Failed to cast context to FragmentActivity"` | 투명한 호스트 Activity에 다이얼로그를 표시합니다. Unity의 Activity는 `FragmentActivity`이므로 보통은 해당하지 않습니다 |
+| 오류 메시지 | 예외 메시지를 포함했음 | 아래 표의 정해진 문구입니다 |
+| 로그 | 검사 실패는 오류로 출력. 입력·사용자 이름·비밀번호를 그대로 출력 | 검사 실패는 경고로 출력합니다. 입력·사용자 이름·비밀번호는 길이만 출력합니다. 샘플 씬도 비밀번호는 길이만 표시합니다 |
+| `Initialize()` | 네이티브 브리지에 연결 | 네이티브 라이브러리를 사용할 수 있는지 로그로 출력할 뿐입니다. 호출하지 않아도 됩니다 |
+
+`errorMessage`의 문구는 다음과 같습니다. `<method>`에는 1.12.0과 같은 이름(`showDialog`, `showConfirmDialog`, `showSingleChoiceItemDialog`, `showMultiChoiceItemDialog`, `showTextInputDialog`, `showLoginDialog` 중 하나)이 들어갑니다. "바로"는 `Show*` 메서드가 반환되기 전에, "나중"은 반환된 뒤에 이벤트가 발생한다는 뜻입니다.
+
+| 원인 | 시점 | `errorMessage` |
+| --- | --- | --- |
+| 제목·메시지·선택 항목이 비어 있음(변경 없음) | 바로 | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` / `"singleChoiceItems cannot be null or empty."` / `"multiChoiceItems cannot be null or empty."` |
+| `null` 요소 | 바로 | `"singleChoiceItems cannot contain null."` / `"multiChoiceItems cannot contain null."` |
+| `checkedItem`이 범위를 벗어남 | 바로 | `"checkedItem is out of range."` |
+| 네이티브 라이브러리를 사용할 수 없음(1.12.0에서는 `"pluginInstance is null"`) | 바로 | `"Failed to <method>: the native library is not available (libntk.so ships for arm64-v8a and x86_64 only)."` |
+| 네이티브 라이브러리가 아직 초기화되지 않음 | 바로 | `"Failed to <method>: the native library is not initialized yet."` |
+| 라이브러리가 요청을 거부함(이 패키지의 결함) | 바로 | `"Failed to <method>: the request was rejected (INVALID_PARAMETER)."`(또는 `NOT_SUPPORTED`) |
+| 라이브러리가 그 밖의 이유로 호출을 받지 않음 | 바로 | `"Failed to <method>: <name>."`(`<name>`은 오류 이름. `OUT_OF_MEMORY`, `UNKNOWN` 등) |
+| 앱이 전면에 없음 | 나중 | `"Failed to <method>: the app is not in the foreground."` |
+| 다이얼로그 호스트를 시작할 수 없음 | 나중 | `"Failed to <method>: the dialog host could not be started."` |
+| 다이얼로그를 표시할 수 없음 | 나중 | `"Failed to <method>: the dialog could not be shown."` |
+| 시스템이 다이얼로그를 닫음 | 나중 | `"Failed to <method>: the dialog was closed by the system."` |
+| 호출이 받아들여진 뒤의 그 밖의 실패 | 나중 | `"Failed to <method>: <name>."` |
+| C#의 예외(변경 없음) | 바로 | `"Internal error: <예외 메시지>"` |
+
 ### AndroidDialogManager
 
 #### ShowDialog - 기본 다이얼로그
@@ -35,7 +87,7 @@
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -97,7 +149,7 @@ private void OnDialogResult(
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -162,7 +214,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -213,7 +265,7 @@ AndroidDialogManager.Instance.ShowSingleChoiceItemDialog(
 
 ```csharp
 // buttonText: 누른 버튼 텍스트. 오류 시 null.
-// checkedItem: 선택된 index. 오류 시 null.
+// checkedItem: 선택된 index. 오류, 부정 버튼, 선택 없음, 뒤로가기나 바깥 터치로 닫은 경우 null.
 // isSuccess: 성공 시 true.
 // errorMessage: 오류 메시지 (성공 시 null).
 
@@ -232,7 +284,7 @@ private void OnSingleChoiceItemDialogResult(
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -283,7 +335,7 @@ AndroidDialogManager.Instance.ShowMultiChoiceItemDialog(
 
 ```csharp
 // buttonText: 누른 버튼 텍스트. 오류 시 null.
-// checkedItems: 선택 상태. 오류 시 null.
+// checkedItems: 선택 상태. 오류, 부정 버튼, 뒤로가기나 바깥 터치로 닫은 경우 null.
 // isSuccess: 성공 시 true.
 // errorMessage: 오류 메시지 (성공 시 null).
 
@@ -302,7 +354,7 @@ private void OnMultiChoiceItemDialogResult(
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -375,7 +427,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 가드: Android (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -832,7 +884,7 @@ private void OnLoginDialogResult(
 
 1.12.0부터 Windows 대화상자는 native-toolkit의 C ABI 2.0.0(`windows-native-toolkit-capi-2.0.0.dll`)으로 동작합니다. 메서드, 이벤트, 인수는 바뀌지 않았습니다. 1.11.0과 다른 점은 다음과 같습니다.
 
-- **네임스페이스.** `WindowsDialogManager`, `Win32MessageBox`, `WindowsDialogErrorCodes`는 `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 바꿔 주세요. Android / iOS / macOS 타입의 네임스페이스는 그대로입니다.
+- **네임스페이스.** `WindowsDialogManager`, `Win32MessageBox`, `WindowsDialogErrorCodes`는 `JonghyunKim.NativeToolkit.Runtime.Windows.Dialog`에 있습니다. Windows 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 바꿔 주세요. iOS / macOS 타입의 네임스페이스는 그대로입니다. Android 타입은 1.13.0에서 옮겨졌습니다([1.13.0 변경 사항](#1130-변경-사항) 참고).
 - **Editor.** Windows 타입은 Editor에서도 컴파일됩니다. Editor에서 호출하면 대화상자는 표시되지 않고, 이벤트로 `-5`가 전달됩니다.
 - **예약된 오류 코드.** `errorCode`에는 OS 값 외에 아래 값이 들어올 수 있습니다. OS의 `HRESULT`도 음수이므로, 부호가 아니라 상수와 비교해 주세요.
 

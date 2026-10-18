@@ -2,7 +2,7 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, sharing, and clipboard access via singleton APIs per platform.
-- Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build setup.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
 
 Other languages:
 
@@ -11,11 +11,11 @@ Other languages:
 
 ## Version
 
-- 1.12.0
+- 1.13.0
 
 ## Supported OS Versions
 
-- Android 12+
+- Android 12+ (IL2CPP, ARM64)
 - iOS 18+
 - Windows 11+
 - macOS 15+
@@ -159,11 +159,12 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.12.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - Click "install".
 - Requirements:
-  - Unity 6+
+  - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
+- Upgrading from 1.12.0: 1.13.0 changes the Android namespaces and type names, and removes the 1.x native libraries and the Android Gradle setup window. See [Changes in 1.13.0 (Android)](docs/latest/index.md#changes-in-1130-android).
 
 ## Samples
 

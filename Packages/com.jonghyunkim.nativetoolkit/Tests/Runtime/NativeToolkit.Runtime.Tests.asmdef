@@ -2,7 +2,8 @@
   "name": "NativeToolkit.Runtime.Tests",
   "rootNamespace": "JonghyunKim.NativeToolkit.Tests",
   "references": [
-    "NativeToolkit.Runtime"
+    "NativeToolkit.Runtime",
+    "NativeToolkit.Editor"
   ],
   "includePlatforms": [
     "Editor"

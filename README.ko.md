@@ -2,7 +2,7 @@
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
 - 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유·클립보드 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
-- Editor 창을 통해 네이티브 라이브러리와 Gradle/Xcode 설정을 추가하여 빌드 후 프로젝트 정리를 워크플로로 제공합니다.
+- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS와 macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
 
 다른 언어 README:
 
@@ -11,11 +11,11 @@
 
 ## 버전
 
-- 1.12.0
+- 1.13.0
 
 ## 지원 OS 버전
 
-- Android 12 이상
+- Android 12 이상 (IL2CPP, ARM64)
 - iOS 18 이상
 - Windows 11 이상
 - macOS 15 이상
@@ -159,11 +159,12 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.12.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - "install"을 클릭합니다.
 - 요구 사항:
-  - Unity 6 이상
+  - Unity 6 이상 (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상)
   - 의존 패키지: Localization, Addressables, Input System
+- 1.12.0에서 올리는 경우: 1.13.0에서는 Android의 네임스페이스와 타입 이름이 바뀌었고, 1.x 네이티브 라이브러리와 Android Gradle 설정 창이 제거되었습니다. [1.13.0 변경 사항 (Android)](docs/latest/index.ko.md#1130-변경-사항-android)을 참고해 주세요.
 
 ## 샘플
 

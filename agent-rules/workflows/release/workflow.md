@@ -38,6 +38,7 @@ squash は使用しない。
 | 未コミット変更 | `git status --porcelain` の出力が空であること |
 | Plugins | `Packages/com.jonghyunkim.nativetoolkit/Plugins/` に `Android` `iOS` `macOS` `Windows` ディレクトリが存在すること |
 | Windows DLL の整合 | `Packages/com.jonghyunkim.nativetoolkit/Plugins/Windows/VERSION.txt` の `dist_version` を `<dv>`、`release_dll` を `<dll>` として、同梱の `Plugins/Windows/<dll>` の md5 が、native-toolkit のタグ `<dv>` の `dist/<dv>/windows/<dll>` と一致すること（`git -C ../native-toolkit show <dv>:dist/<dv>/windows/<dll> \| md5sum` と `md5sum Plugins/Windows/<dll>` を比べる。`debug_dll` が空でなければそれも）。あわせて `source` がブランチではなくタグ `<dv>` を指していること。タグが無い（native-toolkit が未リリース）なら ❌ |
+| Android AAR の整合 | `Packages/com.jonghyunkim.nativetoolkit/Plugins/Android/VERSION.txt` の `dist_version` を `<dv>`、`aars` の各 AAR を `<aar>`、`verified_native_toolkit_commit` を `<verified>` として、次の 3 つがすべて成り立つこと。(1) `git -C ../native-toolkit fetch --tags` の後、`git -C ../native-toolkit rev-parse -q --verify refs/tags/<dv>` が成功する（タグがある）。(2) 同梱の `Plugins/Android/<aar>` の md5 が、`git -C ../native-toolkit show <dv>:dist/<dv>/android/<aar> \| md5sum` と一致する。(3) `git -C ../native-toolkit diff --quiet <verified> <dv> -- ':(glob)dist/<dv>/android/*.aar' ':(glob)dist/<dv>/android/m2/**/*.module'` が 0 で終わる（最後に通しの検証をした native-toolkit と、タグの間で、パッケージが使う AAR と、`AndroidGradleDependencies` が照らす `.module` が変わっていない。`build-*.log`、`include/`、`m2` の `.pom` や checksum の差は見ない）。タグか `verified_native_toolkit_commit` が無ければ ❌。合わなければ、AAR を差し替え、通しの検証（`scripts/verify_unity_android.sh --as-package-user`）をやり直し、`verified_native_toolkit_commit` を書き直す |
 | manual | `manual/<version>/` に `*.md` `*.ja.md` `*.ko.md` の各マニュアルが存在すること |
 | docs | `docs/<version>/` が存在すること |
 | manual 整合 | `./scripts/verify_manual.sh <version>` が停止項目 0 件で終了すること（画像リンク切れ・アンカー切れ・バージョン参照の不一致・docs 未同期を検出する。警告項目は ❌ にしない） |
@@ -77,6 +78,9 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 ```
 ## [X.Y.Z] - YYYY-MM-DD
 
+### Breaking Changes
+- ...
+
 ### Features
 - ...
 
@@ -92,6 +96,10 @@ docs 未同期だけであれば `./scripts/publish_docs.sh <version>` の実行
 
 - 該当するコミットがないセクションは省略する
 - 日付は今日の日付を使用する
+- **Breaking Changes は、次のどちらかに当たるとき必須**（当たらなければ節ごと省く）:
+  - 英語の `manual/<version>/*.md` のどれかに、`Changes in <version>` で始まる見出しがある
+  - この版のコミットの件名に `!` がある（`<type>(<scope>)!: <subject>`。Conventional Commits の破壊的変更の印）
+  - 中身は、移行の節の要約と、各機能のページの移行の節へのリンク。リンクは GitHub Release の本文から届くよう、タグの `docs/<version>/<page>.md#<anchor>` を指す絶対 URL にする（相対リンクや `#anchor` だけでは届かない）
 
 4. 生成内容を表示し、「このリリースノートで進めますか？」を確認する:
    - 進める: 次へ

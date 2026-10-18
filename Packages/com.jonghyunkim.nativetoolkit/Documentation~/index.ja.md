@@ -4,7 +4,7 @@
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
-- Editor 用ウィンドウからネイティブライブラリや Gradle/Xcode 設定を追加でき、ビルド後のプロジェクト整備をワークフロー化します。
+- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS と macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
 
 # バージョン
 
@@ -92,10 +92,6 @@
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「Android Profile」→ Export を実行します。
-  - Tools → Native Toolkit → Android → Configue Gradle Project を選択します。
-    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-  - 「Browse」ボタンを押下して、Export した Android Project を指定します。
-  - 「Run: Add Kotlin Dependencies」ボタンを押下して、Kotlin ライブラリを追加します。
   - Android Studio からサンプルアプリをインストールしてください。
     - <a href="https://developer.android.com/studio?hl=ja" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
@@ -143,7 +139,7 @@
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -204,7 +200,7 @@ private void OnDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -268,7 +264,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -337,7 +333,7 @@ private void OnSingleChoiceItemDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -406,7 +402,7 @@ private void OnMultiChoiceItemDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -478,7 +474,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 実行ガード: Android (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 

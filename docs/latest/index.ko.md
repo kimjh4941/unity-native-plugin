@@ -4,11 +4,11 @@
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
 - 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
-- Editor 창을 통해 네이티브 라이브러리와 Gradle/Xcode 설정을 추가하여 빌드 후 프로젝트 정리를 워크플로로 제공합니다.
+- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS와 macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
 
 # 버전
 
-## 1.12.0
+## 1.13.0
 
 # 지원 OS 버전
 
@@ -16,6 +16,19 @@
 - iOS 18 이상
 - Windows 11 이상
 - macOS 15 이상
+
+## Android 요구 사항
+
+- Unity: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상. 네이티브 라이브러리의 AndroidX 의존성에 Android Gradle Plugin 8.9.1이 필요합니다.
+- Minimum API Level: 31(Android 12).
+- Scripting Backend: IL2CPP. Mono는 지원하지 않습니다(Unity의 Android용 Mono는 ARMv7만 빌드할 수 있습니다).
+- Target Architectures: ARM64(x86_64도 동작합니다). ARMv7(32비트)도 포함하는 빌드는 Gradle이 실행되기 전에 메시지를 표시하고 중단됩니다.
+- Gradle: 설정할 것이 없습니다. 네이티브 라이브러리의 실행 시 의존성은 빌드가 `unityLibrary/build.gradle`에 추가합니다.
+- 초기화: 네이티브 라이브러리는 앱이 시작될 때 AndroidX App Startup(`androidx.startup.InitializationProvider`. 네이티브 라이브러리가 merged manifest에 추가합니다)으로 자동 초기화됩니다. 제거하지 마세요. 앱에서 App Startup을 제거하면, 라이브러리를 직접 초기화할 때까지 모든 호출이 실패합니다. 첫 호출 전에 `new AndroidJavaClass("com.jonghyunkim.nativetoolkit.capi.NativeToolkitCApi").GetStatic<AndroidJavaObject>("INSTANCE").Call<AndroidJavaObject>("init", activity)`를 호출해 주세요.
+
+## 1.13.0 변경 사항 (Android)
+
+1.13.0부터 Android의 모든 기능이 native-toolkit의 C ABI 2.0.0으로 동작합니다. Android 타입은 `JonghyunKim.NativeToolkit.Runtime.<Feature>`에서 `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>`로 옮겨졌고, `Android` 접두사가 없던 Android 타입은 이름이 바뀌었습니다. 1.x 네이티브 라이브러리와 "Configure Gradle Project"는 제거되었습니다. Unity는 스크립트를 자동으로 고쳐 주지 않습니다. 기능별 수정 방법: [다이얼로그](dialog.ko.md#1130-변경-사항), [알림](notification.ko.md#1130-변경-사항), [공유](share.ko.md#1130-변경-사항), [클립보드](clipboard.ko.md#1130-변경-사항).
 
 # 기능
 
@@ -163,10 +176,10 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.12.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
 - "install"을 클릭합니다.
 - 요구 사항:
-  - Unity 6 이상
+  - Unity 6 이상 (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상)
   - 의존 패키지: Localization, Addressables, Input System
 
 ## 샘플
@@ -182,13 +195,6 @@
 - Android 샘플
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "Android Profile" -> Export를 실행합니다.
-  - Tools -> Native Toolkit -> Android -> Configure Gradle Project를 선택합니다.
-  <p align="center">
-    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-  </p>
-
-  - "Browse"를 클릭하고 Export한 Android 프로젝트를 선택합니다.
-  - "Run: Add Kotlin Dependencies"를 클릭하여 Kotlin 라이브러리를 추가합니다.
   - Android Studio에서 샘플 앱을 설치합니다.
     - <a href="https://developer.android.com/studio" target="_blank" rel="noopener noreferrer">참고</a>
 

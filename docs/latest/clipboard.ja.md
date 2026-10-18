@@ -13,6 +13,7 @@
 ## 目次
 
 - [Android](#android)
+  - [1.13.0 での変更](#1130-での変更)
   - [セットアップ](#セットアップ)
   - [プレーンテキストのコピー](#プレーンテキストのコピー)
   - [プレーンテキストのコピー（空文字、許容）](#プレーンテキストのコピー空文字許容)
@@ -113,24 +114,87 @@
 
 クリップボード機能は Android・iOS・macOS・Windows で実装しています。共通の抽象化ではなく、プラットフォームごとに Manager も API も別系統です。4 つのクリップボードは「クリップボードとは何か」の前提が揃っていないためです。iOS 側は [iOS](#ios) を参照してください。
 
+### 1.13.0 での変更
+
+1.13.0 から、Android のクリップボードは 1.x の Kotlin のブリッジではなく、native-toolkit の C ABI 2.0.0（`android-native-toolkit-capi-2.0.0.aar`）で動きます。`AndroidClipboardManager` のメソッド、イベント、`Operation*` の値、ペイロードのフィールド、エラーコード、ほとんどのエラーメッセージ、読み取り結果の形は変わりません。直すところと、1.12.0 と動きが違うところは次のとおりです。
+
+#### コードの直し方
+
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- 下の表の型の名前を書き換えてください。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
+- 1.12.0 の名前で `[SerializeReference]` に保存したデータは、新しい型として値ごと読み込まれます。改名した型は、1.12.0 の名前を `[MovedFrom]` で記録しています。
+
+#### Android の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `android-native-toolkit-1.3.0.aar` と `unity-android-native-toolkit-1.3.0.aar` を外しました。パッケージに入っているのは `android-native-toolkit-2.0.0.aar` と `android-native-toolkit-capi-2.0.0.aar`（native-toolkit の C ABI 2.0.0）です。これらのクラス（`android.unity.*`、`android.library.*`）を直接呼んでいたコードは動きません。
+- **「Configure Gradle Project」は無くなりました。** メニューの Tools > Native Toolkit > Android > Configure Gradle Project と、そのウィンドウを削除しました。実行時に要るライブラリ（`kotlin-stdlib` 2.2.21、`kotlinx-coroutines-core` 1.9.0 を含む 7 つ）は、ビルドが `unityLibrary/build.gradle` に自分で足します。Kotlin の Gradle プラグインは適用しなくなりました。独自の Gradle のテンプレートや EDM4U を使っている場合は、版がぶつからないか確かめてください。
+- **64 ビットと IL2CPP だけに対応します。** ARMv7（32 ビット）も含むビルドはメッセージを出して止まります。Mono には対応しません。[Android の要件](index.ja.md#android-の要件)を見てください。
+
+#### 改名した型と削除した型
+
+Android のクリップボードの型は、すべて `JonghyunKim.NativeToolkit.Runtime.Clipboard` から `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました。`AndroidClipboardManager` は名前が変わらず、ほかの型は名前の前に `Android` が付きました。iOS と macOS のクリップボードの型（`Ios*`、`Mac*`）は変わりません。
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `ClipboardOperationResult` | `AndroidClipboardOperationResult` |
+| `ClipboardReadStatus` | `AndroidClipboardReadStatus` |
+| `ClipItem` | `AndroidClipItem` |
+| `ClipContents` | `AndroidClipContents` |
+| `ClipboardReadResult` | `AndroidClipboardReadResult` |
+| `ClipDescriptionInfo` | `AndroidClipDescriptionInfo` |
+| `ClipboardDescriptionResult` | `AndroidClipboardDescriptionResult` |
+| `CopyPlainTextPayload` | `AndroidCopyPlainTextPayload` |
+| `CopyHtmlTextPayload` | `AndroidCopyHtmlTextPayload` |
+| `CopyUriPayload` | `AndroidCopyUriPayload` |
+| `CopyMultipleTextPayload` | `AndroidCopyMultipleTextPayload` |
+| `AndroidClipboardManager` | `AndroidClipboardManager`（名前空間だけが変わりました） |
+
+- **`AndroidClipboardJsonBuilder` を削除しました。** Manager は JSON を組み立てず、ペイロードのフィールドをそのまま C ABI に渡します。このビルダーを呼んでいたコードは、ペイロードを `AndroidClipboardManager` のメソッドに渡す形に直してください。JSON の文字列を返す代わりの API はありません。
+
+#### 1.12.0 との動作の違い
+
+| 場面 | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| コピーと `Clear` が効く時点 | Android のメインスレッドに積んで、後で動いた | 呼び出しの中で動きます。メソッドが戻った時点で、クリップボードは変わっています。結果はこれまでどおり後で `ClipboardOperationCompleted` に届きます。Unity のメインスレッドから呼ぶと、呼び出しが少し長くなります |
+| `StartObserving` の直後のコピー | `ClipboardChanged` が出た（開始とコピーが Android のメインスレッドで順に動いた） | `ClipboardChanged` が出ないことがあります。監視は後で Android のメインスレッドで始まり、いつ始まるかの保証はありません。`StartObserving` と同じフレームでの変更を当てにしないでください |
+| Unity のメインスレッド以外からの呼び出し | 受け付けなかった。非同期の操作は `<operation> could not be started.`、`Read` と `GetDescription` は `CLIPBOARD_BRIDGE_UNAVAILABLE` で失敗した | 受け付けます。結果とイベントは Unity のメインスレッドに届きます。`AndroidClipboardManager.Instance` は初回に GameObject を作るので、最初の取得は Unity のメインスレッドで行ってください |
+| 現在の Activity が無いとき | 操作は `<operation> could not be started.` で失敗した | Activity は要りません。ライブラリはアプリケーションの Context を使います |
+| 結果が届く前に同じ操作をもう一度呼ぶ | 後の呼び出しのコールバックが、先の呼び出しの結果を受けることがあった | それぞれの呼び出しが自分の結果を受けます |
+| ペイロードの文字列が null | 文字列 `"null"` として渡した（`text = null` は `null` という文字をコピーした） | `""` として渡します。`text` とリストの要素は空文字をコピーし、`htmlText` の null は `Clipboard content is empty. Please provide text or HTML.`、`uri` の null は `Invalid URI: ` で失敗します |
+| ペイロードや `texts` が null | `NullReferenceException` | `ArgumentNullException` |
+| 文字列の途中の U+0000 | そのままコピーした | 最初の U+0000 で文字列が切れます |
+| 対になっていないサロゲート | そのままコピーした | コピーでも読み取りでも U+FFFD になります |
+| `CLIPBOARD_SECURITY` のメッセージ | `Security restriction while accessing clipboard: <例外のメッセージ>` | `Security restriction while accessing clipboard.` |
+| そのほかの失敗のメッセージ（`CLIPBOARD_UNKNOWN` など） | `Failed: <例外のメッセージ>` | `Failed: <エラー名>`（`Failed: UNKNOWN`、`Failed: OUT_OF_MEMORY` など） |
+| `Read` / `GetDescription` の中のメモリ不足 | 例外のメッセージ付きの `CLIPBOARD_BRIDGE_UNAVAILABLE`（`HasClip` は `false`） | `Failed: OUT_OF_MEMORY` 付きの `CLIPBOARD_UNKNOWN`（`HasClip` は `false` のまま） |
+| アプリの起動の直後の呼び出し | その状態は無かった | native-toolkit の初期化が終わるまでは、`<operation> could not be started.`（`Read` と `GetDescription` は `CLIPBOARD_BRIDGE_UNAVAILABLE`）で失敗することがあります |
+| `StopObserving` の結果 | いつも成功。監視が止まった後に届いた | 停止を Android のメインスレッドに渡せたら成功で、止まる前に届きます。渡せなければ失敗します |
+| `StopObserving` の後の変更 | Android のメインスレッドで止まるまでの変更は届いた | 呼び出しが戻った後は、配送待ちのものも含めて `ClipboardChanged` は出ません。ほかのスレッドから呼んだときは、その時点で Unity のメインスレッドで出ている最中の 1 回が届くことがあります |
+| 同じアプリで native-toolkit の Kotlin API も監視するとき | 別々だった（ブリッジ専用のモニター） | プロセスで 1 つを共有します。`StopObserving` と、Unity が監視しているときの Manager の破棄は、Kotlin API の監視も止めます。Kotlin API のための監視が拾った変更は、Unity が `StartObserving` を呼ぶまで `ClipboardChanged` に出ません。Kotlin API の `stopObserving()` は `ClipboardChanged` も止めます |
+| Manager を破棄する前後に届く結果と変更 | 破棄する前に積まれた結果は、破棄した Manager のイベントに出た | 届いた時点で生きている Manager（作り直していれば新しい Manager）に出し、いなければ捨てます |
+| 結果が届くフレーム | Editor の結果と、C# 側で見つけた失敗は、呼び出しと同じループで届くことがあった | いつもメソッドが戻った後です。パッケージの結果の取り出し口より前に動く `Update` から呼べば同じフレーム、そうでなければ次のフレームです |
+| Editor | `AndroidClipboardManager` は Android のビルドターゲットのときだけあった | どのビルドターゲットでも Editor にあり、どの呼び出しも失敗します（`<operation> could not be started.`、`CLIPBOARD_BRIDGE_UNAVAILABLE`、`HasClip` は `false`） |
+| `Initialize()` | ブリッジを取り直し、リスナーを差し替えた | 変更のリスナーをプロセスで 1 度だけ登録します。もう一度呼んでも何もしません |
+| ログの重さ | プラグインのインスタンスや現在の Activity が無いと `LogError` | ネイティブライブラリが使えないと `LogWarning` |
+
 ### セットアップ
 
 #### 名前空間のインポート
 
-`AndroidClipboardManager` は Android ビルドターゲットを選択している場合にのみコンパイルされます。
+`AndroidClipboardManager` は、Android の Player と Editor（どのビルドターゲットでも）にコンパイルされます。ほかの Player にはありません。
 
 ```csharp
-// ガード: Android専用。AndroidClipboardManagerは他のビルドターゲットには存在しません。
-#if UNITY_ANDROID
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+// ガード: AndroidClipboardManagerはAndroidのPlayerとEditorにだけ存在します。
+#if UNITY_ANDROID || UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;
 #endif
 ```
 
-自作スクリプト側の呼び出し箇所（例えばエディター上でも動作する MonoBehaviour）では、ネイティブブリッジが実機上にしか存在しないため、呼び出し時点でさらにエディターを除外してください。
+自作スクリプト側の呼び出し箇所（例えばエディター上でも動作する MonoBehaviour）では、ネイティブライブラリが実機上にしか存在しないため、呼び出し時点でさらにエディターを除外してください。
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload { text = "Hello" });
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload { text = "Hello" });
 #endif
 ```
 
@@ -167,7 +231,7 @@ private static string CreateContentUri(string path)
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "Hello from Unity Native Toolkit",
     label = "sample"
@@ -187,7 +251,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = ""
 });
@@ -204,7 +268,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = "<b>Hello</b>"
@@ -224,7 +288,7 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "",
     htmlText = "<b>Html only</b>"
@@ -248,7 +312,7 @@ string path = Path.Combine(Application.persistentDataPath, "clipboard_sample.txt
 File.WriteAllText(path, "Clipboard sample file content");
 string uri = CreateContentUri(path);
 
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = uri
 });
@@ -269,7 +333,7 @@ AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = new[] { "First", "", "Third" }
 });
@@ -288,7 +352,7 @@ AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "P@ssw0rd-sample",
     isSensitive = true
@@ -310,7 +374,7 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
-AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
+AndroidClipboardManager.Instance.CopyPlainText(new AndroidCopyPlainTextPayload
 {
     text = "NTK-7F3A-92QX",
     label = "invite code"
@@ -331,11 +395,11 @@ AndroidClipboardManager.Instance.CopyPlainText(new CopyPlainTextPayload
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
+    case AndroidClipboardReadStatus.HasContent:
         string? code = ExtractFirstText(result.Contents!);
         // クリップにプレーンテキストのアイテムが無い場合（URIのみのクリップ等）はnullになる
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // クリップボードが空。これは失敗ではなく正常な結果
         break;
     default:
@@ -343,7 +407,7 @@ switch (result.Status)
         break;
 }
 
-static string? ExtractFirstText(ClipContents contents)
+static string? ExtractFirstText(AndroidClipContents contents)
 {
     foreach (var item in contents.Items)
     {
@@ -385,7 +449,7 @@ private IEnumerator CaptureAndCopyScreenshot()
         if (screenshot != null) Destroy(screenshot);
     }
 
-    AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+    AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
     {
         uri = uri,
         label = "screenshot"
@@ -411,11 +475,11 @@ private IEnumerator CaptureAndCopyScreenshot()
 var result = AndroidClipboardManager.Instance.Read();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipContents contents = result.Contents!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipContents contents = result.Contents!;
         // contents.Label, contents.MimeTypes, contents.Items（各アイテムのText / HtmlText / Uri / CoercedText）
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         // 正常な結果であり失敗ではない
         break;
     default:
@@ -458,11 +522,11 @@ bool hasClip = AndroidClipboardManager.Instance.HasClip();
 var result = AndroidClipboardManager.Instance.GetDescription();
 switch (result.Status)
 {
-    case ClipboardReadStatus.HasContent:
-        ClipDescriptionInfo info = result.Description!;
+    case AndroidClipboardReadStatus.HasContent:
+        AndroidClipDescriptionInfo info = result.Description!;
         // info.Label, info.MimeTypes, info.IsStyledText, info.ClassificationStatus（API 31未満ではnull）
         break;
-    case ClipboardReadStatus.Empty:
+    case AndroidClipboardReadStatus.Empty:
         break;
     default:
         break;
@@ -494,9 +558,9 @@ AndroidClipboardManager.Instance.Clear();
 
 ### 監視の開始・停止
 
-`StartObserving` は成功・失敗を問わず結果を一切通知しません。成功として表示しないでください。監視中のクリップボード変化は `ClipboardChanged` イベントで通知されます（[イベントの受信](#イベントの受信)参照）。すでに監視中の状態で再度呼び出した場合、ネイティブ側では何も起きません。監視はアプリがフォアグラウンドにある間のみ有効です（Android 10以降のプラットフォーム制約）。
+`StartObserving` は成功・失敗を問わず結果を一切通知しません。成功として表示しないでください。監視中のクリップボード変化は `ClipboardChanged` イベントで通知されます（[イベントの受信](#イベントの受信)参照）。すでに監視中の状態で再度呼び出した場合、ネイティブ側では何も起きません。監視は少し後に Android のメインスレッドで始まり、いつ始まるかの保証はありません。`StartObserving` の直後（たとえば同じフレーム）の変更では `ClipboardChanged` が出ないことがあります。監視はアプリがフォアグラウンドにある間のみ有効です（Android 10以降のプラットフォーム制約）。
 
-`StopObserving` は他の操作と同様に非同期APIで、`ClipboardOperationCompleted` 経由で結果が通知されます。画面が非表示になった後も監視が続かないよう、`OnDisable` で呼び出してください。
+`StopObserving` は他の操作と同様に非同期APIで、`ClipboardOperationCompleted` 経由で結果が通知されます。画面が非表示になった後も監視が続かないよう、`OnDisable` で呼び出してください。`StopObserving` が戻った後は `ClipboardChanged` は出ません。監視は同じアプリの native-toolkit の Kotlin API と共有なので、`StopObserving` はそちらの監視も止めます。
 
 ```csharp
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -537,7 +601,7 @@ private void OnDisable()
 }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-private void OnClipboardOperationCompleted(ClipboardOperationResult result)
+private void OnClipboardOperationCompleted(AndroidClipboardOperationResult result)
 {
     string status = result.IsSuccess ? "Success" : "Failed";
     Debug.Log($"[event] {result.Operation}: {status}");
@@ -564,7 +628,7 @@ private void OnClipboardChanged()
 #if UNITY_ANDROID && !UNITY_EDITOR
 // HTMLテキストが空の場合は失敗する: CLIPBOARD_EMPTY_CONTENT
 // ErrorMessage: "Clipboard content is empty. Please provide text or HTML."
-AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
+AndroidClipboardManager.Instance.CopyHtmlText(new AndroidCopyHtmlTextPayload
 {
     plainText = "Hello",
     htmlText = ""
@@ -572,20 +636,20 @@ AndroidClipboardManager.Instance.CopyHtmlText(new CopyHtmlTextPayload
 
 // アイテム配列が空の場合は失敗する: CLIPBOARD_EMPTY_ITEMS
 // ErrorMessage: "No items provided for clipboard copy."
-AndroidClipboardManager.Instance.CopyMultipleText(new CopyMultipleTextPayload
+AndroidClipboardManager.Instance.CopyMultipleText(new AndroidCopyMultipleTextPayload
 {
     texts = Array.Empty<string>()
 });
 
 // URIが空文字の場合は失敗する: CLIPBOARD_INVALID_URI
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = ""
 });
 
-// http:// スキームは拒否される。content:// URIのみサポート: CLIPBOARD_INVALID_URI
+// http:// スキームは拒否される。content:// と file:// のURIのみ受け付ける: CLIPBOARD_INVALID_URI
 // ErrorMessageは "Invalid URI:" で始まる
-AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
+AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 {
     uri = "http://example.com/x"
 });
@@ -598,13 +662,13 @@ AndroidClipboardManager.Instance.CopyUri(new CopyUriPayload
 | --- | --- |
 | `CLIPBOARD_EMPTY_CONTENT` | `CopyHtmlText` が空文字の `htmlText` で呼び出された |
 | `CLIPBOARD_EMPTY_ITEMS` | `CopyMultipleText` が空の `texts` 配列で呼び出された |
-| `CLIPBOARD_INVALID_URI` | `CopyUri` が空文字・不正な形式・`content://` 以外のURIで呼び出された |
+| `CLIPBOARD_INVALID_URI` | `CopyUri` が空文字・不正な形式のURI、またはスキームが `content://` でも `file://` でもないURIで呼び出された |
 | `CLIPBOARD_READ_NOT_ALLOWED` | ネイティブ層が読み取りを拒否した（フォーカス・権限制約など） |
 | `CLIPBOARD_SECURITY` | ネイティブ層がセキュリティ上の理由で操作を拒否した |
 | `CLIPBOARD_UNAVAILABLE` | システムの `ClipboardManager` を取得できなかった |
-| `CLIPBOARD_UNKNOWN` | 分類できない失敗。Unity側でのパース失敗にも使われる |
+| `CLIPBOARD_UNKNOWN` | 分類できない失敗。ネイティブ層のメモリ不足（`Failed: OUT_OF_MEMORY`）もこれになる |
 
-`Read` と `GetDescription` は、ネイティブブリッジ自体に到達できなかった場合（Android上で実行されていない、プラグイン未初期化、currentActivityが取得できない等）、追加で `CLIPBOARD_BRIDGE_UNAVAILABLE` を返すことがあります。これはネイティブ層が返すものではなく、Unity側のエラーコードです。
+`Read` と `GetDescription` は、ネイティブライブラリを呼べなかった場合（Android上で実行されていない、ネイティブライブラリが使えない〈ARM64 と x86_64 向けだけを同梱〉、アプリの起動の直後で native-toolkit がまだ初期化されていない、呼び出しで例外が起きた等）、追加で `CLIPBOARD_BRIDGE_UNAVAILABLE` を返すことがあります。これはネイティブ層が返すものではなく、Unity側のエラーコードです。
 
 ---
 
@@ -2209,7 +2273,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 1.12.0 から、Windows のクリップボードは native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、`Operation*` の値、結果の型、エラーコードの値、`WindowsClipboardJsonBuilder`、ペイロードの型、スレッドの規則は変わりません。1.11.0 との違いは次のとおりです。
 
-- **名前空間。** `WindowsClipboardManager` と、結果・ペイロード・ビルダーの型は `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を書き換えてください。Android / iOS / macOS の型の名前空間は変わりません。
+- **名前空間。** `WindowsClipboardManager` と、結果・ペイロード・ビルダーの型は `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を書き換えてください。iOS と macOS の型の名前空間は変わりません。Android の型は 1.13.0 で `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました（[1.13.0 での変更](#1130-での変更)を見てください）。
 
 | 場面 | 1.11.0 | 1.12.0 |
 | --- | --- | --- |

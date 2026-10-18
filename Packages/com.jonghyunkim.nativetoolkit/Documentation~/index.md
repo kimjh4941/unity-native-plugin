@@ -4,7 +4,7 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
-- Editor windows help integrate native libraries and Gradle/Xcode settings, streamlining post-build project setup.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
 
 # Version
 
@@ -92,10 +92,6 @@
   - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "Android Profile" -> Export.
-  - Tools -> Native Toolkit -> Android -> Configure Gradle Project.
-    <img src="images/editor/ConfigureGradleProject.png" alt="ConfigureGradleProject" width="720" />
-  - Click "Browse" and select the exported Android project.
-  - Click "Run: Add Kotlin Dependencies" to add Kotlin libraries.
   - Install the sample app from Android Studio.
     - <a href="https://developer.android.com/studio" target="_blank" rel="noopener noreferrer">Reference</a>
 
@@ -143,7 +139,7 @@
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -204,7 +200,7 @@ private void OnDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -268,7 +264,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -337,7 +333,7 @@ private void OnSingleChoiceItemDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -406,7 +402,7 @@ private void OnMultiChoiceItemDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 
@@ -478,7 +474,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // Guard: Android (Player) only. Avoid native calls in the Editor.
 #if UNITY_ANDROID && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;
 #endif
 ```
 

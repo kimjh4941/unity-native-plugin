@@ -15,7 +15,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard
     /// instead of JSON. Kept because it is public.
     /// </para>
     /// <para>
-    /// Hand-written rather than JsonUtility, matching AndroidClipboardJsonBuilder: the native side
+    /// Hand-written rather than JsonUtility, as the 1.x Android builder was: the native side
     /// parses these with the WinRT JSON parser, which rejects a trailing comma or an unescaped
     /// control character, so the escaping has to be explicit.
     /// </para>

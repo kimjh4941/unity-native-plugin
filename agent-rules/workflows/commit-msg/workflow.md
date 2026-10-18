@@ -22,6 +22,7 @@
    **英語の場合（デフォルト）:**
    - 1行目：`<type>(<scope>): <subject>` 形式
      - type: `feat` / `fix` / `docs` / `refactor` / `chore` など
+     - 利用者のコードを壊す変更（公開型の改名・削除、名前空間の移動、同梱物の削除など）は、`<type>(<scope>)!: <subject>` のように `!` を付ける。リリースノートの Breaking Changes を出す条件になる（`release/workflow.md` のステップ4）
      - subject: 命令形（Add ..., Fix ..., Update ... など）
    - 空行を挟み、変更の詳細を `- ` の箇条書きで書く。段落の文章にしない
    - 絵文字は使用しない

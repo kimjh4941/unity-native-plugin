@@ -1,0 +1,41 @@
+# Which native-toolkit artifacts this folder holds, and where they came from.
+#
+# PreBuildProcessor READS the keys below from this file. It does not scan dist
+# and guess. If a required key is missing, or an artifact it names is not in
+# dist, the build FAILS rather than copying something else. Every other .aar in
+# this folder is deleted by the build.
+#
+# Change these keys in the same commit as the AARs. The point is that the
+# binaries in this folder and the lines that name them move together.
+#
+# dist_version        the folder under native-toolkit/dist to copy from (required)
+# aars                the AARs to copy from it, comma-separated full file names
+#                     (required). 2.0.0 needs both the Kotlin API and the C ABI
+#                     (android-native-toolkit-capi), which runs on the Kotlin API.
+#
+# One key is NOT read by the build:
+#
+# verified_native_toolkit_commit
+#                     the native-toolkit commit the last full verification
+#                     (scripts/verify_unity_android.sh --as-package-user) ran
+#                     against, with dist/<dist_version>/android unchanged. The
+#                     release checklist compares the AARs and .module files
+#                     between it and the tag <dist_version>
+#                     (agent-rules/workflows/release/workflow.md, step 3).
+#                     Rewrite it whenever that verification is run again.
+#
+# The runtime dependencies of these AARs are not in the AARs. They are listed in
+# Editor/Android/AndroidGradleDependencies.cs and must match the .module files
+# in dist/<dist_version>/android/m2 (an EditMode test compares them).
+#
+# While the four Android features moved to the 2.0.0 C ABI one at a time, a
+# second (extra_*) pin placed the 1.x Kotlin library and Unity bridge beside
+# these (artifact/topics/android-c-abi-2). It was removed once Notification, the
+# last, had moved (stage 4, 2026-10-17).
+
+# The 2.0.0 Kotlin API and C ABI.
+dist_version: 1.13.0
+aars: android-native-toolkit-2.0.0.aar, android-native-toolkit-capi-2.0.0.aar
+
+# The last full verification (stage 4, 2026-10-17).
+verified_native_toolkit_commit: a7684deeea419ecaa5b7c7f7c8a0cf4e447a0f73
