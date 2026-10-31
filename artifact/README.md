@@ -64,6 +64,7 @@ native-toolkit の artifact も同じ形（2026-09-29、`feature/NTKIT-16` の `
 | [dispatcher-runs-under-lock](topics/dispatcher-runs-under-lock/README.md) | 契約 | 未着手 | 2026-10-11 | `UnityMainThreadDispatcher` がロックを持ったまま購読者の処理を走らせ、ネイティブのコールバックのスレッドを待たせる。Android の C ABI の受け口は使わずに避けた |
 | [android-c-abi-2](topics/android-c-abi-2/README.md) | 移行 | 進行中 | 2026-10-18 | Android の下の層が native-toolkit の C ABI 2.0.0（`libntk.so`）に置き換わる。**4 機能とも移行済み（段 3）**。段 4 で 1.x の AAR を外し、使われなくなった Share・Clipboard の JSON ビルダーを消し、接頭辞の無い 37 型を改名した（`[MovedFrom]` 付き）。マニュアルの版 1.13.0 も書いた。native-toolkit のタグ 1.13.0 が打たれ、1.13.0 のリリースの途中（PR #31） |
 | [windows-version-meta](topics/windows-version-meta/README.md) | 同梱物 | 未着手 | 2026-10-18 | `Plugins/Windows/VERSION.txt.meta` が `.gitignore` で除外されていて、リポジトリに無い（Android の `VERSION.txt.meta` はある）。git URL で入れたときに警告が出るかは要確認 |
+| [ios-c-abi-handoff](topics/ios-c-abi-handoff/README.md) | 移行の事前調査 | 進行中 | 2026-10-31 | native-toolkit の iOS C ABI の雛形を、本物の Unity 6000.4.2f1 と実機（iPhone XS）で確かめる申し送り。**1 回目・2 回目（U-1〜U-10）とも完了**、native-toolkit に返した。Unity の通知パッケージは転送せず delegate を上書きするので、共存には条件がある（U-4）。本体の移行（2c）ではない |
 
 | [godot-expansion](topics/godot-expansion/README.md) | 展開方針 | 未着手 | 2026-10-03 | Godot への展開は、Clipboard の完成後に需要を見て決める（2026-07-24 の決定）。Windows の Share は優先度を下げる |
 
