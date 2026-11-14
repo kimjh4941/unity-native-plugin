@@ -21,6 +21,12 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// NotDetermined and nothing is shown. Requests use the ids ntkp-&lt;n&gt;; the teardown cancels and
     /// removes them. Lists are read for the test's own ids only. Values the plan says to record are
     /// written with <see cref="Record"/>.
+    /// <para>
+    /// NTK_IOS_CABI_2_NOTIFICATION is defined when Notification itself moves to the C ABI 2.0.0 (stage 3,
+    /// the last feature; not at the 3-S switch, where Notification still runs a temporary path). Under it,
+    /// the expectations that wait for the mapping design (2c) fail with "write the 2.0.0 expectation"
+    /// instead of passing on a partial check (implementation review v1, R-2, R-3, R-10).
+    /// </para>
     /// </summary>
     [Category(IosPlayerTestSupport.Category)]
     public class IosNotificationPlayerTests
@@ -29,6 +35,16 @@ namespace JonghyunKim.NativeToolkit.Tests
         private readonly List<string> _ids = new();
         private readonly List<IosNotificationResult> _events = new();
         private Action<IosNotificationResult>? _onEvent;
+
+        private readonly List<string> _order = new();
+
+        /// <summary>On the C ABI, fails where the 2.0.0 expectation is not written yet.</summary>
+        private static void PendingOn2(string what)
+        {
+#if NTK_IOS_CABI_2_NOTIFICATION
+            Assert.Fail($"write the 2.0.0 expectation of {what} (stage 3, the Notification mapping design 2c)");
+#endif
+        }
 
         private static void Record(string what) => Debug.Log($"[NTK-NOTIFICATION-RECORD] {TestContext.CurrentContext.Test.Name} {what}");
 
@@ -49,7 +65,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             _ids.Clear();
             _events.Clear();
-            _onEvent = r => _events.Add(r);
+            _order.Clear();
+            _onEvent = r => { _events.Add(r); _order.Add("event"); };
             M.NotificationOperationCompleted += _onEvent;
         }
 
@@ -62,6 +79,9 @@ namespace JonghyunKim.NativeToolkit.Tests
                 M.CancelScheduledNotification(id);
                 M.RemoveDeliveredNotification(id);
             }
+            // The categories of NP-15 and NP-16, also when the test failed before removing them.
+            foreach (string category in new[] { "ntkp-15", "ntkp-16a", "ntkp-16b", "ntkp-16c" })
+                M.RemoveCategory(category);
             yield return WaitFor(() => false, 0.5f);
         }
 
@@ -73,17 +93,24 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static IEnumerator Await<T>(Box<T> box) => WaitFor(() => box.Count > 0);
 
-        private static Box<IosNotificationResult> Schedule(string id, string content, string trigger)
+        private Box<IosNotificationResult> Schedule(string id, string content, string trigger)
         {
             var box = new Box<IosNotificationResult>();
-            M.ScheduleNotification(content, trigger, id, r => { box.Value = r; box.Count++; });
+            M.ScheduleNotification(content, trigger, id, r => { box.Value = r; box.Count++; _order.Add("callback"); });
             return box;
         }
 
-        private static Box<IosNotificationResult> Show(string content, string? trigger = null)
+        private Box<IosNotificationResult> Show(string content, string? trigger = null)
         {
             var box = new Box<IosNotificationResult>();
-            M.ShowNotification(content, trigger, r => { box.Value = r; box.Count++; });
+            M.ShowNotification(content, trigger, r => { box.Value = r; box.Count++; _order.Add("callback"); });
+            return box;
+        }
+
+        private Box<IosNotificationResult> Callback(Action<Action<IosNotificationResult>> call)
+        {
+            var box = new Box<IosNotificationResult>();
+            call(r => { box.Value = r; box.Count++; _order.Add("callback"); });
             return box;
         }
 
@@ -103,15 +130,29 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private static bool Lists(string json, string id) => json != null && json.Contains("\"" + id + "\"");
 
+        /// <summary>A list callback came exactly once with a JSON array (else "not listed" would pass on nothing).</summary>
+        private static void RequireList(Box<string> list, string what)
+        {
+            Assert.AreEqual(1, list.Count, $"the {what} list did not come exactly once");
+            Assert.IsTrue(list.Value != null && list.Value.TrimStart().StartsWith("["), $"the {what} list is not a JSON array");
+        }
+
         private static string Describe(IosNotificationResult r) => r.IsSuccess ? "ok" : $"fail error={r.ErrorMessage ?? "<null>"}";
 
-        /// <summary>The callback came once, and the operation event came once after it (the event follows the callback in 1.x).</summary>
+        /// <summary>The callback came once, and the operation event came once after it (plan v4: the event follows the callback).</summary>
         private IEnumerator ExpectOneResultAndEvent<T>(Box<T> box)
         {
             yield return WaitFor(() => box.Count > 0);
             yield return WaitFor(() => false, 1f);
             Assert.AreEqual(1, box.Count, "the callback did not come exactly once");
             Assert.AreEqual(1, _events.Count, "the operation event did not come exactly once");
+            CollectionAssert.AreEqual(new[] { "callback", "event" }, _order, "the event must follow the callback");
+            if (box.Value is IosNotificationResult r)
+            {
+                Assert.AreEqual(r.Operation, _events[0].Operation, "the event is of another operation");
+                Assert.AreEqual(r.IsSuccess, _events[0].IsSuccess, "the event has another result");
+                Assert.AreEqual(r.ErrorMessage, _events[0].ErrorMessage, "the event has another message");
+            }
         }
 
         [UnityTest, Order(1)]
@@ -150,12 +191,12 @@ namespace JonghyunKim.NativeToolkit.Tests
                 shapes[shape] = shapes.TryGetValue(shape, out int n) ? n + 1 : 1;
             }
             Record("shapes=" + string.Join(";", shapes.Select(s => $"{s.Key}x{s.Value}")));
-#if NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
             CollectionAssert.AreEqual(new[] { "A=1,B=1" }, shapes.Keys, "one callback per request (NT-19)");
 #else
             // 1.x, measured on the simulator (2026-11-15): A=0,B=1 ten times out of ten. A=1,B=1 is possible
             // when the first completion comes before the second call (plan v4, NP-3).
-            Assert.IsTrue(shapes.Keys.All(s => s == "A=0,B=1" || s == "A=1,B=1"), string.Join(";", shapes.Keys));
+            Assert.IsTrue(shapes.Keys.All(s => s == "A=0,B=1" || s == "A=1,B=1" || s == "A=0,B=2"), string.Join(";", shapes.Keys));
 #endif
         }
 
@@ -167,9 +208,14 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"schedule={Describe(scheduled.Value)}");
             var list = Scheduled();
             yield return Await(list);
+            RequireList(list, "pending");
             Record($"in-pending={Lists(list.Value, "ntkp-4")}");
+            Assert.IsFalse(Lists(list.Value, "ntkp-4"), "nothing is pending without the permission (M2; 2.0.0 adds nothing)");
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-4 (PERMISSION_DENIED or success)");
+#else
             Assert.IsTrue(scheduled.Value.IsSuccess);
-            Assert.IsFalse(Lists(list.Value, "ntkp-4"), "1.x keeps nothing pending without the permission (M2)");
+#endif
         }
 
         [UnityTest, Order(5)]
@@ -180,8 +226,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return WaitFor(() => false, 1f);
             var delivered = Delivered();
             yield return Await(delivered);
+            RequireList(delivered, "delivered");
             Record($"show={Describe(shown.Value)} in-delivered={Lists(delivered.Value, "ntkp-5")}");
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            Assert.IsFalse(Lists(delivered.Value, "ntkp-5"), "2.0.0 adds nothing without the permission");
+            PendingOn2("NP-5 (PERMISSION_DENIED or success)");
+#else
             // 1.x (M2): the immediate request of a NotDetermined app is delivered.
             Assert.IsTrue(shown.Value.IsSuccess);
             Assert.IsTrue(Lists(delivered.Value, "ntkp-5"));
@@ -192,16 +242,20 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator NP5b_UpdateWithoutPermission()
         {
             var updated = new Box<IosNotificationResult>();
-            M.UpdateNotification(Id("ntkp-5b"), Content("ntkp-5b"), Interval(60), r => { updated.Value = r; updated.Count++; });
+            M.UpdateNotification(Id("ntkp-5b"), Content("ntkp-5b"), Interval(60), r => { updated.Value = r; updated.Count++; _order.Add("callback"); });
             yield return ExpectOneResultAndEvent(updated);
             var pending = Scheduled();
             yield return Await(pending);
+            RequireList(pending, "pending");
             var delivered = Delivered();
             yield return Await(delivered);
+            RequireList(delivered, "delivered");
             Record($"update={Describe(updated.Value)} in-pending={Lists(pending.Value, "ntkp-5b")} in-delivered={Lists(delivered.Value, "ntkp-5b")}");
             Assert.IsFalse(Lists(pending.Value, "ntkp-5b"));
             Assert.IsFalse(Lists(delivered.Value, "ntkp-5b"));
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-5b (PERMISSION_DENIED or success)");
+#else
             Assert.IsTrue(updated.Value.IsSuccess);
 #endif
         }
@@ -212,7 +266,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             var shown = Show(Content(Id("ntkp-6")), "{\"type\":\"unknown\"}");
             yield return ExpectOneResultAndEvent(shown);
             Record($"show={Describe(shown.Value)}");
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            Assert.IsFalse(shown.Value.IsSuccess, "2.0.0 rejects an unknown trigger");
+            PendingOn2("NP-6 (the INVALID_PARAMETER message)");
+#else
             Assert.IsTrue(shown.Value.IsSuccess, "1.x shows it at once");
 #endif
         }
@@ -234,10 +291,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         private IEnumerator RunCase<T>(string label, Func<Box<T>> call, Func<T, string> describe, List<string> lines)
         {
             _events.Clear();
+            _order.Clear();
             var box = call();
             yield return WaitFor(() => box.Count > 0);
             yield return WaitFor(() => false, 1f);
-            lines.Add($"{label}: {(box.Count == 1 ? describe(box.Value) : "callbacks=" + box.Count)} events={_events.Count}");
+            string order = string.Join(">", _order);
+            lines.Add($"{label}: {(box.Count == 1 ? describe(box.Value) : "callbacks=" + box.Count)} events={_events.Count}" +
+                      (order == "callback>event" ? "" : $" order={order}"));
         }
 
         private static readonly string T60 = "{\"type\":\"timeInterval\",\"interval\":60,\"repeats\":false}";
@@ -272,7 +332,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             foreach (string line in lines) Record(line);
             Assert.AreEqual(cases.Length, lines.Count(l => l.EndsWith(" events=1") && !l.Contains("callbacks=")),
                 "a case did not give one callback and one event:\n" + string.Join("\n", lines));
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-8 (INVALID_PARAMETER, a message other than the valid pairs' PERMISSION_DENIED)");
+#else
             // 1.x, measured on the simulator (2026-11-15): only the https attachment fails (M4).
             foreach (string line in lines)
             {
@@ -282,9 +344,9 @@ namespace JonghyunKim.NativeToolkit.Tests
 #endif
         }
 
-#if NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
         /// <summary>
-        /// NP-9: crashes 1.x (M5, M8), so it is compiled only with NTK_IOS_CABI_2, defined when the
+        /// NP-9: crashes 1.x (M5, M8), so it is compiled only with NTK_IOS_CABI_2_NOTIFICATION, defined when the
         /// package moves to the C ABI 2.0.0 (stage 3-S). The plan's [Explicit] would leave a not-run case
         /// in the result, which scripts/ios_player_results.py counts as not passed.
         /// </summary>
@@ -299,6 +361,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
             foreach (string line in lines) Record(line);
             Assert.IsTrue(lines.All(l => l.Contains(": fail ")), string.Join("\n", lines));
+            PendingOn2("NP-9 (INVALID_PARAMETER, not only a failure)");
         }
 #endif
 
@@ -311,7 +374,9 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return RunCase($"interval={seconds}", () => Schedule(Id("ntkp-9b"), Content("ntkp-9b"), Interval(seconds)), Describe, lines);
             foreach (string line in lines) Record(line);
             Assert.IsTrue(lines.All(l => l.Contains(": fail ") && l.EndsWith(" events=1")), string.Join("\n", lines));
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-9b (rejected in C# or INVALID_PARAMETER)");
+#else
             Assert.IsTrue(lines.All(l => l.Contains("error=Failed to parse notification content or trigger JSON ")), string.Join("\n", lines));
 #endif
         }
@@ -325,14 +390,18 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return RunCase($"count={count}", () =>
                 {
                     var set = new Box<IosNotificationResult>();
-                    M.SetBadgeCount(count, r => { set.Value = r; set.Count++; });
+                    M.SetBadgeCount(count, r => { set.Value = r; set.Count++; _order.Add("callback"); });
                     return set;
                 }, Describe, lines);
             }
             foreach (string line in lines) Record(line);
             Assert.IsTrue(lines.All(l => l.EndsWith(" events=1")), string.Join("\n", lines));
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-13 (the INVALID_PARAMETER message)");
+#else
             // 1.x, measured (2026-11-15): a negative badge already fails (the plan v4 expected success).
             CollectionAssert.AreEqual(new[] { $"count=-1: fail error={GenericError2} events=1", "count=0: ok events=1" }, lines);
+#endif
         }
 
         [UnityTest, Order(12)]
@@ -343,13 +412,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             int callbackFrame = -1;
             bool insideTheCall = true;
             M.RegisterCategory("{\"identifier\":\"ntkp-15\",\"actions\":[{\"identifier\":\"open\",\"title\":\"Open\"}]}",
-                r => { registered.Value = r; registered.Count++; callbackFrame = Time.frameCount; });
+                r => { registered.Value = r; registered.Count++; callbackFrame = Time.frameCount; _order.Add("callback"); });
             insideTheCall = registered.Count > 0;
             yield return ExpectOneResultAndEvent(registered);
             Record($"result={Describe(registered.Value)} inside-the-call={insideTheCall} frames-later={callbackFrame - frame}");
+            M.RemoveCategory("ntkp-15");
             Assert.IsTrue(registered.Value.IsSuccess);
             Assert.IsFalse(insideTheCall, "the callback came inside the call");
-            M.RemoveCategory("ntkp-15");
         }
 
         [UnityTest, Order(13)]
@@ -367,14 +436,16 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return RunCase(c.label, () =>
                 {
                     var registered = new Box<IosNotificationResult>();
-                    M.RegisterCategory(c.json, r => { registered.Value = r; registered.Count++; });
+                    M.RegisterCategory(c.json, r => { registered.Value = r; registered.Count++; _order.Add("callback"); });
                     return registered;
                 }, Describe, lines);
             }
             foreach (string line in lines) Record(line);
             foreach (var id in new[] { "ntkp-16a", "ntkp-16b", "ntkp-16c" }) M.RemoveCategory(id);
             Assert.IsTrue(lines.All(l => l.EndsWith(" events=1")), string.Join("\n", lines));
-#if !NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
+            PendingOn2("NP-16 ((a) and (b) INVALID_PARAMETER, (c) 2c)");
+#else
             Assert.IsTrue(lines.All(l => l.Contains(": ok ")), "1.x drops or keeps them and succeeds:\n" + string.Join("\n", lines));
 #endif
         }
@@ -395,10 +466,10 @@ namespace JonghyunKim.NativeToolkit.Tests
                 shapes[shape] = shapes.TryGetValue(shape, out int n) ? n + 1 : 1;
             }
             Record("shapes=" + string.Join(";", shapes.Select(s => $"{s.Key}x{s.Value}")));
-#if NTK_IOS_CABI_2
+#if NTK_IOS_CABI_2_NOTIFICATION
             CollectionAssert.AreEqual(new[] { "A=1,B=1,events=2" }, shapes.Keys);
 #else
-            Assert.IsTrue(shapes.Keys.All(s => s == "A=0,B=1,events=2" || s == "A=1,B=1,events=2"), string.Join(";", shapes.Keys));
+            Assert.IsTrue(shapes.Keys.All(s => s == "A=0,B=1,events=2" || s == "A=1,B=1,events=2" || s == "A=0,B=2,events=2"), string.Join(";", shapes.Keys));
 #endif
         }
     }

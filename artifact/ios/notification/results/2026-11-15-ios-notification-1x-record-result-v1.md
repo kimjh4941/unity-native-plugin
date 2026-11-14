@@ -29,7 +29,7 @@ Player のアプリは許可を一度も求めないので、権限は `NotDeter
 | NP-16 | `title` の無い action、空の action の id、未知の option、どれも成功 | 予想どおり |
 | NP-18 | 10 回とも A は 0 回、B は 1 回、`NotificationOperationCompleted` は 2 回 | 予想どおり |
 
-どの操作でも、受け手とイベントはちょうど 1 回ずつ来た。1.x の失敗の文言は、`NotificationError` に説明が無いので `localizedDescription` の汎用の文（`… error <番号>.`）になる。
+単独で呼んだ、操作のイベントを持つ操作（Show、Schedule、Update、SetBadgeCount、RegisterCategory）では、受け手のあとにイベントがちょうど 1 回ずつ、同じ結果で来た（続けて 2 回呼んだ NP-3・18 は表のとおり）。1.x の失敗の文言は、`NotificationError` に説明が無いので `localizedDescription` の汎用の文（`… error <番号>.`）になる。
 
 ## 2. UI のテストの記録（2026-11-15）
 

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using JonghyunKim.NativeToolkit.Runtime.Notification;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
@@ -15,7 +16,9 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
     /// <remarks>
     /// Every notification has the title <see cref="Title"/> and a body of its own (<c>ntk NU-&lt;n&gt;</c>), so the
     /// test finds exactly one banner by both. Ids start with <c>ntkh-</c>; lists are written for those ids only.
-    /// Scheduled notifications fire 5 s after the row, time for the test to go to the home screen.
+    /// Scheduled notifications fire 10 s after the row (the plan's NU-4), time for the test to go to the home
+    /// screen. The first line, <c>[abi@event] 1|2</c>, tells the test which ABI the package runs on, so the UI
+    /// tests can tell 1.x expectations from 2.0.0 ones (implementation review v1, R-8).
     /// Events: <c>[tap@event] id=… action=… userInfo=…</c> and <c>[reply@event] id=… action=… text=…</c>.
     /// </remarks>
     internal static class NotificationScenario
@@ -27,8 +30,11 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
         private static readonly Regex IdPattern = new("\"identifier\":\"(ntkh-[^\"]*)\"");
         private static readonly Regex ObjectPattern = new("\\{[^{}]*\\}");
 
+        [DllImport("__Internal")] private static extern int ntkh_abi();
+
         public static void Register()
         {
+            IosUiHarness.Append("abi", "event", ntkh_abi() == 1 ? "2" : "1");
             M.NotificationActionReceived += a =>
                 IosUiHarness.Append("tap", "event", $"id={a.NotificationId} action={a.ActionId} userInfo={UserInfo(a.UserInfo)}");
             M.NotificationTextInputActionReceived += a =>
@@ -126,6 +132,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             {
                 M.CancelAllNotifications();
                 M.RemoveAllDeliveredNotifications();
+                foreach (string category in new[] { Category, "ntkh.x", "ntkh.y" })
+                    M.RemoveCategory(category);
                 IosUiHarness.Append("cleanup", "ok", "done");
             });
         }
@@ -141,7 +149,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new TimeIntervalTriggerPayload { interval = seconds });
 
         private static void Schedule(string id, string body, string extra = "") =>
-            M.ScheduleNotification(Content(id, body, extra), Interval(5), id, r => Result("schedule", r, id));
+            M.ScheduleNotification(Content(id, body, extra), Interval(10), id, r => Result("schedule", r, id));
 
         private static void Unmeasured(string label, string content, string trigger) =>
             M.ScheduleNotification(content, trigger, "ntkh-16", r => Result("unmeasured", r, label));
@@ -167,7 +175,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
                 Match id = IdPattern.Match(o.Value);
                 if (!id.Success) continue;
                 string category = Regex.Match(o.Value, "\"categoryIdentifier\":\"([^\"]*)\"").Groups[1].Value;
-                entries.Add($"{id.Groups[1].Value}(title={o.Value.Contains("\"title\":\"" + Title + "\"")}" +
+                string title = Regex.Match(o.Value, "\"title\":\"([^\"]*)\"").Groups[1].Value;
+                entries.Add($"{id.Groups[1].Value}(title={IosUiHarness.Value(title)}" +
                             $",category={IosUiHarness.Value(category)},subtitle={o.Value.Contains("\"subtitle\"")},body={o.Value.Contains("\"body\"")})");
             }
             entries.Sort(StringComparer.Ordinal);
@@ -195,40 +204,40 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
                 IosUiHarness.Append("lists", "ok", $"step={step} pending-{Own(p)} delivered-{Own(d)}")));
             // An hour: a step of the test can take tens of seconds (scrolling to a row, reading the screen),
             // and a 60 s trigger fired between steps on the simulator (2026-11-15).
-            string Sixty() => Interval(3600);
+            string Hour() => Interval(3600);
 
             IosUiHarness.Row("l1", () =>
             {
                 M.ScheduleNotification("{\"id\":\"ntkh-a\",\"title\":\"" + Title + "\",\"subtitle\":\"s\",\"body\":\"ntk NU-11 a\",\"categoryIdentifier\":\"" + Category + "\"}",
-                    Sixty(), "ntkh-a", r => Result("l", r, "a"));
-                M.ScheduleNotification("{\"id\":\"ntkh-b\",\"title\":\"" + Title + "\",\"body\":\"ntk NU-11 b\"}", Sixty(), "ntkh-b", r => Result("l", r, "b"));
+                    Hour(), "ntkh-a", r => Result("l", r, "a"));
+                M.ScheduleNotification("{\"id\":\"ntkh-b\",\"title\":\"" + Title + "\",\"body\":\"ntk NU-11 b\"}", Hour(), "ntkh-b", r => Result("l", r, "b"));
             });
             IosUiHarness.Row("l2", () => M.UpdateNotification("ntkh-a",
-                "{\"id\":\"ntkh-a\",\"title\":\"" + Title + " 2\",\"body\":\"ntk NU-11 a\"}", Sixty(), r => Result("l", r, "update-a")));
+                "{\"id\":\"ntkh-a\",\"title\":\"" + Title + " 2\",\"body\":\"ntk NU-11 a\"}", Hour(), r => Result("l", r, "update-a")));
             IosUiHarness.Row("l2b", () => M.UpdateNotification("ntkh-b",
                 "{\"id\":\"ntkh-b\",\"title\":\"" + Title + "\",\"body\":\"ntk NU-11 b\"}", null, r => Result("l", r, "update-b-null")));
             IosUiHarness.Row("l2c", () =>
             {
                 M.RemoveDeliveredNotification("ntkh-b");
-                M.ScheduleNotification("{\"id\":\"ntkh-b\",\"title\":\"" + Title + "\",\"body\":\"ntk NU-11 b\"}", Sixty(), "ntkh-b", r => Result("l", r, "b-again"));
+                M.ScheduleNotification("{\"id\":\"ntkh-b\",\"title\":\"" + Title + "\",\"body\":\"ntk NU-11 b\"}", Hour(), "ntkh-b", r => Result("l", r, "b-again"));
             });
             IosUiHarness.Row("l3", () => { M.CancelScheduledNotification("ntkh-a"); IosUiHarness.Append("l", "ok", "cancel-a"); });
             IosUiHarness.Row("l4", () =>
             {
-                M.ScheduleNotification(Content("ntkh-c0", "ntk NU-11 c0"), Sixty(), "ntkh-c0", r => Result("l", r, "c0"));
+                M.ScheduleNotification(Content("ntkh-c0", "ntk NU-11 c0"), Hour(), "ntkh-c0", r => Result("l", r, "c0"));
             });
             IosUiHarness.Row("l4-race", () =>
             {
                 M.CancelAllScheduledNotifications();
-                M.ScheduleNotification(Content("ntkh-c", "ntk NU-11 c"), Sixty(), "ntkh-c", r => Result("l", r, "c"));
+                M.ScheduleNotification(Content("ntkh-c", "ntk NU-11 c"), Hour(), "ntkh-c", r => Result("l", r, "c"));
             });
             IosUiHarness.Row("l4-clear", () => { M.CancelAllScheduledNotifications(); IosUiHarness.Append("l", "ok", "clear"); });
-            IosUiHarness.Row("l4-c", () => M.ScheduleNotification(Content("ntkh-c", "ntk NU-11 c"), Sixty(), "ntkh-c", r => Result("l", r, "c-again")));
+            IosUiHarness.Row("l4-c", () => M.ScheduleNotification(Content("ntkh-c", "ntk NU-11 c"), Hour(), "ntkh-c", r => Result("l", r, "c-again")));
             IosUiHarness.Row("l5", () => { M.CancelNotification("ntkh-c"); IosUiHarness.Append("l", "ok", "cancel-c"); });
             IosUiHarness.Row("l5-de", () =>
             {
-                M.ScheduleNotification(Content("ntkh-d", "ntk NU-11 d"), Sixty(), "ntkh-d", r => Result("l", r, "d"));
-                M.ScheduleNotification(Content("ntkh-e", "ntk NU-11 e"), Sixty(), "ntkh-e", r => Result("l", r, "e"));
+                M.ScheduleNotification(Content("ntkh-d", "ntk NU-11 d"), Hour(), "ntkh-d", r => Result("l", r, "d"));
+                M.ScheduleNotification(Content("ntkh-e", "ntk NU-11 e"), Hour(), "ntkh-e", r => Result("l", r, "e"));
             });
             IosUiHarness.Row("l5-all", () => { M.CancelAllNotifications(); IosUiHarness.Append("l", "ok", "cancel-all"); });
             IosUiHarness.Row("l6-fg", () =>
