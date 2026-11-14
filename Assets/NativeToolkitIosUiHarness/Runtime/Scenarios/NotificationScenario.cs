@@ -1,6 +1,7 @@
 #nullable enable
 
 using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
 {

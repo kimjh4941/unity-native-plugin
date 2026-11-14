@@ -1,6 +1,6 @@
 #nullable enable
 
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
 {

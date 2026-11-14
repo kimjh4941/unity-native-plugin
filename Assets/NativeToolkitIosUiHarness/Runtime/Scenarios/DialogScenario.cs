@@ -1,6 +1,6 @@
 #nullable enable
 
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
 {

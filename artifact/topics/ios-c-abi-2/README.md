@@ -88,7 +88,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 | 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
 | 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 完了（6.3） |
 | 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。**(A) Player のテストを実装した**（[results/2026-11-14-ios-stage2a-player-tests-result-v1.md](results/2026-11-14-ios-stage2a-player-tests-result-v1.md)。`scripts/verify_unity_ios.sh`。1.x の Player の基準は 4 件成功）。**(B) UI の自動化も実装した**（[results/2026-11-14-ios-stage2b-ui-automation-result-v1.md](results/2026-11-14-ios-stage2b-ui-automation-result-v1.md)。`scripts/test_ios_ui.sh`。1.x のまま、シミュレーターで 4 件成功）。残りは実機（承認を得て） |
-| 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 未着手 |
+| 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 完了（6.5） |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 未着手 |
 | 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
 | 3 | 機能ごとに: 写し方の設計 → レビュー → 実装 → 実機で 1.x と比べる → 実装のレビュー。Dialog → Share → Clipboard → Notification | 未着手 |
@@ -193,3 +193,14 @@ iOS の EditMode の内訳（1.x の 212 件）:
 - Unity は実行の中で `.vscode/settings.json` とプロジェクト名の `.slnx` も書き換える（3.4 の戻しの範囲に足す）
 - `Test iOS Profile` の Player Settings の bundle id は `unity.ios.plugin.UnityIosPluginExample`。1.x の `Test iOS Profile` の書き出しには Embed が無い（レビュー v2 の N-9 のとおり）
 - 時間（Xcode 26.3、2 つの組み立てを並べたとき）: Unity の書き出し 1〜2 分、Player の組み立て 4〜7 分、UI テスト 1 件 10〜25 秒
+
+### 6.5 段 3-0（iOS の型を `Runtime/iOS/<Feature>/` に移す）の結果（2026-11-14）
+
+設計書 v4 の I-10 のとおりに行った（利用者の指示「判断は推奨案でいい」の間に、設計で決まっていた作業として進めた）。
+
+- iOS の 4 機能の 27 ファイルを `.meta` ごと（GUID を保って）`Runtime/iOS/{Clipboard,Dialog,Notification,Share}/` に移し、名前空間を `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>` にした。公開の型 51 個に `[MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.<Feature>")]` を付けた。型の名前と振る舞いは変えていない
+- 接頭辞の無い 5 型（`NotificationContentPayload`、`NotificationAttachmentPayload`、`TimeIntervalTriggerPayload`、`CalendarTriggerPayload`、`LocationTriggerPayload`）は `IosNotificationPayloads.cs` から `Runtime/Notification/NotificationPayloads.cs` に分け、今の名前空間に残した（macOS も使う。段 4 で iOS 用の型を作る）。iOS の通知の型は、この 5 型を使うところで旧い名前空間も `using` する
+- `using` を直したのは 26 ファイル（サンプルの iOS のコントローラーと状態、`Assets/Scripts` のサンプルのテスト、EditMode と PlayMode の iOS のテスト、段 2 の UI のハーネス）。macOS のファイルは 5 型だけを使うので、変えていない
+- 確かめ（このリポジトリ、`iOS Profile`）: `scripts/verify_unity_ios.sh` で EditMode 1419 件中 1418 件成功（Windows だけの skip 1）、Editor の PlayMode 300 件成功、iOS の Player（IL2CPP まで組み、`#if UNITY_IOS && !UNITY_EDITOR` の中もコンパイルされる）4 件成功。`scripts/test_ios_ui.sh` で UI のテスト 4 件成功。どれも移す前と同じ
+- 残り: マニュアル（`manual/`、`docs/`）と `Documentation~` のコード例の `using` は旧い名前空間のまま（段 4 のマニュアルで直す）。移行ガイドに「iOS の型の名前空間が `...Runtime.iOS.<Feature>` に変わった（`[MovedFrom]` つき）」を書く。git の URL で入れた形での確かめは I-17 のとおり 3-S と 4 で行う
+

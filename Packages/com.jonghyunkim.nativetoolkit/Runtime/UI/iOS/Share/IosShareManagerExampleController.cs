@@ -3,7 +3,7 @@
 #if UNITY_IOS || UNITY_EDITOR
 using System;
 using System.IO;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 using UnityEngine;
 using UnityEngine.UIElements;
 

@@ -1,6 +1,6 @@
 #nullable enable
 
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
 {

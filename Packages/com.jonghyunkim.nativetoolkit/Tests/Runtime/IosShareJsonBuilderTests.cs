@@ -1,7 +1,7 @@
 #nullable enable
 
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

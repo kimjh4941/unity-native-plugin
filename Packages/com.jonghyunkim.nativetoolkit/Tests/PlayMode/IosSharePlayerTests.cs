@@ -5,7 +5,7 @@
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine.TestTools;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 using static JonghyunKim.NativeToolkit.Tests.IosPlayerTestSupport;
 
 namespace JonghyunKim.NativeToolkit.Tests

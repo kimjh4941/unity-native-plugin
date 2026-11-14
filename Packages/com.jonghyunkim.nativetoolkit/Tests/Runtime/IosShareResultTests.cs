@@ -2,7 +2,7 @@
 
 #if UNITY_IOS || UNITY_EDITOR
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
