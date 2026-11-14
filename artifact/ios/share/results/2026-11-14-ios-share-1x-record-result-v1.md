@@ -5,7 +5,7 @@
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3-R
 - 対象: 1.x（`Plugins/iOS/VERSION.txt` の dist 1.13.0、`ios-native-toolkit-1.3.0` と `unity-ios-native-toolkit-1.3.0`）
 - 実行: `scripts/test_ios_ui.sh`（`iOS Profile`、Xcode 26.3、iPhone 16 / iOS 18.3 のシミュレーター、Simulator.app は開かない）。テストは `Tools~/IosUiTests/NtkUiTests/ShareUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/ShareScenario.cs`
-- 実機: まだ流していない（利用者の許可を得てから。`scripts/test_ios_ui.sh --device --dry-run` の一覧を見せる）
+- 実機: 2026-11-14 に iPhone XS（iOS 18.7.2）で記録した（5 章。シミュレーターだけの SH-6〜8、14、15、17、18 は流していない）
 
 ## 1. シミュレーターの記録（2026-11-14）
 
@@ -58,5 +58,15 @@
 
 ## 4. 残っていること
 
-- 実機での記録（SH-1〜5、9〜13、16。許可を得てから）
 - 実装のレビュー（サブエージェントと Codex）
+
+## 5. 実機の記録
+
+2026-11-14 23:39〜（iPhone XS / iOS 18.7.2）。利用者の指示（「実機も使っていいので、自動で進めて」）に従い、`--dry-run` の 4 点（何を流すか、端末に起きること、準備、時間）と承認 ID を会話に書いてから流した。端末の識別子、ログと結果の束は残していない（ランナーが一時フォルダーごと消す）。
+
+| ID | 結果 |
+|---|---|
+| SH-1〜5、9〜13、16（UI、11 件） | すべて成功（シミュレーターと同じ結果の行。失敗の項目ではシートが出ない。SH-13 も 1 つの呼び出しの結果が失われる形で同じ） |
+| SH-20〜25（Player、6 件） | すべて成功 |
+
+Player のテストの最初の実機の回（23:14）は、600 秒たっても結果が来ずに止まった。Player が development ビルドで、入れ直すたびにローカルネットワークの許可のダイアログが出て、答える人がいないまま Unity が止まった見込み。ハーネスと同じく development でないビルドにし（`6dcd7d5`）、流し直して成功した。

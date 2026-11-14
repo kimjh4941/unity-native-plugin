@@ -5,7 +5,7 @@
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3-R
 - 対象: 1.x（`Plugins/iOS/VERSION.txt` の dist 1.13.0、`ios-native-toolkit-1.3.0` と `unity-ios-native-toolkit-1.3.0`）
 - 実行: `scripts/verify_unity_ios.sh --skip-editmode`（iOS の Player だけ、iPhone 16 / iOS 18.3 のシミュレーター、Xcode 26.3）。テストは `Tests/PlayMode/IosClipboardPlayerTests.cs`（35 件。名前付きの pasteboard だけ）
-- UI のテスト（CB-1〜5）は `scripts/test_ios_ui.sh`（同じシミュレーター）。テストは `Tools~/IosUiTests/NtkUiTests/ClipboardUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/ClipboardScenario.cs` と `NativeSource~/NtkUiHarnessOverlay.mm`。実機はまだ
+- UI のテスト（CB-1〜5）は `scripts/test_ios_ui.sh`（同じシミュレーター）。テストは `Tools~/IosUiTests/NtkUiTests/ClipboardUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/ClipboardScenario.cs` と `NativeSource~/NtkUiHarnessOverlay.mm`。実機は 2026-11-14 に記録した（5 章）
 
 ## 1. Player のテストの記録（2026-11-14）
 
@@ -64,4 +64,12 @@ CB-1〜4 は、UI テストのランナーが一般の pasteboard に書き、�
 
 ## 4. 残っていること
 
-- 実機での記録（Player のテストは名前付きの pasteboard だけなので、`PlayerTests/IosPlayer` の承認で流せる。許可を得てから）
+## 5. 実機の記録
+
+2026-11-14 23:39〜（iPhone XS / iOS 18.7.2）。利用者の指示（「実機も使っていいので、自動で進めて」）に従い、`--dry-run` の 4 点（何を流すか、端末に起きること、準備、時間）と承認 ID を会話に書いてから流した。端末の識別子、ログと結果の束は残していない（ランナーが一時フォルダーごと消す）。
+
+| ID | 結果 |
+|---|---|
+| CP-1〜35（Player、35 件。名前付きの pasteboard だけ） | すべて成功（シミュレーターと同じ実測。検出は URL の項目に効かない、1 回の Copy で変化が 2 回、も同じ） |
+| CB-5（UI） | 成功（`terminated=True abi=none late-change=0 native-listener=none`） |
+| CB-1〜4 | 流していない（一般の pasteboard を読み書きする。シミュレーターだけ） |
