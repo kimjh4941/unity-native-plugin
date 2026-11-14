@@ -8,7 +8,8 @@
 #   XCFramework binaries they copy), leaving alone anything that had changes before the run.
 #
 # The caller sets PROJECT_DIR and KEEP_CHANGES, calls record_side_effects_baseline once before the
-# first step, and calls stop_running_step from its EXIT trap before restoring.
+# first step, wraps each Unity step in begin_unity_step / end_unity_step, and calls stop_running_step
+# and then restore_after_interrupted_unity_step from its EXIT trap.
 
 SIDE_EFFECT_PATHS=(
   "Assets/Settings"
@@ -44,8 +45,26 @@ record_side_effects_baseline() {
   CHANGED_BEFORE="$(changed_paths)"
 }
 
-# Safe to call more than once: after a Unity step (so later steps start from a clean tree) and at the
-# end, or from the EXIT trap.
+# A Unity step is marked while it runs and until its changes are put back: begin_unity_step before it,
+# end_unity_step after it (which restores). The end of a run and the EXIT trap restore only while a step is
+# marked (stopped in the middle), so files a person edits while a run waits or tests are not put back
+# (keep-installed design v4, section 4; Codex KI-01).
+UNITY_STEP_ACTIVE=0
+begin_unity_step() {
+  UNITY_STEP_ACTIVE=1
+}
+end_unity_step() {
+  restore_side_effects
+  UNITY_STEP_ACTIVE=0
+}
+restore_after_interrupted_unity_step() {
+  [ "$UNITY_STEP_ACTIVE" -eq 1 ] || return 0
+  restore_side_effects
+  UNITY_STEP_ACTIVE=0
+}
+
+# Puts back what the Unity steps changed since the baseline. Called through end_unity_step and
+# restore_after_interrupted_unity_step.
 restore_side_effects() {
   [ "${KEEP_CHANGES:-0}" -eq 1 ] && return
   while IFS=$'\t' read -r status path; do

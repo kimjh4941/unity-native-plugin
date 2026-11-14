@@ -210,22 +210,27 @@ CLEANED_UP=0
 # main flow does this before printing the result, so a run that leaves the player behind fails. Only
 # what this run installed, as the approval lists it (see scripts/test_ios_ui.sh). The EXIT trap does it
 # again only when the main flow did not get there.
+# CLEANED_UP is set only once the player is confirmed gone: a signal in the middle leaves it unset, so
+# the EXIT trap tries again (keep-installed design v4, section 4; Codex KI-02).
 clean_up_player() {
-  CLEANED_UP=1
   if [ "$DEVICE_MODE" -eq 1 ]; then
-    [ "$DEVICE_TOUCHED" -eq 1 ] || return 0
-    remove_from_device "$PLAYER_ID"
-    return $?
+    if [ "$DEVICE_TOUCHED" -eq 1 ]; then
+      remove_from_device "$PLAYER_ID" || return 1
+    fi
+    CLEANED_UP=1
+    return 0
   fi
   # Nothing to remove when this run never installed the player (for example, its build failed); a
   # player left by an earlier run is removed before the install. Once installed, the player must be
   # confirmed gone: a failed query is a failure, not "not installed".
-  [ "$SIM_INSTALLED" -eq 1 ] || return 0
-  xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-  xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-  local listed
-  listed=$(xcrun simctl listapps "$SIM_ID" 2>/dev/null) || return 1
-  ! grep -qF "$PLAYER_ID" <<<"$listed"
+  if [ "$SIM_INSTALLED" -eq 1 ]; then
+    xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+    xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+    local listed
+    listed=$(xcrun simctl listapps "$SIM_ID" 2>/dev/null) || return 1
+    grep -qF "$PLAYER_ID" <<<"$listed" && return 1
+  fi
+  CLEANED_UP=1
 }
 on_exit() {
   trap '' INT TERM HUP
@@ -238,7 +243,7 @@ on_exit() {
   if [ "$SIM_BOOTED_BY_US" -eq 1 ]; then
     xcrun simctl shutdown "$SIM_ID" >/dev/null 2>&1
   fi
-  restore_side_effects
+  restore_after_interrupted_unity_step
   if [ "$DEVICE_MODE" -eq 1 ]; then
     rm -rf "$OUT_DIR"
   fi
@@ -257,11 +262,13 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 if [ "$SKIP_EDITMODE" -eq 0 ]; then
+  # The two Editor runs are one Unity step: nothing is put back between them.
+  begin_unity_step
   echo "EditMode:"
   run_editor_tests editmode EditMode
   echo "PlayMode (Editor):"
   run_editor_tests playmode-editor PlayMode
-  restore_side_effects
+  end_unity_step
 fi
 
 # The iOS player on the simulator or the device. Returns non-zero at the first step that fails.
@@ -272,12 +279,13 @@ run_player_tests() {
   local build_log="$OUT_DIR/ios-player-build.log" derived="$OUT_DIR/ios-player-dd"
   rm -rf "$export_dir" "$export_log" "$build_log" "$derived" "$OUT_DIR/ios-player.xml"
 
+  begin_unity_step
   run_limited export 1800 600 "$export_log" "$OUT_DIR/ios-player-export.console.log" \
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" -activeBuildProfile "$PROFILE" \
     -runTests -testPlatform iOS -testCategory "$CATEGORY" -doNotReportTestResultsBackToEditor \
     -ntkIosPlayerSdk "$sdk" -ntkIosPlayerOut "$export_dir" \
     -testResults "$OUT_DIR/ios-player-export-editor.xml" -logFile "$export_log"
-  restore_side_effects
+  end_unity_step
   grep -n "error CS" "$export_log" 2>/dev/null | sort -u -t: -k2 | head -5
   if ! grep -q '^Build Finished, Result: Success' "$export_log"; then
     echo "  export: Unity did not finish the player build (see $export_log)"
@@ -427,7 +435,7 @@ if ! clean_up_player; then
   failures=$((failures + 1))
 fi
 
-restore_side_effects
+restore_after_interrupted_unity_step
 [ "$DEVICE_MODE" -eq 0 ] && echo "Logs and results: $OUT_DIR"
 if [ "$failures" -ne 0 ]; then
   echo "FAILED: $failures run(s) did not pass"

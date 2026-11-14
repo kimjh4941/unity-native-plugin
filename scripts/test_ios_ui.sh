@@ -199,14 +199,18 @@ CLEANED_UP=0
 # Removes what the run installed. On a device it reads back that each app is gone and returns 1 when
 # one is not; the main flow does this before printing the result, so a run that leaves an app behind
 # fails. The EXIT trap does it again only when the main flow did not get there.
+# CLEANED_UP is set only once every app is removed (and, on a device, read back as gone): a signal in the
+# middle leaves it unset, so the EXIT trap removes the rest (keep-installed design v4, section 4; Codex KI-02).
 clean_up_apps() {
-  CLEANED_UP=1
   if [ "$DEVICE_MODE" -eq 1 ]; then
-    [ "$DEVICE_TOUCHED" -eq 1 ] || return 0
-    remove_from_device "${INSTALLED_IDS[@]}"
-    return $?
+    if [ "$DEVICE_TOUCHED" -eq 1 ]; then
+      remove_from_device "${INSTALLED_IDS[@]}" || return 1
+    fi
+    CLEANED_UP=1
+    return 0
   fi
   for id in "${INSTALLED_IDS[@]}"; do remove_app "$id"; done
+  CLEANED_UP=1
 }
 on_exit() {
   trap '' INT TERM HUP
@@ -217,7 +221,7 @@ on_exit() {
   if [ "$SIM_BOOTED_BY_US" -eq 1 ]; then
     xcrun simctl shutdown "$SIM_ID" >/dev/null 2>&1
   fi
-  restore_side_effects
+  restore_after_interrupted_unity_step
   if [ "$DEVICE_MODE" -eq 1 ]; then
     rm -rf "$OUT_DIR"
   fi
@@ -243,12 +247,13 @@ build_all() {
   local export_dir="$OUT_DIR/harness-xcode" export_log="$OUT_DIR/harness-export.log"
   rm -rf "$export_dir" "$export_log" "$OUT_DIR/harness-dd" "$OUT_DIR/uitests-dd"
   echo "Harness export ($SDK):"
+  begin_unity_step
   run_limited export 1800 600 "$export_log" "$OUT_DIR/harness-export.console.log" \
     "$UNITY_EXE" -batchmode -nographics -projectPath "$PROJECT_DIR" -activeBuildProfile "$PROFILE" -buildTarget iOS \
     -executeMethod JonghyunKim.NativeToolkit.IosUiHarness.Editor.IosUiHarnessBuild.Export \
     -ntkHarnessSdk "$SDK" -ntkHarnessOut "$export_dir" -logFile "$export_log"
   local code=$?
-  restore_side_effects
+  end_unity_step
   if [ "$code" -ne 0 ] || ! grep -q '\[NTK-UI-HARNESS-BUILD\] result=Succeeded' "$export_log"; then
     echo "  export: failed (Unity exited $code; see $export_log)"
     grep -n "error CS" "$export_log" 2>/dev/null | sort -u -t: -k2 | head -5
