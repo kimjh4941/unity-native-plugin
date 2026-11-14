@@ -4,7 +4,7 @@
 - 分類: 横断課題（移行）。**機能追加ではない。** clipboard / dialog / notification / share の 4 機能と、iOS のビルドの処理にまたがる
 - 発見経緯: native-toolkit の段階 2c の申し送り（`artifact/topics/ios-c-abi/results/2026-11-07-ios-c-abi-stage2c-handoff.md`、2026-11-14 改訂）。iOS 2.0.0 で Unity 向けのブリッジ（`unity-ios-native-toolkit-*.xcframework`、`UnityIosPlugin`）を廃し、汎用の C ABI（`ios-native-toolkit-capi-2.0.0.xcframework`、`IosLibraryCApi.framework`）にした。配布物は native-toolkit の `dist/1.14.0/ios`（`3aeeaf3c`）
 - 対応方針: 各 Manager の公開 API を保ち、下の層（ブリッジの 43 関数と JSON）だけを C ABI（`ntk_*`、134 関数）の P/Invoke に置き換える。進め方は [android-c-abi-2](../android-c-abi-2/README.md) に倣うが、**4 機能を一度に切り替える**（1.x と 2.0.0 の `IosLibrary.framework` は同じ名前で、同じアプリに入れられない。native-toolkit の README D-12、D-20）
-- 進捗: **段 1（スパイク）まで済み、段 2 の仕組みの設計を決めた（2026-11-14）。次は段 2 のスパイク。** 段 0（移す前の基準）は済み（6.1）。段 1 の結果で I-1 を決めた（Embed は `PluginImporter`、口は `.mm` だけ。6.3）。進め方は設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md)（v1〜v3 とレビュー 2 回の後、利用者の判断を書き込んだ版）。**Android の移行とほぼ同じ方針**。レビュー v1 で見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
+- 進捗: **段 1（スパイク）まで済み、段 2 の仕組みの設計を決め、スパイクも済んだ（2026-11-14）。次は段 2 の実装。** 段 0（移す前の基準）は済み（6.1）。段 1 の結果で I-1 を決めた（Embed は `PluginImporter`、口は `.mm` だけ。6.3）。進め方は設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md)（v1〜v3 とレビュー 2 回の後、利用者の判断を書き込んだ版）。**Android の移行とほぼ同じ方針**。レビュー v1 で見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
 - **2c の成功が、native-toolkit の次のリリース（iOS 2.0.0）の条件**。native-toolkit は 2c が終わるまで出さない
 - 対象: `Runtime/{Clipboard,Dialog,Notification,Share}/Ios*.cs`、`Runtime/UI/iOS/`、`Editor/Build/`（`PreBuildProcessor`、`PostBuildProcessor`、`Tools/iOS/`）、`Editor/iOS/`、`Plugins/iOS/`、対応するテストとサンプル
 - ブランチ: `feature/UNT-14`（利用者の指示。1a の下調べと、dist/1.14.0 の前の固定 `95905d1` と同じブランチ）
@@ -87,7 +87,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 |---|---|---|
 | 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
 | 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 完了（6.3） |
-| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。次はスパイク（設計の 7 章の V-1〜V-8） |
+| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。次は (A)・(B) の実装 |
 | 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 未着手 |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 未着手 |
 | 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
@@ -168,3 +168,28 @@ iOS の EditMode の内訳（1.x の 212 件）:
 - **I-1: Embed は `PluginImporter` の `AddToEmbeddedBinaries` で行う**（S-2）。口（`IosXcodeProjectSetup`）が足すのは `.mm` だけ。`UserNotifications.framework` は足さない（S-7）。口は、Embed とリンクが入っているかを確かめ、無ければ分かりやすい文言で止める。メニュー「Configure Xcode Project」は、Unity がリンクと Embed をするので要らなくなる（段 4 で消し、移行ガイドに書く）
 - **I-2: そのまま**（S-4・S-5）。Build Profile の Scripting Defines は足すだけなので、Player Settings に入れた定義を Profile で外すことはできない、とマニュアルに書く
 - **I-16: そのまま**（S-8）。18.0 未満では黙って終わるので、ビルドで止める確かめは要る
+
+### 6.4 段 2 のスパイクの結果（2026-11-14）
+
+[設計書 v4](designs/2026-11-14-ios-ui-automation-design-v4.md) の 7 章の V-1〜V-8 を、コミットしない写し（このリポジトリの作業木を写し、Library は APFS の複製）で確かめた。Unity 6000.4.2f1、Test Framework 1.6、Xcode 26.3、iPhone 16 / iOS 18.3 のシミュレーター。Simulator.app は開かず、終わった後にシミュレーターを止めた。ビルドの処理（`iOS Profile`）は `NATIVE_TOOLKIT_DIST_ROOT` で native-toolkit の dist を読ませた。実機は使っていない。
+
+| # | 結果 | 分かったこと |
+|---|---|---|
+| V-1 | **通った** | 公式の「split build and run」の形（`-runTests -testPlatform iOS` に、アセンブリ単位の `[assembly: TestPlayerBuildModifier]` と `[assembly: PostBuildCleanup]`）で、`AutoRunPlayer`・`ConnectToHost`・`WaitForPlayerConnection` を外し、出力先を替えると、Xcode のプロジェクトに書き出すだけで終わる。Simulator.app も Xcode も開かない。`PlayerLauncherTestRunSettings`（internal）は使わない。cleanup の中で `EditorApplication.Exit` を呼ぶと、Test Framework がテストのシーン（`Assets/InitTestScene*.unity`）を消す前に終わり、ファイルが残る（3.4 の戻しが拾う） |
+| V-2 | **通った（1 の方法）** | modifier の中で `PlayerSettings.iOS.sdkVersion` と `simulatorSdkArchitecture` を替えると、`iOS Profile`・`Test iOS Profile` のどちらが Player Settings を上書きしていても、書き出したプロジェクトは `SUPPORTED_PLATFORMS = iphonesimulator`、`ARCHS = arm64` になった。cleanup で戻した後、`ProjectSettings` と Build Profiles に差分は残らない |
+| V-3 | **通った** | bundle id も modifier（とハーネスの書き出し）の中の `PlayerSettings.SetApplicationIdentifier` で替わる（`com.jonghyunkim.nativetoolkit.playertests`・`...uiharness`）。書き出した後に `PBXProject` で替える必要は無い。表示名は `PlistDocument` で替えた |
+| V-4 | **起動の引数は届かない。環境変数は届く** | iOS の Player の `Environment.GetCommandLineArgs()` は空（`simctl launch` の引数も、XCUITest の `launchArguments` も）。`simctl` の `SIMCTL_CHILD_<名前>` と XCUITest の `launchEnvironment` で渡した環境変数は、`Environment.GetEnvironmentVariable` で読めた。**(A) の run と (B) のシナリオは環境変数（`NTK_RUN`・`NTK_SCENARIO`）で渡す** |
+| V-5 | **通った** | Player で `TestRunCallback` が呼ばれ、`persistentDataPath`（`Documents/`）に書いた XML と `done` を `simctl get_app_container ... data` で読めた。書き出し中のテストのシーンの `RemoteTestResultSender` は 0（同じシーンの `PlayModeRunnerCallback` は 1 で、読めていることの対照）。Player は**テストの後も動き続ける**（レビュー v1 の R-2 のとおり）ので、ランナーが `simctl terminate` する。XML の根は `test-suite`（R-8） |
+| V-6 | **通った** | `UnityGetGLViewController().view` に重ねた `UIScrollView` の `UIButton`（`row.<id>.run`）と `UILabel`（`result.line.<n>`）は XCUITest から identifier で見え、押すと C# の `[MonoPInvokeCallback]` に届く |
+| V-7 | **シミュレーターで通った**（実機は段 2 の 4） | 手で書いた最小の Xcode のプロジェクト（空のホストと UI テストの 2 つのターゲット、共有のスキーム）が `build-for-testing` と `test-without-building -only-testing:` で組めて、先に `simctl install` したハーネスを bundle id で起動して押せた |
+| V-8 | **通った** | 1.x のまま、`iOS Profile` で書き出したハーネスで、4 つのシナリオがすべて通った: Dialog（アラートの OK → `[confirm@ok] OK`）、Share（シートを見つけて閉じる → `completed=False`）、Notification（springboard の許可のダイアログで許可 → 5 秒後の通知を予約 → ホームに戻してバナーを押す → `[tap@event] ... DefaultActionIdentifier`）、Clipboard（名前付きの pasteboard の往復 → `items=1 match=True`） |
+
+スパイクで分かった、ほかのこと:
+
+- **今の iOS の PlayMode のテスト 2 つ（Clipboard 31 件、Share 5 件）は、iOS の Player のコンパイルで止まる**（Editor だけの口 `ResetForTests` など）。設計書 3.3 のとおり `#if UNITY_EDITOR` にすると組めた
+- asmdef に `optionalUnityReferences: ["TestAssemblies"]` と、Test Runner のアセンブリの明示の参照を両方書くと「duplicate references」でコンパイルが止まる。既存の PlayMode の asmdef と同じく、明示の参照は書かない
+- ハーネスの定義（`NTK_UI_HARNESS`）は `BuildPlayerOptions.extraScriptingDefines` で渡すと、定義の制約つきの asmdef が Player に入った（レビュー v2 の R2-4 の代わりの案が通った）。コントローラーは `[RuntimeInitializeOnLoadMethod]` で作り、シーンから参照しない
+- `iOS Profile` のビルドの処理（`PreBuildProcessor`）は dist から xcframework を写すとき、実行の印を落とす（`100755` → `100644`。中身は同じ）。git の作業木が汚れるので、4.6 の照らし直しで止まる。写すときに mode を保つか、3.4 の戻しの範囲に `Plugins/iOS` を足す
+- Unity は実行の中で `.vscode/settings.json` とプロジェクト名の `.slnx` も書き換える（3.4 の戻しの範囲に足す）
+- `Test iOS Profile` の Player Settings の bundle id は `unity.ios.plugin.UnityIosPluginExample`。1.x の `Test iOS Profile` の書き出しには Embed が無い（レビュー v2 の N-9 のとおり）
+- 時間（Xcode 26.3、2 つの組み立てを並べたとき）: Unity の書き出し 1〜2 分、Player の組み立て 4〜7 分、UI テスト 1 件 10〜25 秒
