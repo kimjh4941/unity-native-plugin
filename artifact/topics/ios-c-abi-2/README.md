@@ -4,7 +4,7 @@
 - 分類: 横断課題（移行）。**機能追加ではない。** clipboard / dialog / notification / share の 4 機能と、iOS のビルドの処理にまたがる
 - 発見経緯: native-toolkit の段階 2c の申し送り（`artifact/topics/ios-c-abi/results/2026-11-07-ios-c-abi-stage2c-handoff.md`、2026-11-14 改訂）。iOS 2.0.0 で Unity 向けのブリッジ（`unity-ios-native-toolkit-*.xcframework`、`UnityIosPlugin`）を廃し、汎用の C ABI（`ios-native-toolkit-capi-2.0.0.xcframework`、`IosLibraryCApi.framework`）にした。配布物は native-toolkit の `dist/1.14.0/ios`（`3aeeaf3c`）
 - 対応方針: 各 Manager の公開 API を保ち、下の層（ブリッジの 43 関数と JSON）だけを C ABI（`ntk_*`、134 関数）の P/Invoke に置き換える。進め方は [android-c-abi-2](../android-c-abi-2/README.md) に倣うが、**4 機能を一度に切り替える**（1.x と 2.0.0 の `IosLibrary.framework` は同じ名前で、同じアプリに入れられない。native-toolkit の README D-12、D-20）
-- 進捗: **計画中。** 段 0（移す前の基準）の EditMode と Editor の PlayMode を取った（6.1）。進め方と決めることは設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v1.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v1.md)。レビュー v1（[reviews/2026-11-14-ios-c-abi-2c-plan-design-review-v1.md](reviews/2026-11-14-ios-c-abi-2c-plan-design-review-v1.md)）で A1 が 1 件、A2 が 2 件などが出たので v2 で直す。レビューで見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
+- 進捗: **方針を決めた（2026-11-14）。次は段 1（スパイク）。** 段 0（移す前の基準）は済み（6.1）。進め方は設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md)（v1〜v3 とレビュー 2 回の後、利用者の判断を書き込んだ版）。**Android の移行とほぼ同じ方針**。レビュー v1 で見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
 - **2c の成功が、native-toolkit の次のリリース（iOS 2.0.0）の条件**。native-toolkit は 2c が終わるまで出さない
 - 対象: `Runtime/{Clipboard,Dialog,Notification,Share}/Ios*.cs`、`Runtime/UI/iOS/`、`Editor/Build/`（`PreBuildProcessor`、`PostBuildProcessor`、`Tools/iOS/`）、`Editor/iOS/`、`Plugins/iOS/`、対応するテストとサンプル
 - ブランチ: `feature/UNT-14`（利用者の指示。1a の下調べと、dist/1.14.0 の前の固定 `95905d1` と同じブランチ）
@@ -58,11 +58,42 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 
 ## 4. 決定
 
-設計書 v1 で案を出し、レビューと利用者の判断の後にここへ写す。
+設計書 v4 の I-1〜I-17（2026-11-14）。要点だけを写す。理由と細部は設計書。
+
+| # | 事柄 | 決定 |
+|---|---|---|
+| I-1 | xcframework を入れる口 | `NativeToolkit.Editor` の `IPostprocessBuildWithReport`（`Editor/iOS/IosXcodeProjectSetup.cs`）。利用者のビルドでも動く。道は `Path.GetFullPath("Packages/...")`。Xcode の API は `#if UNITY_IOS`。冪等。Unity が自分でリンクするか、`PluginImporter` で Embed できるかは段 1 で確かめて決める |
+| I-2 | `.mm` と入れない設定 | `.mm` は `Editor/iOS/NativeSource~/` に持ち、I-1 の口が UnityFramework に足す。入れない設定は定義シンボル `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL`（Editor のコンパイルの `#if` で読む） |
+| I-3 | 入れ直し | 公開の `Initialize()` を入れ直しの口にする（`Awake` は受け手の登録だけ）。通知パッケージの `AuthorizationRequest` の後に呼ぶとマニュアルに書く |
+| I-4 | 版の固定 | `Plugins/iOS/VERSION.txt`（`95905d1`）。3-S で 1.14.0 と 2.0.0 の 2 つに |
+| I-5・I-6 | 写し方・保つ範囲 | Android の J-6・J-11 と同じ（ふつうの使い方を保つ） |
+| I-7 | 完了の配送 | 受けて積み、次の `Update` で出す（Android の J-9 と同じ。1.x と同じ時点）。出るのは来た順 |
+| I-8 | 公開の JSON Builder | `IosClipboardJsonBuilder`・`IosShareJsonBuilder` は段 4 で消す。`IosNotificationJsonBuilder` は残す |
+| I-9 | 内部の JSON | 機能ごとの設計で決める |
+| I-10 | フォルダと 5 型 | 3-0 で `Runtime/iOS/<Feature>/` に移す（`[MovedFrom(true, …)]`）。**接頭辞の無い 5 型は案 2**（段 4 で iOS 用の新しい型を作って替える。旧い型は macOS 用に残す。iOS の利用者には破壊的変更。利用者の判断） |
+| I-11 | 切り替えの順 | **案 D**: 3-S で先に切り替え、移していない機能は「使えない」に落とし（Dialog と Notification には仮の経路）、1 つずつ移す（利用者の判断） |
+| I-12 | 1.x の記録と UI の自動化 | **段 2 で、ほぼ自動の UI テストを作る**（Unity のシナリオの口 + XCUITest）。1.x の記録は 3-S の前に（利用者の判断） |
+| I-13 | Player のテストの仕組み | `scripts/verify_unity_ios.sh`。Simulator.app を開かない。シミュレーターは Simulator SDK と arm64 |
+| I-14 | 共通部 | `Runtime/iOS/Common/IosNativeToolkitCApi.cs`。major が 2 でなければ「使えない」 |
+| I-15 | 宣言の照合 | 宣言と構造体を Editor でも組み、名前をヘッダーと照らす（数も確かめる） |
+| I-16 | 最小 iOS | 18.0。3-S で Player Settings を直し、低ければビルドを止める確かめを置く |
+| I-17 | 利用者の形での確かめ | 段 1・3-S・4 の終わりに、git の URL で入れた形で確かめる |
 
 ## 5. 進め方
 
-設計書 v1 の 3 章で案を出す。決まったらここへ写す。
+設計書 v4 の 3 章。
+
+| 段 | 中身 | 状態 |
+|---|---|---|
+| 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
+| 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 未着手 |
+| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 未着手 |
+| 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 未着手 |
+| 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 未着手 |
+| 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
+| 3 | 機能ごとに: 写し方の設計 → レビュー → 実装 → 実機で 1.x と比べる → 実装のレビュー。Dialog → Share → Clipboard → Notification | 未着手 |
+| 3-E | 署名し直しの確かめ（Validate App は Personal Team ではしない） | 未着手 |
+| 4 | JSON Builder 2 つの削除、5 型の iOS 用の新しい型、メニュー、マニュアル、リリース 1.14.0 | 未着手 |
 
 ## 6. 記録
 
