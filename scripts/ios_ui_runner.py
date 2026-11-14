@@ -116,7 +116,7 @@ CATEGORIES = {
     "clipboard": "writes and reads a named pasteboard only (never the general one)",
     "reinstall": "removes the app and installs it again before the run",
     "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
-    "playertests": "runs the iOS player tests (a named pasteboard round trip; reads the notification permission without asking)",
+    "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app)",
 }
 
 
