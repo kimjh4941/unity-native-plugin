@@ -216,6 +216,9 @@ clean_up_player() {
     remove_from_device "$PLAYER_ID"
     return $?
   fi
+  # Nothing to remove when the player was never installed (for example, its build failed):
+  # uninstall would fail and the run would wrongly report a player left behind.
+  xcrun simctl get_app_container "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1 || return 0
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
 }

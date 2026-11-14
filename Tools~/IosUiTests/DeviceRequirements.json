@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3. appdialog: presses the harness's own alerts and action sheets (not the springboard); ID-9 types a test value into a text field with the device keyboard.",
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet of the harness and closes it with Close without choosing a target; nothing in the sheet is read on a device (Share UI test plan v3; Copy, the sheet's contents, backgrounding and Control Center are simulator only). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3. appdialog: presses the harness's own alerts and action sheets (not the springboard); ID-9 types a test value into a text field with the device keyboard.",
   "tests": {
     "DialogUITests/test_ID1": [
       "appdialog",
@@ -74,7 +74,75 @@
       "appdialog",
       "reinstall"
     ],
-    "ShareUITests/test_dismiss": [
+    "ShareUITests/test_SH1": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH2": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH3": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH4": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH5": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH6": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH7": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH8": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH9": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH10": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH11": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH12": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH13": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH14": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH15": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH16": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH17": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH18": [
       "sharesheet",
       "reinstall"
     ],
@@ -96,6 +164,13 @@
     "DialogUITests/test_ID13",
     "DialogUITests/test_ID15",
     "DialogUITests/test_ID16",
-    "DialogUITests/test_ID17"
+    "DialogUITests/test_ID17",
+    "ShareUITests/test_SH6",
+    "ShareUITests/test_SH7",
+    "ShareUITests/test_SH8",
+    "ShareUITests/test_SH14",
+    "ShareUITests/test_SH15",
+    "ShareUITests/test_SH17",
+    "ShareUITests/test_SH18"
   ]
 }

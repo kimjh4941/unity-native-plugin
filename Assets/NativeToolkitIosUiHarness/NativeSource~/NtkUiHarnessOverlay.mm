@@ -100,3 +100,26 @@ extern "C" int ntkh_presenting(void)
 {
     return UnityGetGLViewController().presentedViewController != nil ? 1 : 0;
 }
+
+// Calls the row callback with rowId once, when the app's scene next enters the background, inside a
+// background task so it runs before iOS suspends the app (a dispatch_after delay would not fire in
+// the background; Share UI test plan v3, SH-18).
+extern "C" void ntkh_overlay_on_background(const char* rowId)
+{
+    NSString* name = [NSString stringWithUTF8String:rowId];
+    __block id token = nil;
+    token = [[NSNotificationCenter defaultCenter] addObserverForName:UISceneDidEnterBackgroundNotification
+                                                              object:nil
+                                                               queue:[NSOperationQueue mainQueue]
+                                                          usingBlock:^(NSNotification* note) {
+        [[NSNotificationCenter defaultCenter] removeObserver:token];
+        __block UIBackgroundTaskIdentifier task = UIBackgroundTaskInvalid;
+        task = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+            [[UIApplication sharedApplication] endBackgroundTask:task];
+        }];
+        if (gCallback != NULL) gCallback(name.UTF8String);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [[UIApplication sharedApplication] endBackgroundTask:task];
+        });
+    }];
+}

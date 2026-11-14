@@ -5,7 +5,7 @@
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3-R
 - 対象: 1.x（`Plugins/iOS/VERSION.txt` の dist 1.13.0、`ios-native-toolkit-1.3.0` と `unity-ios-native-toolkit-1.3.0`）
 - 実行: `scripts/test_ios_ui.sh`（`iOS Profile`、Xcode 26.3、iPhone 16 / iOS 18.3 のシミュレーター、Simulator.app は開かない）。テストは `Tools~/IosUiTests/NtkUiTests/DialogUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/DialogScenario.cs`
-- 実機: 2026-11-14 に iPhone XS（iOS 18.7.2）で記録した（3.5 章。シミュレーターだけの ID 12・13・15・16・17 は流していない）
+- 実機: 2026-11-14 に iPhone XS（iOS 18.7.2）で記録した（5 章。シミュレーターだけの ID 12・13・15・16・17 は流していない）
 
 ## 1. シミュレーターの記録（2026-11-14 19:36〜、19:41〜）
 
@@ -54,9 +54,21 @@
 
 ## 5. 実機の記録（2026-11-14 20:3x、iPhone XS / iOS 18.7.2）
 
-利用者の許可を得て、HEAD `f58c695` で流した（[README](../../../topics/ios-c-abi-2/README.md) の 6.6）。
+利用者の許可を得て、HEAD `f58c695` で流した（[README](../../../topics/ios-c-abi-2/README.md) の `6.6`）。
 
 | ID | 結果 |
 |---|---|
 | ID-1〜3、5〜11、14a、14b | 成功（シミュレーターと同じ結果の行。ID-14a も 2 つとも出た） |
 | ID-4 | 1 回目は**失敗**（シミュレーターでは成功）。ハーネスを入れ直すたびに出たローカルネットワークの許可のダイアログ（development ビルドのため）が、初めて出た頃に当たった見込み。ハーネスを development でない形に直し（`5026db0`）、**2026-11-14 21:2x に実機で流し直して成功**（利用者の許可を得て。承認は ID-4 の 1 件だけ）。`[confirm@ok] button=Cancel` がちょうど 1 回 |
+
+## 6. 画面を出さない Player のテスト（2026-11-14）
+
+`IosDialogPlayerTests` に ID-20〜22 を足し、`scripts/verify_unity_ios.sh --skip-editmode`（iPhone 16 / iOS 18.3 のシミュレーター）で 4 件とも成功した。
+
+| ID | 1.x の実測 |
+|---|---|
+| ID-20 | 6 つの `Show*` を空の `title` で呼ぶと、各イベントが同じ呼び出しの中で `(…, false, "Title cannot be null or empty.")`。エラーのログも 6 回 |
+| ID-21 | 空の `message` で同じく `"Message cannot be null or empty."` |
+| ID-22 | `ShowActionSheet` の選択肢が空の配列と `null` の配列のどちらも `"Options cannot be null or empty."` |
+
+計画 v3 の 6 章の R-7（要素が null の選択肢）は、ネイティブに届いてアラートが出うるので Player のテストには入れず、UI のハーネスの項目として残す。
