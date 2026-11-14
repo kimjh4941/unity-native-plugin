@@ -77,7 +77,9 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness.Editor
                     // (the first device run, 2026-11-14). The harness needs neither the profiler nor the
                     // Editor connection; Debug.Log still reaches the device log.
                     options = BuildOptions.None,
-                    extraScriptingDefines = new[] { "NTK_UI_HARNESS" },
+                    // NTK_IOS_CABI_SWITCHED: the package is on native-toolkit 2.0.0 (3-S design v3, 1.7);
+                    // NTK_IOS_CABI_2_<FEATURE> joins it when a feature moves.
+                    extraScriptingDefines = new[] { "NTK_UI_HARNESS", "NTK_IOS_CABI_SWITCHED" },
                 });
             }
             finally

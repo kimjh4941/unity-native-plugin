@@ -44,6 +44,18 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
         public const string LogTag = "[NTK-IOS-PLAYER]";
         public const string BundleId = "com.jonghyunkim.nativetoolkit.playertests";
 
+        /// <summary>
+        /// Defines added to a run's player scripts (3-S design v3, 1.7). NTK_IOS_CABI_SWITCHED: the package
+        /// is on native-toolkit 2.0.0, so the tests of a feature not moved yet expect its unavailable path
+        /// (NTK_IOS_CABI_2_&lt;FEATURE&gt; joins it when the feature moves). NTK_IOS_PLAYER_PROBE: the
+        /// exported project gets NativeSource~/NtkPlayerTestsProbe.mm (<see cref="IosPlayerProbeInstaller"/>),
+        /// so the tests that call it link. Build profiles do not override extra defines.
+        /// </summary>
+        public static readonly string[] Defines = { "NTK_IOS_CABI_SWITCHED", "NTK_IOS_PLAYER_PROBE" };
+
+        /// <summary>Whether the current build is a player test run of verify_unity_ios.sh.</summary>
+        internal static bool IsActive => s_Active;
+
         // Static: the cleanup runs on a new instance (TestPlayerBuildModifierAttribute's own example).
         private static bool s_Active;
         private static iOSSdkVersion s_Sdk;
@@ -73,13 +85,14 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
                 | BuildOptions.Development | BuildOptions.ConnectWithProfiler
                 | BuildOptions.AllowDebugging | BuildOptions.EnableDeepProfilingSupport);
             options.locationPathName = output;
+            options.extraScriptingDefines = (options.extraScriptingDefines ?? Array.Empty<string>()).Concat(Defines).Distinct().ToArray();
             if (sdk == "simulator")
             {
                 PlayerSettings.iOS.sdkVersion = iOSSdkVersion.SimulatorSDK;
                 PlayerSettings.iOS.simulatorSdkArchitecture = AppleMobileArchitectureSimulator.ARM64;
             }
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.iOS, BundleId);
-            Debug.Log($"{LogTag} export sdk={sdk} options={options.options}");
+            Debug.Log($"{LogTag} export sdk={sdk} options={options.options} defines={string.Join(",", options.extraScriptingDefines)}");
             return options;
         }
 

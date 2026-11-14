@@ -27,10 +27,11 @@
 # Which build profile is active matters, as on Android (scripts/verify_unity_android.sh): the script
 # always passes -activeBuildProfile. The default is the "iOS Profile", whose build steps copy the
 # XCFrameworks pinned in Plugins/iOS/VERSION.txt from the sibling native-toolkit dist
-# (NATIVE_TOOLKIT_DIST_ROOT overrides it). --as-package-user would use the "Test iOS Profile" (no
-# build steps), but with the 1.x XCFrameworks a build without the build steps does not embed them,
-# so the player cannot start (review v2 of the plan, N-9; spike 6.4): it is refused until the 2.0.0
-# switch (stage 3-S).
+# (NATIVE_TOOLKIT_DIST_ROOT overrides it). --as-package-user runs everything with the "Test iOS
+# Profile" instead: no NATIVETOOLKIT_ENABLE_BUILD_STEPS, so nothing is copied from the dist and the
+# build uses the XCFrameworks committed in Plugins/iOS, which Unity links and embeds by their .meta,
+# as in a project that installs the package (artifact/topics/ios-c-abi-2, 3-S design v3, 1.7; before
+# the 2.0.0 switch it was refused: the 1.x XCFrameworks were embedded by the build steps only).
 #
 # A device run needs an approval, the same as the UI tests (scripts/test_ios_ui.sh; native-toolkit's
 # agent-rules/device-testing.md): --device --dry-run prints what happens on the device and an approval
@@ -48,9 +49,9 @@
 # that.
 #
 # Usage:
-#   scripts/verify_unity_ios.sh [--skip-editmode] [--keep-changes]
+#   scripts/verify_unity_ios.sh [--skip-editmode] [--keep-changes] [--as-package-user]
 #   scripts/verify_unity_ios.sh --device --dry-run
-#   scripts/verify_unity_ios.sh --device --approved <ID>
+#   scripts/verify_unity_ios.sh --device --approved <ID> [--as-package-user]
 #
 #   --skip-editmode skips both Editor runs (EditMode and the Editor's PlayMode) and runs the player
 #   tests only.
@@ -89,10 +90,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
-    --as-package-user)
-      echo "--as-package-user is not available yet: with the 1.x XCFrameworks a build without the build" >&2
-      echo "steps does not embed them (artifact/topics/ios-c-abi-2, README 6.4). It comes with stage 3-S." >&2
-      exit 2 ;;
+    --as-package-user) PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset" ;;
     --device) DEVICE_MODE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --approved) APPROVAL="${2:-}"; shift ;;

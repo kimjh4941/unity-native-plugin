@@ -5,17 +5,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 {
     using System;
     using System.Collections.Generic;
-    using System.Runtime.InteropServices;
     using System.Threading;
-#if UNITY_IOS && !UNITY_EDITOR
-    using AOT;
-#endif
     using JonghyunKim.NativeToolkit.Runtime.Common;
     using UnityEngine;
 
     /// <summary>
     /// Singleton manager for iOS native clipboard operations.
-    /// Wraps <c>UnityIosClipboardManager</c> (Swift) via P/Invoke through the C ABI bridge.
+    /// <para>
+    /// <b>Unavailable for now.</b> native-toolkit 2.0.0 removed the 1.x bridge this Manager called, and
+    /// the Manager does not call the 2.0.0 C ABI yet (artifact/topics/ios-c-abi-2, stage 3-S). Until it
+    /// moves (stage 3), every operation that passes the argument checks fails with
+    /// <c>CLIPBOARD_BRIDGE_UNAVAILABLE</c> and "&lt;operation&gt; is only available on an iOS device.",
+    /// on the device as in the Editor: the common event, then the per-call callback, on the next Update.
+    /// </para>
     /// <para>
     /// <b>Threading.</b> Every member, including <see cref="Instance"/>, must be used from the
     /// Unity main thread. Calling an instance method from another thread is rejected with
@@ -37,8 +39,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     /// </para>
     /// <para>
     /// The class compiles for <c>UNITY_IOS || UNITY_EDITOR</c> so it can be referenced and tested
-    /// from the Editor regardless of build target; the native P/Invoke declarations and callbacks
-    /// are restricted to <c>UNITY_IOS &amp;&amp; !UNITY_EDITOR</c> (device IL2CPP builds only).
+    /// from the Editor regardless of build target.
     /// </para>
     /// <para>
     /// Intentional deviation from the "log every parameter" rule in csharp.md: clipboard content
@@ -189,92 +190,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// <summary>Raised when <see cref="CheckForegroundChange"/> completes.</summary>
         public event Action<IosClipboardForegroundChangeResult>? ForegroundChangeChecked;
 
-        // ── Native callback delegates ───────────────────────────────────────────
-
-        // The C header declares the first argument as C `bool` (stdbool, 1 byte). C# marshals a
-        // bare bool as a 4-byte Win32 BOOL by default, so the width is pinned explicitly.
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardOperationCallback(
-            [MarshalAs(UnmanagedType.I1)] bool isSuccess,
-            string? errorCode,
-            string? errorMessage);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardJsonCallback(string? json);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ClipboardChangeCallback(string? eventJson);
-
-#if UNITY_IOS && !UNITY_EDITOR
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardCopy(string requestJson, ClipboardOperationCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardAppend(string requestJson, ClipboardOperationCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardRead(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardReadData(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardGetSnapshot(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardClear(string requestJson, ClipboardOperationCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardCreatePasteboard(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardRemovePasteboard(string requestJson, ClipboardOperationCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardDetectPatterns(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardDetectValues(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardLoadItem(string requestJson, ClipboardJsonCallback callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardCancelLoads(ClipboardOperationCallback? callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardStartObserving(
-            string requestJson,
-            ClipboardChangeCallback changeCallback,
-            ClipboardOperationCallback startCallback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardStopObserving(ClipboardOperationCallback? callback);
-
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void clipboardCheckForegroundChange(string requestJson, ClipboardJsonCallback callback);
-
-        // Persistent delegates: stored permanently so the native function pointers stay valid.
-        private static readonly ClipboardOperationCallback s_copyDelegate = OnCopyResult;
-        private static readonly ClipboardOperationCallback s_appendDelegate = OnAppendResult;
-        private static readonly ClipboardOperationCallback s_clearDelegate = OnClearResult;
-        private static readonly ClipboardOperationCallback s_removePasteboardDelegate = OnRemovePasteboardResult;
-        private static readonly ClipboardOperationCallback s_cancelLoadsDelegate = OnCancelLoadsResult;
-        private static readonly ClipboardOperationCallback s_startObservingDelegate = OnStartObservingResult;
-        private static readonly ClipboardOperationCallback s_stopObservingDelegate = OnStopObservingResult;
-        private static readonly ClipboardJsonCallback s_readDelegate = OnReadResult;
-        private static readonly ClipboardJsonCallback s_readDataDelegate = OnReadDataResult;
-        private static readonly ClipboardJsonCallback s_snapshotDelegate = OnSnapshotResult;
-        private static readonly ClipboardJsonCallback s_createPasteboardDelegate = OnCreatePasteboardResult;
-        private static readonly ClipboardJsonCallback s_detectPatternsDelegate = OnDetectPatternsResult;
-        private static readonly ClipboardJsonCallback s_detectValuesDelegate = OnDetectValuesResult;
-        private static readonly ClipboardJsonCallback s_loadItemDelegate = OnLoadItemResult;
-        private static readonly ClipboardJsonCallback s_checkForegroundChangeDelegate = OnCheckForegroundChangeResult;
-
-        // Invoked repeatedly for the lifetime of an observation, so it must never be collected.
-        private static readonly ClipboardChangeCallback s_changeDelegate = OnClipboardChanged;
-#endif
-
         // ── Per-call callback slots ─────────────────────────────────────────────
         // At most one call per operation can be pending (single-flight), so a single slot per
         // operation is enough and a result can never reach another call's callback.
@@ -401,22 +316,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static void StopObservingForTeardown()
         {
-#if UNITY_IOS && !UNITY_EDITOR
-            if (Application.platform == RuntimePlatform.IPhonePlayer)
-            {
-                clipboardStopObserving(null);
-            }
-#endif
+            // No native observation or load exists until Clipboard moves to the C ABI (stage 3).
         }
 
         private static void CancelLoadsForTeardown()
         {
-#if UNITY_IOS && !UNITY_EDITOR
-            if (Application.platform == RuntimePlatform.IPhonePlayer)
-            {
-                clipboardCancelLoads(null);
-            }
-#endif
+            // No native observation or load exists until Clipboard moves to the C ABI (stage 3).
         }
 
         // Static state outlives an Editor Play session when "Reload Domain" is disabled, so a test
@@ -514,9 +419,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static bool IsBridgeAvailable()
         {
-#if UNITY_IOS && !UNITY_EDITOR
-            return Application.platform == RuntimePlatform.IPhonePlayer;
-#elif UNITY_EDITOR
+            // The 1.x bridge is gone and the C ABI is not wired yet (artifact/topics/ios-c-abi-2,
+            // 3-S): on a player every operation takes the unavailable path, as in the Editor.
+#if UNITY_EDITOR
             return BridgeAvailableOverrideForTests;
 #else
             return false;
@@ -860,9 +765,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationCopy,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardCopy(IosClipboardJsonBuilder.BuildCopyJson(content, scope, options), s_copyDelegate);
-#endif
                 });
         }
 
@@ -904,9 +806,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationAppend,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardAppend(IosClipboardJsonBuilder.BuildAppendJson(content, scope), s_appendDelegate);
-#endif
                 });
         }
 
@@ -935,9 +834,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationClear,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardClear(IosClipboardJsonBuilder.BuildClearJson(scope), s_clearDelegate);
-#endif
                 });
         }
 
@@ -970,10 +866,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationRemovePasteboard,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardRemovePasteboard(
-                        IosClipboardJsonBuilder.BuildRemovePasteboardJson(scope), s_removePasteboardDelegate);
-#endif
                 });
         }
 
@@ -1003,9 +895,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationCancelLoads,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardCancelLoads(s_cancelLoadsDelegate);
-#endif
                 });
         }
 
@@ -1048,12 +937,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 ObservationControlKey,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardStartObserving(
-                        IosClipboardJsonBuilder.BuildStartObservingJson(scope),
-                        s_changeDelegate,
-                        s_startObservingDelegate);
-#endif
                 },
                 onNativeFailure: () =>
                 {
@@ -1092,9 +975,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 ObservationControlKey,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardStopObserving(s_stopObservingDelegate);
-#endif
                 },
                 onNativeFailure: () =>
                 {
@@ -1135,9 +1015,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationRead,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardRead(IosClipboardJsonBuilder.BuildReadJson(scope), s_readDelegate);
-#endif
                 },
                 onNativeFailureResult: message =>
                     FireReadResult(IosClipboardReadResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1178,9 +1055,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationReadData,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardReadData(IosClipboardJsonBuilder.BuildReadDataJson(utType, scope), s_readDataDelegate);
-#endif
                 },
                 onNativeFailureResult: message =>
                     FireReadDataResult(IosClipboardReadDataResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1217,10 +1091,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationGetSnapshot,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardGetSnapshot(
-                        IosClipboardJsonBuilder.BuildGetSnapshotJson(scope, matchingTypes), s_snapshotDelegate);
-#endif
                 },
                 onNativeFailureResult: message =>
                     FireSnapshotResult(IosClipboardSnapshotResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1262,10 +1132,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationCreatePasteboard,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardCreatePasteboard(
-                        IosClipboardJsonBuilder.BuildCreatePasteboardJson(request), s_createPasteboardDelegate);
-#endif
                 },
                 onNativeFailureResult: message =>
                     FireCreatePasteboardResult(IosPasteboardScopeResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1303,10 +1169,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationDetectPatterns,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardDetectPatterns(
-                        IosClipboardJsonBuilder.BuildDetectPatternsJson(patterns, scope), s_detectPatternsDelegate);
-#endif
                 },
                 onNativeFailureResult: message => FireDetectPatternsResult(
                     IosClipboardDetectedPatternsResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1344,10 +1206,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationDetectValues,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardDetectValues(
-                        IosClipboardJsonBuilder.BuildDetectValuesJson(patterns, scope), s_detectValuesDelegate);
-#endif
                 },
                 onNativeFailureResult: message => FireDetectValuesResult(
                     IosClipboardDetectedValuesResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1391,9 +1249,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationLoadItem,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardLoadItem(IosClipboardJsonBuilder.BuildLoadItemJson(request, scope), s_loadItemDelegate);
-#endif
                 },
                 onNativeFailureResult: message => FireLoadItemResult(
                     IosClipboardLoadedItemResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1428,11 +1283,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationCheckForegroundChange,
                 () =>
                 {
-#if UNITY_IOS && !UNITY_EDITOR
-                    clipboardCheckForegroundChange(
-                        IosClipboardJsonBuilder.BuildCheckForegroundChangeJson(scope),
-                        s_checkForegroundChangeDelegate);
-#endif
                 },
                 onNativeFailureResult: message => FireForegroundChangeResult(
                     IosClipboardForegroundChangeResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1506,106 +1356,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             return true;
         }
 
-#if UNITY_IOS && !UNITY_EDITOR
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnCopyResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleOperationCallback(OperationCopy, OperationCopy, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnAppendResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleOperationCallback(OperationAppend, OperationAppend, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnClearResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleOperationCallback(OperationClear, OperationClear, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnRemovePasteboardResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleOperationCallback(
-                OperationRemovePasteboard, OperationRemovePasteboard, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnCancelLoadsResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleOperationCallback(OperationCancelLoads, OperationCancelLoads, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnStartObservingResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleObservationControlCallback(OperationStartObserving, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardOperationCallback))]
-        private static void OnStopObservingResult(bool isSuccess, string? errorCode, string? errorMessage) =>
-            HandleObservationControlCallback(OperationStopObserving, isSuccess, errorCode, errorMessage);
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnReadResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationRead)) return;
-            FireReadResult(IosClipboardJsonParser.ParseReadResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnReadDataResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationReadData)) return;
-            FireReadDataResult(IosClipboardJsonParser.ParseReadDataResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnSnapshotResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationGetSnapshot)) return;
-            FireSnapshotResult(IosClipboardJsonParser.ParseSnapshotResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnCreatePasteboardResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationCreatePasteboard)) return;
-            FireCreatePasteboardResult(IosClipboardJsonParser.ParsePasteboardScopeResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnDetectPatternsResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationDetectPatterns)) return;
-            FireDetectPatternsResult(IosClipboardJsonParser.ParseDetectedPatternsResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnDetectValuesResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationDetectValues)) return;
-            FireDetectValuesResult(IosClipboardJsonParser.ParseDetectedValuesResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnLoadItemResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationLoadItem)) return;
-            FireLoadItemResult(IosClipboardJsonParser.ParseLoadedItemResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardJsonCallback))]
-        private static void OnCheckForegroundChangeResult(string? json)
-        {
-            if (DiscardIfTerminated(OperationCheckForegroundChange)) return;
-            FireForegroundChangeResult(IosClipboardJsonParser.ParseForegroundChangeResult(json));
-        }
-
-        [MonoPInvokeCallback(typeof(ClipboardChangeCallback))]
-        private static void OnClipboardChanged(string? eventJson)
-        {
-            // Guard first: a payload from a destroyed lifetime is not parsed at all.
-            if (DiscardIfTerminated(OperationStartObserving)) return;
-
-            IosClipboardChangeEvent? changeEvent = IosClipboardJsonParser.ParseChangeEvent(eventJson);
-            if (changeEvent == null)
-            {
-                return; // dropped; see IosClipboardJsonParser.ParseChangeEvent
-            }
-            FireClipboardChanged(changeEvent);
-        }
-#endif
 
         private static void HandleOperationCallback(
             string operation,

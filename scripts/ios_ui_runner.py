@@ -7,8 +7,10 @@ scripts/ios_ui_runner.py).
 Subcommands (paths are relative to the repository root, which is the first argument):
 
   tests <repo> [--device | --keep-installed]
-      With --device, leaves out the tests listed as simulatorOnly and those of keepInstalled (they run
-      only in the keep-installed run). With --keep-installed, prints keepInstalled in its order.
+      Leaves out the tests of the classes in notMovedYet (features not moved to the C ABI 2.0.0 yet;
+      3-S design v3, 1.7). With --device, also leaves out the tests listed as simulatorOnly and those
+      of keepInstalled (they run only in the keep-installed run). With --keep-installed, prints
+      keepInstalled in its order, and stops when one of them is not moved yet.
       Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
       The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, which
       need the same approval on a device; it is not a UI test and is not printed.
@@ -24,6 +26,8 @@ Subcommands (paths are relative to the repository root, which is the first argum
   guard <repo> <id> <marker> <test>...
       Run before every step that touches the device: fails unless the approval was used by the run
       with this marker and the tests, HEAD and the guarded trees still match it.
+  not-moved <repo> <test>...
+      Prints the given tests whose class is in notMovedYet; exits 0 when there is one, else 1.
   run-lock <lock file>
       Holds the run lock (fcntl) for the parent process: prints "locked" or "busy" on one line, then,
       when locked, keeps the lock until the parent ends or sends SIGUSR1. TERM, HUP and INT are ignored,
@@ -112,6 +116,15 @@ project, the build settings, and the runners.
     ['keepInstalled names tests that do not exist: C/t', 'keepInstalled names a test twice', 'keepInstalled and simulatorOnly overlap: A/t']
     >>> check_requirements({"tests": {"A/t": ["nosuch"]}})
     ['unknown categories: nosuch']
+
+    notMovedYet names test classes (the part before the slash) that exist:
+
+    >>> check_requirements({"tests": {"A/t": ["focus"], "B/t": ["systemui"]}, "notMovedYet": ["B"]})
+    []
+    >>> check_requirements({"tests": {"A/t": ["focus"]}, "notMovedYet": ["A", "A/t", "C"]})
+    ['notMovedYet names test classes that do not exist: A/t, C']
+    >>> not_moved({"notMovedYet": ["B"]}, ["A/t", "B/t", "B/u"])
+    ['B/t', 'B/u']
 
     One approval is used once, also by two runs at the same moment (the lock around the read and the write):
 
@@ -208,7 +221,17 @@ def check_requirements(data):
     overlap = sorted(set(keep) & set(data.get("simulatorOnly", [])))
     if overlap:
         problems.append("keepInstalled and simulatorOnly overlap: " + ", ".join(overlap))
+    classes = {t.split("/", 1)[0] for t in tests}
+    bad_classes = [c for c in data.get("notMovedYet", []) if c not in classes or c == PLAYER_TESTS.split("/")[0]]
+    if bad_classes:
+        problems.append("notMovedYet names test classes that do not exist: " + ", ".join(bad_classes))
     return problems
+
+
+def not_moved(data, tests):
+    """The tests whose class is in notMovedYet (a feature not moved to the C ABI 2.0.0 yet)."""
+    classes = set(data.get("notMovedYet", []))
+    return [t for t in tests if t.split("/", 1)[0] in classes]
 
 
 def requirements(repo):
@@ -354,12 +377,24 @@ def main(argv):
         return 2
     command, rest = argv[1], argv[2:]
     if command == "tests":
+        data = load_requirements(rest[0])
         if "--keep-installed" in rest[1:]:
+            stopped = not_moved(data, keep_installed(rest[0]))
+            if stopped:
+                print("the keep-installed run has tests of features not moved to the C ABI 2.0.0 yet (notMovedYet): "
+                      + ", ".join(stopped), file=sys.stderr)
+                return 2
             print("\n".join(keep_installed(rest[0])))
             return 0
         skip = simulator_only(rest[0]) | set(keep_installed(rest[0])) if "--device" in rest[1:] else set()
+        skip |= set(not_moved(data, data["tests"]))
         print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS and t not in skip))
         return 0
+    if command == "not-moved":
+        found = not_moved(load_requirements(rest[0]), rest[1:])
+        if found:
+            print("\n".join(found))
+        return 0 if found else 1
     if command == "run-lock":
         return run_lock(rest[0])
     if command == "time-limit":
@@ -384,6 +419,10 @@ def main(argv):
     unknown = [t for t in tests if t not in known]
     if not tests or unknown:
         print(f"unknown or missing tests: {unknown or 'none given'}", file=sys.stderr)
+        return 2
+    stopped = not_moved(load_requirements(repo), tests)
+    if stopped:
+        print("not moved yet to the C ABI 2.0.0 (notMovedYet): " + ", ".join(stopped), file=sys.stderr)
         return 2
     sim_only = sorted(set(tests) & simulator_only(repo))
     if sim_only:

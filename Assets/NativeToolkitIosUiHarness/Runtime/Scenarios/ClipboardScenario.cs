@@ -31,6 +31,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
 
         public static void Register()
         {
+            IosUiHarness.Append("abi", "event", ntkh_abi() == 1 ? "2" : "1");   // which ABI the package runs on (3-S)
             var general = IosPasteboardScope.General;
 
             IosUiHarness.Row("read-general", () => IosClipboardManager.Instance.Read(general, r =>          // CB-1, CB-2

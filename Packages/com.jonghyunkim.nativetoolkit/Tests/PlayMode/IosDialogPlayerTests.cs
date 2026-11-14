@@ -129,6 +129,20 @@ namespace JonghyunKim.NativeToolkit.Tests
             ExpectRejectedInside("sheet", NoOptions, () => IosDialogManager.Instance.ShowActionSheet("NTK", "player test", null!));
             yield return NothingMoreWithinASecond(1);
         }
+
+#if NTK_IOS_CABI_SWITCHED && !NTK_IOS_CABI_2_DIALOG
+        /// <summary>
+        /// 3-S (artifact/topics/ios-c-abi-2, 3-S design v3, 1.6): until Dialog moves to the C ABI, each of
+        /// the six Show* calls that passes the C# checks fires its event once inside the call, with every
+        /// value null and "Dialog is not available yet on this build."; nothing comes within a second.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator UnavailableUntilMoved()
+        {
+            RejectAll("NTK", "player test", "Dialog is not available yet on this build.");
+            yield return NothingMoreWithinASecond(6);
+        }
+#endif
     }
 }
 #endif

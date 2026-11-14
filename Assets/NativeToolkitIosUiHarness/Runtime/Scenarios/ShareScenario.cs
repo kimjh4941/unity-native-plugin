@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.IO;
+using System.Runtime.InteropServices;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 using UnityEngine;
 
@@ -20,8 +21,11 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
     {
         private const string CopyActivity = "com.apple.UIKit.activity.CopyToPasteboard";
 
+        [DllImport("__Internal")] private static extern int ntkh_abi();
+
         public static void Register()
         {
+            IosUiHarness.Append("abi", "event", ntkh_abi() == 1 ? "2" : "1");   // which ABI the package runs on (3-S)
             var m = IosShareManager.Instance;
             m.ShareCompleted += r => Line("share-event", r);
             string data = Application.persistentDataPath;

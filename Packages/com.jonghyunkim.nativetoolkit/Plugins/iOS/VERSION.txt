@@ -1,7 +1,10 @@
 # Which native-toolkit artifacts this folder holds, and where they came from.
 #
-# PreBuildProcessor, PostBuildProcessor and IosFrameworkPatcher READ the keys below
-# from this file (Editor/iOS/IosXcframeworkPin.cs). They do not scan for a name
+# PreBuildProcessor (the development copy from dist), IosXcodeProjectSetup (the
+# post-build check that Unity linked and embedded these) and IosFrameworkPatcher
+# READ the keys below from this file (Editor/iOS/IosXcframeworkPin.cs). Unity itself
+# links the XCFrameworks and embeds them through AddToEmbeddedBinaries in their .meta.
+# They do not scan for a name
 # prefix and take the highest-sorting match: the prefix "ios-native-toolkit-" also
 # matches ios-native-toolkit-capi-*, which sorts after ios-native-toolkit-2.0.0.
 # If a required key is missing, or an XCFramework it names is not there, the build
@@ -21,6 +24,7 @@
 #                when dist has it, and the release one otherwise: dist publishes
 #                no -debug variant of the 2.0.0 C ABI (ios-native-toolkit-capi).
 
-# The 1.x Swift library and Unity bridge.
-dist_version: 1.13.0
-xcframeworks: ios-native-toolkit-1.3.0.xcframework, unity-ios-native-toolkit-1.3.0.xcframework
+# native-toolkit 2.0.0: the Swift library and its C ABI (IosLibrary.framework and
+# IosLibraryCApi.framework; minimum iOS 18.0).
+dist_version: 1.14.0
+xcframeworks: ios-native-toolkit-2.0.0.xcframework, ios-native-toolkit-capi-2.0.0.xcframework

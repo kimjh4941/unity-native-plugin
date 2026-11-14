@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Runtime.InteropServices;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
@@ -11,8 +12,11 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
     /// </summary>
     internal static class DialogScenario
     {
+        [DllImport("__Internal")] private static extern int ntkh_abi();
+
         public static void Register()
         {
+            IosUiHarness.Append("abi", "event", ntkh_abi() == 1 ? "2" : "1");   // which ABI the package runs on (3-S)
             var m = IosDialogManager.Instance;
             m.DialogResult += (b, ok, e) => Line("dialog", ok, $"button={IosUiHarness.Value(b)}", e);
             m.ConfirmDialogResult += (b, ok, e) => Line("confirm", ok, $"button={IosUiHarness.Value(b)}", e);

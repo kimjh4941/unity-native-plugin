@@ -4,10 +4,6 @@
 namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
 {
     using System;
-    using System.Runtime.InteropServices;
-#if UNITY_IOS && !UNITY_EDITOR
-    using AOT;
-#endif
     using JonghyunKim.NativeToolkit.Runtime.Common;
     using UnityEngine;
 
@@ -25,6 +21,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
 
         /// <summary>Native operation name for presenting the share sheet.</summary>
         public const string OperationShare = "share";
+
+        /// <summary>The failure every share gets until Share moves to the C ABI (stage 3-S).</summary>
+        internal const string UnavailableMessage = "iOS share is only available on an iOS device.";
 
         private static IosShareManager? _instance;
 
@@ -50,17 +49,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
         /// Raised when a <see cref="Share"/> operation completes, whether successfully or not.
         /// </summary>
         public event Action<IosShareResult>? ShareCompleted;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void ShareCallback(bool isSuccess, bool completed, string? activityType, string? errorMessage);
-
-#if UNITY_IOS && !UNITY_EDITOR
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void shareContent(string contentJson, ShareCallback callback);
-
-        // Persistent delegate: stored permanently to prevent GC collection of the native function pointer.
-        private static readonly ShareCallback s_shareDelegate = OnShareResult;
-#endif
 
         // Per-call user callback (stored between native call and result callback).
         // Note: last-registered callback wins when Share is called concurrently.
@@ -112,38 +100,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
                 return;
             }
 
-#if UNITY_IOS && !UNITY_EDITOR
-            if (Application.platform != RuntimePlatform.IPhonePlayer)
-            {
-                FireResult(IosShareResult.Failure("iOS share is only available on an iOS device."));
-                return;
-            }
-
-            string json = IosShareJsonBuilder.BuildShareContentJson(payload);
-            try
-            {
-                shareContent(json, s_shareDelegate);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[{LogTag}][{nameof(Share)}] {ex.Message}");
-                FireResult(IosShareResult.Failure($"Internal error: {ex.Message}"));
-            }
-#else
-            FireResult(IosShareResult.Failure("iOS share is only available on an iOS device."));
-#endif
+            // Stage 3-S of artifact/topics/ios-c-abi-2: Share has not moved to native-toolkit's C ABI 2.0.0
+            // yet, so every platform answers as the Editor always did (the 1.x bridge is gone).
+            FireResult(IosShareResult.Failure(UnavailableMessage));
         }
-
-#if UNITY_IOS && !UNITY_EDITOR
-        [MonoPInvokeCallback(typeof(ShareCallback))]
-        private static void OnShareResult(bool isSuccess, bool completed, string? activityType, string? errorMessage)
-        {
-            var result = isSuccess
-                ? IosShareResult.Success(completed, activityType)
-                : IosShareResult.Failure(errorMessage);
-            FireResult(result);
-        }
-#endif
 
         private static void FireResult(IosShareResult result)
         {

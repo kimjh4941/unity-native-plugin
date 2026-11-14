@@ -226,16 +226,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
     public int callbackOrder => 0;
 
-    /// <summary>
-    /// Whether the build in progress is a development build, as its <see cref="BuildReport"/> says.
-    /// PostBuildProcessor reads this for iOS: a <c>[PostProcessBuild]</c> callback gets no report, and
-    /// <see cref="EditorUserBuildSettings.development"/> is only the Build Settings checkbox, which
-    /// stays false for <c>BuildPipeline.BuildPlayer</c> with <see cref="BuildOptions.Development"/> and
-    /// for the Test Runner's player builds. Reading the checkbox there made the post-build step look for
-    /// the release XCFramework after this step had copied the -debug one.
-    /// </summary>
-    internal static bool IsDevelopmentBuildInProgress { get; private set; }
-
     // Determine config from build options
     private static string GetConfigName(BuildReport report)
         => (report.summary.options & BuildOptions.Development) != 0 ? "Debug" : "Release";
@@ -250,7 +240,6 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         CleanupOtherPlatformLibraries(report.summary.platform);
 
         var config = GetConfigName(report);
-        IsDevelopmentBuildInProgress = (report.summary.options & BuildOptions.Development) != 0;
         UnityEngine.Debug.Log($"[Build] Configuration: {config}");
 
         if (report.summary.platform == BuildTarget.Android)

@@ -17,6 +17,7 @@ using static JonghyunKim.NativeToolkit.Tests.IosPlayerTestSupport;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
+#if !NTK_IOS_CABI_SWITCHED || NTK_IOS_CABI_2_CLIPBOARD
     /// <summary>
     /// iOS player: the Clipboard plan v4, section 1 (artifact/ios/clipboard/designs/2026-11-14-ios-clipboard-ui-test-plan-v4.md).
     /// Every test uses its own named pasteboard and never the general one: the manager is only called
@@ -27,6 +28,11 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// The error logs 1.x writes for failed read-like calls are not asserted: they are 1.x internals, not
     /// behaviour to keep (the tests that expect such a failure ignore failing log messages).
     /// </summary>
+    /// <remarks>
+    /// The whole fixture reaches the native side (its set-up and tear-down create and remove pasteboards,
+    /// and the Test Framework runs them for [Test] too), so it is compiled out after the 3-S switch until
+    /// Clipboard moves to the C ABI (NTK_IOS_CABI_2_CLIPBOARD; artifact/topics/ios-c-abi-2, 3-S design v3, 1.7).
+    /// </remarks>
     [Category(IosPlayerTestSupport.Category)]
     public class IosClipboardPlayerTests
     {
@@ -448,11 +454,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         // 1.2 Errors
 
-        [Test]
-        public void CP20_BlankNameThrowsInCSharp()
-        {
-            Assert.Throws<ArgumentException>(() => IosPasteboardCreationRequest.Named("   "));
-        }
+        // CP-20 is in IosClipboardCSharpPlayerTests below: it reaches no native code and runs after 3-S too.
 
         [UnityTest]
         public IEnumerator CP21_RemovingTheGeneralPasteboardFails()
@@ -700,6 +702,121 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"events={events.Count} kinds={Describe(events)}");
             Assert.AreEqual("Removed+", Describe(events));
         }
+    }
+#endif
+
+    /// <summary>
+    /// iOS player: the Clipboard tests that reach no native code, without the fixture's set-up (3-S design
+    /// v3, 1.7): CP-20, and until Clipboard moves to the C ABI, the unavailable path of every operation.
+    /// </summary>
+    [Category(IosPlayerTestSupport.Category)]
+    public class IosClipboardCSharpPlayerTests
+    {
+        [Test]
+        public void CP20_BlankNameThrowsInCSharp()
+        {
+            Assert.Throws<ArgumentException>(() => IosPasteboardCreationRequest.Named("   "));
+        }
+
+#if NTK_IOS_CABI_SWITCHED && !NTK_IOS_CABI_2_CLIPBOARD
+        private const string Unavailable = "CLIPBOARD_BRIDGE_UNAVAILABLE";
+
+        /// <summary>
+        /// 3-S: every operation fails with CLIPBOARD_BRIDGE_UNAVAILABLE and "&lt;operation&gt; is only
+        /// available on an iOS device." Nothing comes inside the call; after the next Update each
+        /// operation has its event and then its callback, once each; nothing more within a second.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator UnavailableUntilMoved()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            var m = IosClipboardManager.Instance;
+            var seen = new List<(string op, string source, bool ok, string? code, string? message)>();
+            void Add(string op, string source, bool ok, IosClipboardErrorInfo? e) => seen.Add((op, source, ok, e?.Code, e?.Message));
+
+            Action<IosClipboardOperationResult> onOperation = r => Add(r.Operation, "event", r.IsSuccess, r.Error);
+            Action<IosClipboardReadResult> onRead = r => Add("read", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardReadDataResult> onReadData = r => Add("readData", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardSnapshotResult> onSnapshot = r => Add("getSnapshot", "event", r.IsSuccess, r.Error);
+            Action<IosPasteboardScopeResult> onCreated = r => Add("createPasteboard", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardDetectedPatternsResult> onPatterns = r => Add("detectPatterns", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardDetectedValuesResult> onValues = r => Add("detectValues", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardLoadedItemResult> onLoaded = r => Add("loadItem", "event", r.IsSuccess, r.Error);
+            Action<IosClipboardForegroundChangeResult> onForeground = r => Add("checkForegroundChange", "event", r.IsSuccess, r.Error);
+            m.ClipboardOperationCompleted += onOperation;
+            m.ReadCompleted += onRead;
+            m.ReadDataCompleted += onReadData;
+            m.SnapshotCompleted += onSnapshot;
+            m.PasteboardCreated += onCreated;
+            m.PatternsDetected += onPatterns;
+            m.ValuesDetected += onValues;
+            m.ItemLoaded += onLoaded;
+            m.ForegroundChangeChecked += onForeground;
+            try
+            {
+                var scope = IosPasteboardScope.Named("com.jonghyunkim.nativetoolkit.playertests.unavailable");
+                var link = new[] { IosClipboardDetectionPattern.Link };
+                m.Copy(IosClipboardContent.PlainText("x"), scope, null, r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.Append(IosClipboardContent.PlainText("x"), scope, r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.Clear(scope, r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.RemovePasteboard(scope, r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.CancelLoads(r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.StartObserving(scope, null, r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.StopObserving(r => Add(r.Operation, "callback", r.IsSuccess, r.Error));
+                m.Read(scope, r => Add("read", "callback", r.IsSuccess, r.Error));
+                m.ReadData("public.png", scope, r => Add("readData", "callback", r.IsSuccess, r.Error));
+                m.GetSnapshot(scope, null, r => Add("getSnapshot", "callback", r.IsSuccess, r.Error));
+                m.CreatePasteboard(IosPasteboardCreationRequest.Unique, r => Add("createPasteboard", "callback", r.IsSuccess, r.Error));
+                m.DetectPatterns(link, scope, r => Add("detectPatterns", "callback", r.IsSuccess, r.Error));
+                m.DetectValues(link, scope, r => Add("detectValues", "callback", r.IsSuccess, r.Error));
+                m.LoadItem(IosClipboardLoadRequest.Text, scope, r => Add("loadItem", "callback", r.IsSuccess, r.Error));
+                m.CheckForegroundChange(scope, r => Add("checkForegroundChange", "callback", r.IsSuccess, r.Error));
+                Assert.AreEqual(0, seen.Count, "a result came inside the call");
+
+                yield return null;
+                var operations = new[]
+                {
+                    "copy", "append", "clear", "removePasteboard", "cancelLoads", "startObserving", "stopObserving",
+                    "read", "readData", "getSnapshot", "createPasteboard", "detectPatterns", "detectValues", "loadItem",
+                    "checkForegroundChange",
+                };
+                AssertEachOnce(seen, operations, "after the next Update");
+
+                yield return WaitFor(() => false, 1f);
+                AssertEachOnce(seen, operations, "a second later");
+            }
+            finally
+            {
+                m.ClipboardOperationCompleted -= onOperation;
+                m.ReadCompleted -= onRead;
+                m.ReadDataCompleted -= onReadData;
+                m.SnapshotCompleted -= onSnapshot;
+                m.PasteboardCreated -= onCreated;
+                m.PatternsDetected -= onPatterns;
+                m.ValuesDetected -= onValues;
+                m.ItemLoaded -= onLoaded;
+                m.ForegroundChangeChecked -= onForeground;
+                LogAssert.ignoreFailingMessages = false;
+            }
+        }
+
+        private static void AssertEachOnce(
+            List<(string op, string source, bool ok, string? code, string? message)> seen, string[] operations, string when)
+        {
+            Assert.AreEqual(operations.Length * 2, seen.Count, $"{when}: not one event and one callback per operation");
+            foreach (string op in operations)
+            {
+                var mine = seen.Where(s => s.op == op).ToList();
+                CollectionAssert.AreEqual(new[] { "event", "callback" }, mine.Select(s => s.source).ToArray(), $"{when}: {op}");
+                foreach (var s in mine)
+                {
+                    Assert.IsFalse(s.ok, $"{op} {s.source}");
+                    Assert.AreEqual(Unavailable, s.code, $"{op} {s.source}");
+                    Assert.AreEqual($"{op} is only available on an iOS device.", s.message, $"{op} {s.source}");
+                }
+            }
+        }
+#endif
     }
 }
 #endif

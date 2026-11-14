@@ -16,6 +16,7 @@ using static JonghyunKim.NativeToolkit.Tests.IosPlayerTestSupport;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
+#if !NTK_IOS_CABI_SWITCHED || NTK_IOS_CABI_2_NOTIFICATION
     /// <summary>
     /// iOS player: the Notification plan v4, section 1 (artifact/ios/notification/designs/2026-11-14-ios-notification-ui-test-plan-v4.md).
     /// The player never asks for the permission (nobody would answer the prompt), so it stays
@@ -27,6 +28,11 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// the last feature; not at the 3-S switch, where Notification still runs a temporary path). Under it,
     /// the expectations that wait for the mapping design (2c) fail with "write the 2.0.0 expectation"
     /// instead of passing on a partial check (implementation review v1, R-2, R-3, R-10).
+    /// </para>
+    /// <para>
+    /// Every test reaches the native side, so the fixture is compiled out after the 3-S switch until
+    /// Notification moves (artifact/topics/ios-c-abi-2, 3-S design v3, 1.7); until then
+    /// <see cref="IosNotificationUnavailablePlayerTests"/> checks the temporary path.
     /// </para>
     /// </summary>
     [Category(IosPlayerTestSupport.Category)]
@@ -482,6 +488,75 @@ namespace JonghyunKim.NativeToolkit.Tests
 #endif
         }
     }
+#endif
+
+#if NTK_IOS_CABI_SWITCHED && !NTK_IOS_CABI_2_NOTIFICATION
+    /// <summary>
+    /// iOS player, 3-S (artifact/topics/ios-c-abi-2, 3-S design v3, 1.6): until Notification moves to the C
+    /// ABI, every API that returns a result answers once on the next Update with a fixed value, the
+    /// callback first and then NotificationOperationCompleted. Each API is called twice in a row, and each
+    /// call gets its own answer (the callback is captured per call). Nothing comes inside the call, and
+    /// nothing more within a second.
+    /// </summary>
+    [Category(IosPlayerTestSupport.Category)]
+    public class IosNotificationUnavailablePlayerTests
+    {
+        private const string Unavailable = "Notification is not available yet on this build.";
+
+        [UnityTest]
+        public IEnumerator UnavailableUntilMoved()
+        {
+            var m = IosNotificationManager.Instance;
+            var seen = new List<string>();
+            Action<IosNotificationResult> onEvent = r => seen.Add($"event {Describe(r)}");
+            m.NotificationOperationCompleted += onEvent;
+            try
+            {
+                const string content = "{\"id\":\"ntkp-unavailable\",\"title\":\"ntk player\"}";
+                const string trigger = "{\"type\":\"timeInterval\",\"interval\":3600,\"repeats\":false}";
+                var expected = new List<string>();
+                for (int call = 1; call <= 2; call++)
+                {
+                    string n = call.ToString();
+                    void Result(string op, Action<Action<IosNotificationResult>> api)
+                    {
+                        api(r => seen.Add($"callback{n} {Describe(r)}"));
+                        expected.Add($"callback{n} {op} fail {Unavailable}");
+                        expected.Add($"event {op} fail {Unavailable}");
+                    }
+                    Result(IosNotificationManager.OperationRequestPermission, cb => m.RequestPermission(cb));
+                    Result(IosNotificationManager.OperationShowNotification, cb => m.ShowNotification(content, null, cb));
+                    Result(IosNotificationManager.OperationScheduleNotification, cb => m.ScheduleNotification(content, trigger, "ntkp-unavailable", cb));
+                    Result(IosNotificationManager.OperationUpdateNotification, cb => m.UpdateNotification("ntkp-unavailable", content, null, cb));
+                    Result(IosNotificationManager.OperationSetBadgeCount, cb => m.SetBadgeCount(0, cb));
+                    Result(IosNotificationManager.OperationRegisterCategory, cb => m.RegisterCategory("{\"identifier\":\"ntkp-unavailable\"}", cb));
+                    m.HasPermission(h => seen.Add($"has{n} {h}"));
+                    expected.Add($"has{n} False");
+                    m.GetAuthorizationStatus(st => seen.Add($"status{n} {st}"));
+                    expected.Add($"status{n} {IosNotificationAuthorizationStatus.Unknown}");
+                    m.GetScheduledNotifications(json => seen.Add($"scheduled{n} {json}"));
+                    expected.Add($"scheduled{n} []");
+                    m.GetDeliveredNotifications(json => seen.Add($"delivered{n} {json}"));
+                    expected.Add($"delivered{n} []");
+                }
+                Assert.AreEqual(0, seen.Count, "a result came inside the call");
+
+                yield return null;
+                CollectionAssert.AreEqual(expected, seen, "after the next Update");
+
+                yield return WaitFor(() => false, 1f);
+                CollectionAssert.AreEqual(expected, seen, "a second later");
+            }
+            finally
+            {
+                m.NotificationOperationCompleted -= onEvent;
+            }
+        }
+
+        private static string Describe(IosNotificationResult r) =>
+            $"{r.Operation} {(r.IsSuccess ? "ok" : "fail")} {r.ErrorMessage}";
+    }
+#endif
 }
 #endif
 #endif

@@ -102,7 +102,9 @@ if [ -n "$TESTS_ARG" ]; then
   IFS=',' read -r -a TESTS <<< "$TESTS_ARG"
   for t in "${TESTS[@]}"; do
     if ! grep -qxF "$t" <<< "$KNOWN_TESTS"; then
-      if [ "$DEVICE_MODE" -eq 1 ] && python3 -I "$RUNNER" tests "$PROJECT_DIR" | grep -qxF "$t"; then
+      if python3 -I "$RUNNER" not-moved "$PROJECT_DIR" "$t" >/dev/null; then
+        echo "Not moved yet to the C ABI 2.0.0, so not run: $t (Tools~/IosUiTests/DeviceRequirements.json, notMovedYet)" >&2
+      elif [ "$DEVICE_MODE" -eq 1 ] && python3 -I "$RUNNER" tests "$PROJECT_DIR" | grep -qxF "$t"; then
         echo "Simulator only, never run on a device: $t (Tools~/IosUiTests/DeviceRequirements.json, simulatorOnly)" >&2
       else
         echo "Not a UI test: $t (the UI tests are listed in Tools~/IosUiTests/DeviceRequirements.json)" >&2
@@ -112,7 +114,13 @@ if [ -n "$TESTS_ARG" ]; then
   done
 else
   TESTS=()
-  while IFS= read -r t; do TESTS+=("$t"); done <<< "$KNOWN_TESTS"
+  # An empty list adds no empty name (here-string of "" would give one empty line).
+  if [ -n "$KNOWN_TESTS" ]; then
+    while IFS= read -r t; do TESTS+=("$t"); done <<< "$KNOWN_TESTS"
+  else
+    echo "No UI test can run: every UI test class is in notMovedYet (Tools~/IosUiTests/DeviceRequirements.json) or left out of this kind of run." >&2
+    exit 2
+  fi
 fi
 
 if [ "${#TESTS[@]}" -eq 0 ]; then

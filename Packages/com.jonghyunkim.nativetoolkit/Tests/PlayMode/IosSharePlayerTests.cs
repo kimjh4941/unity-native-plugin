@@ -82,6 +82,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
         }
 
+        // SH-23 to SH-25 reach the native parser: compiled out after the 3-S switch until Share moves to
+        // the C ABI (artifact/topics/ios-c-abi-2, 3-S design v3, 1.7).
+#if !NTK_IOS_CABI_SWITCHED || NTK_IOS_CABI_2_SHARE
         [UnityTest]
         public IEnumerator SH23_UnknownTypeOnlyFails() =>
             ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "unknown", value = "x" } } }, NoItems);
@@ -93,6 +96,48 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator SH25_NullTextValueOnlyFails() =>
             ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "text", value = null! } } }, NoItems);
+#endif
+
+#if NTK_IOS_CABI_SWITCHED && !NTK_IOS_CABI_2_SHARE
+        /// <summary>
+        /// 3-S (3-S design v3, 1.6): until Share moves to the C ABI, a share that passes the C# checks fails
+        /// with "iOS share is only available on an iOS device." without a sheet. Nothing comes inside the
+        /// call; after the next Update the event and then the callback, once each; nothing more within a second.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator UnavailableUntilMoved()
+        {
+            const string error = "iOS share is only available on an iOS device.";
+            var seen = new List<(string source, IosShareResult result)>();
+            Action<IosShareResult> onEvent = r => seen.Add(("event", r));
+            IosShareManager.Instance.ShareCompleted += onEvent;
+            try
+            {
+                IosShareManager.Instance.Share(
+                    new IosShareContentPayload { items = new[] { new IosShareItem { type = "text", value = "ntk player" } } },
+                    r => seen.Add(("callback", r)));
+                Assert.AreEqual(0, seen.Count, "a result came inside the call");
+
+                yield return null;
+                Assert.AreEqual(2, seen.Count, "not one event and one callback after the next Update");
+                CollectionAssert.AreEqual(new[] { "event", "callback" }, new[] { seen[0].source, seen[1].source });
+                foreach (var (source, r) in seen)
+                {
+                    Assert.IsFalse(r.IsSuccess, source);
+                    Assert.IsFalse(r.Completed, source);
+                    Assert.IsNull(r.ActivityType, source);
+                    Assert.AreEqual(error, r.ErrorMessage, source);
+                }
+
+                yield return WaitFor(() => false, 1f);
+                Assert.AreEqual(2, seen.Count, "a result came later");
+            }
+            finally
+            {
+                IosShareManager.Instance.ShareCompleted -= onEvent;
+            }
+        }
+#endif
     }
 }
 #endif

@@ -6,14 +6,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
     using UnityEngine;
     using System.Runtime.InteropServices;
     using System;
-    using AOT;
-    using JonghyunKim.NativeToolkit.Runtime.Common;
 
     /// <summary>
     /// Singleton manager for iOS native dialog operations using Unity's native plugin interface.
     /// Provides a Unity-friendly API for showing various types of iOS native dialogs including
     /// basic alerts, confirmation dialogs, destructive alerts, action sheets, text input, and login dialogs.
-    /// Uses P/Invoke to communicate with Objective-C native code and event-driven callbacks for results.
+    /// Results arrive through the events.
+    /// <para>
+    /// <b>Unavailable for now.</b> native-toolkit 2.0.0 removed the 1.x bridge this Manager called, and
+    /// the Manager does not call the 2.0.0 C ABI yet (artifact/topics/ios-c-abi-2, stage 3-S). Until it
+    /// moves (stage 3), each Show* that passes the argument checks raises its event once, inside the
+    /// call, with (null…, false, <see cref="UnavailableMessage"/>); nothing follows.
+    /// </para>
     /// </summary>
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Dialog")]
     public class IosDialogManager : MonoBehaviour
@@ -104,163 +108,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void LoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage);
 
-        // Native function imports (Objective-C side) – all use Cdecl for IL2CPP compatibility
-        /// <summary>
-        /// Shows a basic iOS alert dialog with a single button.
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showDialog(string title, string message, string buttonText, DialogCallback callback);
+        /// <summary>The error each Show* reports until Dialog moves to the C ABI (stage 3).</summary>
+        internal const string UnavailableMessage = "Dialog is not available yet on this build.";
 
-        /// <summary>
-        /// Shows a confirmation dialog (OK / Cancel style).
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showConfirmDialog(string title, string message, string confirmButtonText, string cancelButtonText, ConfirmDialogCallback callback);
-
-        /// <summary>
-        /// Shows a destructive confirmation dialog (e.g. Delete / Cancel).
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showDestructiveDialog(string title, string message, string destructiveButtonText, string cancelButtonText, DestructiveDialogCallback callback);
-
-        /// <summary>
-        /// Shows an action sheet with selectable options.
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showActionSheet(string title, string message, IntPtr options, int optionCount, string cancelButtonText, ActionSheetCallback callback);
-
-        /// <summary>
-        /// Shows a text input dialog with a single editable field.
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showTextInputDialog(string title, string message, string placeholder, string confirmButtonText, string cancelButtonText, bool enableConfirmWhenEmpty, TextInputDialogCallback callback);
-
-        /// <summary>
-        /// Shows a login dialog with username & password fields.
-        /// </summary>
-        [DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void showLoginDialog(string title, string message, string usernamePlaceholder, string passwordPlaceholder, string loginButtonText, string cancelButtonText, bool enableLoginWhenEmpty, LoginDialogCallback callback);
-
-        // Memory management for ActionSheet options (static to allow cleanup in callback)
-        private static IntPtr s_optionsPtr = IntPtr.Zero;
-        private static IntPtr[]? s_stringPointers = null;
-
-        // Static callback methods (IL2CPP compatible) – marshalled from native side
-        [MonoPInvokeCallback(typeof(DialogCallback))]
-        private static void OnDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.DialogResult?.Invoke(buttonText, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"DialogResult callback error: {ex.Message}");
-                }
-            });
-        }
-
-        [MonoPInvokeCallback(typeof(ConfirmDialogCallback))]
-        private static void OnConfirmDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.ConfirmDialogResult?.Invoke(buttonText, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"ConfirmDialogResult callback error: {ex.Message}");
-                }
-            });
-        }
-
-        [MonoPInvokeCallback(typeof(DestructiveDialogCallback))]
-        private static void OnDestructiveDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.DestructiveDialogResult?.Invoke(buttonText, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"DestructiveDialogResult callback error: {ex.Message}");
-                }
-            });
-        }
-
-        [MonoPInvokeCallback(typeof(ActionSheetCallback))]
-        private static void OnActionSheetCallback(string? buttonText, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.ActionSheetResult?.Invoke(buttonText, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"ActionSheetResult callback error: {ex.Message}");
-                }
-                finally
-                {
-                    // Release unmanaged memory allocated for ActionSheet options
-                    if (s_optionsPtr != IntPtr.Zero)
-                    {
-                        Marshal.FreeHGlobal(s_optionsPtr);
-                        s_optionsPtr = IntPtr.Zero;
-                    }
-                    if (s_stringPointers != null)
-                    {
-                        foreach (var ptr in s_stringPointers)
-                        {
-                            if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
-                        }
-                        s_stringPointers = null;
-                    }
-                    Debug.Log("Memory for ActionSheet options freed in callback.");
-                }
-            });
-        }
-
-        [MonoPInvokeCallback(typeof(TextInputDialogCallback))]
-        private static void OnTextInputDialogCallback(string? buttonText, string? inputText, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.TextInputDialogResult?.Invoke(buttonText, inputText, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"TextInputDialogResult callback error: {ex.Message}");
-                }
-            });
-        }
-
-        [MonoPInvokeCallback(typeof(LoginDialogCallback))]
-        private static void OnLoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage)
-        {
-            UnityMainThreadDispatcher.Instance.Enqueue(() =>
-            {
-                try
-                {
-                    Instance.LoginDialogResult?.Invoke(buttonText, username, password, isSuccess, errorMessage);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"LoginDialogResult callback error: {ex.Message}");
-                }
-            });
-        }
-
-        // Public dialog API (IL2CPP friendly – uses static callbacks)
+        // Public dialog API
 
         /// <summary>
         /// Shows a basic alert dialog with a single button.
@@ -284,15 +135,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
             buttonText ??= "OK";
 
-            try
-            {
-                showDialog(title, message, buttonText, OnDialogCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowDialog error: {ex.Message}");
-                DialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            DialogResult?.Invoke(null, false, UnavailableMessage);
         }
 
         /// <summary>
@@ -318,15 +162,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             confirmButtonText ??= "OK";
             cancelButtonText ??= "Cancel";
 
-            try
-            {
-                showConfirmDialog(title, message, confirmButtonText, cancelButtonText, OnConfirmDialogCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowConfirmDialog error: {ex.Message}");
-                ConfirmDialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            ConfirmDialogResult?.Invoke(null, false, UnavailableMessage);
         }
 
         /// <summary>
@@ -352,15 +189,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             destructiveButtonText ??= "Delete";
             cancelButtonText ??= "Cancel";
 
-            try
-            {
-                showDestructiveDialog(title, message, destructiveButtonText, cancelButtonText, OnDestructiveDialogCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowDestructiveDialog error: {ex.Message}");
-                DestructiveDialogResult?.Invoke(null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            DestructiveDialogResult?.Invoke(null, false, UnavailableMessage);
         }
 
         /// <summary>
@@ -393,58 +223,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
             cancelButtonText ??= "Cancel";
 
-            // Release previously allocated unmanaged memory (if any)
-            if (s_optionsPtr != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(s_optionsPtr);
-                s_optionsPtr = IntPtr.Zero;
-            }
-            if (s_stringPointers != null)
-            {
-                foreach (var ptr in s_stringPointers)
-                {
-                    if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
-                }
-                s_stringPointers = null;
-            }
-
-            int optionCount = options.Length;
-
-            try
-            {
-                // Convert managed string array to unmanaged UTF-8 buffer array
-                s_stringPointers = new IntPtr[optionCount];
-                for (int i = 0; i < optionCount; i++)
-                {
-                    byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(options[i]);
-                    s_stringPointers[i] = Marshal.AllocHGlobal(utf8Bytes.Length + 1);
-                    Marshal.Copy(utf8Bytes, 0, s_stringPointers[i], utf8Bytes.Length);
-                    Marshal.WriteByte(s_stringPointers[i], utf8Bytes.Length, 0); // null terminator
-                }
-                s_optionsPtr = Marshal.AllocHGlobal(IntPtr.Size * optionCount);
-                Marshal.Copy(s_stringPointers, 0, s_optionsPtr, optionCount);
-
-                showActionSheet(title, message, s_optionsPtr, optionCount, cancelButtonText, OnActionSheetCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowActionSheet error: {ex.Message}");
-                // Ensure memory is released on error
-                if (s_optionsPtr != IntPtr.Zero)
-                {
-                    Marshal.FreeHGlobal(s_optionsPtr);
-                    s_optionsPtr = IntPtr.Zero;
-                }
-                if (s_stringPointers != null)
-                {
-                    foreach (var ptr in s_stringPointers)
-                    {
-                        if (ptr != IntPtr.Zero) Marshal.FreeHGlobal(ptr);
-                    }
-                    s_stringPointers = null;
-                }
-                ActionSheetResult?.Invoke(null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            ActionSheetResult?.Invoke(null, false, UnavailableMessage);
         }
 
         /// <summary>
@@ -472,15 +252,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             confirmButtonText ??= "OK";
             cancelButtonText ??= "Cancel";
 
-            try
-            {
-                showTextInputDialog(title, message, placeholder, confirmButtonText, cancelButtonText, enableConfirmWhenEmpty, OnTextInputDialogCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowTextInputDialog error: {ex.Message}");
-                TextInputDialogResult?.Invoke(null, null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            TextInputDialogResult?.Invoke(null, null, false, UnavailableMessage);
         }
 
         /// <summary>
@@ -509,15 +282,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             loginButtonText ??= "Login";
             cancelButtonText ??= "Cancel";
 
-            try
-            {
-                showLoginDialog(title, message, usernamePlaceholder, passwordPlaceholder, loginButtonText, cancelButtonText, enableLoginWhenEmpty, OnLoginDialogCallback);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"ShowLoginDialog error: {ex.Message}");
-                LoginDialogResult?.Invoke(null, null, null, false, $"Internal error: {ex.Message}");
-            }
+            Debug.LogWarning(UnavailableMessage);
+            LoginDialogResult?.Invoke(null, null, null, false, UnavailableMessage);
         }
     }
 }
