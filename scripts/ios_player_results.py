@@ -25,6 +25,13 @@ A run passes only when:
     >>> judge(sample.replace('result="Passed" />', 'result="Failed" />'), "IosPlayer")
     (False, 'IosPlayer: 1 ran, 0 passed, 1 failed, 0 skipped')
 
+    The failed cases are named with the first line of their message (the test's own text, cut at 200
+    characters), so a device run, whose result file is deleted, still tells which case failed:
+
+    >>> failed = sample.replace('result="Passed" />', 'result="Failed"><failure><message>  Expected: 1\n  But was: 2</message></failure></test-case>')
+    >>> failures(failed)
+    ['NamedPasteboardRoundTripsPlainText: Expected: 1']
+
     >>> judge(sample.replace('result="Passed" />', 'result="Skipped" />'), "IosPlayer")
     (False, 'IosPlayer: 1 ran, 0 passed, 0 failed, 1 skipped')
 
@@ -104,13 +111,32 @@ def judge(text, category):
     return counts["Passed"] == ran, summary
 
 
+def failures(text):
+    """The failed test cases, each with the first line of its failure message."""
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+    lines = []
+    for case in root.iter("test-case"):
+        if case.get("result") in ("Passed", "Skipped"):
+            continue
+        message = (case.findtext("./failure/message") or "").strip().splitlines()
+        first = message[0].strip()[:200] if message else "(no message)"
+        lines.append(f"{case.get('name', '?')}: {first}")
+    return lines
+
+
 def main(argv):
     if len(argv) != 3:
         print("usage: ios_player_results.py <result.xml> <category>", file=sys.stderr)
         return 2
     with open(argv[1], encoding="utf-8") as f:
-        passed, summary = judge(f.read(), argv[2])
+        text = f.read()
+    passed, summary = judge(text, argv[2])
     print(summary)
+    for line in failures(text):
+        print("    failed: " + line)
     return 0 if passed else 1
 
 
