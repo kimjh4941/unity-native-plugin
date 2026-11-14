@@ -290,7 +290,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// device's language ("… (IosLibrary.NotificationError error 1.)" on the English simulator, Japanese
         /// on the iPhone, 2026-11-15), so it is matched by the error type and its number, not word for word.
         /// </summary>
-        private static string GenericError(int code) => @"error=.*\(IosLibrary\.NotificationError[^0-9]*" + code + @"[^0-9]*\)";
+        private static string GenericError(int code) => @"error=.*[(（]IosLibrary\.NotificationError[^0-9]*" + code + @"[^0-9]*[)）]";
 
         /// <summary>Runs one call and records its result; the callback and the event must each come once.</summary>
         private IEnumerator RunCase<T>(string label, Func<Box<T>> call, Func<T, string> describe, List<string> lines)
@@ -344,7 +344,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             foreach (string line in lines)
             {
                 if (line.StartsWith("attachment-https:"))
-                    StringAssert.IsMatch("^attachment-https: fail " + GenericError(1) + " events=1$", line);
+                    StringAssert.IsMatch("^attachment-https: fail " + GenericError(1) + " events=1$", line, line);
                 else
                     Assert.AreEqual(line.Split(':')[0] + ": ok events=1", line);
             }
@@ -408,7 +408,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 #else
             // 1.x, measured (2026-11-15): a negative badge already fails (the plan v4 expected success).
             Assert.AreEqual(2, lines.Count, string.Join("\n", lines));
-            StringAssert.IsMatch("^count=-1: fail " + GenericError(2) + " events=1$", lines[0]);
+            StringAssert.IsMatch("^count=-1: fail " + GenericError(2) + " events=1$", lines[0], lines[0]);
             Assert.AreEqual("count=0: ok events=1", lines[1]);
 #endif
         }
