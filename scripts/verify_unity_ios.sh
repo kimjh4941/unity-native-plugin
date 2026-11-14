@@ -30,8 +30,16 @@
 # (NATIVE_TOOLKIT_DIST_ROOT overrides it). --as-package-user would use the "Test iOS Profile" (no
 # build steps), but with the 1.x XCFrameworks a build without the build steps does not embed them,
 # so the player cannot start (review v2 of the plan, N-9; spike 6.4): it is refused until the 2.0.0
-# switch (stage 3-S). Device runs come with the device approval of part (B); --device is refused
-# until then.
+# switch (stage 3-S).
+#
+# A device run needs an approval, the same as the UI tests (scripts/test_ios_ui.sh; native-toolkit's
+# agent-rules/device-testing.md): --device --dry-run prints what happens on the device and an approval
+# ID without touching it; --device --approved <ID> runs the player tests only (no Editor runs) on the
+# one paired iPhone. The approval works once, is checked again with the run's marker before every
+# step that touches the device, and the player is removed at the end. The device's identifiers and the
+# team are never printed; logs and results go to a temporary folder deleted at the end. On the device
+# the run id goes in the launch environment (devicectl --environment-variables) and the result is
+# copied out of the app container (devicectl device copy from).
 #
 # Unity re-serializes some files during a run and leaves the test scene in Assets when the export
 # ends the Editor early; the iOS build steps drop the executable bit of the XCFramework binaries they
@@ -41,6 +49,8 @@
 #
 # Usage:
 #   scripts/verify_unity_ios.sh [--skip-editmode] [--keep-changes]
+#   scripts/verify_unity_ios.sh --device --dry-run
+#   scripts/verify_unity_ios.sh --device --approved <ID>
 #
 #   --skip-editmode skips both Editor runs (EditMode and the Editor's PlayMode) and runs the player
 #   tests only.
@@ -70,21 +80,47 @@ KEEP_CHANGES=0
 # shellcheck source=scripts/ios_script_common.sh
 source "$PROJECT_DIR/scripts/ios_script_common.sh"
 
-for arg in "$@"; do
-  case "$arg" in
+DEVICE_MODE=0
+DRY_RUN=0
+APPROVAL=""
+RUNNER="$PROJECT_DIR/scripts/ios_ui_runner.py"
+APPROVAL_TESTS=("PlayerTests/IosPlayer")
+while [ $# -gt 0 ]; do
+  case "$1" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     --as-package-user)
       echo "--as-package-user is not available yet: with the 1.x XCFrameworks a build without the build" >&2
       echo "steps does not embed them (artifact/topics/ios-c-abi-2, README 6.4). It comes with stage 3-S." >&2
       exit 2 ;;
-    --device|--device=*)
-      echo "Device runs are not available yet: they need the device approval of the UI automation" >&2
-      echo "(artifact/topics/ios-c-abi-2/designs/2026-11-14-ios-ui-automation-design-v4.md, 4.6)." >&2
-      exit 2 ;;
-    *) echo "unknown argument: $arg" >&2; exit 2 ;;
+    --device) DEVICE_MODE=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    --approved) APPROVAL="${2:-}"; shift ;;
+    --approved=*) APPROVAL="${1#--approved=}" ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
+  shift
 done
+
+if [ "$DEVICE_MODE" -eq 1 ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    python3 -I "$RUNNER" approve "$PROJECT_DIR" "${APPROVAL_TESTS[@]}"
+    exit $?
+  fi
+  if [ -z "$APPROVAL" ]; then
+    echo "A device run needs --dry-run first, then --approved <ID> once the user has approved the list." >&2
+    exit 2
+  fi
+  if [ "$KEEP_CHANGES" -eq 1 ]; then
+    echo "--keep-changes cannot be used with a device run: the guarded trees are checked again before every device step." >&2
+    exit 2
+  fi
+  python3 -I "$RUNNER" check-approval "$PROJECT_DIR" "$APPROVAL" "${APPROVAL_TESTS[@]}" || exit 1
+  SKIP_EDITMODE=1
+elif [ "$DRY_RUN" -eq 1 ] || [ -n "$APPROVAL" ]; then
+  echo "--dry-run and --approved are for device runs (--device)." >&2
+  exit 2
+fi
 
 if [ ! -x "$UNITY_EXE" ]; then
   echo "Unity not found at: $UNITY_EXE" >&2
@@ -102,13 +138,32 @@ if pgrep -x Simulator >/dev/null; then
   exit 2
 fi
 
-SIM_ID="$(find_simulator "$SIM_NAME" "$SIM_RUNTIME")"
-if [ -z "$SIM_ID" ]; then
-  echo "Expected exactly one available simulator named '$SIM_NAME' on '$SIM_RUNTIME' (set SIM_NAME / SIM_RUNTIME)." >&2
-  exit 2
-fi
-
 require_clean_ios_plugins
+SIM_ID=""
+DEVICE_ID=""
+DEVICE_UDID=""
+TEAM=""
+RUN_MARKER=""
+if [ "$DEVICE_MODE" -eq 1 ]; then
+  # Logs and results of a device run may name the device: a folder deleted at the end.
+  OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ntk-ios-player-device.XXXXXX")"
+  # Until the full EXIT trap below, an interrupted run still deletes the folder (it can hold the
+  # device list with its identifiers).
+  trap 'rm -rf "$OUT_DIR"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  if ! select_device "$OUT_DIR" || ! select_team; then
+    rm -rf "$OUT_DIR"
+    exit 2
+  fi
+else
+  SIM_ID="$(find_simulator "$SIM_NAME" "$SIM_RUNTIME")"
+  if [ -z "$SIM_ID" ]; then
+    echo "Expected exactly one available simulator named '$SIM_NAME' on '$SIM_RUNTIME' (set SIM_NAME / SIM_RUNTIME)." >&2
+    exit 2
+  fi
+fi
 mkdir -p "$OUT_DIR"
 failures=0
 record_side_effects_baseline
@@ -148,17 +203,45 @@ run_editor_tests() {
 }
 
 SIM_BOOTED_BY_US=0
+DEVICE_TOUCHED=0
+CLEANED_UP=0
+# Removes the player. On a device it reads back that it is gone and returns 1 when it is not; the
+# main flow does this before printing the result, so a run that leaves the player behind fails. Only
+# what this run installed, as the approval lists it (see scripts/test_ios_ui.sh). The EXIT trap does it
+# again only when the main flow did not get there.
+clean_up_player() {
+  CLEANED_UP=1
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    [ "$DEVICE_TOUCHED" -eq 1 ] || return 0
+    remove_from_device "$PLAYER_ID"
+    return $?
+  fi
+  xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+  xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+}
 on_exit() {
   trap '' INT TERM HUP
   # Unity or xcodebuild may still be running (a signal stopped the script mid-step). Stop them
   # before restoring files they could write again.
   stop_running_step
-  xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-  xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+  if [ "$CLEANED_UP" -eq 0 ]; then
+    clean_up_player || echo "WARNING: the player of this run may still be on the device"
+  fi
   if [ "$SIM_BOOTED_BY_US" -eq 1 ]; then
     xcrun simctl shutdown "$SIM_ID" >/dev/null 2>&1
   fi
   restore_side_effects
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    rm -rf "$OUT_DIR"
+  fi
+}
+
+# Before every step that touches the device: this run used the approval, and it still covers the run.
+device_guard() {
+  python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" "${APPROVAL_TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
+    echo "  stopped: $(cat "$OUT_DIR/guard.err")"
+    return 1
+  }
 }
 trap on_exit EXIT
 trap 'exit 130' INT
@@ -173,8 +256,10 @@ if [ "$SKIP_EDITMODE" -eq 0 ]; then
   restore_side_effects
 fi
 
-# The iOS player on the simulator. Returns non-zero at the first step that fails.
+# The iOS player on the simulator or the device. Returns non-zero at the first step that fails.
 run_player_tests() {
+  local sdk=simulator
+  [ "$DEVICE_MODE" -eq 1 ] && sdk=device
   local export_dir="$OUT_DIR/ios-player-xcode" export_log="$OUT_DIR/ios-player-export.log"
   local build_log="$OUT_DIR/ios-player-build.log" derived="$OUT_DIR/ios-player-dd"
   rm -rf "$export_dir" "$export_log" "$build_log" "$derived" "$OUT_DIR/ios-player.xml"
@@ -182,7 +267,7 @@ run_player_tests() {
   run_limited export 1800 600 "$export_log" "$OUT_DIR/ios-player-export.console.log" \
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" -activeBuildProfile "$PROFILE" \
     -runTests -testPlatform iOS -testCategory "$CATEGORY" -doNotReportTestResultsBackToEditor \
-    -ntkIosPlayerSdk simulator -ntkIosPlayerOut "$export_dir" \
+    -ntkIosPlayerSdk "$sdk" -ntkIosPlayerOut "$export_dir" \
     -testResults "$OUT_DIR/ios-player-export-editor.xml" -logFile "$export_log"
   restore_side_effects
   grep -n "error CS" "$export_log" 2>/dev/null | sort -u -t: -k2 | head -5
@@ -200,29 +285,41 @@ run_player_tests() {
   fi
   echo "  export: ok"
 
-  run_limited build 2400 600 "$build_log" "$build_log" \
-    "$XCODEBUILD" -project "$export_dir/Unity-iPhone.xcodeproj" -scheme Unity-iPhone -configuration Release \
-    -sdk iphonesimulator -destination "platform=iOS Simulator,id=$SIM_ID" -derivedDataPath "$derived" \
-    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    # Automatic signing without -allowProvisioningUpdates: the team's existing wildcard profile.
+    run_limited build 2400 600 "$build_log" "$build_log" \
+      "$XCODEBUILD" -project "$export_dir/Unity-iPhone.xcodeproj" -scheme Unity-iPhone -configuration Release \
+      -destination "generic/platform=iOS" -derivedDataPath "$derived" \
+      CODE_SIGN_STYLE=Automatic PROVISIONING_PROFILE_SPECIFIER= DEVELOPMENT_TEAM="$TEAM" build
+  else
+    run_limited build 2400 600 "$build_log" "$build_log" \
+      "$XCODEBUILD" -project "$export_dir/Unity-iPhone.xcodeproj" -scheme Unity-iPhone -configuration Release \
+      -sdk iphonesimulator -destination "platform=iOS Simulator,id=$SIM_ID" -derivedDataPath "$derived" \
+      CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build
+  fi
   if ! grep -q '\*\* BUILD SUCCEEDED \*\*' "$build_log"; then
-    echo "  build: failed (see $build_log)"
-    grep -E 'error:' "$build_log" | sort -u | head -5
+    show_build_errors "$build_log" "$DEVICE_MODE"
     return 1
   fi
   echo "  build: ok"
+  local apps
+  apps="$(ls -d "$derived"/Build/Products/*/*.app 2>/dev/null)"
+  if [ "$(printf '%s\n' "$apps" | grep -c .)" != "1" ]; then
+    echo "  build: expected exactly one .app, found: $(printf '%s\n' "$apps" | grep -c .)"
+    return 1
+  fi
+  require_bundle_id "$apps" "$PLAYER_ID" || return 1
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    run_on_device "$apps"
+    return $?
+  fi
 
   if ! xcrun simctl list devices | grep -F "($SIM_ID) (Booted)" >/dev/null; then
     SIM_BOOTED_BY_US=1
   fi
   run_limited boot 300 300 "$OUT_DIR/ios-player-boot.log" "$OUT_DIR/ios-player-boot.log" \
     xcrun simctl bootstatus "$SIM_ID" -b || return 1
-  local app apps
-  apps="$(ls -d "$derived"/Build/Products/*-iphonesimulator/*.app 2>/dev/null)"
-  if [ "$(printf '%s\n' "$apps" | grep -c .)" != "1" ]; then
-    echo "  build: expected exactly one .app under $derived, found: ${apps:-none}"
-    return 1
-  fi
-  app="$apps"
+  local app="$apps"
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   if ! xcrun simctl install "$SIM_ID" "$app"; then
@@ -252,11 +349,77 @@ run_player_tests() {
   python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player.xml" "$CATEGORY"
 }
 
-echo "iOS player ($SIM_NAME, $SIM_RUNTIME):"
+# run_on_device <app>: install, launch with the run id, copy the result out, stop, judge.
+run_on_device() {
+  local app="$1" run pid waited=0 code
+  local results="$OUT_DIR/device-results"
+  mkdir -p "$results"
+  device_guard || return 1
+  DEVICE_TOUCHED=1
+  run_limited "remove before install" 120 120 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+    xcrun devicectl device uninstall app --device "$DEVICE_ID" "$PLAYER_ID" >/dev/null
+  device_guard || return 1
+  run_limited install 300 300 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+    xcrun devicectl device install app --device "$DEVICE_ID" "$app" >/dev/null || { echo "  install: failed"; return 1; }
+  device_guard || return 1
+  run="$(uuidgen | tr -d - | tr 'A-F' 'a-f')"
+  run_limited launch 120 120 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+    xcrun devicectl device process launch --device "$DEVICE_ID" --environment-variables "{\"NTK_RUN\": \"$run\"}" \
+    --json-output "$OUT_DIR/launch.json" "$PLAYER_ID" >/dev/null || { echo "  launch: failed"; return 1; }
+  pid="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"]["process"]["processIdentifier"])' "$OUT_DIR/launch.json" 2>/dev/null)"
+  # Poll for the .done marker (the player keeps running after the tests), at most 600 seconds of real
+  # time. Every copy is a device step, so the approval is checked again before each.
+  local start now copied=0
+  start=$(date +%s)
+  while :; do
+    now=$(date +%s); waited=$((now - start))
+    [ "$waited" -ge 600 ] && break
+    device_guard || break
+    rm -f "$results/$run.done"
+    if run_limited "copy" 60 60 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+        xcrun devicectl device copy from --device "$DEVICE_ID" --domain-type appDataContainer \
+        --domain-identifier "$PLAYER_ID" --source "Documents/ntk-player-tests/$run.done" \
+        --destination "$results/$run.done" >/dev/null && [ -s "$results/$run.done" ]; then
+      copied=1
+      break
+    fi
+    sleep 5
+  done
+  if [ "$copied" -eq 1 ] && device_guard; then
+    rm -f "$results/$run.xml"
+    run_limited "copy" 60 60 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+      xcrun devicectl device copy from --device "$DEVICE_ID" --domain-type appDataContainer \
+      --domain-identifier "$PLAYER_ID" --source "Documents/ntk-player-tests/$run.xml" \
+      --destination "$results/$run.xml" >/dev/null || rm -f "$results/$run.xml"
+  fi
+  # Stop the player this run launched (the removal at the end would stop it too).
+  if [ -n "$pid" ] && device_guard; then
+    run_limited terminate 60 60 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+      xcrun devicectl device process terminate --device "$DEVICE_ID" --pid "$pid" >/dev/null
+  fi
+  if [ ! -s "$results/$run.xml" ]; then
+    echo "  run: no result after ${waited}s"
+    return 1
+  fi
+  echo -n "  run: "
+  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$results/$run.xml" "$CATEGORY"
+}
+
+if [ "$DEVICE_MODE" -eq 1 ]; then
+  RUN_MARKER="$(python3 -I "$RUNNER" use-approval "$PROJECT_DIR" "$APPROVAL" "${APPROVAL_TESTS[@]}")" || exit 1
+  [ -n "$RUN_MARKER" ] || exit 1
+  echo "iOS player (device):"
+else
+  echo "iOS player ($SIM_NAME, $SIM_RUNTIME):"
+fi
 run_player_tests || failures=$((failures + 1))
+if ! clean_up_player; then
+  echo "  cleanup: the player could not be confirmed removed"
+  failures=$((failures + 1))
+fi
 
 restore_side_effects
-echo "Logs and results: $OUT_DIR"
+[ "$DEVICE_MODE" -eq 0 ] && echo "Logs and results: $OUT_DIR"
 if [ "$failures" -ne 0 ]; then
   echo "FAILED: $failures run(s) did not pass"
   exit 1

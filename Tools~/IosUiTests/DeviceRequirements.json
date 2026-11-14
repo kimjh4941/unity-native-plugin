@@ -1,10 +1,26 @@
 {
   "schema": 1,
-  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test.",
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it.",
   "tests": {
-    "DialogUITests/test_confirmOk": ["systemui", "reinstall"],
-    "ShareUITests/test_dismiss": ["sharesheet", "reinstall"],
-    "NotificationUITests/test_permissionAndBannerTap": ["systemui", "reinstall"],
-    "ClipboardUITests/test_namedRoundTrip": ["clipboard", "reinstall"]
+    "DialogUITests/test_confirmOk": [
+      "systemui",
+      "reinstall"
+    ],
+    "ShareUITests/test_dismiss": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "NotificationUITests/test_permissionAndBannerTap": [
+      "systemui",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_namedRoundTrip": [
+      "clipboard",
+      "reinstall"
+    ],
+    "PlayerTests/IosPlayer": [
+      "playertests",
+      "reinstall"
+    ]
   }
 }

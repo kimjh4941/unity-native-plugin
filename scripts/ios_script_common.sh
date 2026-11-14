@@ -135,3 +135,86 @@ ids = [d["udid"] for d in json.load(sys.stdin)["devices"].get(key, []) if d["nam
 print(ids[0] if len(ids) == 1 else "")
 ' "$1" "$2"
 }
+
+# select_device <work dir>: sets DEVICE_ID (for devicectl) and DEVICE_UDID (for xcodebuild) to the one
+# paired iPhone with Developer Mode on. Prints neither. Returns 1 when there is not exactly one.
+select_device() {
+  local json="$1/devices.json" ids
+  xcrun devicectl list devices --json-output "$json" >/dev/null 2>&1
+  ids="$(python3 -I -c '
+import json, sys
+devices = json.load(open(sys.argv[1]))["result"]["devices"]
+found = [(d["identifier"], d.get("hardwareProperties", {}).get("udid", "")) for d in devices
+         if d.get("hardwareProperties", {}).get("deviceType") == "iPhone"
+         and d.get("connectionProperties", {}).get("pairingState") == "paired"
+         and d.get("deviceProperties", {}).get("developerModeStatus") == "enabled"]
+print(" ".join(found[0]) if len(found) == 1 and found[0][1] else "")
+' "$json" 2>/dev/null)"
+  rm -f "$json"
+  DEVICE_ID="${ids%% *}"
+  DEVICE_UDID="${ids#* }"
+  if [ -z "$ids" ] || [ -z "$DEVICE_UDID" ]; then
+    echo "Expected exactly one paired iPhone with Developer Mode on." >&2
+    return 1
+  fi
+}
+
+# select_team: sets TEAM to the team of the unexpired Xcode provisioning profiles - exactly one, or the
+# signing would be a guess. Prints nothing. Returns 1 otherwise.
+select_team() {
+  TEAM="$(for profile in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*; do
+      security cms -D -i "$profile" 2>/dev/null | python3 -I -c '
+import datetime, plistlib, sys
+p = plistlib.loads(sys.stdin.buffer.read())
+if p["ExpirationDate"].replace(tzinfo=datetime.timezone.utc) > datetime.datetime.now(datetime.timezone.utc):
+    print(p["TeamIdentifier"][0])
+' 2>/dev/null
+    done | sort -u)"
+  if [ -z "$TEAM" ] || [ "$(printf '%s\n' "$TEAM" | grep -c .)" != "1" ]; then
+    echo "Expected the unexpired Xcode provisioning profiles to belong to exactly one team (sign in to Xcode once)." >&2
+    TEAM=""
+    return 1
+  fi
+}
+
+# show_build_errors <log> <device mode 0|1>: a device build's errors can name the team, certificates
+# and the device, so a device run counts them instead of showing them.
+show_build_errors() {
+  if [ "$2" -eq 1 ]; then
+    echo "  build: failed ($(grep -c 'error:' "$1") error line(s); not shown for a device run)"
+  else
+    echo "  build: failed (see $(basename "$1"))"
+    grep -E 'error:' "$1" | sort -u | head -5
+  fi
+}
+
+# remove_from_device <bundle id>...: removes the apps from DEVICE_ID and reads back that each is gone.
+# Returns 1 (and says which) when an app could not be confirmed gone. Uses OUT_DIR for its files.
+remove_from_device() {
+  local id left status=0
+  for id in "$@"; do
+    run_limited "remove $id" 120 120 "$OUT_DIR/remove.log" "$OUT_DIR/remove.log" \
+      xcrun devicectl device uninstall app --device "$DEVICE_ID" "$id" >/dev/null
+    rm -f "$OUT_DIR/apps.json"
+    run_limited "check $id" 120 120 "$OUT_DIR/remove.log" "$OUT_DIR/remove.log" \
+      xcrun devicectl device info apps --device "$DEVICE_ID" --bundle-id "$id" --json-output "$OUT_DIR/apps.json" >/dev/null
+    left="$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["result"]["apps"]))' "$OUT_DIR/apps.json" 2>/dev/null)"
+    case "$left" in
+      0) ;;
+      '') echo "  could not read whether $id is still on the device"; status=1 ;;
+      *) echo "  $id is still on the device"; status=1 ;;
+    esac
+  done
+  return $status
+}
+
+# require_bundle_id <.app> <bundle id>: returns 1 unless the app has that bundle id (so cleanup, which
+# removes by bundle id, removes what was installed).
+require_bundle_id() {
+  local actual
+  actual="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$1/Info.plist" 2>/dev/null)"
+  if [ "$actual" != "$2" ]; then
+    echo "  build: the app's bundle id is '${actual:-unreadable}', expected $2"
+    return 1
+  fi
+}

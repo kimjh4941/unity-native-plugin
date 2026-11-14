@@ -8,6 +8,8 @@ Subcommands (paths are relative to the repository root, which is the first argum
 
   tests <repo>
       Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
+      The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, which
+      need the same approval on a device; it is not a UI test and is not printed.
   approve <repo> <test>...
       For a device run: checks the guarded trees (below) are committed, writes an approval record
       outside the repository, prints what will happen on the device and a random approval ID.
@@ -57,6 +59,14 @@ project, the build settings, and the runners.
     >>> approval_problems(record, ["A/t", "B/t"], "h2", {"p": "u"}, ["p"])
     ['the tests differ from the approved list', 'HEAD moved since the approval', 'p changed since the approval', 'uncommitted changes in: p']
 
+    The player tests (scripts/verify_unity_ios.sh) and the UI tests (scripts/test_ios_ui.sh) install
+    different apps, so one approval never covers both:
+
+    >>> mixed_kinds(["PlayerTests/IosPlayer", "DialogUITests/test_confirmOk"])
+    True
+    >>> mixed_kinds(["PlayerTests/IosPlayer"]), mixed_kinds(["DialogUITests/test_confirmOk"])
+    (False, False)
+
     After use, the run that used it (and only that run) passes the guard:
 
     >>> used = dict(record, used=True, run="m")
@@ -93,16 +103,19 @@ GUARDED = [
     "Assets/Plugins",
 ]
 APPROVALS = os.path.expanduser("~/Library/Application Support/unity-native-plugin/test_ios-approvals")
-APPS = [
+PLAYER_TESTS = "PlayerTests/IosPlayer"
+UI_APPS = [
     ("com.jonghyunkim.nativetoolkit.uiharness", "the UI harness (Unity)"),
     ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests"),
     ("com.jonghyunkim.nativetoolkit.uitests.xctrunner", "the UI test runner Xcode installs"),
 ]
+PLAYER_APPS = [("com.jonghyunkim.nativetoolkit.playertests", "the iOS player tests (Unity)")]
 CATEGORIES = {
     "systemui": "presses system alerts and the springboard (the notification permission, a banner)",
     "sharesheet": "opens the share sheet and closes it without choosing an activity",
     "clipboard": "writes and reads a named pasteboard only (never the general one)",
-    "reinstall": "removes and installs the harness again before the test",
+    "reinstall": "removes the app and installs it again before the run",
+    "playertests": "runs the iOS player tests (a named pasteboard round trip; reads the notification permission without asking)",
 }
 
 
@@ -153,6 +166,11 @@ def approval_problems(record, tests, head, trees, dirty, marker=None):
     return problems
 
 
+def mixed_kinds(tests):
+    """True when the player tests and UI tests are asked for together."""
+    return PLAYER_TESTS in tests and len(set(tests)) > 1
+
+
 def judge_results(data, tests):
     """(passed, lines) for xcresulttool's 'get test-results tests' JSON and the tests that should have run."""
     found = {}
@@ -189,7 +207,7 @@ def main(argv):
         return 2
     command, rest = argv[1], argv[2:]
     if command == "tests":
-        print("\n".join(requirements(rest[0])))
+        print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS))
         return 0
     if command == "results":
         with open(rest[0], encoding="utf-8") as f:
@@ -202,6 +220,9 @@ def main(argv):
     unknown = [t for t in tests if t not in known]
     if not tests or unknown:
         print(f"unknown or missing tests: {unknown or 'none given'}", file=sys.stderr)
+        return 2
+    if mixed_kinds(tests):
+        print(f"{PLAYER_TESTS} is approved and run on its own (scripts/verify_unity_ios.sh --device)", file=sys.stderr)
         return 2
     head, trees, dirty = tree_state(repo)
     if command == "approve":
@@ -216,7 +237,8 @@ def main(argv):
         for test in tests:
             print(f"  {test}: " + "; ".join(CATEGORIES[c] for c in known[test]))
         print("Apps installed, and removed at the end:")
-        for bundle_id, what in APPS:
+        apps = (PLAYER_APPS if PLAYER_TESTS in tests else []) + (UI_APPS if set(tests) - {PLAYER_TESTS} else [])
+        for bundle_id, what in apps:
             print(f"  {bundle_id} ({what})")
         print(f"Approval ID: {approval_id}")
         return 0

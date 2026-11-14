@@ -84,11 +84,18 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR")"
 if [ -n "$TESTS_ARG" ]; then
   IFS=',' read -r -a TESTS <<< "$TESTS_ARG"
+  for t in "${TESTS[@]}"; do
+    if ! grep -qxF "$t" <<< "$KNOWN_TESTS"; then
+      echo "Not a UI test: $t (the UI tests are listed in Tools~/IosUiTests/DeviceRequirements.json)" >&2
+      exit 2
+    fi
+  done
 else
   TESTS=()
-  while IFS= read -r t; do TESTS+=("$t"); done < <(python3 -I "$RUNNER" tests "$PROJECT_DIR")
+  while IFS= read -r t; do TESTS+=("$t"); done <<< "$KNOWN_TESTS"
 fi
 
 if [ "${#TESTS[@]}" -eq 0 ]; then
@@ -138,37 +145,13 @@ RUN_MARKER=""
 if [ "$DEVICE_MODE" -eq 1 ]; then
   # Logs and result bundles of a device run hold the device's screens: a folder deleted at the end.
   OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ntk-ios-ui-device.XXXXXX")"
-  devices_json="$OUT_DIR/devices.json"
-  xcrun devicectl list devices --json-output "$devices_json" >/dev/null 2>&1
-  # devicectl takes the CoreDevice identifier, xcodebuild the hardware UDID: read both, print neither.
-  device_ids="$(python3 -I -c '
-import json, sys
-devices = json.load(open(sys.argv[1]))["result"]["devices"]
-found = [(d["identifier"], d.get("hardwareProperties", {}).get("udid", "")) for d in devices
-         if d.get("hardwareProperties", {}).get("deviceType") == "iPhone"
-         and d.get("connectionProperties", {}).get("pairingState") == "paired"
-         and d.get("deviceProperties", {}).get("developerModeStatus") == "enabled"]
-print(" ".join(found[0]) if len(found) == 1 and found[0][1] else "")
-' "$devices_json" 2>/dev/null)"
-  rm -f "$devices_json"
-  DEVICE_ID="${device_ids%% *}"
-  DEVICE_UDID="${device_ids#* }"
-  if [ -z "$device_ids" ] || [ -z "$DEVICE_UDID" ]; then
-    echo "Expected exactly one paired iPhone with Developer Mode on." >&2
-    rm -rf "$OUT_DIR"
-    exit 2
-  fi
-  # The team of the unexpired provisioning profiles; exactly one, or the signing would be a guess.
-  TEAM="$(for profile in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*; do
-      security cms -D -i "$profile" 2>/dev/null | python3 -I -c '
-import datetime, plistlib, sys
-p = plistlib.loads(sys.stdin.buffer.read())
-if p["ExpirationDate"].replace(tzinfo=datetime.timezone.utc) > datetime.datetime.now(datetime.timezone.utc):
-    print(p["TeamIdentifier"][0])
-' 2>/dev/null
-    done | sort -u)"
-  if [ -z "$TEAM" ] || [ "$(printf '%s\n' "$TEAM" | grep -c .)" != "1" ]; then
-    echo "Expected the unexpired Xcode provisioning profiles to belong to exactly one team (sign in to Xcode once)." >&2
+  # Until the full EXIT trap below, an interrupted run still deletes the folder (it can hold the
+  # device list with its identifiers).
+  trap 'rm -rf "$OUT_DIR"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  if ! select_device "$OUT_DIR" || ! select_team; then
     rm -rf "$OUT_DIR"
     exit 2
   fi
@@ -204,25 +187,24 @@ remove_app() {
 
 SIM_BOOTED_BY_US=0
 DEVICE_TOUCHED=0
+CLEANED_UP=0
+# Removes what the run installed. On a device it reads back that each app is gone and returns 1 when
+# one is not; the main flow does this before printing the result, so a run that leaves an app behind
+# fails. The EXIT trap does it again only when the main flow did not get there.
+clean_up_apps() {
+  CLEANED_UP=1
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    [ "$DEVICE_TOUCHED" -eq 1 ] || return 0
+    remove_from_device "${INSTALLED_IDS[@]}"
+    return $?
+  fi
+  for id in "${INSTALLED_IDS[@]}"; do remove_app "$id"; done
+}
 on_exit() {
   trap '' INT TERM HUP
   stop_running_step
-  if [ "$DEVICE_MODE" -eq 0 ] || [ "$DEVICE_TOUCHED" -eq 1 ]; then
-    for id in "${INSTALLED_IDS[@]}"; do remove_app "$id"; done
-  fi
-  if [ "$DEVICE_MODE" -eq 1 ] && [ "$DEVICE_TOUCHED" -eq 1 ]; then
-    local id left
-    for id in "${INSTALLED_IDS[@]}"; do
-      rm -f "$OUT_DIR/apps.json"
-      run_limited "check $id" 120 120 "$OUT_DIR/remove.log" "$OUT_DIR/remove.log" \
-        xcrun devicectl device info apps --device "$DEVICE_ID" --bundle-id "$id" --json-output "$OUT_DIR/apps.json" >/dev/null
-      left="$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["result"]["apps"]))' "$OUT_DIR/apps.json" 2>/dev/null)"
-      case "$left" in
-        0) ;;
-        '') echo "WARNING: could not read whether $id is still on the device" ;;
-        *) echo "WARNING: $id is still on the device" ;;
-      esac
-    done
+  if [ "$CLEANED_UP" -eq 0 ]; then
+    clean_up_apps || echo "WARNING: an app of this run may still be on the device"
   fi
   if [ "$SIM_BOOTED_BY_US" -eq 1 ]; then
     xcrun simctl shutdown "$SIM_ID" >/dev/null 2>&1
@@ -249,16 +231,6 @@ else
   GENERIC="generic/platform=iOS Simulator"
 fi
 
-# A device build's errors can name the team, certificates and the device: count them instead.
-show_errors() {
-  if [ "$DEVICE_MODE" -eq 1 ]; then
-    echo "  build: failed ($(grep -c 'error:' "$1") error line(s); not shown for a device run)"
-  else
-    echo "  build: failed (see $(basename "$1"))"
-    grep -E 'error:' "$1" | sort -u | head -5
-  fi
-}
-
 build_all() {
   local export_dir="$OUT_DIR/harness-xcode" export_log="$OUT_DIR/harness-export.log"
   rm -rf "$export_dir" "$export_log" "$OUT_DIR/harness-dd" "$OUT_DIR/uitests-dd"
@@ -281,7 +253,7 @@ build_all() {
     "$XCODEBUILD" -project "$export_dir/Unity-iPhone.xcodeproj" -scheme Unity-iPhone -configuration Release \
     -destination "$GENERIC" -derivedDataPath "$OUT_DIR/harness-dd" "${SIGNING[@]}" build
   if ! grep -q '\*\* BUILD SUCCEEDED \*\*' "$OUT_DIR/harness-build.log"; then
-    show_errors "$OUT_DIR/harness-build.log"
+    show_build_errors "$OUT_DIR/harness-build.log" "$DEVICE_MODE"
     return 1
   fi
   local apps
@@ -291,6 +263,7 @@ build_all() {
     return 1
   fi
   HARNESS_APP="$apps"
+  require_bundle_id "$HARNESS_APP" "$HARNESS_ID" || return 1
   echo "  build: ok"
 
   echo "UI tests build:"
@@ -298,7 +271,7 @@ build_all() {
     "$XCODEBUILD" -project "$UITESTS_DIR/NtkUiTests.xcodeproj" -scheme NtkUiTests \
     -destination "$GENERIC" -derivedDataPath "$OUT_DIR/uitests-dd" "${SIGNING[@]}" build-for-testing
   if ! grep -q '\*\* TEST BUILD SUCCEEDED \*\*' "$OUT_DIR/uitests-build.log"; then
-    show_errors "$OUT_DIR/uitests-build.log"
+    show_build_errors "$OUT_DIR/uitests-build.log" "$DEVICE_MODE"
     return 1
   fi
   local runs
@@ -365,6 +338,10 @@ else
   failures=$((failures + 1))
 fi
 
+if ! clean_up_apps; then
+  echo "  cleanup: an app of this run could not be confirmed removed"
+  failures=$((failures + 1))
+fi
 if [ "$DEVICE_MODE" -eq 0 ]; then
   echo "Logs and results: $OUT_DIR"
 fi

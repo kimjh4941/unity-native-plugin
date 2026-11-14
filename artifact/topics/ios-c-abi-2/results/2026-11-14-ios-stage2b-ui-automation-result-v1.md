@@ -77,7 +77,24 @@ UI テスト（パイロット。機能ごとの確かめる項目は 3-R で表
 
 直さなかったもの（R-8 の残り）: 承認に端末のハッシュを持たない（dry-run は端末に触れないので、どの端末かを知らない）。同じ ID の同時実行のロックは無い（利用者 1 人の手元の実行で、同時に 2 つ流さない）。ペア済みの iPhone が 2 台あると断る（止まる向き）。
 
-## 6. 残っていること
+## 6. (A) の実機の経路と、そのレビュー（2026-11-14 18 時台）
 
-- 実機（許可を得て）: `test_ios_ui.sh --device`（承認、署名、4 件）と、(A) の実機の回（`verify_unity_ios.sh --device` は、承認の仕組みができたので足せる）
+実機の確かめを (A) と (B) で 1 回にまとめられるよう、`verify_unity_ios.sh` にも承認つきの実機の経路を足した（`--device --dry-run` / `--device --approved <ID>`）。承認は (B) と同じ仕組みで、`PlayerTests/IosPlayer` という項目として扱う（UI テストと同じ承認には混ぜられない）。端末では、run の値を `devicectl device process launch --environment-variables` で渡し、結果を `devicectl device copy from --domain-type appDataContainer` で取り出す。端末と Team の選び方は `scripts/ios_script_common.sh` に移し、`test_ios_ui.sh` と共有した。
+
+[レビュー](../reviews/2026-11-14-ios-stage2-device-path-review-v1.md)（サブエージェントと Codex）の指摘を、利用者の指示（推奨案で決める）に従って直した。
+
+| 指摘 | 直したこと |
+|---|---|
+| Codex の重大・R-1（`test_ios_ui.sh --tests PlayerTests/IosPlayer` が承認を通り、一覧に無い UI のアプリを端末に入れる） | `test_ios_ui.sh` は UI テストの一覧に無い名前を断る。runner は `PlayerTests/IosPlayer` と UI テストを 1 つの承認に混ぜることを断る（`doctest` 18 件） |
+| Codex の中・R-2（起動した後の copy と terminate の前に照らし直しが無い） | 各 copy と terminate の前に照らし直す。通らなければ止め、後片付けに任せる |
+| Codex の中（アプリが残っても PASSED になる。後片付けが結果の表示より後） | 両方のスクリプトで、後片付け（消して、消えたことを読む）を結果の表示より前に行い、確かめられなければ失敗にする |
+| Codex の中・R-5（一時フォルダを作ってから trap を張るまでの中断で、端末の一覧が残る） | 両方のスクリプトで、一時フォルダを作った直後に、消す trap を張る |
+| R-3（入れる前に bundle id を見ていない） | 両方のスクリプトで、入れる前に `.app` の `CFBundleIdentifier` を確かめる |
+| R-4（ポーリングの上限が実時間でない、copy の成否） | 実時間で 600 秒。copy の終了コードと、ファイルが空でないことを条件にした |
+
+直さなかったもの: R-6（流す前の開発用の接続の確かめ。切れていれば上限で止まる向き。実機の 1 回目で様子を見る）、R-7（ふるまいは同じ）、未確認の危険 7 件（`--environment-variables` が Unity まで届くか、launch の JSON の pid、copy の道、Release の自動署名で app の container を読めるか、など。実機の 1 回目で確かめる）。
+
+## 7. 残っていること
+
+- 実機（許可を得て）: `test_ios_ui.sh --device`（承認、署名、4 件）と `verify_unity_ios.sh --device`（6 章）。それぞれ `--dry-run` の一覧を見せて許可を得る
 - 実装のレビュー（サブエージェントと Codex）

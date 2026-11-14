@@ -31,7 +31,7 @@ Player のテスト 4 件（1.x）:
 | 3.1「結果の書き出し: テストのアセンブリに `TestRunCallback` を置く」 | このリポジトリの `Assets/NativeToolkitIosPlayerTests/Runtime` の、iOS だけのアセンブリに置いた | パッケージに置くと、testables に入れた利用者の iOS の Player のテストにも入る（R2-2 と同じ考え）。環境変数 `NTK_RUN` が無ければ何もしない |
 | 3.1「`<run>` は起動の引数 `-ntkRun`」 | 環境変数 `NTK_RUN`（`SIMCTL_CHILD_NTK_RUN`） | iOS の Player に起動の引数は届かない（スパイクの V-4） |
 | 3.2「`--as-package-user` の回は書き出しの後に `IosFrameworkPatcher.Apply` を呼ぶ」 | `--as-package-user` を断る（3-S で足す） | `IosFrameworkPatcher` のアセンブリは `NATIVETOOLKIT_ENABLE_BUILD_STEPS` が無いと組まれず、`Test iOS Profile` には無いので呼べない |
-| 4.6「(A) の実機の回も承認を通す」 | `--device` を断る | 承認の仕組みは (B) で作る。(B) の後に足す |
+| 4.6「(A) の実機の回も承認を通す」 | このコミットでは `--device` を断る。(B) の後に足した（(B) の実装結果の 6 章） | 承認の仕組みは (B) で作った |
 | 3.2「表示名を `NTK Player Tests` に替える」 | 替えていない（bundle id だけ替える） | (A) の 4 件は共有のシートを出さず、同じ名前のアプリと取り違える場面が無い。シートを出すテストは (B) のハーネスで行い、ハーネスは表示名を替える（実装のレビュー v1 の R-9） |
 | 8 章「`IosPlayerResultWriter` の XML の形は EditMode のテストで確かめる」 | EditMode のテストは置かず、判定の Python を `doctest` で固め、スパイクと本番の Player の結果のファイルで確かめた | 書き手は NUnit の `ToXml` をそのまま書くだけで、組み立てる部分が無い。アセンブリは iOS だけで、EditMode から見えない |
 
