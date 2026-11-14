@@ -25,7 +25,9 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests
     [Category("IosPlayer")]
     public class IosNotificationDelegateProbeTests
     {
-        private const string Proxy = "IosLibraryCApi.NotificationDelegateProxy";
+        // Measured on the simulator (3-S simulator run 3): the proxy is in the Swift module IosLibrary, not
+        // IosLibraryCApi as the design guessed (design v3, 1.7: "decided by measurement").
+        private const string Proxy = "IosLibrary.NotificationDelegateProxy";
 
         [DllImport("__Internal")] private static extern string? ntkpt_notification_delegate_class();
 
