@@ -31,7 +31,7 @@ class HarnessUITestCase: XCTestCase {
     override func tearDown() {
         if let monitor { removeUIInterruptionMonitor(monitor) }
         let leftOver = springboard.alerts.count
-        let leftInApp = app?.alerts.count ?? 0
+        let leftInApp = (app?.alerts.count ?? 0) + (app?.sheets.count ?? 0)
         XCTAssertFalse(unexpectedAlert, "an unexpected alert appeared during the test")
         XCTAssertEqual(leftOver, 0, "a system alert is still on screen after the test")
         XCTAssertEqual(leftInApp, 0, "an alert of the harness is still on screen after the test")
@@ -69,5 +69,31 @@ class HarnessUITestCase: XCTestCase {
 
     func checkNoUnexpectedAlert() {
         XCTAssertFalse(unexpectedAlert, "an unexpected alert appeared")
+    }
+
+    /// The finished result lines (state ok or fail) of a result id, top to bottom.
+    func finishedLines(_ id: String) -> [String] {
+        app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND (label BEGINSWITH %@ OR label BEGINSWITH %@)",
+                                             "[\(id)@ok]", "[\(id)@fail]")).allElementsBoundByIndex.map(\.label)
+    }
+
+    /// Waits for the first expected line (whole-label match), lets late lines arrive for `settle` seconds,
+    /// then requires the id's finished lines to be exactly `expected` - a callback that came twice, or
+    /// one that did not come, fails (Dialog UI test plan v3: exactly once, compared in full).
+    func expectLines(_ id: String, _ expected: [String], settle: TimeInterval = 3) {
+        if let first = expected.first {
+            let line = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label == %@", first)).firstMatch
+            XCTAssertTrue(line.waitForExistence(timeout: Self.timeout), "no result line \(first)")
+        }
+        Thread.sleep(forTimeInterval: settle)
+        XCTAssertEqual(finishedLines(id), expected)
+        checkNoUnexpectedAlert()
+    }
+
+    /// Simulator-only items (backgrounding, Control Center, login): fail on a device rather than act.
+    func requireSimulator() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("simulator only")
+        #endif
     }
 }

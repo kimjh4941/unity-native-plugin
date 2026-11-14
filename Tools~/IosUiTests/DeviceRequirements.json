@@ -1,8 +1,76 @@
 {
   "schema": 1,
-  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it.",
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3.",
   "tests": {
-    "DialogUITests/test_confirmOk": [
+    "DialogUITests/test_ID1": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID2": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID3": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID4": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID5": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID6": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID7": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID8": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID9": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID10": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID11": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID12": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID13": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID14a": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID14b": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID15": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID16": [
+      "systemui",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID17": [
       "systemui",
       "reinstall"
     ],
@@ -22,5 +90,12 @@
       "playertests",
       "reinstall"
     ]
-  }
+  },
+  "simulatorOnly": [
+    "DialogUITests/test_ID12",
+    "DialogUITests/test_ID13",
+    "DialogUITests/test_ID15",
+    "DialogUITests/test_ID16",
+    "DialogUITests/test_ID17"
+  ]
 }

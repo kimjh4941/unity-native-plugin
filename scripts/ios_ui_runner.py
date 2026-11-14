@@ -6,8 +6,8 @@ scripts/ios_ui_runner.py).
 
 Subcommands (paths are relative to the repository root, which is the first argument):
 
-  tests <repo>
-      Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
+  tests <repo> [--device]
+      With --device, leaves out the tests listed as simulatorOnly. Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
       The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, which
       need the same approval on a device; it is not a UI test and is not printed.
   approve <repo> <test>...
@@ -128,6 +128,11 @@ def requirements(repo):
         return json.load(f)["tests"]
 
 
+def simulator_only(repo):
+    with open(os.path.join(repo, REQUIREMENTS), encoding="utf-8") as f:
+        return set(json.load(f).get("simulatorOnly", []))
+
+
 def tree_state(repo):
     """HEAD, HEAD's tree id for each guarded path, and the guarded paths with uncommitted changes."""
     head = git(repo, "rev-parse", "HEAD").strip()
@@ -207,7 +212,8 @@ def main(argv):
         return 2
     command, rest = argv[1], argv[2:]
     if command == "tests":
-        print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS))
+        skip = simulator_only(rest[0]) if "--device" in rest[1:] else set()
+        print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS and t not in skip))
         return 0
     if command == "results":
         with open(rest[0], encoding="utf-8") as f:
@@ -220,6 +226,10 @@ def main(argv):
     unknown = [t for t in tests if t not in known]
     if not tests or unknown:
         print(f"unknown or missing tests: {unknown or 'none given'}", file=sys.stderr)
+        return 2
+    sim_only = sorted(set(tests) & simulator_only(repo))
+    if sim_only:
+        print("simulator-only tests cannot run on a device: " + ", ".join(sim_only), file=sys.stderr)
         return 2
     if mixed_kinds(tests):
         print(f"{PLAYER_TESTS} is approved and run on its own (scripts/verify_unity_ios.sh --device)", file=sys.stderr)

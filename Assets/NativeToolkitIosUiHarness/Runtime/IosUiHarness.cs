@@ -38,6 +38,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
         [DllImport("__Internal")] private static extern void ntkh_overlay_init(RowCallback callback);
         [DllImport("__Internal")] private static extern void ntkh_overlay_add_row(string rowId);
         [DllImport("__Internal")] private static extern void ntkh_overlay_append(string rowId, string state, string value);
+        [DllImport("__Internal")] private static extern void ntkh_overlay_after(double seconds, string rowId);
+        [DllImport("__Internal")] private static extern IntPtr ntkh_activation_state();
 
         private static readonly Dictionary<string, Action> Rows = new();
 
@@ -76,6 +78,25 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             Rows[id] = action;
             ntkh_overlay_add_row(id);
         }
+
+        /// <summary>
+        /// Runs a registered row after the delay, timed natively: Unity pauses its player loop while the app
+        /// is not active, so a C# delay would not run then (Dialog UI test plan v3, ID-17). Register the
+        /// delayed row with <see cref="Hidden"/>.
+        /// </summary>
+        public static void After(double seconds, string rowId) => ntkh_overlay_after(seconds, rowId);
+
+        /// <summary>Registers a row that has no button (run by <see cref="After"/>).</summary>
+        public static void Hidden(string id, Action action) => Rows[id] = action;
+
+        /// <summary>The activation state of the scene that shows the harness (foregroundActive, foregroundInactive, ...).</summary>
+        public static string ActivationState() => Marshal.PtrToStringUTF8(ntkh_activation_state()) ?? "unknown";
+
+        /// <summary>
+        /// A value for a result line: null as &lt;null&gt;, the empty string as "", anything else as is
+        /// (Dialog UI test plan v3: the lines tell null from empty).
+        /// </summary>
+        public static string Value(string? value) => value == null ? "<null>" : value.Length == 0 ? "\"\"" : value;
 
         /// <summary>Adds a result line. Never throws: it may run inside a native callback.</summary>
         public static void Append(string id, string state, string value)

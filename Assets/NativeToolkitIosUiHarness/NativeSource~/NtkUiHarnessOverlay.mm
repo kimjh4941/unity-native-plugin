@@ -69,3 +69,28 @@ extern "C" void ntkh_overlay_append(const char* rowId, const char* state, const 
     label.accessibilityIdentifier = [NSString stringWithFormat:@"result.line.%d", gLine++];
     [gStack addArrangedSubview:label];
 }
+
+// Calls the row callback with rowId after the delay, from the main queue. The delay is native because
+// Unity pauses its player loop while the app is not active (applicationWillResignActive), so a C#
+// delay would not run while Control Center is open (Dialog UI test plan v3, ID-17).
+extern "C" void ntkh_overlay_after(double seconds, const char* rowId)
+{
+    NSString* name = [NSString stringWithUTF8String:rowId];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (gCallback != NULL) gCallback(name.UTF8String);
+    });
+}
+
+// The activation state of the scene that shows the Unity view, as a name.
+extern "C" const char* ntkh_activation_state(void)
+{
+    UIWindowScene* scene = UnityGetGLViewController().view.window.windowScene;
+    if (scene == nil) return "noScene";
+    switch (scene.activationState)
+    {
+        case UISceneActivationStateForegroundActive: return "foregroundActive";
+        case UISceneActivationStateForegroundInactive: return "foregroundInactive";
+        case UISceneActivationStateBackground: return "background";
+        default: return "unattached";
+    }
+}

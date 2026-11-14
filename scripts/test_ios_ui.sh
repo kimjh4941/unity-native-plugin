@@ -84,7 +84,11 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR")"
+if [ "$DEVICE_MODE" -eq 1 ]; then
+  KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR" --device)"
+else
+  KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR")"
+fi
 if [ -n "$TESTS_ARG" ]; then
   IFS=',' read -r -a TESTS <<< "$TESTS_ARG"
   for t in "${TESTS[@]}"; do
