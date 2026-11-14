@@ -32,7 +32,9 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
     /// The build options lose AutoRunPlayer (the script launches the player with simctl, so Xcode and
     /// Simulator.app stay closed), ConnectToHost and WaitForPlayerConnection (no Editor to report to;
     /// with -doNotReportTestResultsBackToEditor on the Editor's command line, the test scene has no
-    /// RemoteTestResultSender, which the cleanup counts and logs). The player gets its own bundle id, and
+    /// RemoteTestResultSender, which the cleanup counts and logs). Development (and the options that
+    /// depend on it) goes too: a development player triggers the local network prompt on a device, which
+    /// pauses Unity until someone answers it. The player gets its own bundle id, and
     /// for the simulator the Simulator SDK and arm64. Those Player Settings are restored in the cleanup;
     /// they take effect even when the active build profile overrides Player Settings (spike V-2, V-3).
     /// </para>
@@ -63,7 +65,13 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
             s_Arch = PlayerSettings.iOS.simulatorSdkArchitecture;
             s_BundleId = PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.iOS);
 
-            options.options &= ~(BuildOptions.AutoRunPlayer | BuildOptions.ConnectToHost | BuildOptions.WaitForPlayerConnection);
+            // Not a development player either: a development player looks for the Unity Editor on the local
+            // network, and iOS then asks for local network access after every install. The prompt makes the
+            // app inactive, Unity pauses, and the run never finishes while nobody answers it (the device run
+            // of 2026-11-14 23:14 stopped with no result; the UI harness had the same prompt, 5026db0).
+            options.options &= ~(BuildOptions.AutoRunPlayer | BuildOptions.ConnectToHost | BuildOptions.WaitForPlayerConnection
+                | BuildOptions.Development | BuildOptions.ConnectWithProfiler
+                | BuildOptions.AllowDebugging | BuildOptions.EnableDeepProfilingSupport);
             options.locationPathName = output;
             if (sdk == "simulator")
             {
