@@ -1,0 +1,8 @@
+{
+  "name": "NativeToolkit.IosPlayerTests.Runtime",
+  "references": [],
+  "includePlatforms": ["iOS"],
+  "excludePlatforms": [],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

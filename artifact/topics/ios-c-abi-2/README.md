@@ -87,7 +87,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 |---|---|---|
 | 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
 | 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 完了（6.3） |
-| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。次は (A)・(B) の実装 |
+| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。**(A) Player のテストを実装した**（[results/2026-11-14-ios-stage2a-player-tests-result-v1.md](results/2026-11-14-ios-stage2a-player-tests-result-v1.md)。`scripts/verify_unity_ios.sh`。1.x の Player の基準は 4 件成功）。次は (B) UI の自動化 |
 | 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 未着手 |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 未着手 |
 | 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
