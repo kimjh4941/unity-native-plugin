@@ -4,7 +4,7 @@
 - 分類: 横断課題（移行）。**機能追加ではない。** clipboard / dialog / notification / share の 4 機能と、iOS のビルドの処理にまたがる
 - 発見経緯: native-toolkit の段階 2c の申し送り（`artifact/topics/ios-c-abi/results/2026-11-07-ios-c-abi-stage2c-handoff.md`、2026-11-14 改訂）。iOS 2.0.0 で Unity 向けのブリッジ（`unity-ios-native-toolkit-*.xcframework`、`UnityIosPlugin`）を廃し、汎用の C ABI（`ios-native-toolkit-capi-2.0.0.xcframework`、`IosLibraryCApi.framework`）にした。配布物は native-toolkit の `dist/1.14.0/ios`（`3aeeaf3c`）
 - 対応方針: 各 Manager の公開 API を保ち、下の層（ブリッジの 43 関数と JSON）だけを C ABI（`ntk_*`、134 関数）の P/Invoke に置き換える。進め方は [android-c-abi-2](../android-c-abi-2/README.md) に倣うが、**4 機能を一度に切り替える**（1.x と 2.0.0 の `IosLibrary.framework` は同じ名前で、同じアプリに入れられない。native-toolkit の README D-12、D-20）
-- 進捗: **方針を決めた（2026-11-14）。次は段 1（スパイク）。** 段 0（移す前の基準）は済み（6.1）。進め方は設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md)（v1〜v3 とレビュー 2 回の後、利用者の判断を書き込んだ版）。**Android の移行とほぼ同じ方針**。レビュー v1 で見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
+- 進捗: **段 1（スパイク）まで済んだ（2026-11-14）。次は段 2。** 段 0（移す前の基準）は済み（6.1）。段 1 の結果で I-1 を決めた（Embed は `PluginImporter`、口は `.mm` だけ。6.3）。進め方は設計書 [designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md](designs/2026-11-14-ios-c-abi-2c-plan-design-v4.md)（v1〜v3 とレビュー 2 回の後、利用者の判断を書き込んだ版）。**Android の移行とほぼ同じ方針**。レビュー v1 で見つかった、利用者の環境で壊れていたもの 3 件は先に直した（6.2）
 - **2c の成功が、native-toolkit の次のリリース（iOS 2.0.0）の条件**。native-toolkit は 2c が終わるまで出さない
 - 対象: `Runtime/{Clipboard,Dialog,Notification,Share}/Ios*.cs`、`Runtime/UI/iOS/`、`Editor/Build/`（`PreBuildProcessor`、`PostBuildProcessor`、`Tools/iOS/`）、`Editor/iOS/`、`Plugins/iOS/`、対応するテストとサンプル
 - ブランチ: `feature/UNT-14`（利用者の指示。1a の下調べと、dist/1.14.0 の前の固定 `95905d1` と同じブランチ）
@@ -62,7 +62,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 
 | # | 事柄 | 決定 |
 |---|---|---|
-| I-1 | xcframework を入れる口 | `NativeToolkit.Editor` の `IPostprocessBuildWithReport`（`Editor/iOS/IosXcodeProjectSetup.cs`）。利用者のビルドでも動く。道は `Path.GetFullPath("Packages/...")`。Xcode の API は `#if UNITY_IOS`。冪等。Unity が自分でリンクするか、`PluginImporter` で Embed できるかは段 1 で確かめて決める |
+| I-1 | xcframework を入れる口 | `NativeToolkit.Editor` の `IPostprocessBuildWithReport`（`Editor/iOS/IosXcodeProjectSetup.cs`）。利用者のビルドでも動く。道は `Path.GetFullPath("Packages/...")`。Xcode の API は `#if UNITY_IOS`。冪等。**段 1 で決めた（6.3）: リンクは Unity が、Embed は xcframework の `.meta` の `AddToEmbeddedBinaries` で Unity がする。口が足すのは `.mm` だけ（`UserNotifications.framework` は要らない）。メニュー「Configure Xcode Project」は段 4 で消す** |
 | I-2 | `.mm` と入れない設定 | `.mm` は `Editor/iOS/NativeSource~/` に持ち、I-1 の口が UnityFramework に足す。入れない設定は定義シンボル `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL`（Editor のコンパイルの `#if` で読む） |
 | I-3 | 入れ直し | 公開の `Initialize()` を入れ直しの口にする（`Awake` は受け手の登録だけ）。通知パッケージの `AuthorizationRequest` の後に呼ぶとマニュアルに書く |
 | I-4 | 版の固定 | `Plugins/iOS/VERSION.txt`（`95905d1`）。3-S で 1.14.0 と 2.0.0 の 2 つに |
@@ -86,7 +86,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 | 段 | 中身 | 状態 |
 |---|---|---|
 | 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
-| 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 未着手 |
+| 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 完了（6.3） |
 | 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 未着手 |
 | 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 未着手 |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 未着手 |
@@ -136,3 +136,35 @@ iOS の EditMode の内訳（1.x の 212 件）:
 
 - 直した後の確かめ: このリポジトリの EditMode 1419 件中 1418 件成功（1 件は Windows だけのテストの skip）。git の URL で入れた使い捨てのプロジェクトで、iOS と Android のどちらでも 3 つのアセンブリが組まれ、エラーは 0 件。iOS を書き出してメニューの処理（`IosFrameworkPatcher.Apply`）を呼ぶと、`Library/PackageCache` の 2 つの xcframework を足し、Embed & Sign の印が付いた
 - **1.13.1 は出さず、1.14.0（2c の後のリリース）で直す**（2026-11-14、利用者の判断）。1.14.0 のリリースの前に、git の URL で入れた形で Android と iOS を実機で通す（実機は許可を得て）
+
+### 6.3 段 1（スパイク）の結果（2026-11-14）
+
+コミットしない写しで行った。このリポジトリの写しを git のリポジトリにして使い捨てのローカルのコミット（push しない）を 2 つ作り、使い捨ての Unity のプロジェクトに `git+file:///<写し>?path=Packages/com.jonghyunkim.nativetoolkit#<コミット>` で入れた（I-17 の形。パッケージは `Library/PackageCache` に置かれる）。
+
+- 写しのコミット A: `dist/1.14.0/ios` の 2 つの xcframework（`.meta` は iOS だけ有効、それ以外の設定は無し）、`VERSION.txt` を 1.14.0 に、`Editor/iOS/IosXcodeProjectSetup.cs`（I-1 の口。リンクと Embed が無ければ足す、`UserNotifications.framework` と `.mm` を足す。前後の数をログに出す）、`Editor/iOS/NativeSource~/IosNotificationInstaller.mm`（`didFinishLaunching:` で `ntk_notification_install()` を呼び、戻り値を `NSLog` する）
+- 写しのコミット B: A に、2 つの xcframework の `.meta` の iOS の設定 `AddToEmbeddedBinaries: true` を足したもの
+- 利用者のプロジェクトの C#（`Start`）が `ntk_version()` を呼んで出す
+- Unity 6000.4.2f1。シミュレーターは iPhone 16 / iOS 18.3（Simulator SDK、arm64）。Simulator.app は開かず、`xcodebuild` と `simctl` だけで入れて起動した
+
+| # | 確かめたこと | 結果 |
+|---|---|---|
+| S-1 | Unity は `Plugins/iOS` の xcframework を書き出したプロジェクトに写してリンクするか（I-1 (a)） | **する。** A で、口が動く前に、2 つとも `Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/` にあり、UnityFramework のリンクに 1 件ずつ入っている。Embed は 0 件 |
+| S-2 | `PluginImporter` の設定で Embed までできるか（I-1 (b)） | **できる。** B で、口が動く前に、アプリの Embed Frameworks に 2 つとも入っている（`ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, )`。口が `PBXProject.AddFileToEmbedFrameworks` で足したものと同じ）。口は二重に足さなかった。シミュレーターで起動し、S-6 と同じ結果 |
+| S-3 | 冪等（同じ所への Append の書き出しを 2 回） | A・B とも、2 回の後もリンク 2、Embed 2、`.mm` 1、`UserNotifications.framework` 1 のまま。A の差分は Unity がグループの並びを入れ替えた 2 行だけ |
+| S-4 | 入れない設定（I-2）。Player Settings の定義 | `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を Player Settings（iOS）に入れると、`.mm` も `UserNotifications.framework` も足されず、`.mm` のファイルも写されない。Embed は 2 つとも入る |
+| S-5 | 入れない設定。Build Profile の上書き | Player Settings に無く Profile の Scripting Defines に入れると、効いた（`.mm` が外れる）。**Player Settings にあり Profile で空にしても、効いたまま**（`.mm` が外れる）。Profile の Scripting Defines は Player Settings の定義に足すもので、消せないと読める。その回の Player のアセンブリ（`NativeToolkit.Runtime`）のコンパイルにも定義が入っていて、Editor の `#if` とビルドの定義は一致した。Profile が Player Settings ごと上書きする形（このリポジトリの `iOS Profile` の形）は確かめていない |
+| S-6 | シミュレーターで起動（A、Xcode 26.3 と 26.6 で組んだもの） | どちらも `ntk_version() = 0x020000`、`ntk_notification_install -> 0`（NONE） |
+| S-7 | `UserNotifications.framework` は要るか | **要らない。** A のプロジェクトから外して 26.3 で組み、シミュレーターで S-6 と同じ結果。2.0.0 の 2 つの framework は自分で `UserNotifications` をリンクしている（`otool -L`）。1a で要ったのは、1a の `.mm` が `UNUserNotificationCenter` を直に使っていたから（F-4） |
+| S-8 | 最小 iOS（I-16） | 2 つの framework は `minos 18.0`（`vtool`）。Player Settings の最小を 17.0 にしても Unity は止めずに書き出し、Xcode は「18.0 向けの dylib をリンクしている」の警告 2 行だけで組めた。iPhone 15 / iOS 17.4 のシミュレーターで起動すると、**約 1 秒で自分から終わる**（runningboard の `voluntary`、終了コード 0）。dyld のエラー、クラッシュの記録、Unity と C# のログはどれも無い。原因（2.0.0、Unity、Xcode 26 の SDK と 17.4 の組み合わせ）は切り分けていない |
+| S-9 | 実機（iPhone XS）。B を Xcode 26.3 で、Team の既存のワイルドカード profile で自動の署名（`-allowProvisioningUpdates` なし） | アーカイブは成功。アプリの `Frameworks/` に `IosLibrary.framework` と `IosLibraryCApi.framework` が入り、アプリと 3 つの framework は同じ Team で署名され、`codesign --verify --deep --strict` が通る。iPhone XS（iOS 18.7.2）に `devicectl` で入れて起動し、`ntk_notification_install -> 0`（NONE）と `ntk_version() = 0x020000` が出た。その後アプリを消し、端末のアプリの一覧に無いことを確かめた（利用者の許可を得て。端末から取ったログは書き写した後に消した） |
+
+段 1 で分かった、ほかのこと:
+
+- git の URL で入れると、`Plugins/Windows/VERSION.txt has no meta file, but it's in an immutable folder. The asset will be ignored.` が出て、ビルドの報告でエラー 1 件に数えられる（ビルドは成功）。[windows-version-meta](../windows-version-meta/README.md) の「警告が出るかは要確認」の答え
+- 手動の署名（`CODE_SIGN_STYLE=Manual` と `iOS Team Provisioning Profile: *`）は、1a と同じく「Xcode managed」の profile と組めずに失敗した
+
+段 1 の結果から決めること（設計書 v4 の I-1 の 97 行目の条件どおり）:
+
+- **I-1: Embed は `PluginImporter` の `AddToEmbeddedBinaries` で行う**（S-2）。口（`IosXcodeProjectSetup`）が足すのは `.mm` だけ。`UserNotifications.framework` は足さない（S-7）。口は、Embed とリンクが入っているかを確かめ、無ければ分かりやすい文言で止める。メニュー「Configure Xcode Project」は、Unity がリンクと Embed をするので要らなくなる（段 4 で消し、移行ガイドに書く）
+- **I-2: そのまま**（S-4・S-5）。Build Profile の Scripting Defines は足すだけなので、Player Settings に入れた定義を Profile で外すことはできない、とマニュアルに書く
+- **I-16: そのまま**（S-8）。18.0 未満では黙って終わるので、ビルドで止める確かめは要る
