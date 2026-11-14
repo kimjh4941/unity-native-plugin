@@ -72,7 +72,11 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness.Editor
                     scenes = new[] { Scene },
                     locationPathName = output,
                     target = BuildTarget.iOS,
-                    options = BuildOptions.Development,
+                    // Not a development build: a development player looks for the Unity Editor on the local
+                    // network, and iOS then asks the user for local network access after every install
+                    // (the first device run, 2026-11-14). The harness needs neither the profiler nor the
+                    // Editor connection; Debug.Log still reaches the device log.
+                    options = BuildOptions.None,
                     extraScriptingDefines = new[] { "NTK_UI_HARNESS" },
                 });
             }

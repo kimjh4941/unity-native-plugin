@@ -87,7 +87,7 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 |---|---|---|
 | 0 | 移す前の基準（EditMode、Editor の PlayMode） | 完了（6.1） |
 | 1 | スパイク（写しで）: 2.0.0 を入れる口と `.mm`、Unity の扱い、定義の効き方、最小 iOS、Xcode の版、git の URL の形。シミュレーターと実機で `ntk_version` と起動と `.mm` | 完了（6.3） |
-| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。**(A) Player のテストを実装した**（[results/2026-11-14-ios-stage2a-player-tests-result-v1.md](results/2026-11-14-ios-stage2a-player-tests-result-v1.md)。`scripts/verify_unity_ios.sh`。1.x の Player の基準は 4 件成功）。**(B) UI の自動化も実装した**（[results/2026-11-14-ios-stage2b-ui-automation-result-v1.md](results/2026-11-14-ios-stage2b-ui-automation-result-v1.md)。`scripts/test_ios_ui.sh`。1.x のまま、シミュレーターで 4 件成功）。残りは実機（承認を得て） |
+| 2 | `verify_unity_ios.sh`、Editor 専用の PlayMode のテストを分ける、1.x の Player の基準、**UI の自動化の仕組み**（設計 → レビュー → 実装） | 進行中。仕組みの設計は [designs/2026-11-14-ios-ui-automation-design-v4.md](designs/2026-11-14-ios-ui-automation-design-v4.md)（レビュー 3 回、v3 で A1 が 0 になって止めた）。スパイク（V-1〜V-8）はシミュレーターで済んだ（6.4。起動の引数は届かず、環境変数で渡す）。**(A) Player のテストを実装した**（[results/2026-11-14-ios-stage2a-player-tests-result-v1.md](results/2026-11-14-ios-stage2a-player-tests-result-v1.md)。`scripts/verify_unity_ios.sh`。1.x の Player の基準は 4 件成功）。**(B) UI の自動化も実装した**（[results/2026-11-14-ios-stage2b-ui-automation-result-v1.md](results/2026-11-14-ios-stage2b-ui-automation-result-v1.md)。`scripts/test_ios_ui.sh`。1.x のまま、シミュレーターで 4 件成功）。**実機（iPhone XS / iOS 18.7.2）でも (A) と (B) を流した**（6.6）。残りは Dialog の ID-4 の実機での流し直し |
 | 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 完了（6.5） |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 進行中。Dialog の表は決まった（[artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md](../../ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md)。レビュー 2 回で A1 が 0）。表の項目をハーネスと XCUITest に足し、**シミュレーターで 1.x を記録した**（[artifact/ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md](../../ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md)。18 件。ID-14a は予想と違い、2 つとも出た）。実機の記録は許可を得てから。Share・Clipboard・Notification の表は未着手 |
 | 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
@@ -204,3 +204,17 @@ iOS の EditMode の内訳（1.x の 212 件）:
 - 確かめ（このリポジトリ、`iOS Profile`）: `scripts/verify_unity_ios.sh` で EditMode 1419 件中 1418 件成功（Windows だけの skip 1）、Editor の PlayMode 300 件成功、iOS の Player（IL2CPP まで組み、`#if UNITY_IOS && !UNITY_EDITOR` の中もコンパイルされる）4 件成功。`scripts/test_ios_ui.sh` で UI のテスト 4 件成功。どれも移す前と同じ
 - 残り: マニュアル（`manual/`、`docs/`）と `Documentation~` のコード例の `using` は旧い名前空間のまま（段 4 のマニュアルで直す）。移行ガイドに「iOS の型の名前空間が `...Runtime.iOS.<Feature>` に変わった（`[MovedFrom]` つき）」を書く。git の URL で入れた形での確かめは I-17 のとおり 3-S と 4 で行う
 
+### 6.6 段 2 の仕組みの実機での確かめ（2026-11-14 20:24〜20:46）
+
+利用者の許可を得て（`--dry-run` の一覧と承認の ID を見せた）、HEAD `f58c695` で流した。iPhone XS（iOS 18.7.2）、ケーブル、Xcode 26.3。利用者が自動ロックを「なし」、おやすみモード、Handoff を切った状態にした（設定は agent が変えていない）。
+
+| 回 | 承認 | 結果 |
+|---|---|---|
+| (A) `verify_unity_ios.sh --device` | `PlayerTests/IosPlayer` | **4 件とも成功**（`IosPlayer: 4 ran, 4 passed`） |
+| (B) `test_ios_ui.sh --device`（通知のテストを除く 15 件） | UI のテスト 15 件 | **14 件成功、1 件失敗**（Dialog の ID-4。シミュレーターでは成功。下の「ローカルネットワーク」の見込み） |
+
+- 実機で初めて確かめられたこと: 承認の仕組み（使い済みにした後、実行ごとの印で端末の手順の前ごとに照らし直す）、UI テストのランナーの自動の署名（`-allowProvisioningUpdates` なし）、`devicectl device process launch --environment-variables` で run の値が Unity の `Environment.GetEnvironmentVariable` に届くこと、`devicectl device copy from --domain-type appDataContainer` で結果を取り出せること（Release の自動の署名でも読めた）、ハーネス自身のアラートとキーボードの入力、共有のシートの「閉じる」
+- 後片付け: 両方の回で入れたアプリ（4 つ）は消え、消えたことを読み直して確かめた。端末のログと結果のバンドルは一時のフォルダごと消した。端末の識別子と Team ID は出していない
+- **ローカルネットワークの許可のダイアログ**: (B) で、ハーネスを入れ直すたびに iOS が「ローカルネットワーク」の許可を求めた（利用者が毎回「許可しない」を押した）。ハーネスを development ビルドで組んでいたため、Player が Unity の Editor を同じネットワークで探した。シミュレーターでは出ない。ID-4 の失敗は、このダイアログが初めて出た頃で、原因の見込み（実機の失敗の文言は決まりどおり消したので確定はしていない）。**ハーネスを development ビルドにしない形に直した**。(A) のテストの Player は Test Runner が development にするが、利用者からダイアログの話は無かった
+- **通知の実機の確かめは外した**: おやすみモードではハーネスの通知のバナーも出ず、ハーネスはテストのたびに入れ直すので、集中モードの「許可するアプリ」にも入れておけない。段 3-R の Notification の表で、native-toolkit の形（ハーネスを 1 回だけ入れ、UI テストモードの集中モードで許可し、まだ聞いていない状態が要るテストはシミュレーターだけ）に合わせて決める
+- **iOS 26 系**（利用者の判断、2026-11-14）: 移行の比べは実機 1 台とシミュレーター 1 台（iPhone 16 / iOS 18.3）で進め、**段 4（リリースの前）に iOS 26 のシミュレーターでも 1 回流す**。iPad のシミュレーターは、あれば足し、無ければマニュアルに「確かめていない」と書く

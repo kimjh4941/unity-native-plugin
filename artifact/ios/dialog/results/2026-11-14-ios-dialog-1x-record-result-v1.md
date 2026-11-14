@@ -5,7 +5,7 @@
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3-R
 - 対象: 1.x（`Plugins/iOS/VERSION.txt` の dist 1.13.0、`ios-native-toolkit-1.3.0` と `unity-ios-native-toolkit-1.3.0`）
 - 実行: `scripts/test_ios_ui.sh`（`iOS Profile`、Xcode 26.3、iPhone 16 / iOS 18.3 のシミュレーター、Simulator.app は開かない）。テストは `Tools~/IosUiTests/NtkUiTests/DialogUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/DialogScenario.cs`
-- **実機は未記録**（利用者の許可を得てから。シミュレーターだけの ID 12・13・15・16・17 は実機で流さない）
+- 実機: 2026-11-14 に iPhone XS（iOS 18.7.2）で記録した（3.5 章。シミュレーターだけの ID 12・13・15・16・17 は流していない）
 
 ## 1. シミュレーターの記録（2026-11-14 19:36〜、19:41〜）
 
@@ -51,3 +51,12 @@
 
 - 実機での記録（ID 1〜11、14a、14b。許可を得てから。`scripts/test_ios_ui.sh --device --dry-run` の一覧を見せる）
 - ID-20〜22（画面を出さない Player のテスト）を `IosDialogPlayerTests` に足す（段 2 の (A) の仕組みで流す）
+
+## 5. 実機の記録（2026-11-14 20:3x、iPhone XS / iOS 18.7.2）
+
+利用者の許可を得て、HEAD `f58c695` で流した（[README](../../../topics/ios-c-abi-2/README.md) の 6.6）。
+
+| ID | 結果 |
+|---|---|
+| ID-1〜3、5〜11、14a、14b | 成功（シミュレーターと同じ結果の行。ID-14a も 2 つとも出た） |
+| ID-4 | **失敗**。シミュレーターでは成功。ハーネスを入れ直すたびに出たローカルネットワークの許可のダイアログ（development ビルドのため）が、初めて出た頃に当たった見込み。実機の失敗の文言は決まりどおり消したので確定していない。ハーネスを development でない形に直してから、実機で流し直す |
