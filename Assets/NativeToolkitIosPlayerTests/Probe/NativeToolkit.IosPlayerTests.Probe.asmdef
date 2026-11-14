@@ -1,0 +1,8 @@
+{
+  "name": "NativeToolkit.IosPlayerTests.Probe",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

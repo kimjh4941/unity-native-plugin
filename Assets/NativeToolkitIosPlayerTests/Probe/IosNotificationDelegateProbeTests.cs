@@ -1,6 +1,6 @@
 #nullable enable
 
-#if NTK_IOS_PLAYER_PROBE && !UNITY_EDITOR
+#if UNITY_IOS && !UNITY_EDITOR && NTK_IOS_PLAYER_PROBE
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using UnityEngine;
@@ -13,6 +13,11 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests
     /// delegate's class is read by NativeSource~/NtkPlayerTestsProbe.mm, which only a run of
     /// scripts/verify_unity_ios.sh adds (NTK_IOS_PLAYER_PROBE). Here, not in the package's tests: a build
     /// without the probe would not link.
+    /// <para>
+    /// Its assembly is built for every platform (empty outside an iOS player with the probe): the Test
+    /// Framework searches a player only for the test assemblies loaded in the Editor
+    /// (RuntimeTestLauncherBase), so an iOS-only assembly's tests never run (3-S simulator run 1).
+    /// </para>
     /// </summary>
     [Category("IosPlayer")]
     public class IosNotificationDelegateProbeTests
