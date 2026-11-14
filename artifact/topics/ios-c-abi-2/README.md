@@ -91,9 +91,9 @@ native-toolkit のパス（このマシン上。`feature/NTKIT-18`）。
 | 3-0 | 4 機能の型を `Runtime/iOS/<Feature>/` に移す（5 型は動かさない） | 完了（6.5） |
 | 3-R | 機能ごとの確かめる項目の表 → レビュー → 1.x のまま実機で記録（4 機能） | 進行中。Dialog の表は決まった（[artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md](../../ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md)。レビュー 2 回で A1 が 0）。表の項目をハーネスと XCUITest に足し、**シミュレーターで 1.x を記録した**（[artifact/ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md](../../ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md)。18 件。ID-14a は予想と違い、2 つとも出た）。実機の記録は許可を得てから。**4 機能の表がすべて決まった**: Share（[v3](../../ios/share/designs/2026-11-14-ios-share-ui-test-plan-v3.md)）、Clipboard（[v4](../../ios/clipboard/designs/2026-11-14-ios-clipboard-ui-test-plan-v4.md)。レビュー 3 回）、Notification（[v4](../../ios/notification/designs/2026-11-14-ios-notification-ui-test-plan-v4.md)。レビュー 3 回）。**Share は 1.x をシミュレーターで記録した**（[artifact/ios/share/results/2026-11-14-ios-share-1x-record-result-v1.md](../../ios/share/results/2026-11-14-ios-share-1x-record-result-v1.md)。UI 18 件と Player 6 件。SH-13 は予想と違い、1 つの呼び出しの結果が失われる）。**Clipboard は Player のテスト 35 件を記録した**（[artifact/ios/clipboard/results/2026-11-14-ios-clipboard-1x-record-result-v1.md](../../ios/clipboard/results/2026-11-14-ios-clipboard-1x-record-result-v1.md)。検出は URL の項目に効かない、1 回の Copy で変化が 2 回）。Dialog の ID-20〜22 も Player で記録した。残りは Clipboard の UI のテスト（CB-1〜5）、Notification のハーネスとテスト、実機の記録 |
 | 3-S | 切り替え（2.0.0、ブリッジの宣言を消す、「使えない」に落とす） | 未着手 |
-| 3 | 機能ごとに: 写し方の設計 → レビュー → 実装 → 実機で 1.x と比べる → 実装のレビュー。Dialog → Share → Clipboard → Notification | 未着手 |
+| 3 | 機能ごとに: 写し方の設計 → レビュー → 実装 → 実機で 1.x と比べる → 実装のレビュー。Dialog → Share → Clipboard → Notification。**`2.0.0` に移した後のテストは、シミュレーターで全件成功してから実機で流す**（誤った移行が私物の端末に届かないように。段 3-R の実装のレビュー v1 の R-11） | 未着手 |
 | 3-E | 署名し直しの確かめ（Validate App は Personal Team ではしない） | 未着手 |
-| 4 | JSON Builder 2 つの削除、5 型の iOS 用の新しい型、メニュー、マニュアル、リリース 1.14.0 | 未着手 |
+| 4 | JSON Builder 2 つの削除、5 型の iOS 用の新しい型、メニュー、マニュアル、リリース 1.14.0。iOS 26 のシミュレーターの回の前に、共有のシートの閉じ方（`PopoverDismissRegion`）と見出しの題の読み方（`LP.CaptionBar.TopCaption`）を `SystemUI` に写す（native-toolkit の `ShareSheet.swift`） | 未着手 |
 
 ## 6. 記録
 

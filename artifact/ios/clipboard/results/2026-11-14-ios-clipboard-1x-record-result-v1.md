@@ -5,7 +5,7 @@
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3-R
 - 対象: 1.x（`Plugins/iOS/VERSION.txt` の dist 1.13.0、`ios-native-toolkit-1.3.0` と `unity-ios-native-toolkit-1.3.0`）
 - 実行: `scripts/verify_unity_ios.sh --skip-editmode`（iOS の Player だけ、iPhone 16 / iOS 18.3 のシミュレーター、Xcode 26.3）。テストは `Tests/PlayMode/IosClipboardPlayerTests.cs`（35 件。名前付きの pasteboard だけ）
-- この版は 1 章（Player のテスト）だけ。2 章の UI のテスト（CB-1〜5）はまだ作っていない。実機もまだ
+- UI のテスト（CB-1〜5）は `scripts/test_ios_ui.sh`（同じシミュレーター）。テストは `Tools~/IosUiTests/NtkUiTests/ClipboardUITests.swift`、ハーネスは `Assets/NativeToolkitIosUiHarness/Runtime/Scenarios/ClipboardScenario.cs` と `NativeSource~/NtkUiHarnessOverlay.mm`。実機はまだ
 
 ## 1. Player のテストの記録（2026-11-14）
 
@@ -36,10 +36,23 @@
 | CP-34 | Start の完了の前の Stop は `CLIPBOARD_BUSY`、Start は成功 | 予想どおり |
 | CP-35 | 監視中に RemovePasteboard すると、`Kind = Removed` が 1 回 | 記録 |
 
+### 1.1 UI のテストの記録（2026-11-14）
+
+CB-1〜4 は、UI テストのランナーが一般の pasteboard に書き、ハーネスが読む（シミュレーターだけ。Simulator.app は開かない）。ペーストの許可のダイアログは、ハーネス（`NTK UI Harness`）がランナー（`NtkUiTests-Runner`）からペーストする、と名指しているときだけ押した。1 回目は CB-5 がテストの誤り（行を押したときに出る `pending` の行を拾った）で落ち、直して 6 件とも成功した。
+
+| ID | 1.x の実測（結果の行） | 計画の予想との関係 |
+|---|---|---|
+| CB-1 | 「ペーストを許可」で `[read@ok] items=1 types=1 text-length=20` | 予想どおり（型の数は 1） |
+| CB-2 | 「ペーストを許可しない」で `[read@ok] items=1 types=0 text-length=<null>`（失敗ではなく、型も文字も無い 1 項目） | 予想どおり |
+| CB-2b | 「許可しない」で `LoadItem(Text)` は `[load@fail] code=CLIPBOARD_LOAD_FAILED domain=NSItemProviderErrorDomain native-code=-1200` | 予想どおり。`Domain` と `NativeCode` は、`2.0.0` で保てない値（D-13）の比べる元 |
+| CB-3 | 「許可しない」で `DetectValues` は `[detect@fail] code=CLIPBOARD_DETECTION_FAILED domain=PBErrorDomain native-code=13`。待ち時間切れではない | 予想どおり（同上） |
+| CB-4 | `DetectPatterns` は許可のダイアログを出さずに `[patterns@ok] patterns=ProbableWebUrl` | 予想どおり |
+| CB-5 | `[after-destroy@event] terminated=True abi=none late-change=0 native-listener=none`。破棄の後のネイティブの書き込みで、C# が捨てた遅い変化は 0 回 | 予想どおり。`2.0.0` では `abi=present` と `native-listener=0` を照らす |
+
 ## 2. 計画 v4 との違い（計画の版は上書きしない）
 
 - **エラーのログ**: 1.x は読み込み系の失敗（Read、LoadItem など）で `Debug.LogError`（`[IosClipboardJsonParser][ReadErrorInfo] errorCode: …`）を出す。Unity のテストはこれを予期しないエラーとして落とすので、その失敗を期待するテスト（CP-15・19・25・26）は `LogAssert.Expect` でログも予期する形にした。Copy などの操作の失敗ではログは出ない
-- CP-13・14 は、URL の項目で空になることを照らし、文字列で置いたときの結果は記録だけにした（次の回で照らす形にする）
+- 実装のレビュー v1（`artifact/topics/ios-c-abi-2/reviews/2026-11-14-ios-stage3r-tests-implementation-review-v1.md`）を受けて、記録だけだった実測を照らす形にした（CP-2・4・5・9・12・13・14・35）。操作ごとに完了がちょうど 1 回か、後片付けの成功も照らす。1.x のエラーのログは照らさない（1.x の内部で、`2.0.0` で消えてよい）。直した後の回でも 46 件が成功した
 - CP-17・32 は実測の 2 回に合わせた
 - Player のテストの後片付け（`verify_unity_ios.sh` の `clean_up_player`）が、ビルドに失敗して Player が入っていないときに「消せたか確かめられない」と誤って出していた。入っていなければ成功とするように直した
 
@@ -51,5 +64,4 @@
 
 ## 4. 残っていること
 
-- 2 章の UI のテスト（CB-1〜5）をハーネスと `ClipboardUITests` に作り、シミュレーターで記録する（CB-5 の `.mm` の `dlsym` を含む）
 - 実機での記録（Player のテストは名前付きの pasteboard だけなので、`PlayerTests/IosPlayer` の承認で流せる。許可を得てから）

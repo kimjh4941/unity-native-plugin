@@ -204,6 +204,7 @@ run_editor_tests() {
 
 SIM_BOOTED_BY_US=0
 DEVICE_TOUCHED=0
+SIM_INSTALLED=0
 CLEANED_UP=0
 # Removes the player. On a device it reads back that it is gone and returns 1 when it is not; the
 # main flow does this before printing the result, so a run that leaves the player behind fails. Only
@@ -216,11 +217,15 @@ clean_up_player() {
     remove_from_device "$PLAYER_ID"
     return $?
   fi
-  # Nothing to remove when the player was never installed (for example, its build failed):
-  # uninstall would fail and the run would wrongly report a player left behind.
-  xcrun simctl get_app_container "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1 || return 0
+  # Nothing to remove when this run never installed the player (for example, its build failed); a
+  # player left by an earlier run is removed before the install. Once installed, the player must be
+  # confirmed gone: a failed query is a failure, not "not installed".
+  [ "$SIM_INSTALLED" -eq 1 ] || return 0
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+  local listed
+  listed=$(xcrun simctl listapps "$SIM_ID" 2>/dev/null) || return 1
+  ! grep -qF "$PLAYER_ID" <<<"$listed"
 }
 on_exit() {
   trap '' INT TERM HUP
@@ -325,6 +330,7 @@ run_player_tests() {
   local app="$apps"
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+  SIM_INSTALLED=1
   if ! xcrun simctl install "$SIM_ID" "$app"; then
     echo "  install: failed ($app)"
     return 1

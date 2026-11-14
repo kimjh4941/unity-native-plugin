@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet of the harness and closes it with Close without choosing a target; nothing in the sheet is read on a device (Share UI test plan v3; Copy, the sheet's contents, backgrounding and Control Center are simulator only). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3. appdialog: presses the harness's own alerts and action sheets (not the springboard); ID-9 types a test value into a text field with the device keyboard.",
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet of the harness and closes it with Close without choosing a target; nothing in the sheet is read on a device (Share UI test plan v3; Copy, the sheet's contents, backgrounding and Control Center are simulator only). clipboard: on a device, writes and observes a named pasteboard of the harness only and never reads or writes the general pasteboard (CB-5); the general-pasteboard tests CB-1 to CB-4 are simulator only (Clipboard test plan v4). reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh (a named pasteboard round trip; reads the notification permission without asking). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3. appdialog: presses the harness's own alerts and action sheets (not the springboard); ID-9 types a test value into a text field with the device keyboard. After the switch to the C ABI 2.0.0, the player tests and the UI tests run on a device only after they all pass on the simulator (a wrong migration could otherwise reach the user's device, for example a remove request to the general pasteboard; stage 3-R implementation review v1, R-11).",
   "tests": {
     "DialogUITests/test_ID1": [
       "appdialog",
@@ -150,7 +150,27 @@
       "systemui",
       "reinstall"
     ],
-    "ClipboardUITests/test_namedRoundTrip": [
+    "ClipboardUITests/test_CB1": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB2": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB2b": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB3": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB4": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB5": [
       "clipboard",
       "reinstall"
     ],
@@ -171,6 +191,11 @@
     "ShareUITests/test_SH14",
     "ShareUITests/test_SH15",
     "ShareUITests/test_SH17",
-    "ShareUITests/test_SH18"
+    "ShareUITests/test_SH18",
+    "ClipboardUITests/test_CB1",
+    "ClipboardUITests/test_CB2",
+    "ClipboardUITests/test_CB2b",
+    "ClipboardUITests/test_CB3",
+    "ClipboardUITests/test_CB4"
   ]
 }

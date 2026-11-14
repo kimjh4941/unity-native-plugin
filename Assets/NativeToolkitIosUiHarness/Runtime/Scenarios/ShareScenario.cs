@@ -76,7 +76,12 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             IosUiHarness.Hidden("sh-background-fire", () =>                                                 // SH-18
             {
                 IosUiHarness.Append("late", "event", $"state={IosUiHarness.ActivationState()}");
-                Share(P(IosShareItem.Text("background")));
+                // The state when the result arrives too (the plan: "the state after coming back").
+                IosShareManager.Instance.Share(P(IosShareItem.Text("background")), r =>
+                {
+                    Line("share", r);
+                    IosUiHarness.Append("late", "result", $"state={IosUiHarness.ActivationState()}");
+                });
             });
             IosUiHarness.Row("sh-background", () => IosUiHarness.OnBackground("sh-background-fire"));
         }

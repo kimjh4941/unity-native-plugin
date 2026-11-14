@@ -23,19 +23,35 @@ namespace JonghyunKim.NativeToolkit.Tests
     {
         private const string NoItems = "No shareable items were provided.";
 
+        /// <summary>
+        /// Shares and expects one failure: the ShareCompleted event first and then the per-call callback,
+        /// each exactly once and with the same result (SH-22's contract, also on the paths that reach the
+        /// native side: SH-23 to SH-25).
+        /// </summary>
         private static IEnumerator ShareAndExpect(IosShareContentPayload? payload, string error)
         {
             IosShareResult? result = null;
-            int calls = 0;
-            IosShareManager.Instance.Share(payload, r => { result = r; calls++; });
-            yield return WaitFor(() => result != null);
+            var order = new List<string>();
+            IosShareResult? eventResult = null;
+            Action<IosShareResult> onEvent = r => { order.Add("event"); eventResult = r; };
+            IosShareManager.Instance.ShareCompleted += onEvent;
+            try
+            {
+                IosShareManager.Instance.Share(payload, r => { order.Add("callback"); result = r; });
+                yield return WaitFor(() => result != null);
+                yield return WaitFor(() => false, 1f);
+            }
+            finally
+            {
+                IosShareManager.Instance.ShareCompleted -= onEvent;
+            }
             Assert.IsNotNull(result, "no share result within the timeout");
+            CollectionAssert.AreEqual(new[] { "event", "callback" }, order);
             Assert.IsFalse(result!.Value.IsSuccess);
             Assert.IsFalse(result.Value.Completed);
             Assert.IsNull(result.Value.ActivityType);
             Assert.AreEqual(error, result.Value.ErrorMessage);
-            yield return WaitFor(() => false, 1f);
-            Assert.AreEqual(1, calls, "the callback did not come exactly once");
+            Assert.AreEqual(error, eventResult!.Value.ErrorMessage);
         }
 
         /// <summary>SH-20 (the stage 2 test ShareWithoutItemsFailsWithoutASheet).</summary>

@@ -21,9 +21,11 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// iOS player: the Clipboard plan v4, section 1 (artifact/ios/clipboard/designs/2026-11-14-ios-clipboard-ui-test-plan-v4.md).
     /// Every test uses its own named pasteboard and never the general one: the manager is only called
     /// through the helpers below, and the helpers that touch a pasteboard require its scope. The helpers
-    /// count calls and completions, and the teardown fails a test that left a call unfinished (it would
-    /// make the next test's call CLIPBOARD_BUSY). Values that the plan says to record are written with
-    /// <see cref="Record"/> (the test's own values only).
+    /// keep every call, and the teardown fails a test whose calls did not each complete exactly once (an
+    /// unfinished call would make the next test's call CLIPBOARD_BUSY). The values measured on 1.x are
+    /// asserted; <see cref="Record"/> writes extra context to the log (the test's own values only).
+    /// The error logs 1.x writes for failed read-like calls are not asserted: they are 1.x internals, not
+    /// behaviour to keep (the tests that expect such a failure ignore failing log messages).
     /// </summary>
     [Category(IosPlayerTestSupport.Category)]
     public class IosClipboardPlayerTests
@@ -36,37 +38,39 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             public T? Value;
             public int Count;
-            public T V => Value ?? throw new AssertionException("no result");
+            public T V => Value ?? throw new AssertionException("no result within the timeout");
         }
 
         private IosClipboardManager M => IosClipboardManager.Instance;
         private IosPasteboardScope _scope = null!;
-        private int _calls;
-        private int _done;
+        private readonly List<(string what, Func<int> count)> _tracked = new();
         private bool _observing;
+        private IosPasteboardScope? _extra;
 
         private Box<T> Track<T>(Action<Action<T>> start) where T : struct
         {
             var box = new Box<T>();
-            _calls++;
-            start(r => { box.Value = r; box.Count++; _done++; });
+            _tracked.Add((typeof(T).Name, () => box.Count));
+            start(r => { box.Value = r; box.Count++; });
             return box;
         }
 
+        /// <summary>
+        /// Waits for the result. It does not assert (an assertion inside a nested enumerator would skip the
+        /// caller's finally blocks): a missing result fails at <see cref="Box{T}.V"/> in the test's body.
+        /// </summary>
         private static IEnumerator Await<T>(Box<T> box, string what) where T : struct
         {
             yield return WaitFor(() => box.Count > 0);
-            Assert.IsNotNull(box.Value, $"no {what} result within the timeout");
         }
 
         private static void Record(string what) => Debug.Log($"[NTK-CLIPBOARD-RECORD] {TestContext.CurrentContext.Test.Name} {what}");
 
         /// <summary>
-        /// 1.x logs an error when a read-like call fails (IosClipboardJsonParser.ReadErrorInfo); the test
-        /// framework would fail the test on that log, so the tests that expect such a failure declare it.
+        /// 1.x logs an error when a read-like call fails (IosClipboardJsonParser.ReadErrorInfo); 2.0.0 need not.
+        /// The tests that expect such a failure ignore failing log messages until the teardown.
         /// </summary>
-        private static void ExpectErrorLog(string code) =>
-            LogAssert.Expect(LogType.Error, new Regex(@"\[IosClipboardJsonParser\]\[ReadErrorInfo\] errorCode: " + code + ","));
+        private static void IgnoreErrorLogs() => LogAssert.ignoreFailingMessages = true;
 
         private static void ExpectError(IosClipboardErrorInfo? error, string code, string message)
         {
@@ -106,9 +110,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            _calls = 0;
-            _done = 0;
+            _tracked.Clear();
             _observing = false;
+            _extra = null;
             string name = Prefix + TestContext.CurrentContext.Test.Name;
             _scope = IosPasteboardScope.Named(name);
             var created = Create(IosPasteboardCreationRequest.Named(name));
@@ -119,15 +123,33 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTearDown]
         public IEnumerator TearDown()
         {
-            if (_observing)
+            try
             {
-                var stopped = StopObserving();
-                yield return WaitFor(() => stopped.Count > 0);
+                if (_observing)
+                {
+                    var stopped = StopObserving();
+                    yield return Await(stopped, "StopObserving");
+                    Assert.IsTrue(stopped.V.IsSuccess, $"StopObserving failed: {stopped.V.Error?.Code}");
+                }
+                if (_extra != null)
+                {
+                    var removedExtra = Remove(_extra);
+                    yield return Await(removedExtra, "RemovePasteboard");
+                }
+                var removed = Remove(_scope);
+                yield return Await(removed, "RemovePasteboard");
+                // A test may have removed its pasteboard already (CP-19, CP-25).
+                Assert.IsTrue(removed.V.IsSuccess || removed.V.Error?.Code == "CLIPBOARD_UNAVAILABLE",
+                    $"RemovePasteboard failed: {removed.V.Error?.Code}");
+                yield return WaitFor(() => _tracked.TrueForAll(c => c.count() >= 1), 5f);
+                yield return WaitFor(() => false, 0.5f);
+                foreach (var (what, count) in _tracked)
+                    Assert.AreEqual(1, count(), $"a {what} call of this test did not complete exactly once");
             }
-            var removed = Remove(_scope);
-            yield return WaitFor(() => removed.Count > 0);
-            yield return WaitFor(() => _done >= _calls);
-            Assert.AreEqual(_calls, _done, "a call of this test did not complete");
+            finally
+            {
+                LogAssert.ignoreFailingMessages = false;
+            }
         }
 
         private static string Hash(byte[] data)
@@ -171,6 +193,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(1, read.V.Items.Count);
             Record($"types={string.Join(",", read.V.Items[0].TypeIdentifiers)}");
             CollectionAssert.Contains(read.V.Items[0].TypeIdentifiers, "public.html");
+            CollectionAssert.Contains(read.V.Items[0].TypeIdentifiers, "public.plain-text");
+            Assert.AreEqual("ntk", read.V.Items[0].Text);
             var data = ReadData(_scope, "public.html");
             yield return Await(data, "ReadData");
             Assert.IsTrue(data.V.HasData);
@@ -199,6 +223,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Await(data, "ReadData");
             Assert.IsTrue(data.V.HasData);
             Record($"sent={png.Length}/{Hash(png)} read={data.V.ByteCount}/{Hash(data.V.Data!)}");
+            CollectionAssert.AreEqual(png, data.V.Data, "1.x keeps the PNG bytes as they were sent");
         }
 
         [UnityTest]
@@ -211,6 +236,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Await(read, "Read");
             Assert.AreEqual(1, read.V.Items.Count);
             Record($"types={string.Join(",", read.V.Items[0].TypeIdentifiers)}");
+            CollectionAssert.Contains(read.V.Items[0].TypeIdentifiers, "com.apple.uikit.color");
         }
 
         [UnityTest]
@@ -262,6 +288,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(1, read.V.Items.Count);
             Record($"types={string.Join(",", read.V.Items[0].TypeIdentifiers)}");
             CollectionAssert.Contains(read.V.Items[0].TypeIdentifiers, CustomType);
+            CollectionAssert.Contains(read.V.Items[0].TypeIdentifiers, "public.plain-text");
+            var custom = ReadData(_scope, CustomType);
+            yield return Await(custom, "ReadData");
+            CollectionAssert.AreEqual(new byte[] { 1 }, custom.V.Data);
+            var plain = ReadData(_scope, "public.plain-text");
+            yield return Await(plain, "ReadData");
+            CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("ntk"), plain.V.Data);
         }
 
         [UnityTest]
@@ -304,7 +337,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var s = snap.V.Snapshot!;
             Record($"types={string.Join(",", s.TypeIdentifiers)} all={string.Join("|", s.AllTypeIdentifiers.Select(t => string.Join(",", t)))}");
             Assert.AreEqual(2, s.NumberOfItems);
-            CollectionAssert.DoesNotContain(s.TypeIdentifiers, "public.url");
+            CollectionAssert.AreEqual(new[] { "public.plain-text" }, s.TypeIdentifiers);
             Assert.AreEqual(2, s.AllTypeIdentifiers.Count);
             CollectionAssert.Contains(s.AllTypeIdentifiers[1], "public.url");
             CollectionAssert.AreEqual(new[] { 1 }, s.MatchingItemIndexes);
@@ -312,7 +345,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         /// <summary>
         /// 1.x, measured on the simulator (2026-11-14): on a named pasteboard, detection finds nothing in a
-        /// URL item. The same URL put as plain text is recorded next to it.
+        /// URL item, and finds it in the same URL put as plain text.
         /// </summary>
         [UnityTest]
         public IEnumerator CP13_DetectPatternsOnANamedPasteboard()
@@ -327,7 +360,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Await(text, "Copy");
             var fromText = DetectPatterns(_scope, IosClipboardDetectionPattern.ProbableWebUrl);
             yield return Await(fromText, "DetectPatterns");
-            Record($"from-text success={fromText.V.IsSuccess} patterns={string.Join(",", fromText.V.Patterns ?? Array.Empty<IosClipboardDetectionPattern>())}");
+            Assert.IsTrue(fromText.V.IsSuccess);
+            CollectionAssert.AreEqual(new[] { IosClipboardDetectionPattern.ProbableWebUrl }, fromText.V.Patterns);
         }
 
         [UnityTest]
@@ -343,7 +377,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Await(text, "Copy");
             var fromText = DetectValues(_scope, IosClipboardDetectionPattern.ProbableWebUrl);
             yield return Await(fromText, "DetectValues");
-            Record($"from-text success={fromText.V.IsSuccess} url={fromText.V.Values?.ProbableWebUrl ?? "<null>"}");
+            Assert.IsTrue(fromText.V.IsSuccess);
+            Assert.AreEqual("https://example.com/ntk", fromText.V.Values!.ProbableWebUrl);
         }
 
         [UnityTest]
@@ -356,7 +391,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(text.V.IsSuccess);
             Assert.AreEqual("ntk load", text.V.Item!.Text);
             // 1.x, measured: a plain-text item gives no URL.
-            ExpectErrorLog("CLIPBOARD_NO_MATCHING_ITEM");
+            IgnoreErrorLogs();
             var url = Load(_scope, IosClipboardLoadRequest.Url);
             yield return Await(url, "LoadItem(Url)");
             ExpectError(url.V.Error, "CLIPBOARD_NO_MATCHING_ITEM", "No clipboard item matches the requested type.");
@@ -384,11 +419,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Await(created, "CreatePasteboard(Unique)");
             Assert.IsTrue(created.V.IsSuccess);
             var unique = created.V.Scope!;
+            _extra = unique;
             Assert.IsFalse(string.IsNullOrEmpty(unique.Name));
             var removed = Remove(unique);
             yield return Await(removed, "RemovePasteboard");
             Assert.IsTrue(removed.V.IsSuccess);
-            ExpectErrorLog("CLIPBOARD_UNAVAILABLE");
+            IgnoreErrorLogs();
             var read = Read(unique);
             yield return Await(read, "Read");
             ExpectError(read.V.Error, "CLIPBOARD_UNAVAILABLE", "The requested pasteboard is unavailable.");
@@ -447,7 +483,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var removed = Remove(_scope);
             yield return Await(removed, "RemovePasteboard");
             Assert.IsTrue(removed.V.IsSuccess);
-            ExpectErrorLog("CLIPBOARD_UNAVAILABLE");
+            IgnoreErrorLogs();
             var read = Read(_scope);
             yield return Await(read, "Read");
             ExpectError(read.V.Error, "CLIPBOARD_UNAVAILABLE", "The requested pasteboard is unavailable.");
@@ -458,7 +494,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             var copied = Copy(_scope, IosClipboardContent.PlainText("ntk"));
             yield return Await(copied, "Copy");
-            ExpectErrorLog("CLIPBOARD_NO_MATCHING_ITEM");
+            IgnoreErrorLogs();
             var loaded = Load(_scope, IosClipboardLoadRequest.Image);
             yield return Await(loaded, "LoadItem(Image)");
             ExpectError(loaded.V.Error, "CLIPBOARD_NO_MATCHING_ITEM", "No clipboard item matches the requested type.");
@@ -612,19 +648,29 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator CP33_NoChangeAfterStop()
         {
             var events = new List<IosClipboardChangeEvent>();
+            int beforeStop = -1;
             yield return CountChanges(() => Body(), events);
             IEnumerator Body()
             {
                 var started = StartObserving(_scope);
                 yield return Await(started, "StartObserving");
+                Assert.IsTrue(started.V.IsSuccess);
+                var before = Copy(_scope, IosClipboardContent.PlainText("ntk before"));
+                yield return Await(before, "Copy");
+                Assert.IsTrue(before.V.IsSuccess);
+                yield return WaitFor(() => false, Window);
+                beforeStop = events.Count;
                 var stopped = StopObserving();
                 yield return Await(stopped, "StopObserving");
                 Assert.IsTrue(stopped.V.IsSuccess);
-                var copied = Copy(_scope, IosClipboardContent.PlainText("ntk"));
+                var copied = Copy(_scope, IosClipboardContent.PlainText("ntk after"));
                 yield return Await(copied, "Copy");
+                Assert.IsTrue(copied.V.IsSuccess);
                 yield return WaitFor(() => false, Window);
             }
-            Assert.AreEqual(0, events.Count, Describe(events));
+            // The same observation delivered the Copy before the stop (two changes per Copy, CP17).
+            Assert.AreEqual(2, beforeStop, Describe(events));
+            Assert.AreEqual(2, events.Count, Describe(events));
         }
 
         [UnityTest]
@@ -652,6 +698,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return WaitFor(() => false, Window);
             }
             Record($"events={events.Count} kinds={Describe(events)}");
+            Assert.AreEqual("Removed+", Describe(events));
         }
     }
 }

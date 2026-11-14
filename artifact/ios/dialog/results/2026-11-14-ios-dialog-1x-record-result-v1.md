@@ -63,11 +63,11 @@
 
 ## 6. 画面を出さない Player のテスト（2026-11-14）
 
-`IosDialogPlayerTests` に ID-20〜22 を足し、`scripts/verify_unity_ios.sh --skip-editmode`（iPhone 16 / iOS 18.3 のシミュレーター）で 4 件とも成功した。
+`IosDialogPlayerTests` に ID-20〜22 を足し、`scripts/verify_unity_ios.sh --skip-editmode`（iPhone 16 / iOS 18.3 のシミュレーター）で 4 件とも成功した。実装のレビュー v1（`artifact/topics/ios-c-abi-2/reviews/2026-11-14-ios-stage3r-tests-implementation-review-v1.md`）を受けて、値が null であることと回数を照らす形に直し、直した後の回でも成功した。
 
 | ID | 1.x の実測 |
 |---|---|
-| ID-20 | 6 つの `Show*` を空の `title` で呼ぶと、各イベントが同じ呼び出しの中で `(…, false, "Title cannot be null or empty.")`。エラーのログも 6 回 |
+| ID-20 | 6 つの `Show*` を空の `title` で呼ぶと、各イベントが同じ呼び出しの中でちょうど 1 回、値はすべて null で `(null…, false, "Title cannot be null or empty.")`。1 秒待っても後から何も来ない（アラートは出ない）。1.x はエラーのログも出すが、テストでは照らさない（1.x の内部。実装のレビュー v1 の R-6） |
 | ID-21 | 空の `message` で同じく `"Message cannot be null or empty."` |
 | ID-22 | `ShowActionSheet` の選択肢が空の配列と `null` の配列のどちらも `"Options cannot be null or empty."` |
 
