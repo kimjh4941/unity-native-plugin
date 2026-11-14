@@ -34,9 +34,10 @@ public static class IosFrameworkPatcher
         {
             Debug.Log("[NativeToolkit][iOS] Applying XCFramework & PBXProject edits...");
 
-            // XCFramework source and destination paths
-            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            string pluginsIosDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
+            // XCFramework source and destination paths. The package path resolves through Unity's
+            // "Packages/<name>" mapping: a package installed from a Git URL lives under
+            // Library/PackageCache, so <project>/Packages/<name> does not exist there.
+            string pluginsIosDir = Path.GetFullPath("Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
             // The XCFrameworks named in Plugins/iOS/VERSION.txt, matched exactly, in the form the last
             // build left there (a development build leaves the -debug one when dist publishes it); throws
