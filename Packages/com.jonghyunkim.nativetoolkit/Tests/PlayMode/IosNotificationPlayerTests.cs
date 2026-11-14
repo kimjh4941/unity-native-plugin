@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -284,8 +285,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual("Failed to parse notification content or trigger JSON", scheduled.Value.ErrorMessage);
         }
 
-        private const string GenericError1 = "The operation couldn’t be completed. (IosLibrary.NotificationError error 1.)";
-        private const string GenericError2 = "The operation couldn’t be completed. (IosLibrary.NotificationError error 2.)";
+        /// <summary>
+        /// 1.x's failure text is the system's generic description of IosLibrary.NotificationError, in the
+        /// device's language ("… (IosLibrary.NotificationError error 1.)" on the English simulator, Japanese
+        /// on the iPhone, 2026-11-15), so it is matched by the error type and its number, not word for word.
+        /// </summary>
+        private static string GenericError(int code) => @"error=.*\(IosLibrary\.NotificationError[^0-9]*" + code + @"[^0-9]*\)";
 
         /// <summary>Runs one call and records its result; the callback and the event must each come once.</summary>
         private IEnumerator RunCase<T>(string label, Func<Box<T>> call, Func<T, string> describe, List<string> lines)
@@ -338,8 +343,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             // 1.x, measured on the simulator (2026-11-15): only the https attachment fails (M4).
             foreach (string line in lines)
             {
-                string expected = line.StartsWith("attachment-https:") ? $"attachment-https: fail error={GenericError1} events=1" : line.Split(':')[0] + ": ok events=1";
-                Assert.AreEqual(expected, line);
+                if (line.StartsWith("attachment-https:"))
+                    StringAssert.IsMatch("^attachment-https: fail " + GenericError(1) + " events=1$", line);
+                else
+                    Assert.AreEqual(line.Split(':')[0] + ": ok events=1", line);
             }
 #endif
         }
@@ -400,7 +407,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             PendingOn2("NP-13 (the INVALID_PARAMETER message)");
 #else
             // 1.x, measured (2026-11-15): a negative badge already fails (the plan v4 expected success).
-            CollectionAssert.AreEqual(new[] { $"count=-1: fail error={GenericError2} events=1", "count=0: ok events=1" }, lines);
+            Assert.AreEqual(2, lines.Count, string.Join("\n", lines));
+            StringAssert.IsMatch("^count=-1: fail " + GenericError(2) + " events=1$", lines[0]);
+            Assert.AreEqual("count=0: ok events=1", lines[1]);
 #endif
         }
 

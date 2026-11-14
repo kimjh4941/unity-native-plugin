@@ -29,7 +29,7 @@ Player のアプリは許可を一度も求めないので、権限は `NotDeter
 | NP-16 | `title` の無い action、空の action の id、未知の option、どれも成功 | 予想どおり |
 | NP-18 | 10 回とも A は 0 回、B は 1 回、`NotificationOperationCompleted` は 2 回 | 予想どおり |
 
-単独で呼んだ、操作のイベントを持つ操作（Show、Schedule、Update、SetBadgeCount、RegisterCategory）では、受け手のあとにイベントがちょうど 1 回ずつ、同じ結果で来た（続けて 2 回呼んだ NP-3・18 は表のとおり）。1.x の失敗の文言は、`NotificationError` に説明が無いので `localizedDescription` の汎用の文（`… error <番号>.`）になる。
+単独で呼んだ、操作のイベントを持つ操作（Show、Schedule、Update、SetBadgeCount、RegisterCategory）では、受け手のあとにイベントがちょうど 1 回ずつ、同じ結果で来た（続けて 2 回呼んだ NP-3・18 は表のとおり）。1.x の失敗の文言は、`NotificationError` に説明が無いので `localizedDescription` の汎用の文（`… error <番号>.`）になる。**この文は端末の言語で訳される**（実機の日本語では英語と違う文。NP-8・13 は実機で落ちた）ので、テストは `IosLibrary.NotificationError` とその番号で照らす。
 
 ## 2. UI のテストの記録（2026-11-15）
 
@@ -69,6 +69,10 @@ Player のアプリは許可を一度も求めないので、権限は `NotDeter
 - NP-9 は、計画の `[Explicit]` ではなく `NTK_IOS_CABI_2` の定義で組むかを分けた。`[Explicit]` のテストは結果に「流していない」として残り、`scripts/ios_player_results.py` が区分のテストの成功に数えないため
 - `2.0.0` で既知の差分になる期待（NP-3・5・18 など）は、同じ `NTK_IOS_CABI_2` で分けて書いた
 - `[UnityTest]` に引数付きのテストを組み合わせず、NP-8・9・9b・13・14・16 は 1 つのテストの中で値を順に流す
+
+### 4.1 実機の Player のテスト（2026-11-15）
+
+iPhone XS（iOS 18.7.2、言語は日本語）で `IosPlayer` の 59 件を流した。1 回目は、走っている間にハーネス（守っている木）を書き換えたため、照らしで止まった。2 回目は 57 件成功、NP-8 と NP-13 が落ちた（1.x の汎用の失敗の文が日本語に訳されるため。番号で照らす形に直した）。3 回目は 4.2 に書く。
 
 ## 5. 残っていること
 
