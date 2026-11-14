@@ -40,6 +40,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
         [DllImport("__Internal")] private static extern void ntkh_overlay_append(string rowId, string state, string value);
         [DllImport("__Internal")] private static extern void ntkh_overlay_after(double seconds, string rowId);
         [DllImport("__Internal")] private static extern IntPtr ntkh_activation_state();
+        [DllImport("__Internal")] private static extern int ntkh_presenting();
 
         private static readonly Dictionary<string, Action> Rows = new();
 
@@ -88,6 +89,9 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
 
         /// <summary>Registers a row that has no button (run by <see cref="After"/>).</summary>
         public static void Hidden(string id, Action action) => Rows[id] = action;
+
+        /// <summary>Whether the Unity view controller is presenting another screen (an alert, a sheet).</summary>
+        public static bool Presenting() => ntkh_presenting() != 0;
 
         /// <summary>The activation state of the scene that shows the harness (foregroundActive, foregroundInactive, ...).</summary>
         public static string ActivationState() => Marshal.PtrToStringUTF8(ntkh_activation_state()) ?? "unknown";

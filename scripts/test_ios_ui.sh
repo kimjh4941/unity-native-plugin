@@ -93,7 +93,11 @@ if [ -n "$TESTS_ARG" ]; then
   IFS=',' read -r -a TESTS <<< "$TESTS_ARG"
   for t in "${TESTS[@]}"; do
     if ! grep -qxF "$t" <<< "$KNOWN_TESTS"; then
-      echo "Not a UI test: $t (the UI tests are listed in Tools~/IosUiTests/DeviceRequirements.json)" >&2
+      if [ "$DEVICE_MODE" -eq 1 ] && python3 -I "$RUNNER" tests "$PROJECT_DIR" | grep -qxF "$t"; then
+        echo "Simulator only, never run on a device: $t (Tools~/IosUiTests/DeviceRequirements.json, simulatorOnly)" >&2
+      else
+        echo "Not a UI test: $t (the UI tests are listed in Tools~/IosUiTests/DeviceRequirements.json)" >&2
+      fi
       exit 2
     fi
   done

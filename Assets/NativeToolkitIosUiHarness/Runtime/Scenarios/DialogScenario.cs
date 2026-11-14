@@ -38,7 +38,12 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
                 m.ShowConfirmDialog("NTK", "first", "OK1", "Cancel");
                 m.ShowConfirmDialog("NTK", "second", "OK2", "Cancel");
             });
-            IosUiHarness.Hidden("twice-later-second", () => m.ShowConfirmDialog("NTK", "second", "OK2", "Cancel"));
+            IosUiHarness.Hidden("twice-later-second", () =>
+            {
+                // The first dialog must be on screen by now, or this is ID-14a's case again.
+                IosUiHarness.Append("twice", "event", $"first-shown={(IosUiHarness.Presenting() ? "yes" : "no")}");
+                m.ShowConfirmDialog("NTK", "second", "OK2", "Cancel");
+            });
             IosUiHarness.Row("twice-later", () =>                                                                // ID-14b
             {
                 m.ShowConfirmDialog("NTK", "first", "OK1", "Cancel");
@@ -52,7 +57,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             IosUiHarness.Row("late", () => IosUiHarness.After(3.0, "late-fire"));
         }
 
+        // A success carries no error; if it ever does, the line shows it and no expected line matches.
         private static void Line(string id, bool ok, string value, string? error) =>
-            IosUiHarness.Append(id, ok ? "ok" : "fail", ok ? value : $"{value} error={IosUiHarness.Value(error)}");
+            IosUiHarness.Append(id, ok ? "ok" : "fail", ok && error == null ? value : $"{value} error={IosUiHarness.Value(error)}");
     }
 }

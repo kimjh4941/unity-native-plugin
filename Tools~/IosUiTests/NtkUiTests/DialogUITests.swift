@@ -1,9 +1,13 @@
 import XCTest
 
 /// The Dialog UI test plan v3 (artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md).
-/// Expected lines are the 1.x predictions; a recorded run that differs updates the plan's chapter 5.
+/// Expected lines are the 1.x record (artifact/ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md).
+/// Every finished line of all six dialog kinds is compared, so an extra event of another kind fails.
 final class DialogUITests: HarnessUITestCase {
     private var alert: XCUIElement { app.alerts.firstMatch }
+    private static let kinds = ["dialog", "confirm", "destructive", "sheet", "text", "login"]
+
+    private func expectDialog(_ expected: [String]) { expectLines(ofIds: Self.kinds, expected) }
 
     private func press(_ label: String, in element: XCUIElement? = nil) {
         let container = element ?? alert
@@ -15,42 +19,42 @@ final class DialogUITests: HarnessUITestCase {
 
     func test_ID1() {
         launch("dialog"); run("show-dialog"); press("OK")
-        expectLines("dialog", ["[dialog@ok] button=OK"])
+        expectDialog(["[dialog@ok] button=OK"])
     }
 
     func test_ID2() {
         launch("dialog"); run("show-dialog-ja"); press("了解")
-        expectLines("dialog", ["[dialog@ok] button=了解"])
+        expectDialog(["[dialog@ok] button=了解"])
     }
 
     func test_ID3() {
         launch("dialog"); run("show-confirm"); press("OK")
-        expectLines("confirm", ["[confirm@ok] button=OK"])
+        expectDialog(["[confirm@ok] button=OK"])
     }
 
     func test_ID4() {
         launch("dialog"); run("show-confirm"); press("Cancel")
-        expectLines("confirm", ["[confirm@ok] button=Cancel"])
+        expectDialog(["[confirm@ok] button=Cancel"])
     }
 
     func test_ID5() {
         launch("dialog"); run("show-destructive"); press("Delete")
-        expectLines("destructive", ["[destructive@ok] button=Delete"])
+        expectDialog(["[destructive@ok] button=Delete"])
     }
 
     func test_ID6() {
         launch("dialog"); run("show-destructive"); press("Cancel")
-        expectLines("destructive", ["[destructive@ok] button=Cancel"])
+        expectDialog(["[destructive@ok] button=Cancel"])
     }
 
     func test_ID7() {
         launch("dialog"); run("show-sheet"); press("B", in: app.sheets.firstMatch)
-        expectLines("sheet", ["[sheet@ok] button=B"])
+        expectDialog(["[sheet@ok] button=B"])
     }
 
     func test_ID8() {
         launch("dialog"); run("show-sheet"); press("Cancel", in: app.sheets.firstMatch)
-        expectLines("sheet", ["[sheet@ok] button=Cancel"])
+        expectDialog(["[sheet@ok] button=Cancel"])
     }
 
     func test_ID9() {
@@ -59,7 +63,7 @@ final class DialogUITests: HarnessUITestCase {
         alert.textFields.firstMatch.tap()
         alert.textFields.firstMatch.typeText("ntk42")
         press("OK")
-        expectLines("text", ["[text@ok] button=OK input=ntk42"])
+        expectDialog(["[text@ok] button=OK input=ntk42"])
     }
 
     func test_ID10() {
@@ -67,12 +71,12 @@ final class DialogUITests: HarnessUITestCase {
         XCTAssertTrue(alert.waitForExistence(timeout: Self.timeout))
         XCTAssertFalse(alert.buttons["OK"].isEnabled, "OK should be disabled while the field is empty")
         press("Cancel")
-        expectLines("text", ["[text@ok] button=Cancel input=<null>"])
+        expectDialog(["[text@ok] button=Cancel input=<null>"])
     }
 
     func test_ID11() {
         launch("dialog"); run("show-text-empty-ok"); press("OK")
-        expectLines("text", ["[text@ok] button=OK input=\"\""])
+        expectDialog(["[text@ok] button=OK input=\"\""])
     }
 
     func test_ID12() throws {
@@ -84,7 +88,7 @@ final class DialogUITests: HarnessUITestCase {
         alert.secureTextFields.firstMatch.tap()
         alert.secureTextFields.firstMatch.typeText("pw1234")
         press("Login")
-        expectLines("login", ["[login@ok] button=Login username=user1 password-length=6"])
+        expectDialog(["[login@ok] button=Login username=user1 password-length=6"])
     }
 
     func test_ID13() throws {
@@ -93,7 +97,7 @@ final class DialogUITests: HarnessUITestCase {
         XCTAssertTrue(alert.waitForExistence(timeout: Self.timeout))
         XCTAssertFalse(alert.buttons["Login"].isEnabled, "Login should be disabled while the fields are empty")
         press("Cancel")
-        expectLines("login", ["[login@ok] button=Cancel username=<null> password=<null>"])
+        expectDialog(["[login@ok] button=Cancel username=<null> password=<null>"])
     }
 
     /// Recorded on 1.x (2026-11-14, simulator): both dialogs appear, the second on top - the plan's
@@ -103,15 +107,16 @@ final class DialogUITests: HarnessUITestCase {
         XCTAssertTrue(app.buttons["OK2"].waitForExistence(timeout: Self.timeout), "the second dialog did not appear")
         press("OK2", in: app)
         press("OK1", in: app)
-        expectLines("confirm", ["[confirm@ok] button=OK2", "[confirm@ok] button=OK1"])
+        expectDialog(["[confirm@ok] button=OK2", "[confirm@ok] button=OK1"])
     }
 
     func test_ID14b() {
         launch("dialog"); run("twice-later")
+        XCTAssertTrue(result("[twice@event] first-shown=yes").waitForExistence(timeout: Self.timeout), "the first dialog was not on screen when the second was requested")
         XCTAssertTrue(app.buttons["OK2"].waitForExistence(timeout: Self.timeout), "the second dialog did not appear")
         press("OK2", in: app)
         press("OK1", in: app)
-        expectLines("confirm", ["[confirm@ok] button=OK2", "[confirm@ok] button=OK1"])
+        expectDialog(["[confirm@ok] button=OK2", "[confirm@ok] button=OK1"])
     }
 
     func test_ID15() throws {
@@ -123,13 +128,13 @@ final class DialogUITests: HarnessUITestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         press("OK")
-        expectLines("dialog", ["[dialog@ok] button=OK"])
+        expectDialog(["[dialog@ok] button=OK"])
     }
 
     func test_ID16() throws {
         try requireSimulator()
         launch("dialog"); run("show-login-empty-ok"); press("Login")
-        expectLines("login", ["[login@ok] button=Login username=\"\" password-length=0"])
+        expectDialog(["[login@ok] button=Login username=\"\" password-length=0"])
     }
 
     func test_ID17() throws {
@@ -144,6 +149,6 @@ final class DialogUITests: HarnessUITestCase {
         let lateLine = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label == %@", "[late@event] state=foregroundInactive")).firstMatch
         XCTAssertTrue(lateLine.waitForExistence(timeout: Self.timeout), "the delayed call did not run while inactive")
         if alert.waitForExistence(timeout: 3) { press("OK") }
-        expectLines("dialog", ["[dialog@fail] button=<null> error=Failed to get root view controller"])
+        expectDialog(["[dialog@fail] button=<null> error=Failed to get root view controller"])
     }
 }

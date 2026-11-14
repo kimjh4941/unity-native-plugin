@@ -71,22 +71,30 @@ class HarnessUITestCase: XCTestCase {
         XCTAssertFalse(unexpectedAlert, "an unexpected alert appeared")
     }
 
-    /// The finished result lines (state ok or fail) of a result id, top to bottom.
-    func finishedLines(_ id: String) -> [String] {
-        app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND (label BEGINSWITH %@ OR label BEGINSWITH %@)",
-                                             "[\(id)@ok]", "[\(id)@fail]")).allElementsBoundByIndex.map(\.label)
+    /// The finished result lines (state ok or fail) of the result ids, top to bottom.
+    func finishedLines(ofIds ids: [String]) -> [String] {
+        app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.'")).allElementsBoundByIndex.map(\.label)
+            .filter { label in ids.contains { label.hasPrefix("[\($0)@ok]") || label.hasPrefix("[\($0)@fail]") } }
     }
+
+    func finishedLines(_ id: String) -> [String] { finishedLines(ofIds: [id]) }
 
     /// Waits for the first expected line (whole-label match), lets late lines arrive for `settle` seconds,
     /// then requires the id's finished lines to be exactly `expected` - a callback that came twice, or
     /// one that did not come, fails (Dialog UI test plan v3: exactly once, compared in full).
     func expectLines(_ id: String, _ expected: [String], settle: TimeInterval = 3) {
+        expectLines(ofIds: [id], expected, settle: settle)
+    }
+
+    /// The same over several result ids: every finished line of any of them must be expected (an extra
+    /// event of another kind fails too).
+    func expectLines(ofIds ids: [String], _ expected: [String], settle: TimeInterval = 3) {
         if let first = expected.first {
             let line = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label == %@", first)).firstMatch
             XCTAssertTrue(line.waitForExistence(timeout: Self.timeout), "no result line \(first)")
         }
         Thread.sleep(forTimeInterval: settle)
-        XCTAssertEqual(finishedLines(id), expected)
+        XCTAssertEqual(finishedLines(ofIds: ids), expected)
         checkNoUnexpectedAlert()
     }
 

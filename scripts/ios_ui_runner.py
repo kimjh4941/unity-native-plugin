@@ -115,6 +115,7 @@ CATEGORIES = {
     "sharesheet": "opens the share sheet and closes it without choosing an activity",
     "clipboard": "writes and reads a named pasteboard only (never the general one)",
     "reinstall": "removes the app and installs it again before the run",
+    "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
     "playertests": "runs the iOS player tests (a named pasteboard round trip; reads the notification permission without asking)",
 }
 
@@ -129,8 +130,14 @@ def requirements(repo):
 
 
 def simulator_only(repo):
+    """The simulatorOnly tests; every name must be a test, or a typo would let one reach a device."""
     with open(os.path.join(repo, REQUIREMENTS), encoding="utf-8") as f:
-        return set(json.load(f).get("simulatorOnly", []))
+        data = json.load(f)
+    names = set(data.get("simulatorOnly", []))
+    unknown = sorted(names - set(data["tests"]))
+    if unknown:
+        raise SystemExit("simulatorOnly names tests that do not exist: " + ", ".join(unknown))
+    return names
 
 
 def tree_state(repo):

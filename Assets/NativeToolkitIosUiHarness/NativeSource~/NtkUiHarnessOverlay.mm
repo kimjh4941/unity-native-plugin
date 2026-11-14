@@ -94,3 +94,9 @@ extern "C" const char* ntkh_activation_state(void)
         default: return "unattached";
     }
 }
+
+// 1 when the Unity view controller is presenting another screen (an alert, a sheet), else 0.
+extern "C" int ntkh_presenting(void)
+{
+    return UnityGetGLViewController().presentedViewController != nil ? 1 : 0;
+}
