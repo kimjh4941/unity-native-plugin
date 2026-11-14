@@ -2,7 +2,7 @@
   "name": "NativeToolkit.BuildTools.Editor",
   "rootNamespace": "Jonghyunkim.NativeToolkit.Editor.Build.Tools",
   "includePlatforms": [ "Editor" ],
-  "references": [],
+  "references": [ "NativeToolkit.Editor" ],
   "autoReferenced": true,
   "noEngineReferences": false
 }

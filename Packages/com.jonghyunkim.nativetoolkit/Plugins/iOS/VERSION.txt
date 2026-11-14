@@ -1,0 +1,26 @@
+# Which native-toolkit artifacts this folder holds, and where they came from.
+#
+# PreBuildProcessor, PostBuildProcessor and IosFrameworkPatcher READ the keys below
+# from this file (Editor/iOS/IosXcframeworkPin.cs). They do not scan for a name
+# prefix and take the highest-sorting match: the prefix "ios-native-toolkit-" also
+# matches ios-native-toolkit-capi-*, which sorts after ios-native-toolkit-2.0.0.
+# If a required key is missing, or an XCFramework it names is not there, the build
+# FAILS (the menu tool shows the error) rather than using something else.
+# PreBuildProcessor deletes every other XCFramework in this folder.
+#
+# Change these keys in the same commit as the XCFrameworks. The point is that the
+# binaries in this folder and the lines that name them move together.
+#
+# A development build replaces a release XCFramework here with its -debug one when
+# dist publishes it, and a release build puts the release one back. Do not commit
+# the folder in that state; IosFrameworkPatcher accepts either form.
+#
+# dist_version   the folder under native-toolkit/dist to copy from (required)
+# xcframeworks   the release XCFrameworks, comma-separated full folder names
+#                (required). A development build uses <name>-debug.xcframework
+#                when dist has it, and the release one otherwise: dist publishes
+#                no -debug variant of the 2.0.0 C ABI (ios-native-toolkit-capi).
+
+# The 1.x Swift library and Unity bridge.
+dist_version: 1.13.0
+xcframeworks: ios-native-toolkit-1.3.0.xcframework, unity-ios-native-toolkit-1.3.0.xcframework

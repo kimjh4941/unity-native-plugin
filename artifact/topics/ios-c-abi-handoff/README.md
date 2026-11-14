@@ -19,6 +19,17 @@
 | 1 回目 | [results/2026-10-31-ios-c-abi-handoff-1-results.md](results/2026-10-31-ios-c-abi-handoff-1-results.md) | 完了。native-toolkit に要約を送った |
 | 2 回目 | [results/2026-10-31-ios-c-abi-handoff-2-results.md](results/2026-10-31-ios-c-abi-handoff-2-results.md) | 完了。native-toolkit に要約を送った |
 
+## dist/1.14.0 の前に入れた 3 つ（2026-11-14）
+
+native-toolkit-d9 の依頼（native-toolkit の `artifact/topics/ios-c-abi/README.md` 5 章の「2b の前に unity-native-plugin に頼むこと」）。利用者の判断で **iOS だけ**にし、macOS は外した。
+
+- `Plugins/iOS/VERSION.txt` で、dist の版と xcframework の完全な名前を固定した（今は 1.13.0 の 1.3.0 の 2 つ）。読むのは `Editor/iOS/IosXcframeworkPin.cs`
+- `PreBuildProcessor`・`PostBuildProcessor`・`IosFrameworkPatcher` は、固定した名前だけを完全一致で使う。無ければ別のものを選ばずに止まる。一覧が空でも止まる
+- development ビルドは、`<名前>-debug.xcframework` があればそれを、無ければ release を使う（capi には `-debug` が無い）。メニューの `IosFrameworkPatcher` は、`Plugins/iOS` にある方（release、無ければ `-debug`）を使う
+- **前からの食い違いを直した**: `PostBuildProcessor` は development かどうかを Build Settings のチェックボックス（`EditorUserBuildSettings.development`）で見ていて、`BuildOptions.Development` で組むと（スクリプト、Test Runner）`PreBuildProcessor` と判断が分かれた。dist に `-debug` が無かったので表に出ていなかった。今は `PreBuildProcessor.IsDevelopmentBuildInProgress` を読む。**macOS には同じ食い違いが残っている**（範囲の外）
+- 確かめ: EditMode 1419 件中 1418 件成功（1 件は Windows だけのテストの skip）。プロジェクトの写しで、2.0.0 の名前の試しの dist（capi が隣にあり、capi に `-debug` が無い）を使って iOS を書き出し、release・development・メニューのどれでも正しい 2 つがリンクされ Embed & Sign の印が付くことを見た。3 か所の呼び出しは定義付きのアセンブリにあり EditMode のテストから呼べないので、この書き出しは手で確かめる項目
+- 残したこと: `IosXcframeworkPin` のメソッドの頭の `Debug.Log`（`csharp.md` の規則。Android・Windows の読み方も持たない）、`VERSION.txt` を読む処理が `PreBuildProcessor`（Android・Windows）と `IosXcframeworkPin` の 2 つあること、`PreBuildProcessor` が xcframework を消すときに `.meta` を消さないこと（前から）
+
 ## 2c（本体の移行）に持ち越す知見
 
 - IL2CPP のコールバックから例外が出ると、アプリは `std::terminate` で落ちる（U-9）。本番の包みのコールバックは、本体をすべて try / catch で囲む

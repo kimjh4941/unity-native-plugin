@@ -1,6 +1,8 @@
 #if UNITY_EDITOR_OSX
 using System;
+using System.Collections.Generic;
 using System.IO;
+using JonghyunKim.NativeToolkit.Editor.iOS;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.iOS.Xcode;
@@ -36,34 +38,24 @@ public static class IosFrameworkPatcher
             string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
             string pluginsIosDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
-            string unityXcframeworkName = FindXcframeworkName(pluginsIosDir, "unity-ios-native-toolkit-", "[NativeToolkit][iOS][Unity]");
-            string iosNativeToolkitXcframeworkName = FindXcframeworkName(pluginsIosDir, "ios-native-toolkit-", "[NativeToolkit][iOS][Native]");
+            // The XCFrameworks named in Plugins/iOS/VERSION.txt, matched exactly, in the form the last
+            // build left there (a development build leaves the -debug one when dist publishes it); throws
+            // when the pin or a pinned XCFramework is missing.
+            IosXcframeworkPin pin = IosXcframeworkPin.Read(Path.Combine(pluginsIosDir, IosXcframeworkPin.FileName));
+            IReadOnlyList<string> xcframeworkNames = pin.ResolvePresentIn(pluginsIosDir);
 
-            if (string.IsNullOrEmpty(unityXcframeworkName) || string.IsNullOrEmpty(iosNativeToolkitXcframeworkName))
-            {
-                throw new InvalidOperationException("Failed to resolve required iOS XCFramework names.");
-            }
-
-            string unityXcframeworkSrc = Path.Combine(pluginsIosDir, unityXcframeworkName);
-            string iosNativeToolkitXcframeworkSrc = Path.Combine(pluginsIosDir, iosNativeToolkitXcframeworkName);
-
-            string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string unityXcframeworkDst = Path.Combine(frameworksDir, unityXcframeworkName);
-            string iosNativeToolkitXcframeworkDst = Path.Combine(frameworksDir, iosNativeToolkitXcframeworkName);
-
-            if (!Directory.Exists(unityXcframeworkSrc))
-                throw new DirectoryNotFoundException("[NativeToolkit][iOS] Source xcframework not found: " + unityXcframeworkSrc);
-            if (!Directory.Exists(iosNativeToolkitXcframeworkSrc))
-                throw new DirectoryNotFoundException("[NativeToolkit][iOS] Source xcframework not found: " + iosNativeToolkitXcframeworkSrc);
+            const string frameworksRelativeDir = "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS";
+            string frameworksDir = Path.Combine(pathToBuiltProject, frameworksRelativeDir);
 
             // Copy XCFrameworks into project
-            if (Directory.Exists(unityXcframeworkDst))
-                Directory.Delete(unityXcframeworkDst, true);
-            if (Directory.Exists(iosNativeToolkitXcframeworkDst))
-                Directory.Delete(iosNativeToolkitXcframeworkDst, true);
             Directory.CreateDirectory(frameworksDir);
-            DirectoryCopy(unityXcframeworkSrc, unityXcframeworkDst, true);
-            DirectoryCopy(iosNativeToolkitXcframeworkSrc, iosNativeToolkitXcframeworkDst, true);
+            foreach (string name in xcframeworkNames)
+            {
+                string destination = Path.Combine(frameworksDir, name);
+                if (Directory.Exists(destination))
+                    Directory.Delete(destination, true);
+                DirectoryCopy(Path.Combine(pluginsIosDir, name), destination, true);
+            }
 
             // Edit Xcode project to link and embed the XCFramework
             string pbxprojPath = Path.Combine(pathToBuiltProject, "Unity-iPhone.xcodeproj", "project.pbxproj");
@@ -76,19 +68,14 @@ public static class IosFrameworkPatcher
             string mainTargetGuid = proj.GetUnityMainTargetGuid();
             string frameworkTargetGuid = proj.GetUnityFrameworkTargetGuid();
 
-            // Add XCFrameworks to Frameworks
-            string unityRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{unityXcframeworkName}";
-            string unityFileGuid = proj.AddFile(unityRelativePath, unityRelativePath, PBXSourceTree.Source);
-
-            string iosNativeToolkitRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{iosNativeToolkitXcframeworkName}";
-            string iosNativeToolkitFileGuid = proj.AddFile(iosNativeToolkitRelativePath, iosNativeToolkitRelativePath, PBXSourceTree.Source);
-
-            // Link and embed the frameworks
-            proj.AddFileToBuild(frameworkTargetGuid, unityFileGuid);
-            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, unityFileGuid);
-
-            proj.AddFileToBuild(frameworkTargetGuid, iosNativeToolkitFileGuid);
-            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, iosNativeToolkitFileGuid);
+            // Add each XCFramework to Frameworks, link it to UnityFramework and embed it in the app
+            foreach (string name in xcframeworkNames)
+            {
+                string relativePath = $"{frameworksRelativeDir}/{name}";
+                string fileGuid = proj.AddFile(relativePath, relativePath, PBXSourceTree.Source);
+                proj.AddFileToBuild(frameworkTargetGuid, fileGuid);
+                PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, fileGuid);
+            }
 
             // Search paths / Run paths (minimum necessary)
             proj.AddBuildProperty(frameworkTargetGuid, "FRAMEWORK_SEARCH_PATHS", "$(inherited)");
@@ -100,8 +87,8 @@ public static class IosFrameworkPatcher
 
             proj.WriteToFile(pbxprojPath);
 
-            Debug.Log($"[NativeToolkit][iOS] Added {unityXcframeworkName} to Xcode project.");
-            Debug.Log($"[NativeToolkit][iOS] Added {iosNativeToolkitXcframeworkName} to Xcode project.");
+            foreach (string name in xcframeworkNames)
+                Debug.Log($"[NativeToolkit][iOS] Added {name} to Xcode project.");
             Debug.Log("[NativeToolkit][iOS] XCFrameworks added and embedded successfully.");
             EditorUtility.DisplayDialog("NativeToolkit (iOS)", "XCFrameworks were added and embedded successfully.", "OK");
         }
@@ -110,59 +97,6 @@ public static class IosFrameworkPatcher
             Debug.LogError("[NativeToolkit][iOS] Failed to apply XCFramework & PBX edits:\n" + ex);
             EditorUtility.DisplayDialog("NativeToolkit (iOS) - Error", "Failed to add/embed XCFramework:\n" + ex.Message, "OK");
         }
-    }
-
-    private static string FindXcframeworkName(string pluginsDir, string prefix, string logPrefix)
-    {
-        if (!Directory.Exists(pluginsDir))
-        {
-            Debug.LogError($"{logPrefix} Plugin directory not found: {pluginsDir}");
-            return null;
-        }
-
-        string selectedName = null;
-        bool hasMultipleMatches = false;
-        string[] candidates = Directory.GetDirectories(pluginsDir, "*.xcframework");
-
-        foreach (string candidatePath in candidates)
-        {
-            string candidateName = Path.GetFileName(candidatePath);
-            if (!candidateName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            bool isDebugName = candidateName.EndsWith("-debug.xcframework", StringComparison.OrdinalIgnoreCase);
-            if (isDebugName)
-            {
-                continue;
-            }
-
-            if (selectedName == null || string.Compare(candidateName, selectedName, StringComparison.OrdinalIgnoreCase) > 0)
-            {
-                hasMultipleMatches = selectedName != null || hasMultipleMatches;
-                selectedName = candidateName;
-            }
-            else
-            {
-                hasMultipleMatches = true;
-            }
-        }
-
-        if (selectedName == null)
-        {
-            string available = string.Join(", ", candidates);
-            Debug.LogError($"{logPrefix} XCFramework not found. prefix={prefix}, pluginsDir={pluginsDir}, available={available}");
-            return null;
-        }
-
-        if (hasMultipleMatches)
-        {
-            Debug.LogWarning($"{logPrefix} Multiple XCFramework matches found. Selected: {selectedName}");
-        }
-
-        Debug.Log($"{logPrefix} Selected XCFramework: {selectedName}");
-        return selectedName;
     }
 
     private static void DirectoryCopy(string sourceDir, string destDir, bool copySubDirs)

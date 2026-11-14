@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using JonghyunKim.NativeToolkit.Editor.iOS;
 
 /// <summary>
 /// Pre-build processor that (1) temporarily disables libraries for non-target platforms to keep
@@ -46,7 +47,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     /// moved on their own: the build deleted the committed 1.x DLL and copied the 2.0.0 C ABI DLL in
     /// its place, with the P/Invoke layer still on 1.x. Naming the version and the artifact makes that
     /// a reviewable line in a commit instead of a consequence of someone else's release.
-    /// Android is pinned the same way (<see cref="AndroidPin"/>); iOS and macOS still use the scanning path.
+    /// Android and iOS are pinned the same way (<see cref="AndroidPin"/>, <see cref="IosXcframeworkPin"/>);
+    /// macOS still uses the scanning path.
     /// </remarks>
     private readonly struct WindowsPin
     {
@@ -224,6 +226,16 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
 
     public int callbackOrder => 0;
 
+    /// <summary>
+    /// Whether the build in progress is a development build, as its <see cref="BuildReport"/> says.
+    /// PostBuildProcessor reads this for iOS: a <c>[PostProcessBuild]</c> callback gets no report, and
+    /// <see cref="EditorUserBuildSettings.development"/> is only the Build Settings checkbox, which
+    /// stays false for <c>BuildPipeline.BuildPlayer</c> with <see cref="BuildOptions.Development"/> and
+    /// for the Test Runner's player builds. Reading the checkbox there made the post-build step look for
+    /// the release XCFramework after this step had copied the -debug one.
+    /// </summary>
+    internal static bool IsDevelopmentBuildInProgress { get; private set; }
+
     // Determine config from build options
     private static string GetConfigName(BuildReport report)
         => (report.summary.options & BuildOptions.Development) != 0 ? "Debug" : "Release";
@@ -238,6 +250,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         CleanupOtherPlatformLibraries(report.summary.platform);
 
         var config = GetConfigName(report);
+        IsDevelopmentBuildInProgress = (report.summary.options & BuildOptions.Development) != 0;
         UnityEngine.Debug.Log($"[Build] Configuration: {config}");
 
         if (report.summary.platform == BuildTarget.Android)
@@ -248,11 +261,9 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else if (report.summary.platform == BuildTarget.iOS)
         {
-            string latestVersion = FindLatestVersionInDist();
-            if (!string.IsNullOrEmpty(latestVersion))
-            {
-                CopyiOSLibraries(config, latestVersion);
-            }
+            // iOS does not call FindLatestVersionInDist either: it reads the pin in
+            // Plugins/iOS/VERSION.txt. See IosXcframeworkPin for why.
+            CopyiOSLibraries(config);
         }
         else if (report.summary.platform == BuildTarget.StandaloneWindows64)
         {
@@ -454,36 +465,26 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Copies iOS XCFramework (Debug/Release) from dist folder to Plugins/iOS.
+    /// Copies the XCFrameworks named by Plugins/iOS/VERSION.txt from the dist folder to Plugins/iOS,
+    /// and deletes every other XCFramework there.
     /// </summary>
-    private void CopyiOSLibraries(string config, string version)
+    private void CopyiOSLibraries(string config)
     {
-        UnityEngine.Debug.Log($"[Build][iOS] Copying libraries from dist (config={config}, version={version})");
-
         bool isDevelopmentBuild = string.Equals(config, "Debug", StringComparison.OrdinalIgnoreCase);
-        string xcfSuffix = config == "Debug" ? "-debug" : "";
-        string distIosDir = Path.Combine(NativeToolkitDistRoot, version, "ios");
-
-        if (!Directory.Exists(distIosDir))
-        {
-            UnityEngine.Debug.LogError($"[Build][iOS] iOS dist directory not found: {distIosDir}");
-            return;
-        }
 
         string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         string destDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
 
-        // Resolve every source BEFORE deleting anything (deleting first and then failing to find a replacement would leave the project with no native libraries).
-        string selectedXcf1 = FindXcframeworkNameInDist(distIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
-        string selectedXcf2 = FindXcframeworkNameInDist(distIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS]", isDevelopmentBuild);
+        IosXcframeworkPin pin = IosXcframeworkPin.Read(Path.Combine(destDir, IosXcframeworkPin.FileName));
+        UnityEngine.Debug.Log(
+            $"[Build][iOS] Pinned by {IosXcframeworkPin.FileName}: dist_version={pin.DistVersion}, " +
+            $"xcframeworks={string.Join(", ", pin.Xcframeworks)} (config={config})");
 
-        if (string.IsNullOrEmpty(selectedXcf1) || string.IsNullOrEmpty(selectedXcf2))
-        {
-            UnityEngine.Debug.LogError(
-                $"[Build][iOS] Aborting copy: could not resolve both XCFrameworks in {distIosDir}. " +
-                "Existing libraries were left untouched.");
-            return;
-        }
+        // Resolve every source BEFORE deleting anything (deleting first and then failing to find a
+        // replacement would leave the project with no native libraries). A pin that does not resolve
+        // throws instead of copying whatever else is in dist.
+        string distIosDir = Path.Combine(NativeToolkitDistRoot, pin.DistVersion, "ios");
+        IReadOnlyList<string> selected = pin.ResolveIn(distIosDir, isDevelopmentBuild);
 
         if (!Directory.Exists(destDir))
         {
@@ -491,7 +492,7 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else
         {
-            // Clean existing xcframeworks only now that both replacements are known to exist.
+            // Clean existing xcframeworks only now that every replacement is known to exist.
             foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
             {
                 Directory.Delete(xcfDir, true);
@@ -499,11 +500,11 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
             }
         }
 
-        CopyDirectory(Path.Combine(distIosDir, selectedXcf1), Path.Combine(destDir, selectedXcf1));
-        UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf1}");
-
-        CopyDirectory(Path.Combine(distIosDir, selectedXcf2), Path.Combine(destDir, selectedXcf2));
-        UnityEngine.Debug.Log($"[Build][iOS] Copied {selectedXcf2}");
+        foreach (string name in selected)
+        {
+            CopyDirectory(Path.Combine(distIosDir, name), Path.Combine(destDir, name));
+            UnityEngine.Debug.Log($"[Build][iOS] Copied {name}");
+        }
 
         AssetDatabase.Refresh();
 
@@ -651,7 +652,8 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
     }
 
     /// <summary>
-    /// Finds an XCFramework folder name in dist using prefix and build-mode filter.
+    /// Finds an XCFramework folder name in dist using prefix and build-mode filter. macOS only: iOS
+    /// matches the names in Plugins/iOS/VERSION.txt exactly (<see cref="IosXcframeworkPin"/>).
     /// Falls back to the release XCFramework when no <c>-debug.xcframework</c> variant is published
     /// (dist does not always ship debug artifacts, and a test player build is always a development
     /// build: UnityEditor.TestRunner PlayerLauncher forces BuildOptions.Development).
