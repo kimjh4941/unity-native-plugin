@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet (closes it without choosing). clipboard: writes a named pasteboard only. reinstall: the harness is removed and installed again before the test.",
+  "tests": {
+    "DialogUITests/test_confirmOk": ["systemui", "reinstall"],
+    "ShareUITests/test_dismiss": ["sharesheet", "reinstall"],
+    "NotificationUITests/test_permissionAndBannerTap": ["systemui", "reinstall"],
+    "ClipboardUITests/test_namedRoundTrip": ["clipboard", "reinstall"]
+  }
+}
