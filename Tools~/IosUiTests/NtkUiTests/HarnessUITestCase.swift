@@ -57,6 +57,10 @@ class HarnessUITestCase: XCTestCase {
     func run(_ row: String) {
         let button = app.buttons["row.\(row).run"]
         XCTAssertTrue(button.waitForExistence(timeout: Self.timeout), "row \(row) is missing")
+        // The rows are in a scroll view; a scenario with many rows has some below the visible part.
+        let rows = app.scrollViews.firstMatch
+        for _ in 0..<12 where !button.isHittable { rows.swipeUp() }
+        for _ in 0..<24 where !button.isHittable { rows.swipeDown() }
         button.tap()
         checkNoUnexpectedAlert()
     }
