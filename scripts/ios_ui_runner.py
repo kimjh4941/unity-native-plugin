@@ -28,6 +28,8 @@ Subcommands (paths are relative to the repository root, which is the first argum
       Holds the run lock (fcntl) for the parent process: prints "locked" or "busy" on one line, then,
       when locked, keeps the lock until the parent ends or sends SIGUSR1. TERM, HUP and INT are ignored,
       so the lock outlives a signal to the group until the parent's cleanup is done.
+  time-limit <repo> <test>
+      Prints the test's time limit in seconds: timeLimits in DeviceRequirements.json, or 600.
   results <xcresult tests JSON file> <test>...
       Fails unless the run's test cases are exactly these tests and all passed. Prints names and
       results only (the JSON also holds the device's identifier).
@@ -154,6 +156,7 @@ GUARDED = [
 ]
 APPROVALS = os.path.expanduser("~/Library/Application Support/unity-native-plugin/test_ios-approvals")
 PLAYER_TESTS = "PlayerTests/IosPlayer"
+DEFAULT_TIME_LIMIT = 600
 UI_APPS = [
     ("com.jonghyunkim.nativetoolkit.uiharness", "the UI harness (Unity)"),
     ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests"),
@@ -198,6 +201,10 @@ def check_requirements(data):
         problems.append("keepInstalled names tests that do not exist: " + ", ".join(missing))
     if len(set(keep)) != len(keep):
         problems.append("keepInstalled names a test twice")
+    limits = data.get("timeLimits", {})
+    bad_limits = sorted(t for t, s in limits.items() if t not in tests or not isinstance(s, int) or s < 60)
+    if bad_limits:
+        problems.append("timeLimits names unknown tests or limits under 60 s: " + ", ".join(bad_limits))
     overlap = sorted(set(keep) & set(data.get("simulatorOnly", [])))
     if overlap:
         problems.append("keepInstalled and simulatorOnly overlap: " + ", ".join(overlap))
@@ -355,9 +362,18 @@ def main(argv):
         return 0
     if command == "run-lock":
         return run_lock(rest[0])
+    if command == "time-limit":
+        print(load_requirements(rest[0]).get("timeLimits", {}).get(rest[1], DEFAULT_TIME_LIMIT))
+        return 0
     if command == "results":
-        with open(rest[0], encoding="utf-8") as f:
-            ok, lines = judge_results(json.load(f), rest[1:])
+        try:
+            with open(rest[0], encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            # A stopped test leaves no result bundle to read (the device run of 2026-11-15, NU-11).
+            print("\n".join(f"  {test}: no readable result" for test in rest[1:]))
+            return 1
+        ok, lines = judge_results(data, rest[1:])
         print("\n".join("  " + line for line in lines))
         return 0 if ok else 1
     keep = "--keep-installed" in rest

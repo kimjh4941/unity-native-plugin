@@ -347,7 +347,9 @@ run_test() {
   mkdir -p "$OUT_DIR/results"
   rm -rf "$bundle"
   device_guard || return 1
-  run_limited "$test" 600 300 "$log" "$log" \
+  local limit
+  limit="$(python3 -I "$RUNNER" time-limit "$PROJECT_DIR" "$test")" || limit=600
+  run_limited "$test" "$limit" 300 "$log" "$log" \
     "${environment[@]}" "$XCODEBUILD" test-without-building -xctestrun "$XCTESTRUN" -destination "$DESTINATION" \
     -derivedDataPath "$OUT_DIR/test-dd" -only-testing:"NtkUiTests/$test" -parallel-testing-enabled NO \
     -collect-test-diagnostics never -resultBundlePath "$bundle"
