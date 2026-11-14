@@ -6,8 +6,10 @@ scripts/ios_ui_runner.py).
 
 Subcommands (paths are relative to the repository root, which is the first argument):
 
-  tests <repo> [--device]
-      With --device, leaves out the tests listed as simulatorOnly. Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
+  tests <repo> [--device | --keep-installed]
+      With --device, leaves out the tests listed as simulatorOnly and those of keepInstalled (they run
+      only in the keep-installed run). With --keep-installed, prints keepInstalled in its order.
+      Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
       The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, which
       need the same approval on a device; it is not a UI test and is not printed.
   approve <repo> <test>...
@@ -22,9 +24,19 @@ Subcommands (paths are relative to the repository root, which is the first argum
   guard <repo> <id> <marker> <test>...
       Run before every step that touches the device: fails unless the approval was used by the run
       with this marker and the tests, HEAD and the guarded trees still match it.
+  run-lock <lock file>
+      Holds the run lock (fcntl) for the parent process: prints "locked" or "busy" on one line, then,
+      when locked, keeps the lock until the parent ends or sends SIGUSR1. TERM, HUP and INT are ignored,
+      so the lock outlives a signal to the group until the parent's cleanup is done.
   results <xcresult tests JSON file> <test>...
       Fails unless the run's test cases are exactly these tests and all passed. Prints names and
       results only (the JSON also holds the device's identifier).
+
+approve, check-approval, use-approval and guard take --keep-installed anywhere among their arguments:
+the keep-installed run (keep-installed design v4: the harness installed once, the user allows it in a
+Focus mode, the keepInstalled tests run in their order without reinstalling). Its approval is recorded
+with keepInstalled true and covers that kind of run only, with the tests in that exact order; an
+approval without it never covers a keep-installed run.
 
 The guarded trees are what decides what runs on the device: the package, the harness, the XCUITest
 project, the build settings, and the runners.
@@ -76,13 +88,51 @@ project, the build settings, and the runners.
     ['the approval was used by another run']
     >>> approval_problems(record, ["A/t"], "h", {"p": "t"}, [], marker="m")
     ['the approval was not used by this run']
+
+    The kind of run must match the approval, both ways, and a keep-installed run keeps the order:
+
+    >>> approval_problems(record, ["A/t"], "h", {"p": "t"}, [], keep=True)
+    ['the approval is not for a keep-installed run']
+    >>> keep = dict(record, tests=["A/t", "B/t"], keepInstalled=True)
+    >>> approval_problems(keep, ["A/t", "B/t"], "h", {"p": "t"}, [])
+    ['the approval is for a keep-installed run']
+    >>> approval_problems(keep, ["A/t", "B/t"], "h", {"p": "t"}, [], keep=True)
+    []
+    >>> approval_problems(keep, ["B/t", "A/t"], "h", {"p": "t"}, [], keep=True)
+    ['the tests differ from the approved list']
+
+    keepInstalled must name tests, none of them simulator only, none twice, and every category must be
+    known:
+
+    >>> check_requirements({"tests": {"A/t": ["focus"], "B/t": ["systemui"]}, "simulatorOnly": [], "keepInstalled": ["A/t"]})
+    []
+    >>> check_requirements({"tests": {"A/t": ["focus"]}, "simulatorOnly": ["A/t"], "keepInstalled": ["A/t", "A/t", "C/t"]})
+    ['keepInstalled names tests that do not exist: C/t', 'keepInstalled names a test twice', 'keepInstalled and simulatorOnly overlap: A/t']
+    >>> check_requirements({"tests": {"A/t": ["nosuch"]}})
+    ['unknown categories: nosuch']
+
+    One approval is used once, also by two runs at the same moment (the lock around the read and the write):
+
+    >>> import tempfile, threading
+    >>> folder = tempfile.mkdtemp()
+    >>> path = os.path.join(folder, "a.json")
+    >>> with open(path, "w") as f: json.dump(dict(record), f)
+    >>> results = []
+    >>> threads = [threading.Thread(target=lambda: results.append(consume(path, lambda r: approval_problems(r, ["A/t"], "h", {"p": "t"}, [])))) for _ in range(8)]
+    >>> for th in threads: th.start()
+    >>> for th in threads: th.join()
+    >>> sum(1 for marker, problems in results if marker), sum(1 for marker, problems in results if problems)
+    (1, 7)
 """
 
+import fcntl
 import json
 import os
 import secrets
+import signal
 import subprocess
 import sys
+import time
 
 REQUIREMENTS = "Tools~/IosUiTests/DeviceRequirements.json"
 GUARDED = [
@@ -116,6 +166,8 @@ CATEGORIES = {
     "clipboard": "writes and reads a named pasteboard only (never the general one)",
     "reinstall": "removes the app and installs it again before the run",
     "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
+"focus": "the harness is installed once and stays: the run waits until the user lets only NTK UI Harness through a Focus mode, then runs the tests in order without reinstalling",
+    "longpress": "long-presses the harness's notification banner and presses an action only after the expanded notification shows that notification",
     "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app)",
 }
 
@@ -124,9 +176,40 @@ def git(repo, *args):
     return subprocess.run(["git", "-C", repo, *args], check=True, capture_output=True, text=True).stdout
 
 
-def requirements(repo):
+def load_requirements(repo):
     with open(os.path.join(repo, REQUIREMENTS), encoding="utf-8") as f:
-        return json.load(f)["tests"]
+        data = json.load(f)
+    problems = check_requirements(data)
+    if problems:
+        raise SystemExit(REQUIREMENTS + ": " + "; ".join(problems))
+    return data
+
+
+def check_requirements(data):
+    """What is wrong with DeviceRequirements.json (empty: nothing)."""
+    problems = []
+    tests = data["tests"]
+    unknown_categories = sorted({c for cats in tests.values() for c in cats} - set(CATEGORIES))
+    if unknown_categories:
+        problems.append("unknown categories: " + ", ".join(unknown_categories))
+    keep = data.get("keepInstalled", [])
+    missing = [t for t in keep if t not in tests]
+    if missing:
+        problems.append("keepInstalled names tests that do not exist: " + ", ".join(missing))
+    if len(set(keep)) != len(keep):
+        problems.append("keepInstalled names a test twice")
+    overlap = sorted(set(keep) & set(data.get("simulatorOnly", [])))
+    if overlap:
+        problems.append("keepInstalled and simulatorOnly overlap: " + ", ".join(overlap))
+    return problems
+
+
+def requirements(repo):
+    return load_requirements(repo)["tests"]
+
+
+def keep_installed(repo):
+    return load_requirements(repo).get("keepInstalled", [])
 
 
 def simulator_only(repo):
@@ -153,7 +236,7 @@ def tree_state(repo):
     return head, trees, dirty
 
 
-def approval_problems(record, tests, head, trees, dirty, marker=None):
+def approval_problems(record, tests, head, trees, dirty, marker=None, keep=False):
     """What keeps an approval record from covering this run (empty: it covers it).
 
     Without a marker the record must be unused; with one, it must have been used by that run.
@@ -166,7 +249,11 @@ def approval_problems(record, tests, head, trees, dirty, marker=None):
         problems.append("the approval was not used by this run")
     elif record.get("run") != marker:
         problems.append("the approval was used by another run")
-    if sorted(record.get("tests", [])) != sorted(tests):
+    if keep and not record.get("keepInstalled"):
+        problems.append("the approval is not for a keep-installed run")
+    elif not keep and record.get("keepInstalled"):
+        problems.append("the approval is for a keep-installed run")
+    if (record.get("tests", []) != tests) if keep else (sorted(record.get("tests", [])) != sorted(tests)):
         problems.append("the tests differ from the approved list")
     if record.get("head") != head:
         problems.append("HEAD moved since the approval")
@@ -207,6 +294,47 @@ def judge_results(data, tests):
     return ok, lines
 
 
+def consume(path, problems_of):
+    """Uses the approval at path once: under an exclusive lock, reads it, checks it with problems_of and,
+    when it covers the run, marks it used by a new marker written through a temporary file and a rename.
+    Returns (marker or None, problems)."""
+    with open(os.path.join(os.path.dirname(path), ".consume.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with open(path, encoding="utf-8") as f:
+            record = json.load(f)
+        problems = problems_of(record)
+        if problems:
+            return None, problems
+        marker = secrets.token_hex(16)
+        record["used"] = True
+        record["run"] = marker
+        temporary = path + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as f:
+            json.dump(record, f, indent=1)
+        os.replace(temporary, path)
+        return marker, []
+
+
+def run_lock(path):
+    """The run lock's holder (see the run-lock subcommand). Returns the exit code."""
+    parent = os.getppid()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("busy", flush=True)
+        return 1
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(sig, signal.SIG_IGN)
+    released = []
+    signal.signal(signal.SIGUSR1, lambda *_: released.append(True))
+    print("locked", flush=True)
+    while not released and os.getppid() == parent:
+        time.sleep(1)
+    return 0
+
+
 def record_path(approval_id):
     if len(approval_id) != 32 or any(c not in "0123456789abcdef" for c in approval_id):
         raise SystemExit("an approval ID is 32 lowercase hex digits")
@@ -219,14 +347,21 @@ def main(argv):
         return 2
     command, rest = argv[1], argv[2:]
     if command == "tests":
-        skip = simulator_only(rest[0]) if "--device" in rest[1:] else set()
+        if "--keep-installed" in rest[1:]:
+            print("\n".join(keep_installed(rest[0])))
+            return 0
+        skip = simulator_only(rest[0]) | set(keep_installed(rest[0])) if "--device" in rest[1:] else set()
         print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS and t not in skip))
         return 0
+    if command == "run-lock":
+        return run_lock(rest[0])
     if command == "results":
         with open(rest[0], encoding="utf-8") as f:
             ok, lines = judge_results(json.load(f), rest[1:])
         print("\n".join("  " + line for line in lines))
         return 0 if ok else 1
+    keep = "--keep-installed" in rest
+    rest = [a for a in rest if a != "--keep-installed"]
     repo = rest[0]
     tests = {"approve": rest[1:], "guard": rest[3:]}.get(command, rest[2:])
     known = requirements(repo)
@@ -237,6 +372,13 @@ def main(argv):
     sim_only = sorted(set(tests) & simulator_only(repo))
     if sim_only:
         print("simulator-only tests cannot run on a device: " + ", ".join(sim_only), file=sys.stderr)
+        return 2
+    keep_list = keep_installed(repo)
+    if keep and tests != keep_list:
+        print("a keep-installed run runs exactly keepInstalled, in its order: " + ", ".join(keep_list), file=sys.stderr)
+        return 2
+    if not keep and set(tests) & set(keep_list):
+        print("these run only in the keep-installed run (--keep-installed): " + ", ".join(sorted(set(tests) & set(keep_list))), file=sys.stderr)
         return 2
     if mixed_kinds(tests):
         print(f"{PLAYER_TESTS} is approved and run on its own (scripts/verify_unity_ios.sh --device)", file=sys.stderr)
@@ -249,34 +391,37 @@ def main(argv):
         approval_id = secrets.token_hex(16)
         os.makedirs(APPROVALS, exist_ok=True)
         with open(record_path(approval_id), "w", encoding="utf-8") as f:
-            json.dump({"tests": tests, "head": head, "trees": trees, "used": False}, f, indent=1)
-        print(f"Device run at {head[:12]}. On the device:")
+            json.dump({"tests": tests, "head": head, "trees": trees, "used": False, "keepInstalled": keep}, f, indent=1)
+        print(f"Device run at {head[:12]}{' (keep-installed: the harness is installed once)' if keep else ''}. On the device:")
         for test in tests:
             print(f"  {test}: " + "; ".join(CATEGORIES[c] for c in known[test]))
         print("Apps installed, and removed at the end:")
         apps = (PLAYER_APPS if PLAYER_TESTS in tests else []) + (UI_APPS if set(tests) - {PLAYER_TESTS} else [])
         for bundle_id, what in apps:
             print(f"  {bundle_id} ({what})")
+        if keep:
+            print("Before the run (the user): unlock the iPhone, set Auto-Lock to Never, keep it charging, and make sure no")
+            print("  scheduled Focus mode starts during the run. After NU-1 the run waits (up to 30 minutes) until the user")
+            print("  lets only NTK UI Harness through a Focus mode (no people, no time-sensitive notifications from others).")
+            print("  Afterwards, remove NTK UI Harness from that Focus mode. Time: 30 to 40 minutes plus the wait.")
         print(f"Approval ID: {approval_id}")
         return 0
     path = record_path(rest[1])
     if not os.path.exists(path):
         print("no such approval", file=sys.stderr)
         return 1
-    with open(path, encoding="utf-8") as f:
-        record = json.load(f)
     marker = rest[2] if command == "guard" else None
-    problems = approval_problems(record, tests, head, trees, dirty, marker=marker)
+    if command == "use-approval":
+        new_marker, problems = consume(path, lambda r: approval_problems(r, tests, head, trees, dirty, keep=keep))
+    else:
+        with open(path, encoding="utf-8") as f:
+            record = json.load(f)
+        new_marker, problems = None, approval_problems(record, tests, head, trees, dirty, marker=marker, keep=keep)
     if problems:
         print("the approval does not cover this run: " + "; ".join(problems), file=sys.stderr)
         return 1
-    if command == "use-approval":
-        marker = secrets.token_hex(16)
-        record["used"] = True
-        record["run"] = marker
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(record, f, indent=1)
-        print(marker)
+    if new_marker:
+        print(new_marker)
     return 0
 
 

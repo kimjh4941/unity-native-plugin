@@ -65,6 +65,8 @@ INSTALLED_IDS=("$HARNESS_ID" "com.jonghyunkim.nativetoolkit.uitesthost" "com.jon
 KEEP_CHANGES=0
 DEVICE_MODE=0
 DRY_RUN=0
+KEEP_INSTALLED=0
+KEEP_FLAG=()
 APPROVAL=""
 TESTS_ARG=""
 # shellcheck source=scripts/ios_script_common.sh
@@ -77,6 +79,7 @@ while [ $# -gt 0 ]; do
     --keep-changes) KEEP_CHANGES=1 ;;
     --device) DEVICE_MODE=1 ;;
     --dry-run) DRY_RUN=1 ;;
+    --keep-installed) KEEP_INSTALLED=1; KEEP_FLAG=(--keep-installed) ;;
     --approved) APPROVAL="${2:-}"; shift ;;
     --approved=*) APPROVAL="${1#--approved=}" ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -84,7 +87,13 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ "$DEVICE_MODE" -eq 1 ]; then
+if [ "$KEEP_INSTALLED" -eq 1 ]; then
+  if [ -n "$TESTS_ARG" ]; then
+    echo "--keep-installed runs exactly keepInstalled of Tools~/IosUiTests/DeviceRequirements.json; --tests is not taken." >&2
+    exit 2
+  fi
+  KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR" --keep-installed)" || exit 2
+elif [ "$DEVICE_MODE" -eq 1 ]; then
   KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR" --device)"
 else
   KNOWN_TESTS="$(python3 -I "$RUNNER" tests "$PROJECT_DIR")"
@@ -113,7 +122,7 @@ fi
 
 if [ "$DEVICE_MODE" -eq 1 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
-    python3 -I "$RUNNER" approve "$PROJECT_DIR" "${TESTS[@]}"
+    python3 -I "$RUNNER" approve "$PROJECT_DIR" "${KEEP_FLAG[@]}" "${TESTS[@]}"
     exit $?
   fi
   if [ -z "$APPROVAL" ]; then
@@ -124,7 +133,7 @@ if [ "$DEVICE_MODE" -eq 1 ]; then
     echo "--keep-changes cannot be used with a device run: the guarded trees are checked again before every device step." >&2
     exit 2
   fi
-  python3 -I "$RUNNER" check-approval "$PROJECT_DIR" "$APPROVAL" "${TESTS[@]}" || exit 1
+  python3 -I "$RUNNER" check-approval "$PROJECT_DIR" "$APPROVAL" "${KEEP_FLAG[@]}" "${TESTS[@]}" || exit 1
 elif [ "$DRY_RUN" -eq 1 ] || [ -n "$APPROVAL" ]; then
   echo "--dry-run and --approved are for device runs (--device)." >&2
   exit 2
@@ -143,6 +152,9 @@ if pgrep -x Simulator >/dev/null; then
   echo "Simulator.app is open. Quit it and run again (the script uses simctl only)." >&2
   exit 2
 fi
+# The run lock comes before anything this run would undo: if another run holds it, this one stops
+# without its cleanup or restore (keep-installed design v4, 1.2 step 1).
+take_run_lock || exit 1
 require_clean_ios_plugins
 
 DEVICE_ID=""
@@ -155,12 +167,11 @@ if [ "$DEVICE_MODE" -eq 1 ]; then
   OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ntk-ios-ui-device.XXXXXX")"
   # Until the full EXIT trap below, an interrupted run still deletes the folder (it can hold the
   # device list with its identifiers).
-  trap 'rm -rf "$OUT_DIR"' EXIT
+  trap 'rm -rf "$OUT_DIR"; release_run_lock' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   trap 'exit 129' HUP
   if ! select_device "$OUT_DIR" || ! select_team; then
-    rm -rf "$OUT_DIR"
     exit 2
   fi
 else
@@ -176,8 +187,12 @@ record_side_effects_baseline
 
 # Before every step that touches the device: this run used the approval, and it still covers the run.
 device_guard() {
+  if ! run_lock_held; then
+    echo "  stopped: the run lock is no longer held"
+    return 1
+  fi
   [ "$DEVICE_MODE" -eq 1 ] || return 0
-  python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" "${TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
+  python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" "${KEEP_FLAG[@]}" "${TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
     echo "  stopped: $(cat "$OUT_DIR/guard.err")"
     return 1
   }
@@ -194,6 +209,7 @@ remove_app() {
 }
 
 SIM_BOOTED_BY_US=0
+READY_FILE=""
 DEVICE_TOUCHED=0
 CLEANED_UP=0
 # Removes what the run installed. On a device it reads back that each app is gone and returns 1 when
@@ -222,9 +238,11 @@ on_exit() {
     xcrun simctl shutdown "$SIM_ID" >/dev/null 2>&1
   fi
   restore_after_interrupted_unity_step
+  [ -n "$READY_FILE" ] && rm -f "$READY_FILE" "$READY_FILE.cancel"
   if [ "$DEVICE_MODE" -eq 1 ]; then
     rm -rf "$OUT_DIR"
   fi
+  release_run_lock
 }
 trap on_exit EXIT
 trap 'exit 130' INT
@@ -297,23 +315,40 @@ build_all() {
   echo "  build: ok"
 }
 
+# install_harness <log> <label>: puts the harness on the device or the simulator.
+install_harness() {
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    xcrun devicectl device install app --device "$DEVICE_ID" "$HARNESS_APP" > "$1" 2>&1 || { echo "  $2: install failed"; return 1; }
+  else
+    xcrun simctl install "$SIM_ID" "$HARNESS_APP" > "$1" 2>&1 || { echo "  $2: install failed"; return 1; }
+  fi
+}
+
 # run_one <Class/test>: reinstall the harness, run the test, judge its result bundle.
 run_one() {
   local test="$1" name="${1//\//-}"
-  local bundle="$OUT_DIR/results/$name.xcresult" log="$OUT_DIR/results/$name.log"
   mkdir -p "$OUT_DIR/results"
-  rm -rf "$bundle" "$log"
+  rm -rf "$OUT_DIR/results/$name.xcresult" "$OUT_DIR/results/$name.log"
   device_guard || return 1
   DEVICE_TOUCHED=$DEVICE_MODE
   remove_app "$HARNESS_ID"
-  if [ "$DEVICE_MODE" -eq 1 ]; then
-    xcrun devicectl device install app --device "$DEVICE_ID" "$HARNESS_APP" > "$log" 2>&1 || { echo "  $test: install failed"; return 1; }
-  else
-    xcrun simctl install "$SIM_ID" "$HARNESS_APP" > "$log" 2>&1 || { echo "  $test: install failed"; return 1; }
-  fi
+  install_harness "$OUT_DIR/results/$name.log" "$test" || return 1
+  run_test "$test"
+}
+
+# run_test <Class/test> [keep]: runs the test on what is installed and judges its result bundle. With
+# "keep", the test learns it runs in a keep-installed run (NTK_KEEP_INSTALLED=1 through Xcode's
+# TEST_RUNNER_ prefix); otherwise both names are removed from the environment.
+run_test() {
+  local test="$1" name="${1//\//-}"
+  local bundle="$OUT_DIR/results/$name.xcresult" log="$OUT_DIR/results/$name.log"
+  local environment=(env -u TEST_RUNNER_NTK_KEEP_INSTALLED -u NTK_KEEP_INSTALLED)
+  [ "${2:-}" = "keep" ] && environment=(env -u NTK_KEEP_INSTALLED TEST_RUNNER_NTK_KEEP_INSTALLED=1)
+  mkdir -p "$OUT_DIR/results"
+  rm -rf "$bundle"
   device_guard || return 1
   run_limited "$test" 600 300 "$log" "$log" \
-    "$XCODEBUILD" test-without-building -xctestrun "$XCTESTRUN" -destination "$DESTINATION" \
+    "${environment[@]}" "$XCODEBUILD" test-without-building -xctestrun "$XCTESTRUN" -destination "$DESTINATION" \
     -derivedDataPath "$OUT_DIR/test-dd" -only-testing:"NtkUiTests/$test" -parallel-testing-enabled NO \
     -collect-test-diagnostics never -resultBundlePath "$bundle"
   local code=$?
@@ -329,9 +364,105 @@ run_one() {
   fi
 }
 
+# device_connected: the development connection still works (read only; after a long wait the tunnel can
+# be gone and a test would hang). The fields to read are decided on the device's output; for now the
+# command must succeed within 60 s.
+device_connected() {
+  [ "$DEVICE_MODE" -eq 1 ] || return 0
+  run_limited connection 60 60 "$OUT_DIR/connection.log" "$OUT_DIR/connection.log" \
+    xcrun devicectl device info details --device "$DEVICE_ID" --json-output "$OUT_DIR/details.json" >/dev/null || {
+    rm -f "$OUT_DIR/details.json"
+    echo "  stopped: the device's development connection did not answer"
+    return 1
+  }
+  rm -f "$OUT_DIR/details.json"
+}
+
+# not_run <reason> <test>...: reports the tests a stopped keep-installed run did not run, each a failure.
+not_run() {
+  local reason="$1" t
+  shift
+  for t in "$@"; do
+    echo "  $t: did not run ($reason)"
+    failures=$((failures + 1))
+  done
+}
+
+# wait_until_ready: the keep-installed run waits (up to 30 minutes) for the readiness marker, a regular
+# file named by a random value of this run; <marker>.cancel stops the wait. The Mac stays awake meanwhile.
+wait_until_ready() {
+  local folder="$HOME/Library/Application Support/unity-native-plugin/test_ios-ready" waited=0
+  mkdir -p "$folder"
+  READY_FILE="$folder/$(python3 -I -c 'import secrets; print(secrets.token_hex(8))')"
+  rm -f "$READY_FILE" "$READY_FILE.cancel"
+  caffeinate -i -w $$ &
+  echo "  waiting for the user: let only NTK UI Harness through a Focus mode (no people, no time-sensitive"
+  echo "  notifications from others), keep the iPhone unlocked; then create the file:"
+  echo "    $READY_FILE"
+  echo "  (or $READY_FILE.cancel to stop)"
+  while [ "$waited" -lt 1800 ]; do
+    if [ -e "$READY_FILE.cancel" ]; then
+      echo "  cancelled"
+      return 1
+    fi
+    if [ -e "$READY_FILE" ] || [ -L "$READY_FILE" ]; then
+      if [ -f "$READY_FILE" ] && [ ! -L "$READY_FILE" ]; then
+        echo "  ready after ${waited} s"
+        return 0
+      fi
+      echo "  the ready marker is not a regular file; not accepted"
+      return 1
+    fi
+    sleep 15
+    waited=$((waited + 15))
+    echo "  waiting ($waited s of 1800 s)"
+  done
+  echo "  not ready after 30 minutes"
+  return 1
+}
+
+# run_keep_installed: the keep-installed run (keep-installed design v4, 1.2 steps 4 to 8).
+run_keep_installed() {
+  local first="${TESTS[0]}" rest=("${TESTS[@]:1}") i
+  device_guard || { not_run "the guard stopped the run" "${TESTS[@]}"; return; }
+  DEVICE_TOUCHED=$DEVICE_MODE
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    if ! remove_from_device "${INSTALLED_IDS[@]}"; then
+      not_run "a harness of an earlier run could not be confirmed removed" "${TESTS[@]}"
+      return
+    fi
+  else
+    for i in "${INSTALLED_IDS[@]}"; do remove_app "$i"; done
+  fi
+  device_guard || { not_run "the guard stopped the run" "${TESTS[@]}"; return; }
+  mkdir -p "$OUT_DIR/results"
+  install_harness "$OUT_DIR/results/install.log" "the harness" || { not_run "the install failed" "${TESTS[@]}"; return; }
+  device_connected || { not_run "no development connection" "${TESTS[@]}"; return; }
+  if ! run_test "$first"; then
+    failures=$((failures + 1))
+    not_run "an earlier test failed" "${rest[@]}"
+    return
+  fi
+  if ! wait_until_ready; then
+    not_run "not ready" "${rest[@]}"
+    return
+  fi
+  if ! device_guard || ! device_connected; then
+    not_run "the guard or the connection stopped the run" "${rest[@]}"
+    return
+  fi
+  for i in "${!rest[@]}"; do
+    if ! run_test "${rest[$i]}" keep; then
+      failures=$((failures + 1))
+      not_run "an earlier test failed" "${rest[@]:$((i + 1))}"
+      return
+    fi
+  done
+}
+
 failures=0
 if [ "$DEVICE_MODE" -eq 1 ]; then
-  RUN_MARKER="$(python3 -I "$RUNNER" use-approval "$PROJECT_DIR" "$APPROVAL" "${TESTS[@]}")" || exit 1
+  RUN_MARKER="$(python3 -I "$RUNNER" use-approval "$PROJECT_DIR" "$APPROVAL" "${KEEP_FLAG[@]}" "${TESTS[@]}")" || exit 1
   [ -n "$RUN_MARKER" ] || exit 1
 fi
 if build_all; then
@@ -343,9 +474,13 @@ if build_all; then
     run_limited boot 300 300 "$OUT_DIR/boot.log" "$OUT_DIR/boot.log" xcrun simctl bootstatus "$SIM_ID" -b || failures=$((failures + 1))
   fi
   if [ "$failures" -eq 0 ]; then
-    for test in "${TESTS[@]}"; do
-      run_one "$test" || failures=$((failures + 1))
-    done
+    if [ "$KEEP_INSTALLED" -eq 1 ]; then
+      run_keep_installed
+    else
+      for test in "${TESTS[@]}"; do
+        run_one "$test" || failures=$((failures + 1))
+      done
+    fi
   fi
 else
   failures=$((failures + 1))

@@ -237,3 +237,44 @@ require_bundle_id() {
     return 1
   fi
 }
+
+# The run lock (keep-installed design v4, 1.2 step 1): every run that touches a device or the simulator
+# holds it, from right after its arguments are checked until its cleanup is done, so a run never removes
+# the harness another run (waiting for the user) installed. A small helper (ios_ui_runner.py run-lock)
+# holds an fcntl lock for this shell: it ignores TERM, HUP and INT and ends when this shell ends or
+# release_run_lock sends SIGUSR1, so a stale lock never outlives the run.
+RUN_LOCK_FILE="$HOME/Library/Application Support/unity-native-plugin/test_ios-run.lock"
+RUN_LOCK_PID=""
+take_run_lock() {
+  local answer out
+  out="$(mktemp "${TMPDIR:-/tmp}/ntk-run-lock.XXXXXX")"
+  python3 -I "$PROJECT_DIR/scripts/ios_ui_runner.py" run-lock "$RUN_LOCK_FILE" > "$out" 2>&1 &
+  RUN_LOCK_PID=$!
+  local tries=0
+  while [ ! -s "$out" ] && [ "$tries" -lt 50 ] && kill -0 "$RUN_LOCK_PID" 2>/dev/null; do
+    sleep 0.2
+    tries=$((tries + 1))
+  done
+  answer="$(head -1 "$out")"
+  rm -f "$out"
+  if [ "$answer" != "locked" ]; then
+    kill "$RUN_LOCK_PID" 2>/dev/null
+    RUN_LOCK_PID=""
+    echo "Another iOS test run holds the run lock; wait for it to end ($RUN_LOCK_FILE)." >&2
+    return 1
+  fi
+}
+# Fails when the lock holder is gone (the run must not go on without the lock).
+run_lock_held() {
+  [ -n "$RUN_LOCK_PID" ] && kill -0 "$RUN_LOCK_PID" 2>/dev/null
+}
+# Waits for the holder to end, so the lock is free when this run ends (a run started right after must
+# not find it held; the holder checks for the signal once a second).
+release_run_lock() {
+  if [ -n "$RUN_LOCK_PID" ]; then
+    kill -USR1 "$RUN_LOCK_PID" 2>/dev/null
+    wait "$RUN_LOCK_PID" 2>/dev/null
+  fi
+  RUN_LOCK_PID=""
+}
+

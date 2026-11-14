@@ -138,6 +138,9 @@ if pgrep -x Simulator >/dev/null; then
   exit 2
 fi
 
+# The run lock comes before anything this run would undo: if another run holds it, this one stops
+# without its cleanup or restore (keep-installed design v4, 1.2 step 1).
+take_run_lock || exit 1
 require_clean_ios_plugins
 SIM_ID=""
 DEVICE_ID=""
@@ -149,7 +152,7 @@ if [ "$DEVICE_MODE" -eq 1 ]; then
   OUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ntk-ios-player-device.XXXXXX")"
   # Until the full EXIT trap below, an interrupted run still deletes the folder (it can hold the
   # device list with its identifiers).
-  trap 'rm -rf "$OUT_DIR"' EXIT
+  trap 'rm -rf "$OUT_DIR"; release_run_lock' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
   trap 'exit 129' HUP
@@ -247,10 +250,15 @@ on_exit() {
   if [ "$DEVICE_MODE" -eq 1 ]; then
     rm -rf "$OUT_DIR"
   fi
+  release_run_lock
 }
 
 # Before every step that touches the device: this run used the approval, and it still covers the run.
 device_guard() {
+  if ! run_lock_held; then
+    echo "  stopped: the run lock is no longer held"
+    return 1
+  fi
   python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" "${APPROVAL_TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
     echo "  stopped: $(cat "$OUT_DIR/guard.err")"
     return 1
