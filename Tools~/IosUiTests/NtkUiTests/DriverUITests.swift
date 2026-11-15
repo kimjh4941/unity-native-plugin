@@ -10,8 +10,10 @@ import XCTest
 /// - NTK_DRIVER_BUNDLE: the player's bundle id (required). A HELLO naming another app is refused.
 /// - NTK_DRIVER_LIMIT: seconds to wait for BYE (default 900).
 /// - NTK_DRIVER_DEVICE: "1" on a device run; the commands of design chapter 7 are refused there.
-/// - NTK_DRIVER_DROP_BEFORE_ANSWER: a request number; the driver handles it, then drops the connection once
-///   before answering (V-11: a request sent again after reconnecting is answered from memory, not pressed again).
+///
+/// The test-only command `drop-next` makes the driver handle the next request and then drop the connection
+/// once before answering it (V-11: the player connects again and sends the request again; it is answered from
+/// memory, not pressed again).
 ///
 /// Privacy (design chapter 7): nothing read from a screen is printed or kept: no element tree, no screenshot,
 /// no label. Failures answer with fixed words only.
@@ -41,7 +43,7 @@ final class DriverUITests: XCTestCase {
         }
         let limit = TimeInterval(env["NTK_DRIVER_LIMIT"] ?? "") ?? 900
         onDevice = env["NTK_DRIVER_DEVICE"] == "1"
-        var dropBefore = Int(env["NTK_DRIVER_DROP_BEFORE_ANSWER"] ?? "")
+        var dropNext = false
         app = XCUIApplication(bundleIdentifier: bundle)
 
         let server = try LoopbackServer()
@@ -86,16 +88,23 @@ final class DriverUITests: XCTestCase {
                     continue
                 }
                 let answer: String
+                var drop = false
                 if let remembered = answers[number] {
                     answer = remembered
+                    log("\(number) answered from memory")
+                } else if words[1] == "drop-next" && words.count == 2 {
+                    dropNext = true
+                    answer = "ok"
+                    answers[number] = answer
                 } else {
                     answer = handle(command: words[1], args: Array(words.dropFirst(2)))
                     answers[number] = answer
                     handled += 1
                     log("\(number) \(words[1]) -> \(answer.hasPrefix("ok") ? "ok" : answer)")
+                    drop = dropNext
+                    dropNext = false
                 }
-                if dropBefore == number {
-                    dropBefore = nil
+                if drop {
                     log("dropping the connection before answering \(number)")
                     break
                 }
@@ -259,10 +268,28 @@ final class DriverUITests: XCTestCase {
         return front() ? "ok" : "fail not-in-front"
     }
 
+    /// Settings can take more than 10 s to come to the front (2026-11-15, simulator: a cold start), so wait 30 s,
+    /// and when it did not come, watch 5 s more before answering, so a late Settings does not strand the player.
+    /// The player's `state` is not trusted here: for an app this runner did not launch it read as in front while
+    /// SpringBoard had the player in the background (2026-11-15, three runs). So the player is activated
+    /// unconditionally, and "back" means Settings is no longer in front, checked again after 3 s, up to three
+    /// times. The steps are logged with their times and states only (nothing read from a screen).
     private func settingsClose() -> String {
         let settings = XCUIApplication(bundleIdentifier: Self.settingsBundle)
-        let opened = settings.wait(for: .runningForeground, timeout: 10)
-        return front() ? (opened ? "ok opened" : "ok not-opened") : "fail not-in-front"
+        let start = Date()
+        var opened = settings.wait(for: .runningForeground, timeout: 30)
+        if !opened { opened = settings.wait(for: .runningForeground, timeout: 5) }
+        log(String(format: "settings-close: opened=%@ after %.1fs", opened ? "yes" : "no", Date().timeIntervalSince(start)))
+        if opened { Thread.sleep(forTimeInterval: 3) }
+        for attempt in 1...3 {
+            app.activate()
+            _ = settings.wait(for: .runningBackground, timeout: 10)
+            Thread.sleep(forTimeInterval: 3)
+            let settingsFront = settings.state == .runningForeground
+            log("settings-close: attempt \(attempt) settings-state=\(settings.state.rawValue) player-state=\(app.state.rawValue)")
+            if !settingsFront { return opened ? "ok opened" : "ok not-opened" }
+        }
+        return "fail not-in-front"
     }
 
     private func bannerTap(_ title: String) -> String {

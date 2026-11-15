@@ -47,6 +47,18 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest] public IEnumerator SS13_MissingImage() => Fails("ShareMissingImageButton", "Share Missing Image", "Failed to load image.");
         [UnityTest] public IEnumerator SS14_Empty() => Fails("ShareEmptyButton", "Share Empty (error)", null);
 
+        /// <summary>
+        /// V-11 (UI driver design v3, 3.1): the driver closes the sheet and drops the connection before answering;
+        /// the player connects again with the same run and sends the request again; the driver answers from
+        /// memory instead of closing a sheet that is no longer there (which could not succeed a second time).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator SS15_AnswerLostToADroppedConnection_ComesFromMemory()
+        {
+            yield return IosUiDriver.Do("drop-next");
+            yield return Cancelled("ShareTextButton", "Share Text");
+        }
+
         private static IEnumerator Cancelled(string button, string title)
         {
             yield return LoadAtTopMenu(TopMenuShare);

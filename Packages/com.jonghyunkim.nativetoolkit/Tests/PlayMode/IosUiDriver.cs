@@ -56,6 +56,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         private static string? s_run;
         private static bool? s_ready;
         private static bool s_lost;
+
+        // True from HELLO until READY: lines read then are the handshake's, not answers.
+        private static bool s_handshaking;
         private static int s_next;
         private static TcpClient? s_client;
         private static NetworkStream? s_stream;
@@ -234,16 +237,19 @@ namespace JonghyunKim.NativeToolkit.Tests
                 Close();
                 yield break;
             }
+            s_handshaking = true;
             while (Time.realtimeSinceStartup < deadline)
             {
                 if (!ReadAvailable()) break;
                 if (TakeLine(out string? line))
                 {
+                    s_handshaking = false;
                     if (IosUiDriverProtocol.IsReady(line!, s_run!)) yield break;
                     break;
                 }
                 yield return null;
             }
+            s_handshaking = false;
             Close();
         }
 
@@ -291,7 +297,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                     if (n <= 0) return false;
                     s_received.Append(Encoding.UTF8.GetString(buffer, 0, n));
                 }
-                while (s_ready == true && TakeLine(out string? line))
+                while (!s_handshaking && TakeLine(out string? line))
                 {
                     if (IosUiDriverProtocol.TryParseAnswer(line!, out int number, out string answer))
                         s_answers[number] = answer;

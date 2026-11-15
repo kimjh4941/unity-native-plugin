@@ -38,6 +38,14 @@ A run passes only when:
     >>> judge(sample, "Missing")
     (False, 'Missing: no test case of the category ran')
 
+    The root counts the cases the run's filter left out too (built into the player, not run); fewer than
+    ran fails:
+
+    >>> judge(sample.replace('testcasecount="1"', 'testcasecount="8"'), "IosPlayer")
+    (True, 'IosPlayer: 1 ran, 1 passed, 0 failed, 0 skipped; 7 left out by the filter')
+    >>> judge(sample.replace('testcasecount="1"', 'testcasecount="0"'), "IosPlayer")
+    (False, 'IosPlayer: 1 ran, 1 passed, 0 failed, 0 skipped; the root counts 0 case(s)')
+
     A failed suite fails the run even when its cases passed:
 
     >>> judge(sample.replace('name="IosClipboardPlayerTests"', 'name="IosClipboardPlayerTests" result="Failed"'), "IosPlayer")
@@ -126,9 +134,14 @@ def judge(text, category, allow_skip=frozenset()):
         problems.append("failed suite(s): " + ", ".join(failed_suites))
     if outside:
         problems.append(f"{outside} case(s) outside the category")
+    # The root counts every case built into the player, also those the run's category filter left out (the
+    # Notification sample tests, which run in their own player run; IosSimulatorOnly on a device). Fewer than
+    # ran still means the build or the filter went wrong; more are reported as left out.
     declared = root.get("testcasecount")
-    if declared != str(ran + outside):
+    if not (declared or "").isdigit() or int(declared) < ran + outside:
         problems.append(f"the root counts {declared or 'no'} case(s)")
+    elif int(declared) > ran + outside:
+        summary += f"; {int(declared) - ran - outside} left out by the filter"
     if problems:
         return False, summary + "; " + "; ".join(problems)
     return counts["Passed"] + allowed == ran, summary

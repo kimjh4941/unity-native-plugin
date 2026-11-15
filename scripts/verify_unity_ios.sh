@@ -86,6 +86,12 @@ DRIVER_PID=""
 DRIVER_PORT=""
 DRIVER_XCTESTRUN=""
 ALLOW_SKIP=()
+# The category of the player run in progress, and the suffix of its files: the Notification sample tests run
+# in a second player run on a fresh install (UI driver design v3, 4.5: the permission can be asked once).
+RUN_CATEGORY="$CATEGORY"
+RUN_SUFFIX=""
+NOTIFICATION_SAMPLE_CATEGORY="IosNotificationSample"
+PACKAGE_USER=0
 SKIP_EDITMODE=0
 KEEP_CHANGES=0
 # shellcheck source=scripts/ios_script_common.sh
@@ -103,7 +109,8 @@ while [ $# -gt 0 ]; do
     --as-package-user)
       PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset"
       # That profile's player has no sample scene: the sample-screen tests ignore themselves there.
-      ALLOW_SKIP=(--allow-skip IosSampleScreen) ;;
+      ALLOW_SKIP=(--allow-skip IosSampleScreen)
+      PACKAGE_USER=1 ;;
     --device) DEVICE_MODE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --approved) APPROVAL="${2:-}"; shift ;;
@@ -304,9 +311,9 @@ fi
 # takes ';' as "or" for the included names and '!' for excluded ones.
 export_categories() {
   if [ "$DEVICE_MODE" -eq 1 ]; then
-    echo "$CATEGORY;!IosSimulatorOnly;!IosGeneralPasteboard"
+    echo "$RUN_CATEGORY;!IosSimulatorOnly;!IosGeneralPasteboard"
   else
-    echo "$CATEGORY"
+    echo "$RUN_CATEGORY"
   fi
 }
 
@@ -397,16 +404,16 @@ finish_driver() {
 run_player_tests() {
   local sdk=simulator
   [ "$DEVICE_MODE" -eq 1 ] && sdk=device
-  local export_dir="$OUT_DIR/ios-player-xcode" export_log="$OUT_DIR/ios-player-export.log"
-  local build_log="$OUT_DIR/ios-player-build.log" derived="$OUT_DIR/ios-player-dd"
-  rm -rf "$export_dir" "$export_log" "$build_log" "$derived" "$OUT_DIR/ios-player.xml"
+  local export_dir="$OUT_DIR/ios-player$RUN_SUFFIX-xcode" export_log="$OUT_DIR/ios-player$RUN_SUFFIX-export.log"
+  local build_log="$OUT_DIR/ios-player$RUN_SUFFIX-build.log" derived="$OUT_DIR/ios-player$RUN_SUFFIX-dd"
+  rm -rf "$export_dir" "$export_log" "$build_log" "$derived" "$OUT_DIR/ios-player$RUN_SUFFIX.xml"
 
   begin_unity_step
-  run_limited export 1800 600 "$export_log" "$OUT_DIR/ios-player-export.console.log" \
+  run_limited export 1800 600 "$export_log" "$OUT_DIR/ios-player$RUN_SUFFIX-export.console.log" \
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" -activeBuildProfile "$PROFILE" \
     -runTests -testPlatform iOS -testCategory "$(export_categories)" -doNotReportTestResultsBackToEditor \
     -ntkIosPlayerSdk "$sdk" -ntkIosPlayerOut "$export_dir" \
-    -testResults "$OUT_DIR/ios-player-export-editor.xml" -logFile "$export_log"
+    -testResults "$OUT_DIR/ios-player$RUN_SUFFIX-export-editor.xml" -logFile "$export_log"
   end_unity_step
   grep -n "error CS" "$export_log" 2>/dev/null | sort -u -t: -k2 | head -5
   if ! grep -q '^Build Finished, Result: Success' "$export_log"; then
@@ -458,7 +465,7 @@ run_player_tests() {
   if ! xcrun simctl list devices | grep -F "($SIM_ID) (Booted)" >/dev/null; then
     SIM_BOOTED_BY_US=1
   fi
-  run_limited boot 300 300 "$OUT_DIR/ios-player-boot.log" "$OUT_DIR/ios-player-boot.log" \
+  run_limited boot 300 300 "$OUT_DIR/ios-player$RUN_SUFFIX-boot.log" "$OUT_DIR/ios-player$RUN_SUFFIX-boot.log" \
     xcrun simctl bootstatus "$SIM_ID" -b || return 1
   local app="$apps"
   local id
@@ -479,7 +486,7 @@ run_player_tests() {
   done_file="$data/Documents/ntk-player-tests/$run.done"
   start_driver "platform=iOS Simulator,id=$SIM_ID" || return 1
   SIMCTL_CHILD_NTK_RUN="$run" SIMCTL_CHILD_NTK_DRIVER_PORT="$DRIVER_PORT" \
-    xcrun simctl launch --console-pty "$SIM_ID" "$PLAYER_ID" > "$OUT_DIR/ios-player-run.log" 2>&1 &
+    xcrun simctl launch --console-pty "$SIM_ID" "$PLAYER_ID" > "$OUT_DIR/ios-player$RUN_SUFFIX-run.log" 2>&1 &
   local launcher=$! waited=0 had_done=0
   # Stop waiting when the player has ended (it crashed: a finished run keeps it running).
   while [ ! -f "$done_file" ] && [ "$waited" -lt "$PLAYER_LIMIT" ] && kill -0 "$launcher" 2>/dev/null; do
@@ -492,12 +499,12 @@ run_player_tests() {
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   kill "$launcher" 2>/dev/null; wait "$launcher" 2>/dev/null
   if [ ! -f "$done_file" ] || [ ! -f "$result" ]; then
-    echo "  run: no result after ${waited}s (the player ended, or ${PLAYER_LIMIT}s passed; see $OUT_DIR/ios-player-run.log)"
+    echo "  run: no result after ${waited}s (the player ended, or ${PLAYER_LIMIT}s passed; see $OUT_DIR/ios-player$RUN_SUFFIX-run.log)"
     return 1
   fi
-  cp "$result" "$OUT_DIR/ios-player.xml"
+  cp "$result" "$OUT_DIR/ios-player$RUN_SUFFIX.xml"
   echo -n "  run: "
-  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player.xml" "$CATEGORY" \
+  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player$RUN_SUFFIX.xml" "$RUN_CATEGORY" \
     --require IosUiDriver ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
   return "$driver_ok"
 }
@@ -565,7 +572,7 @@ run_on_device() {
     return 1
   fi
   echo -n "  run: "
-  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$results/$run.xml" "$CATEGORY" \
+  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$results/$run.xml" "$RUN_CATEGORY" \
     --require IosUiDriver ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
   return "$driver_ok"
 }
@@ -581,6 +588,19 @@ run_player_tests || failures=$((failures + 1))
 if ! clean_up_player; then
   echo "  cleanup: the player could not be confirmed removed"
   failures=$((failures + 1))
+fi
+# The Notification sample run (design v3, 4.5): a fresh install, so the permission can be asked once. Not on
+# the Test iOS Profile: its player has no sample scene, and every test of the run would ignore itself.
+if [ "$PACKAGE_USER" -eq 0 ]; then
+  echo "iOS player, Notification sample ($([ "$DEVICE_MODE" -eq 1 ] && echo device || echo "$SIM_NAME")):"
+  RUN_CATEGORY="$NOTIFICATION_SAMPLE_CATEGORY"
+  RUN_SUFFIX="-notification"
+  CLEANED_UP=0
+  run_player_tests || failures=$((failures + 1))
+  if ! clean_up_player; then
+    echo "  cleanup: the player could not be confirmed removed"
+    failures=$((failures + 1))
+  fi
 fi
 
 restore_after_interrupted_unity_step
