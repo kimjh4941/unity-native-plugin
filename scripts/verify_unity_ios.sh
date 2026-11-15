@@ -328,6 +328,8 @@ start_driver() {
   local destination="$1" log="$OUT_DIR/driver.log" device=0 waited=0
   [ "$DEVICE_MODE" -eq 1 ] && device=1
   rm -rf "$log" "$OUT_DIR/driver.xcresult" "$OUT_DIR/driver.json"
+  # Made before the start: the background child may open it only after the first read below.
+  : > "$log"
   env TEST_RUNNER_NTK_DRIVER_BUNDLE="$PLAYER_ID" TEST_RUNNER_NTK_DRIVER_LIMIT=$((PLAYER_LIMIT + 120)) \
     TEST_RUNNER_NTK_DRIVER_DEVICE="$device" \
     "$XCODEBUILD" test-without-building -xctestrun "$DRIVER_XCTESTRUN" -destination "$destination" \
