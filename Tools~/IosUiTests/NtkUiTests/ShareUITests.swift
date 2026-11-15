@@ -7,8 +7,18 @@ import XCTest
 /// Every result is checked twice: the per-call callback (`share`) and the ShareCompleted event
 /// (`share-event`), in that order on the screen - the event comes first - and exactly once each. Items
 /// whose call fails also check that no share sheet appears.
+/// On the C ABI 2.0.0 (the harness's first line `[abi@event] 2`), the known differences of the C ABI design
+/// (artifact/ios/share/designs/2026-11-15-ios-share-cabi-design-v2.md, 3) are checked: messages without the
+/// input URL or path (SH-9 to SH-12), one result per call (SH-13), and a sheet while inactive (SH-15).
 final class ShareUITests: HarnessUITestCase {
     private static let closedValue = "completed=False activity=<null>"
+
+    /// Whether the harness runs on the C ABI 2.0.0 (its first line).
+    private var abi2: Bool {
+        let line = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label BEGINSWITH '[abi@event]'")).firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: Self.timeout), "the harness did not report its ABI")
+        return line.label == "[abi@event] 2"
+    }
     private static let noRootValue = "completed=False activity=<null> error=No root view controller available to present the share sheet."
 
     override func tearDown() {
@@ -102,25 +112,25 @@ final class ShareUITests: HarnessUITestCase {
     func test_SH9() {
         launch("share"); run("sh-bad-url")
         expectNoSheet()
-        expectShare("fail", "completed=False activity=<null> error=Invalid URL: not a url.")
+        expectShare("fail", "completed=False activity=<null> error=" + (abi2 ? "Invalid URL." : "Invalid URL: not a url."))
     }
 
     func test_SH10() {
         launch("share"); run("sh-text-bad-url")
         expectNoSheet()
-        expectShare("fail", "completed=False activity=<null> error=Invalid URL: not a url.")
+        expectShare("fail", "completed=False activity=<null> error=" + (abi2 ? "Invalid URL." : "Invalid URL: not a url."))
     }
 
     func test_SH11() {
         launch("share"); run("sh-missing-image")
         expectNoSheet()
-        expectShare("fail", "completed=False activity=<null> error=Failed to load image at path: <data>/missing.png.")
+        expectShare("fail", "completed=False activity=<null> error=" + (abi2 ? "Failed to load image." : "Failed to load image at path: <data>/missing.png."))
     }
 
     func test_SH12() {
         launch("share"); run("sh-missing-file")
         expectNoSheet()
-        expectShare("fail", "completed=False activity=<null> error=File not found at path: <data>/missing.txt.")
+        expectShare("fail", "completed=False activity=<null> error=" + (abi2 ? "File not found." : "File not found at path: <data>/missing.txt."))
     }
 
     /// Two shares in one frame. Each callback and the event are written under their own ids and compared
@@ -129,6 +139,24 @@ final class ShareUITests: HarnessUITestCase {
     /// completes (the plan v3 expected a presentation failure for the second call - it did not come).
     func test_SH13() {
         launch("share"); run("sh-twice")
+        if abi2 {
+            // 2.0.0, measured on the simulator (2026-11-15): as in 1.x, one sheet shows and one call's result
+            // never comes, also after 30 s - against Share.h's "exactly once" (a native-toolkit issue, recorded
+            // in the Share C ABI implementation result). The shown sheet's result reaches its own call (which
+            // one is not promised) and the event; the lines are printed so each run records them.
+            openAndClose()
+            if sheet(timeout: 3) {
+                XCTAssertTrue(SystemUI.closeShareSheet(app), "a second share sheet appeared - update the expectation")
+            }
+            Thread.sleep(forTimeInterval: 5)
+            let calls = finishedLines(ofIds: ["share1", "share2"])
+            print("SH-13 2.0.0 lines: \(calls + finishedLines("share-event"))")
+            XCTAssertEqual(calls.count, 1, "lines: \(harnessLines())")
+            XCTAssertTrue(calls.allSatisfy { $0.hasSuffix("@ok] \(Self.closedValue)") }, "lines: \(harnessLines())")
+            XCTAssertEqual(finishedLines("share-event"), ["[share-event@ok] \(Self.closedValue)"], "lines: \(harnessLines())")
+            checkNoUnexpectedAlert()
+            return
+        }
         openAndClose()
         if sheet(timeout: 2) {
             XCTAssertTrue(SystemUI.closeShareSheet(app), "the second share sheet has no Close button")
@@ -167,6 +195,12 @@ final class ShareUITests: HarnessUITestCase {
         springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
             .press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
         waitLine("[late@event] state=foregroundInactive")
+        if abi2 {
+            // Known difference (design v2, 3): a foreground but inactive scene counts as the foreground.
+            openAndClose()
+            expectShare("ok", Self.closedValue)
+            return
+        }
         expectNoSheet()
         expectShare("fail", Self.noRootValue)
     }

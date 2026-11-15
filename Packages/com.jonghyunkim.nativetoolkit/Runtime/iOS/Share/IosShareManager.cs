@@ -4,16 +4,27 @@
 namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
 {
     using System;
+    using System.Collections.Generic;
+    using System.Runtime.InteropServices;
+#if UNITY_IOS && !UNITY_EDITOR
+    using AOT;
+#endif
     using JonghyunKim.NativeToolkit.Runtime.Common;
+    using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
     using UnityEngine;
 
     /// <summary>
     /// Singleton manager for iOS native share sheet operations.
-    /// Wraps <c>UnityIosShareManager</c> (Swift) via P/Invoke through the C ABI bridge.
-    /// The class itself compiles for <c>UNITY_IOS || UNITY_EDITOR</c> so it can be referenced and
-    /// tested from the Editor regardless of build target; the native P/Invoke declarations and
-    /// callback are restricted to <c>UNITY_IOS &amp;&amp; !UNITY_EDITOR</c> (device IL2CPP builds only).
     /// </summary>
+    /// <remarks>
+    /// Calls native-toolkit's C ABI 2.0.0 (<c>Share.h</c>; artifact/ios/share, C ABI design v2). Every result,
+    /// also a failure decided before the native call, comes on the Update after it is known:
+    /// <see cref="ShareCompleted"/> first, then the call's own callback. Each call gets its own result,
+    /// also when two are made in a row (1.x kept one slot and lost one of them). Items are passed on as 1.x
+    /// did: null items, unknown types and null values are left out, with a warning. In the Editor every
+    /// share fails with "iOS share is only available on an iOS device.". The class compiles for
+    /// <c>UNITY_IOS || UNITY_EDITOR</c> so it can be referenced and tested from the Editor.
+    /// </remarks>
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share")]
     public class IosShareManager : MonoBehaviour
     {
@@ -21,9 +32,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
 
         /// <summary>Native operation name for presenting the share sheet.</summary>
         public const string OperationShare = "share";
-
-        /// <summary>The failure every share gets until Share moves to the C ABI (stage 3-S).</summary>
-        internal const string UnavailableMessage = "iOS share is only available on an iOS device.";
 
         private static IosShareManager? _instance;
 
@@ -50,9 +58,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
         /// </summary>
         public event Action<IosShareResult>? ShareCompleted;
 
-        // Per-call user callback (stored between native call and result callback).
-        // Note: last-registered callback wins when Share is called concurrently.
-        private static Action<IosShareResult>? s_onShare;
+        /// <summary>The per-call callbacks of accepted shares (design v2, D-1).</summary>
+        internal static readonly IosSharePendingCalls s_pending = new();
+
+        /// <summary>The native call of <see cref="Begin"/>: a stand-in in the Editor's tests (D-13).</summary>
+        internal delegate int NativeShare(ref IosShareCApi.ShareRequest request, IntPtr userData);
+
+#if UNITY_IOS && !UNITY_EDITOR
+        // Kept for the life of the process, so the function pointer handed to the C ABI stays valid.
+        // Internal for the player tests, which call the C ABI and the completion with it.
+        private static readonly IosShareCApi.ResultCallback s_resultCallback = OnResult;
+        internal static readonly IntPtr s_resultCallbackPointer = Marshal.GetFunctionPointerForDelegate(s_resultCallback);
+#endif
 
         private void Awake()
         {
@@ -76,7 +93,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
             Debug.Log($"[{LogTag}][{nameof(OnDestroy)}]");
             if (_instance != this) return;
 
-            s_onShare = null;
+            // As 1.x cleared its slot: a share completing later reaches no per-call callback (D-1).
+            s_pending.Clear();
             _instance = null;
         }
 
@@ -92,25 +110,131 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
         {
             Debug.Log($"[{LogTag}][{nameof(Share)}] itemCount: {payload?.items?.Length ?? 0}, hasCallback: {onResult != null}");
 
-            s_onShare = onResult;
-
+            // D-6: the order of 1.x's checks, then the library.
             if (payload == null || payload.items == null || payload.items.Length == 0)
             {
-                FireResult(IosShareResult.Failure("No shareable items were provided."));
+                FireResult(IosShareResult.Failure(IosShareCApi.NoItems), onResult);
+                return;
+            }
+            if (!IosNativeToolkitCApi.IsAvailable)
+            {
+                FireResult(IosShareResult.Failure(IosShareCApi.Unavailable), onResult);
                 return;
             }
 
-            // Stage 3-S of artifact/topics/ios-c-abi-2: Share has not moved to native-toolkit's C ABI 2.0.0
-            // yet, so every platform answers as the Editor always did (the 1.x bridge is gone).
-            FireResult(IosShareResult.Failure(UnavailableMessage));
+            IosShareCApi.Prepared prepared = IosShareCApi.Prepare(payload);
+            foreach (string warning in IosShareCApi.Warnings(prepared))
+                Debug.LogWarning($"[{LogTag}] {warning}");
+            if (prepared.Items.Count == 0)
+            {
+                FireResult(IosShareResult.Failure(IosShareCApi.NoItems), onResult);
+                return;
+            }
+
+#if UNITY_IOS && !UNITY_EDITOR
+            Begin(prepared, onResult, (ref IosShareCApi.ShareRequest request, IntPtr userData) =>
+                IosShareCApi.ntk_share_content_async(ref request, s_resultCallbackPointer, userData, IntPtr.Zero));
+#endif
         }
 
-        private static void FireResult(IosShareResult result)
+        /// <summary>
+        /// Builds the request, records the call, and makes the native call (D-1, D-6, D-13). A rejection or an
+        /// exception takes the call back out and gives its callback a failure on the next Update; an accepted
+        /// call completes through the completion callback.
+        /// </summary>
+        internal static void Begin(IosShareCApi.Prepared prepared, Action<IosShareResult>? onResult, NativeShare call)
         {
-            var cb = s_onShare; // snapshot (guards against overlapping calls)
-            s_onShare = null;
+            var allocated = new List<IntPtr>();
+            try
+            {
+                IosShareCApi.ShareRequest request;
+                try
+                {
+                    request = IosShareCApi.BuildRequest(prepared, allocated);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(Share)}] {ex.Message}");
+                    FireResult(IosShareResult.Failure($"Internal error: {ex.Message}"), onResult);
+                    return;
+                }
+
+                // Recorded before the call: called off the main thread, the completion may come first.
+                long id = s_pending.Add(onResult);
+                int error;
+                try
+                {
+                    error = call(ref request, new IntPtr(id));
+                }
+                catch (Exception ex)
+                {
+                    s_pending.TryTake(id, out _);
+                    Debug.LogError($"[{LogTag}][{nameof(Share)}] {ex.Message}");
+                    FireResult(IosShareResult.Failure($"Internal error: {ex.Message}"), onResult);
+                    return;
+                }
+
+                if (error != IosShareCApi.ErrorNone && s_pending.TryTake(id, out Action<IosShareResult>? rejected))
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(Share)}] rejected: {IosShareCApi.ErrorName(error)}");
+                    FireResult(IosShareResult.Failure(IosShareCApi.EntryFailureMessage(error)), rejected);
+                }
+            }
+            finally
+            {
+                IosNativeToolkitCApi.FreeAll(allocated);
+            }
+        }
+
+        /// <summary>
+        /// Delivers a completion to its call (D-7). A number no longer recorded (the manager was destroyed)
+        /// raises only <see cref="ShareCompleted"/> of a live manager, if there is one.
+        /// </summary>
+        internal static void Complete(long id, IosShareResult result)
+        {
+            s_pending.TryTake(id, out Action<IosShareResult>? onResult);
+            FireResult(result, onResult);
+        }
+
+#if UNITY_IOS && !UNITY_EDITOR
+        /// <summary>The completion of every share (on the main thread). No exception leaves.</summary>
+        [MonoPInvokeCallback(typeof(IosShareCApi.ResultCallback))]
+        internal static void OnResult(IntPtr userData, int error, uint systemCode, IntPtr result)
+        {
+            try
+            {
+                IosShareResult read;
+                try
+                {
+                    read = IosShareCApi.ReadResult(error, result);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}] could not read a share result: {ex.Message}");
+                    read = IosShareResult.Failure(IosShareCApi.CompletionFailureMessage(IosShareCApi.ErrorUnknown));
+                }
+                Complete(userData.ToInt64(), read);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}] share completion error: {ex.Message}");
+            }
+            finally
+            {
+                if (result != IntPtr.Zero)
+                    IosShareCApi.ntk_share_result_free(result);
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Queues a result for the next Update: <see cref="ShareCompleted"/> of the manager alive now, then
+        /// <paramref name="perCall"/>.
+        /// </summary>
+        private static void FireResult(IosShareResult result, Action<IosShareResult>? perCall)
+        {
             var common = _instance?.ShareCompleted;
-            UnityMainThreadDispatcher.Instance.Enqueue(() => InvokeInOrder(result, common, cb));
+            UnityMainThreadDispatcher.Instance.Enqueue(() => InvokeInOrder(result, common, perCall));
         }
 
         /// <summary>

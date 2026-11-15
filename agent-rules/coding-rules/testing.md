@@ -221,7 +221,7 @@ Manager のプラットフォームガードは統一されておらず、`|| UN
 
 | Manager | ガード |
 |---|---|
-| `IosShareManager` | `#if UNITY_IOS \|\| UNITY_EDITOR` |
+| `IosShareManager` | `#if UNITY_IOS \|\| UNITY_EDITOR`（C ABI 2.0.0 に移した後もこの形。Editor では、項目が空・null のときを除き、どの呼び出しも次の `Update` に `iOS share is only available on an iOS device.`。1.x と同じ。`IosShareManagerEditorTests` はネイティブの呼び出しを偽にして、拒み・例外・完了・破棄の後の扱いを確かめる。2026-11-15） |
 | `MacShareManager` | `#if UNITY_STANDALONE_OSX \|\| UNITY_EDITOR` |
 | `WindowsNotificationManager` | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR` |
 | `WindowsDialogManager` | `#if UNITY_STANDALONE_WIN \|\| UNITY_EDITOR`（C ABI 2.0.0 への移行で B 群から移った。Editor では全呼び出しが `PlatformUnavailable`） |

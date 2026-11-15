@@ -53,7 +53,7 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
         /// </summary>
         // NTK_IOS_CABI_2_DIALOG is referenced by no test yet (Dialog's UnavailableUntilMoved was removed with
         // its temporary path); it stays so that every moved feature has its define, as the later ones will.
-        public static readonly string[] Defines = { "NTK_IOS_CABI_SWITCHED", "NTK_IOS_CABI_2_DIALOG", "NTK_IOS_PLAYER_PROBE" };
+        public static readonly string[] Defines = { "NTK_IOS_CABI_SWITCHED", "NTK_IOS_CABI_2_DIALOG", "NTK_IOS_CABI_2_SHARE", "NTK_IOS_PLAYER_PROBE" };
 
         /// <summary>Whether the current build is a player test run of verify_unity_ios.sh.</summary>
         internal static bool IsActive => s_Active;

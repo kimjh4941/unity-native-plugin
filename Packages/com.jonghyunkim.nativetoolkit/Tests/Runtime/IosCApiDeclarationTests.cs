@@ -42,6 +42,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             "ntk_dialog_result_username",
             "ntk_dialog_result_password",
             "ntk_dialog_result_free",
+            // Share (C ABI design v2, D-9).
+            "ntk_share_content_async",
+            "ntk_share_result_completed",
+            "ntk_share_result_activity_type",
+            "ntk_share_result_free",
         };
 
         private static IEnumerable<string> DeclaredNames()
@@ -106,6 +111,10 @@ namespace JonghyunKim.NativeToolkit.Tests
             ["ntk_dialog_result_username"] = "IntPtr(IntPtr, out UIntPtr)",
             ["ntk_dialog_result_password"] = "IntPtr(IntPtr, out UIntPtr)",
             ["ntk_dialog_result_free"] = "Void(IntPtr)",
+            ["ntk_share_content_async"] = "Int32(ref ShareRequest, IntPtr, IntPtr, IntPtr)",
+            ["ntk_share_result_completed"] = "Int32(IntPtr)",
+            ["ntk_share_result_activity_type"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_share_result_free"] = "Void(IntPtr)",
         };
 
         private static string SignatureOf(MethodInfo method)
@@ -142,6 +151,14 @@ namespace JonghyunKim.NativeToolkit.Tests
             // ntk_dialog_result_fn: void (void*, uint64_t, ntk_dialog_error, uint32_t, ntk_dialog_result*).
             MethodInfo invoke = typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Dialog.IosDialogCApi.ResultCallback).GetMethod("Invoke")!;
             Assert.AreEqual("Void(IntPtr, UInt64, Int32, UInt32, IntPtr)", SignatureOf(invoke));
+        }
+
+        [Test]
+        public void TheShareCallbackHasTheHeadersSignature()
+        {
+            // ntk_share_result_fn: void (void*, ntk_share_error, uint32_t, ntk_share_result*). No request ID.
+            MethodInfo invoke = typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Share.IosShareCApi.ResultCallback).GetMethod("Invoke")!;
+            Assert.AreEqual("Void(IntPtr, Int32, UInt32, IntPtr)", SignatureOf(invoke));
         }
 
         [TestCase(0x020000u, true)]
