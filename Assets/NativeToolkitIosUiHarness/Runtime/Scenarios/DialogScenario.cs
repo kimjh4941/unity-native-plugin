@@ -8,7 +8,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
     /// <summary>
     /// Dialog: the rows of the Dialog UI test plan v3 (artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md).
     /// Each event writes one result line under its dialog kind (dialog, confirm, destructive, sheet, text,
-    /// login), so a test can count them. Values tell null from empty; a password shows only its length.
+    /// login), so a test can count them. Values tell null from empty; a password shows its length and, when
+    /// not empty, whether it is the value the test typed (never the value).
     /// </summary>
     internal static class DialogScenario
     {
@@ -61,7 +62,6 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             IosUiHarness.Row("late", () => IosUiHarness.After(3.0, "late-fire"));
         }
 
-        // A success carries no error; if it ever does, the line shows it and no expected line matches.
         /// <summary>The password DialogUITests types in ID-12. The line says whether it came back whole, never the value.</summary>
         private const string PasswordFixture = "pw1234";
 
@@ -74,6 +74,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             : password.Length == 0 ? "password-length=0"
             : $"password-length={password.Length} password-match={password == PasswordFixture}";
 
+        // A success carries no error; if it ever does, the line shows it and no expected line matches.
         private static void Line(string id, bool ok, string value, string? error) =>
             IosUiHarness.Append(id, ok ? "ok" : "fail", ok && error == null ? value : $"{value} error={IosUiHarness.Value(error)}");
     }

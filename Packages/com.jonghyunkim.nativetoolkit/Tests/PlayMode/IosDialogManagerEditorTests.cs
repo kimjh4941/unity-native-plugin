@@ -110,6 +110,49 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void SubscriberException_InsideTheCall_IsLoggedAndDoesNotLeave()
+        {
+            // A difference from 1.x (implementation review v1, R-2): there, this exception reached the caller.
+            var m = IosDialogManager.Instance;
+            Action<string?, bool, string?> thrower = (_, _, _) => throw new InvalidOperationException("inside");
+            m.DialogResult += thrower;
+            try
+            {
+                LogAssert.Expect(LogType.Warning, "Failed to showDialog: the native library is not available.");
+                LogAssert.Expect(LogType.Error, "DialogResult callback error: inside");
+                Assert.DoesNotThrow(() => m.ShowDialog("NTK", "editor"));
+            }
+            finally
+            {
+                m.DialogResult -= thrower;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SubscriberException_DoesNotHoldBackTheNextQueuedEvent()
+        {
+            // D-7: the try/catch keeps the dispatcher's Update going, so a second queued completion
+            // still comes in the same frame.
+            var m = IosDialogManager.Instance;
+            int calls = 0;
+            Action<string?, bool, string?> throwsFirst = (_, _, _) => { if (calls++ == 0) throw new InvalidOperationException("first"); };
+            m.ConfirmDialogResult += throwsFirst;
+            try
+            {
+                LogAssert.Expect(LogType.Error, "ConfirmDialogResult callback error: first");
+                var dispatcher = JonghyunKim.NativeToolkit.Runtime.Common.UnityMainThreadDispatcher.Instance;
+                dispatcher.Enqueue(() => m.Raise(new Api.Answer(Api.Kind.Confirm, Api.ErrorNone, "OK1")));
+                dispatcher.Enqueue(() => m.Raise(new Api.Answer(Api.Kind.Confirm, Api.ErrorNone, "OK2")));
+                yield return null;
+                Assert.AreEqual(2, calls, "both queued completions in one frame");
+            }
+            finally
+            {
+                m.ConfirmDialogResult -= throwsFirst;
+            }
+        }
+
+        [Test]
         public void Raise_CarriesACompletion()
         {
             IosDialogManager.Instance.Raise(new Api.Answer(Api.Kind.Login, Api.ErrorNone, "Login", username: "u", password: "p"));

@@ -26,7 +26,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
     /// null. An accepted call raises its event once on the Update after the dialog is answered (the
     /// completion arrives on the main thread and is queued on <see cref="UnityMainThreadDispatcher"/>, as
     /// in 1.x). A dialog shown while another is up is shown over it. In the Editor the native library
-    /// is not there, and every call fails inside the call.
+    /// is not there, and every call fails inside the call (with a warning).
+    /// <para>
+    /// A subscriber's exception is logged ("&lt;event&gt; callback error: …") and does not leave, also for
+    /// the failures raised inside the call. In 1.x, an exception thrown by a subscriber to such a failure
+    /// reached the caller of Show*.
+    /// </para>
     /// </remarks>
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Dialog")]
     public class IosDialogManager : MonoBehaviour
@@ -120,8 +125,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
 #if !UNITY_EDITOR
         // Kept for the life of the process, so the function pointer handed to the C ABI stays valid.
+        // Internal for the player tests, which call the C ABI and the completion with it.
         private static readonly IosDialogCApi.ResultCallback s_resultCallback = OnResult;
-        private static readonly IntPtr s_resultCallbackPointer = Marshal.GetFunctionPointerForDelegate(s_resultCallback);
+        internal static readonly IntPtr s_resultCallbackPointer = Marshal.GetFunctionPointerForDelegate(s_resultCallback);
 #endif
 
         // Public dialog API
@@ -135,7 +141,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             if (RejectedInCSharp(Kind.Alert, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
 
             string button = buttonText ?? "OK";
-            Start(Kind.Alert, (allocated, callback) =>
+            ShowNative(Kind.Alert, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildAlert(title, message, button, allocated);
                 return IosDialogCApi.ntk_dialog_show_alert_async(ref request, callback, UserData(Kind.Alert), IntPtr.Zero, IntPtr.Zero);
@@ -152,7 +158,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
             string confirm = confirmButtonText ?? "OK";
             string cancel = cancelButtonText ?? "Cancel";
-            Start(Kind.Confirm, (allocated, callback) =>
+            ShowNative(Kind.Confirm, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildConfirm(title, message, confirm, cancel, allocated);
                 return IosDialogCApi.ntk_dialog_show_confirm_async(ref request, callback, UserData(Kind.Confirm), IntPtr.Zero, IntPtr.Zero);
@@ -169,7 +175,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
             string destructive = destructiveButtonText ?? "Delete";
             string cancel = cancelButtonText ?? "Cancel";
-            Start(Kind.Destructive, (allocated, callback) =>
+            ShowNative(Kind.Destructive, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildDestructive(title, message, destructive, cancel, allocated);
                 return IosDialogCApi.ntk_dialog_show_destructive_async(ref request, callback, UserData(Kind.Destructive), IntPtr.Zero, IntPtr.Zero);
@@ -187,7 +193,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 
             string cancel = cancelButtonText ?? "Cancel";
             string[] chosen = options!;
-            Start(Kind.ActionSheet, (allocated, callback) =>
+            ShowNative(Kind.ActionSheet, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildActionSheet(title, message, chosen, cancel, allocated);
                 return IosDialogCApi.ntk_dialog_show_action_sheet_async(ref request, callback, UserData(Kind.ActionSheet), IntPtr.Zero, IntPtr.Zero);
@@ -206,7 +212,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             string hint = placeholder ?? "";
             string confirm = confirmButtonText ?? "OK";
             string cancel = cancelButtonText ?? "Cancel";
-            Start(Kind.TextInput, (allocated, callback) =>
+            ShowNative(Kind.TextInput, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildTextInput(title, message, hint, confirm, cancel, enableConfirmWhenEmpty, allocated);
                 return IosDialogCApi.ntk_dialog_show_text_input_async(ref request, callback, UserData(Kind.TextInput), IntPtr.Zero, IntPtr.Zero);
@@ -226,7 +232,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             string passwordHint = passwordPlaceholder ?? "Password";
             string login = loginButtonText ?? "Login";
             string cancel = cancelButtonText ?? "Cancel";
-            Start(Kind.Login, (allocated, callback) =>
+            ShowNative(Kind.Login, (allocated, callback) =>
             {
                 var request = IosDialogCApi.BuildLogin(title, message, usernameHint, passwordHint, login, cancel, enableLoginWhenEmpty, allocated);
                 return IosDialogCApi.ntk_dialog_show_login_async(ref request, callback, UserData(Kind.Login), IntPtr.Zero, IntPtr.Zero);
@@ -251,11 +257,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         /// raised once inside the call. The request's strings are freed when the call returns (the
         /// library copies them during the call).
         /// </summary>
-        private void Start(Kind kind, Func<List<IntPtr>, IntPtr, int> call)
+        private void ShowNative(Kind kind, Func<List<IntPtr>, IntPtr, int> call)
         {
             if (!IosNativeToolkitCApi.IsAvailable)
             {
-                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorNotInitialized), IosDialogCApi.NativeUnavailableMessage(kind));
+                string unavailable = IosDialogCApi.NativeUnavailableMessage(kind);
+                Debug.LogWarning(unavailable);
+                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorNotInitialized), unavailable);
                 return;
             }
 #if !UNITY_EDITOR
@@ -267,8 +275,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             }
             catch (Exception ex)
             {
+                // 1.x's and Android's wording for an exception on the way in.
                 Debug.LogError($"{IosDialogCApi.MethodName(kind)} error: {ex.Message}");
-                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorUnknown), $"Failed to {IosDialogCApi.MethodName(kind)}: {ex.Message}");
+                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorUnknown), $"Internal error: {ex.Message}");
                 return;
             }
             finally
@@ -290,12 +299,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         /// here, then raises the kind's event on the next Update (D-7). No exception leaves.
         /// </summary>
         [MonoPInvokeCallback(typeof(IosDialogCApi.ResultCallback))]
-        private static void OnResult(IntPtr userData, ulong requestId, int error, uint systemCode, IntPtr result)
+        internal static void OnResult(IntPtr userData, ulong requestId, int error, uint systemCode, IntPtr result)
         {
             try
             {
                 var kind = (Kind)userData.ToInt32();
-                IosDialogCApi.Answer answer = IosDialogCApi.ReadAnswer(kind, error, result);
+                IosDialogCApi.Answer answer;
+                try
+                {
+                    answer = IosDialogCApi.ReadAnswer(kind, error, result);
+                }
+                catch (Exception ex)
+                {
+                    // An accepted call still completes once: as UNKNOWN when its answer cannot be read.
+                    Debug.LogError($"IosDialogManager could not read a {IosDialogCApi.MethodName(kind)} answer: {ex.Message}");
+                    answer = new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorUnknown);
+                }
                 UnityMainThreadDispatcher.Instance.Enqueue(() => Instance.Raise(answer));
             }
             catch (Exception ex)
@@ -334,12 +353,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
                         LoginDialogResult?.Invoke(a.Item1, a.Item2, a.Item3, a.Item4, a.Item5);
                         break;
                     }
-                    default:
+                    case Kind.Alert:
+                    case Kind.Confirm:
+                    case Kind.Destructive:
+                    case Kind.ActionSheet:
                     {
                         var a = failure != null ? (null, false, failure) : IosDialogCApi.ToButtonArgs(answer);
                         ButtonEvent(answer.Kind)?.Invoke(a.Item1, a.Item2, a.Item3);
                         break;
                     }
+                    default:
+                        Debug.LogError($"IosDialogManager got an answer of an unknown kind {(int)answer.Kind}.");
+                        break;
                 }
             }
             catch (Exception ex)

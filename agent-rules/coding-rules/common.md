@@ -115,6 +115,8 @@ Notification も移した（`artifact/android/notification/designs/2026-10-12-an
 - `[DllImport("__Internal")]` でネイティブ C 関数をインポートする
 - コールバックは `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]` delegate + `[MonoPInvokeCallback]` static メソッドで受け取る
 - IL2CPP で動作させるため、コールバックメソッドは必ず `static` にする
+- C ABI に渡すコールバックは、static readonly の delegate の欄に持ち続け、`Marshal.GetFunctionPointerForDelegate` の関数ポインター（`IntPtr`）で渡す（例: `IosDialogManager.s_resultCallbackPointer`）
+- MonoBehaviour の補助のメソッドに Unity のメッセージ名（`Start`・`Awake`・`Update` など）を付けない。引数があると Unity が読み込みのたびに `Script error … can not take parameters.` を出す（`UnityMessageNameTests` が照らす）
 
 **iOS（native-toolkit の C ABI 2.0.0）**: 移した機能は、`Plugins/iOS` の `ios-native-toolkit-capi-2.0.0.xcframework` の
 `Dialog.h` などを `__Internal` で呼ぶ（2026-11-15 の段 3-S で切り替え、Dialog から 1 つずつ移す。`artifact/topics/ios-c-abi-2`）。
@@ -399,7 +401,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 | プラットフォームをまたぐ共通（下の「例外」） | `Runtime/Common/` | `JonghyunKim.NativeToolkit.Runtime.Common` |
 
 - `<Platform>` のディレクトリ名は `Windows` / `Android` / `iOS` / `macOS`（`UI/<Platform>/` と同じ綴り）
-- **Windows と Android は移行済み**（`Runtime/Windows/Clipboard/`、`Runtime/Android/Dialog/` など。Android は 2026-10-11 に 4 機能の型をまとめて移した）。**iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
+- **Windows と Android は移行済み**（`Runtime/Windows/Clipboard/`、`Runtime/Android/Dialog/` など。Android は 2026-10-11 に 4 機能の型をまとめて移した）。**iOS も移行済み**（`Runtime/iOS/<Feature>/`、名前空間 `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`。`[MovedFrom]` つき）。**macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、macOS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
 - 移すときは `.cs` と `.meta` をいっしょに `git mv` する（GUID を保つ）。名前空間の変更は公開 API の破壊的変更になるので、その版の既知の差分とマニュアルに書く
 - `Tests/Runtime/` と `Tests/PlayMode/` はプラットフォームで分けない（ファイル名の接頭辞で分かる）
 

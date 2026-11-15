@@ -86,6 +86,64 @@ namespace JonghyunKim.NativeToolkit.Tests
                 Assert.That(Regex.IsMatch(headers, @"NTK_CALL\s+" + Regex.Escape(name) + @"\s*\("), Is.True, $"{name} is not in {directory}");
         }
 
+        /// <summary>
+        /// The C# signature of each declaration, written from the header: a value struct passed instead of
+        /// a pointer, a missing <c>out</c>, or a wrong width would keep the name and still crash on the
+        /// device (implementation review v1 of the Dialog move, R-8 and R2-1). "ref"/"out" mark pointer
+        /// parameters; IntPtr stands for a pointer or a function pointer.
+        /// </summary>
+        private static readonly Dictionary<string, string> Signatures = new()
+        {
+            ["ntk_version"] = "UInt32()",
+            ["ntk_dialog_show_alert_async"] = "Int32(ref AlertRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_show_confirm_async"] = "Int32(ref ConfirmRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_show_destructive_async"] = "Int32(ref DestructiveRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_show_action_sheet_async"] = "Int32(ref ActionSheetRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_show_text_input_async"] = "Int32(ref TextInputRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_show_login_async"] = "Int32(ref LoginRequest, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_dialog_result_button_text"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_dialog_result_text"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_dialog_result_username"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_dialog_result_password"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_dialog_result_free"] = "Void(IntPtr)",
+        };
+
+        private static string SignatureOf(MethodInfo method)
+        {
+            IEnumerable<string> parameters = method.GetParameters().Select(p =>
+                p.ParameterType.IsByRef
+                    ? (p.IsOut ? "out " : "ref ") + p.ParameterType.GetElementType()!.Name
+                    : p.ParameterType.Name);
+            return $"{method.ReturnType.Name}({string.Join(", ", parameters)})";
+        }
+
+        [Test]
+        public void EveryDeclarationHasTheHeadersSignature()
+        {
+            Assembly runtime = typeof(IosNativeToolkitCApi).Assembly;
+            const string ns = "JonghyunKim.NativeToolkit.Runtime.iOS";
+            var found = new Dictionary<string, string>();
+            foreach (Type type in runtime.GetTypes().Where(t => t.Namespace == ns || (t.Namespace?.StartsWith(ns + ".") ?? false)))
+            {
+                foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                {
+                    var import = method.GetCustomAttribute<DllImportAttribute>();
+                    if (import != null) found[import.EntryPoint ?? method.Name] = SignatureOf(method);
+                }
+            }
+            CollectionAssert.AreEquivalent(Signatures.Keys, found.Keys, "every declaration needs its signature here");
+            foreach (var pair in Signatures)
+                Assert.AreEqual(pair.Value, found[pair.Key], pair.Key);
+        }
+
+        [Test]
+        public void TheDialogCallbackHasTheHeadersSignature()
+        {
+            // ntk_dialog_result_fn: void (void*, uint64_t, ntk_dialog_error, uint32_t, ntk_dialog_result*).
+            MethodInfo invoke = typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Dialog.IosDialogCApi.ResultCallback).GetMethod("Invoke")!;
+            Assert.AreEqual("Void(IntPtr, UInt64, Int32, UInt32, IntPtr)", SignatureOf(invoke));
+        }
+
         [TestCase(0x020000u, true)]
         [TestCase(0x020103u, true)]
         [TestCase(0x010300u, false)]

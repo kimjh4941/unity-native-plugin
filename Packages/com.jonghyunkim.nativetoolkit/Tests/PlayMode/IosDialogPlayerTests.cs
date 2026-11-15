@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 using static JonghyunKim.NativeToolkit.Tests.IosPlayerTestSupport;
 
@@ -141,6 +142,76 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             ExpectRejectedInside("sheet", NullOption, () => IosDialogManager.Instance.ShowActionSheet("NTK", "player test", new[] { "A", null! }));
             yield return NothingMoreWithinASecond(1);
+        }
+    }
+
+    /// <summary>
+    /// iOS player: the C ABI paths of <see cref="IosDialogManager"/> that no alert reaches
+    /// (implementation review v1 of the Dialog move, R-4 and R2-2). The library rejects a malformed
+    /// request with no completion; a completion raises its event on the next Update, not inside the
+    /// callback (C ABI design v2, D-6 and D-7).
+    /// </summary>
+    [Category(IosPlayerTestSupport.Category)]
+    public class IosDialogCApiPlayerTests
+    {
+        private readonly List<(bool valuesNull, bool ok, string? error)> _confirm = new();
+        private readonly List<(bool valuesNull, bool ok, string? error)> _alert = new();
+        private Action? _unsubscribe;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _confirm.Clear();
+            _alert.Clear();
+            var m = IosDialogManager.Instance;
+            Action<string?, bool, string?> confirm = (b, ok, e) => _confirm.Add((b == null, ok, e));
+            Action<string?, bool, string?> alert = (b, ok, e) => _alert.Add((b == null, ok, e));
+            m.ConfirmDialogResult += confirm;
+            m.DialogResult += alert;
+            _unsubscribe = () => { m.ConfirmDialogResult -= confirm; m.DialogResult -= alert; };
+        }
+
+        [TearDown]
+        public void TearDown() => _unsubscribe?.Invoke();
+
+        [UnityTest]
+        public IEnumerator MalformedRequest_IsRejectedWithoutACompletion()
+        {
+            var allocated = new List<IntPtr>();
+            int error;
+            try
+            {
+                IosDialogCApi.AlertRequest request = IosDialogCApi.BuildAlert("NTK", "player test", "OK", allocated);
+                request.StructSize = 0;
+                error = IosDialogCApi.ntk_dialog_show_alert_async(ref request, IosDialogManager.s_resultCallbackPointer,
+                    new IntPtr((int)IosDialogCApi.Kind.Alert), IntPtr.Zero, IntPtr.Zero);
+            }
+            finally
+            {
+                IosNativeToolkitCApi.FreeAll(allocated);
+            }
+            Assert.AreEqual(IosDialogCApi.ErrorInvalidParameter, error);
+            yield return WaitFor(() => false, 1f);
+            Assert.AreEqual(0, _alert.Count, "a rejected request completed");
+        }
+
+        [UnityTest]
+        public IEnumerator Completion_IsRaisedOnTheNextUpdate()
+        {
+            IosDialogManager.OnResult(new IntPtr((int)IosDialogCApi.Kind.Confirm), 1, IosDialogCApi.ErrorNotForeground, 0, IntPtr.Zero);
+            Assert.AreEqual(0, _confirm.Count, "raised inside the callback");
+            yield return null;
+            CollectionAssert.AreEqual(new[] { (true, false, (string?)"Failed to showConfirmDialog: the app is not in the foreground.") }, _confirm);
+            yield return WaitFor(() => false, 1f);
+            Assert.AreEqual(1, _confirm.Count, "raised again");
+        }
+
+        [UnityTest]
+        public IEnumerator AcceptedWithoutAResult_CompletesAsUnknown()
+        {
+            IosDialogManager.OnResult(new IntPtr((int)IosDialogCApi.Kind.Alert), 2, IosDialogCApi.ErrorNone, 0, IntPtr.Zero);
+            yield return null;
+            CollectionAssert.AreEqual(new[] { (true, false, (string?)"Failed to showDialog: UNKNOWN.") }, _alert);
         }
     }
 }
