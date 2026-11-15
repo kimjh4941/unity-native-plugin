@@ -1,13 +1,23 @@
 import XCTest
 
 /// The Dialog UI test plan v3 (artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md).
-/// Expected lines are the 1.x record (artifact/ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md).
-/// Every finished line of all six dialog kinds is compared, so an extra event of another kind fails.
+/// Expected lines are the 1.x record (artifact/ios/dialog/results/2026-11-14-ios-dialog-1x-record-result-v1.md),
+/// which the C ABI 2.0.0 keeps except for the known differences of the C ABI design
+/// (artifact/ios/dialog/designs/2026-11-15-ios-dialog-cabi-design-v2.md, 3): ID-17 checks the 2.0.0 expectation
+/// when the harness reports `[abi@event] 2`. Every finished line of all six dialog kinds is compared, so an
+/// extra event of another kind fails.
 final class DialogUITests: HarnessUITestCase {
     private var alert: XCUIElement { app.alerts.firstMatch }
     private static let kinds = ["dialog", "confirm", "destructive", "sheet", "text", "login"]
 
     private func expectDialog(_ expected: [String]) { expectLines(ofIds: Self.kinds, expected) }
+
+    /// Whether the harness runs on the C ABI 2.0.0 (its first line).
+    private var abi2: Bool {
+        let line = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label BEGINSWITH '[abi@event]'")).firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: Self.timeout), "the harness did not report its ABI")
+        return line.label == "[abi@event] 2"
+    }
 
     private func press(_ label: String, in element: XCUIElement? = nil) {
         let container = element ?? alert
@@ -88,7 +98,8 @@ final class DialogUITests: HarnessUITestCase {
         alert.secureTextFields.firstMatch.tap()
         alert.secureTextFields.firstMatch.typeText("pw1234")
         press("Login")
-        expectDialog(["[login@ok] button=Login username=user1 password-length=6"])
+        // password-match: the harness compares the value with what is typed here (C ABI design v2, 4).
+        expectDialog(["[login@ok] button=Login username=user1 password-length=6 password-match=True"])
     }
 
     func test_ID13() throws {
@@ -148,7 +159,15 @@ final class DialogUITests: HarnessUITestCase {
             .press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
         let lateLine = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label == %@", "[late@event] state=foregroundInactive")).firstMatch
         XCTAssertTrue(lateLine.waitForExistence(timeout: Self.timeout), "the delayed call did not run while inactive")
-        if alert.waitForExistence(timeout: 3) { press("OK") }
-        expectDialog(["[dialog@fail] button=<null> error=Failed to get root view controller"])
+        if abi2 {
+            // Known difference (C ABI design v2, 3; DL-01): a foreground but inactive scene counts as the
+            // foreground, so the alert is shown and answers.
+            XCTAssertTrue(alert.waitForExistence(timeout: Self.timeout), "2.0.0 shows the alert")
+            press("OK")
+            expectDialog(["[dialog@ok] button=OK"])
+        } else {
+            if alert.waitForExistence(timeout: 3) { press("OK") }
+            expectDialog(["[dialog@fail] button=<null> error=Failed to get root view controller"])
+        }
     }
 }

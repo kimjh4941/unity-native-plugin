@@ -3,7 +3,10 @@
 #if UNITY_IOS || UNITY_EDITOR
 namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
 {
+    using System;
+    using System.Collections.Generic;
     using System.Runtime.InteropServices;
+    using System.Text;
     using UnityEngine;
 
     /// <summary>
@@ -52,6 +55,95 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
                 s_isAvailable = available;
                 return available;
             }
+        }
+
+        /// <summary>
+        /// A string as NUL-terminated UTF-8. A lone surrogate becomes U+FFFD (the encoder's
+        /// replacement), so the C ABI never sees invalid UTF-8 from C#.
+        /// </summary>
+        internal static byte[] ToUtf8WithTerminator(string value)
+        {
+            int length = Encoding.UTF8.GetByteCount(value);
+            var bytes = new byte[length + 1];
+            Encoding.UTF8.GetBytes(value, 0, value.Length, bytes, 0);
+            return bytes;
+        }
+
+        /// <summary>
+        /// Copies a string into unmanaged memory as NUL-terminated UTF-8 and records the pointer in
+        /// <paramref name="allocated"/>, which the caller frees with <see cref="FreeAll"/>.
+        /// <see langword="null"/> becomes <see cref="IntPtr.Zero"/> and allocates nothing.
+        /// </summary>
+        /// <remarks>
+        /// Placed here, not shared with the Android helpers: those compile for Android and the Editor
+        /// only, not into an iOS player (Dialog design v2, D-11).
+        /// </remarks>
+        internal static IntPtr AllocUtf8(string? value, List<IntPtr> allocated)
+        {
+            if (value == null) return IntPtr.Zero;
+
+            byte[] bytes = ToUtf8WithTerminator(value);
+            IntPtr pointer = Alloc(bytes.Length, allocated);
+            Marshal.Copy(bytes, 0, pointer, bytes.Length);
+            return pointer;
+        }
+
+        /// <summary>
+        /// Allocates unmanaged memory and records it in <paramref name="allocated"/> for
+        /// <see cref="FreeAll"/>. If recording it fails, the memory is freed before the exception leaves.
+        /// </summary>
+        internal static IntPtr Alloc(int byteCount, List<IntPtr> allocated)
+        {
+            IntPtr pointer = Marshal.AllocHGlobal(byteCount);
+            try
+            {
+                allocated.Add(pointer);
+            }
+            catch
+            {
+                Marshal.FreeHGlobal(pointer);
+                throw;
+            }
+            return pointer;
+        }
+
+        /// <summary>
+        /// A <c>const char* const*</c>: each item as NUL-terminated UTF-8, then the array of pointers,
+        /// all recorded in <paramref name="allocated"/>. An empty array still gets one slot, so the
+        /// pointer is never NULL. The caller makes sure no item is <see langword="null"/>.
+        /// </summary>
+        internal static IntPtr AllocStringArray(string[] items, List<IntPtr> allocated)
+        {
+            IntPtr array = Alloc(IntPtr.Size * Math.Max(items.Length, 1), allocated);
+            for (int i = 0; i < items.Length; i++)
+                Marshal.WriteIntPtr(array, i * IntPtr.Size, AllocUtf8(items[i], allocated));
+            return array;
+        }
+
+        /// <summary>Frees every pointer in the list and empties it.</summary>
+        internal static void FreeAll(List<IntPtr> allocated)
+        {
+            foreach (IntPtr pointer in allocated)
+                Marshal.FreeHGlobal(pointer);
+            allocated.Clear();
+        }
+
+        /// <summary>
+        /// Reads a string the C ABI returns as a pointer and a size, keeping its two kinds of nothing
+        /// apart: NULL becomes <see langword="null"/>, a non-NULL pointer of size 0 becomes "". The
+        /// data is not assumed to be NUL-terminated.
+        /// </summary>
+        internal static string? ReadUtf8OrNull(IntPtr data, UIntPtr size)
+        {
+            if (data == IntPtr.Zero) return null;
+            ulong count = size.ToUInt64();
+            if (count == 0) return "";
+            if (count > int.MaxValue)
+                throw new OutOfMemoryException($"a native string of {count} bytes does not fit a managed array");
+
+            var bytes = new byte[(int)count];
+            Marshal.Copy(data, bytes, 0, (int)count);
+            return Encoding.UTF8.GetString(bytes);
         }
 
         /// <summary><c>uint32_t ntk_version(void)</c> (Common.h): the packed version of the linked C ABI.</summary>

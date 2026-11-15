@@ -116,19 +116,18 @@ Notification も移した（`artifact/android/notification/designs/2026-10-12-an
 - コールバックは `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]` delegate + `[MonoPInvokeCallback]` static メソッドで受け取る
 - IL2CPP で動作させるため、コールバックメソッドは必ず `static` にする
 
-```csharp
-[DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-private static extern void showDialog(string title, string message, DialogCallback callback);
+**iOS（native-toolkit の C ABI 2.0.0）**: 移した機能は、`Plugins/iOS` の `ios-native-toolkit-capi-2.0.0.xcframework` の
+`Dialog.h` などを `__Internal` で呼ぶ（2026-11-15 の段 3-S で切り替え、Dialog から 1 つずつ移す。`artifact/topics/ios-c-abi-2`）。
 
-[MonoPInvokeCallback(typeof(DialogCallback))]
-private static void OnDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
-{
-    UnityMainThreadDispatcher.Instance.Enqueue(() =>
-    {
-        Instance.DialogResult?.Invoke(buttonText, isSuccess, errorMessage);
-    });
-}
-```
+- 宣言と変換は `<Os><Feature>CApi.cs`（例: `Runtime/iOS/Dialog/IosDialogCApi.cs`）に置き、`#if UNITY_IOS || UNITY_EDITOR` で囲む。
+  `extern` の宣言は `!UNITY_EDITOR` の**外**（Editor でも組み、`IosCApiDeclarationTests` がヘッダーと照らす。期待の集合は機能を移すたびに足す）。
+  呼び出しと `[MonoPInvokeCallback]` の本体は `UNITY_IOS && !UNITY_EDITOR`
+- 要求の構造体は `[StructLayout(LayoutKind.Sequential, Pack = 8)]`、`struct_size` は `Marshal.SizeOf`。EditMode で大きさと**全項目の位置**（`Marshal.OffsetOf`）を照らす
+- 文字列は `IosNativeToolkitCApi.AllocUtf8` などで UTF-8 に写し、呼び出しが返った直後に `FreeAll` で解放する（C ABI は呼び出しの中で写す）。
+  結果の文字列は `ReadUtf8OrNull`（NULL と空を分ける）で読み、handle はコールバックの中で解放する
+- 完了は Unity と同じ主スレッドで来る。1.x と同じ時点にするため `UnityMainThreadDispatcher` で次の `Update` に出し、
+  積むラムダの中でイベントを出す所を `try/catch` で囲む（購読者の例外を dispatcher の `Update` から漏らさない）
+- `IosNativeToolkitCApi.IsAvailable` が false（Editor、別の版）なら、呼び出しの中で失敗を返す
 
 ### Windows（native-toolkit の C ABI）
 

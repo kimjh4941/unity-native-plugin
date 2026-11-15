@@ -51,7 +51,7 @@ namespace JonghyunKim.NativeToolkit.IosPlayerTests.Editor
         /// exported project gets NativeSource~/NtkPlayerTestsProbe.mm (<see cref="IosPlayerProbeInstaller"/>),
         /// so the tests that call it link. Build profiles do not override extra defines.
         /// </summary>
-        public static readonly string[] Defines = { "NTK_IOS_CABI_SWITCHED", "NTK_IOS_PLAYER_PROBE" };
+        public static readonly string[] Defines = { "NTK_IOS_CABI_SWITCHED", "NTK_IOS_CABI_2_DIALOG", "NTK_IOS_PLAYER_PROBE" };
 
         /// <summary>Whether the current build is a player test run of verify_unity_ios.sh.</summary>
         internal static bool IsActive => s_Active;

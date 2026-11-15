@@ -27,7 +27,22 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// The <c>__Internal</c> functions declared in the package's iOS namespaces. Extended as each feature
         /// moves to the C ABI (stage 3).
         /// </summary>
-        private static readonly string[] Expected = { "ntk_version" };
+        private static readonly string[] Expected =
+        {
+            "ntk_version",
+            // Dialog (C ABI design v2, D-12).
+            "ntk_dialog_show_alert_async",
+            "ntk_dialog_show_confirm_async",
+            "ntk_dialog_show_destructive_async",
+            "ntk_dialog_show_action_sheet_async",
+            "ntk_dialog_show_text_input_async",
+            "ntk_dialog_show_login_async",
+            "ntk_dialog_result_button_text",
+            "ntk_dialog_result_text",
+            "ntk_dialog_result_username",
+            "ntk_dialog_result_password",
+            "ntk_dialog_result_free",
+        };
 
         private static IEnumerable<string> DeclaredNames()
         {

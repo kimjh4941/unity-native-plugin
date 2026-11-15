@@ -14,12 +14,12 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// iOS player: the Dialog calls rejected in C# before any alert is shown (Dialog UI test plan v3,
-    /// ID-20 to ID-22, artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md). Each call
-    /// fires its event exactly once inside the call, with every value null, and nothing more comes within
-    /// a second (an alert shown after the rejection would answer later). The error logs 1.x writes are
-    /// not asserted (1.x internals); failing log messages are ignored during these tests. Every path that
-    /// reaches the native side shows an alert, which is left to the UI automation (scripts/test_ios_ui.sh);
-    /// so is an options array holding a null element (plan v3, R-7: it may reach the native side).
+    /// ID-20 to ID-22, artifact/ios/dialog/designs/2026-11-14-ios-dialog-ui-test-plan-v3.md; ID-22b from
+    /// the C ABI design v2, D-4). Each call fires its event exactly once inside the call, with every
+    /// value null, and nothing more comes within a second (an alert shown after the rejection would
+    /// answer later). Error logs are not asserted; failing log messages are ignored during these tests.
+    /// Every path that reaches the native side shows an alert, which is left to the UI automation
+    /// (scripts/test_ios_ui.sh).
     /// </summary>
     [Category(IosPlayerTestSupport.Category)]
     public class IosDialogPlayerTests
@@ -27,6 +27,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         private const string NoTitle = "Title cannot be null or empty.";
         private const string NoMessage = "Message cannot be null or empty.";
         private const string NoOptions = "Options cannot be null or empty.";
+        private const string NullOption = "Options cannot contain null.";
 
         /// <summary>One event: its kind, whether every value argument was null, success, error.</summary>
         private readonly List<(string kind, bool valuesNull, bool ok, string? error)> _seen = new();
@@ -130,19 +131,17 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return NothingMoreWithinASecond(1);
         }
 
-#if NTK_IOS_CABI_SWITCHED && !NTK_IOS_CABI_2_DIALOG
         /// <summary>
-        /// 3-S (artifact/topics/ios-c-abi-2, 3-S design v3, 1.6): until Dialog moves to the C ABI, each of
-        /// the six Show* calls that passes the C# checks fires its event once inside the call, with every
-        /// value null and "Dialog is not available yet on this build."; nothing comes within a second.
+        /// ID-22b: an options array holding null is rejected in C# since the move to the C ABI (which
+        /// would reject it, with no completion). 1.x failed inside the call too, with "Internal error: …"
+        /// from its UTF-8 conversion (C ABI design v2, D-4): only the message changed.
         /// </summary>
         [UnityTest]
-        public IEnumerator UnavailableUntilMoved()
+        public IEnumerator ID22b_ActionSheetWithANullOptionIsRejected()
         {
-            RejectAll("NTK", "player test", "Dialog is not available yet on this build.");
-            yield return NothingMoreWithinASecond(6);
+            ExpectRejectedInside("sheet", NullOption, () => IosDialogManager.Instance.ShowActionSheet("NTK", "player test", new[] { "A", null! }));
+            yield return NothingMoreWithinASecond(1);
         }
-#endif
     }
 }
 #endif

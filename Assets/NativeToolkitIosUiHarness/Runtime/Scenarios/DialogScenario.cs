@@ -26,7 +26,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
                 Line("text", ok, $"button={IosUiHarness.Value(b)} input={IosUiHarness.Value(input)}", e);
             m.LoginDialogResult += (b, user, password, ok, e) =>
                 Line("login", ok, $"button={IosUiHarness.Value(b)} username={IosUiHarness.Value(user)} " +
-                    (password == null ? "password=<null>" : $"password-length={password.Length}"), e);
+                    Password(password), e);
 
             IosUiHarness.Row("show-dialog", () => m.ShowDialog("NTK", "basic", "OK"));                         // ID-1, ID-15
             IosUiHarness.Row("show-dialog-ja", () => m.ShowDialog("NTK", "custom", "了解"));                   // ID-2
@@ -62,6 +62,18 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
         }
 
         // A success carries no error; if it ever does, the line shows it and no expected line matches.
+        /// <summary>The password DialogUITests types in ID-12. The line says whether it came back whole, never the value.</summary>
+        private const string PasswordFixture = "pw1234";
+
+        /// <summary>
+        /// The password part of a login line: null, its length, and for a non-empty one whether it is the
+        /// fixture (the length alone would not catch a wrong value of the same length; C ABI design v2, 4).
+        /// </summary>
+        private static string Password(string? password) =>
+            password == null ? "password=<null>"
+            : password.Length == 0 ? "password-length=0"
+            : $"password-length={password.Length} password-match={password == PasswordFixture}";
+
         private static void Line(string id, bool ok, string value, string? error) =>
             IosUiHarness.Append(id, ok ? "ok" : "fail", ok && error == null ? value : $"{value} error={IosUiHarness.Value(error)}");
     }

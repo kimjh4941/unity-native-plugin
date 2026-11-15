@@ -4,21 +4,30 @@
 namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
 {
     using UnityEngine;
+    using System.Collections.Generic;
     using System.Runtime.InteropServices;
     using System;
+#if !UNITY_EDITOR
+    using AOT;
+#endif
+    using JonghyunKim.NativeToolkit.Runtime.Common;
+    using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
+    using Kind = IosDialogCApi.Kind;
 
     /// <summary>
-    /// Singleton manager for iOS native dialog operations using Unity's native plugin interface.
+    /// Singleton manager for iOS native dialog operations.
     /// Provides a Unity-friendly API for showing various types of iOS native dialogs including
     /// basic alerts, confirmation dialogs, destructive alerts, action sheets, text input, and login dialogs.
     /// Results arrive through the events.
-    /// <para>
-    /// <b>Unavailable for now.</b> native-toolkit 2.0.0 removed the 1.x bridge this Manager called, and
-    /// the Manager does not call the 2.0.0 C ABI yet (artifact/topics/ios-c-abi-2, stage 3-S). Until it
-    /// moves (stage 3), each Show* that passes the argument checks raises its event once, inside the
-    /// call, with (null…, false, <see cref="UnavailableMessage"/>); nothing follows.
-    /// </para>
     /// </summary>
+    /// <remarks>
+    /// Calls native-toolkit's C ABI 2.0.0 (<c>Dialog.h</c>; artifact/ios/dialog, C ABI design v2). A call
+    /// the C# checks, or the library, reject raises its event once inside the call, with every value
+    /// null. An accepted call raises its event once on the Update after the dialog is answered (the
+    /// completion arrives on the main thread and is queued on <see cref="UnityMainThreadDispatcher"/>, as
+    /// in 1.x). A dialog shown while another is up is shown over it. In the Editor the native library
+    /// is not there, and every call fails inside the call.
+    /// </remarks>
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Dialog")]
     public class IosDialogManager : MonoBehaviour
     {
@@ -68,7 +77,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             }
         }
 
-        // Native code interface delegate definitions (IL2CPP compatible)
+        // The callback types of the 1.x bridge. Not used since native-toolkit 2.0.0; kept so that code
+        // naming them still compiles (C ABI design v2, D-13: whether to remove them is decided in stage 4).
         /// <summary>
         /// Callback signature for basic alert dialog results.
         /// </summary>
@@ -108,8 +118,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void LoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage);
 
-        /// <summary>The error each Show* reports until Dialog moves to the C ABI (stage 3).</summary>
-        internal const string UnavailableMessage = "Dialog is not available yet on this build.";
+#if !UNITY_EDITOR
+        // Kept for the life of the process, so the function pointer handed to the C ABI stays valid.
+        private static readonly IosDialogCApi.ResultCallback s_resultCallback = OnResult;
+        private static readonly IntPtr s_resultCallbackPointer = Marshal.GetFunctionPointerForDelegate(s_resultCallback);
+#endif
 
         // Public dialog API
 
@@ -119,24 +132,14 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         public void ShowDialog(string title, string message, string? buttonText = "OK")
         {
             Debug.Log($"ShowDialog called with title: {title}, message: {message}, buttonText: {buttonText}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.Alert, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
+
+            string button = buttonText ?? "OK";
+            Start(Kind.Alert, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                DialogResult?.Invoke(null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                DialogResult?.Invoke(null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            buttonText ??= "OK";
-
-            Debug.LogWarning(UnavailableMessage);
-            DialogResult?.Invoke(null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildAlert(title, message, button, allocated);
+                return IosDialogCApi.ntk_dialog_show_alert_async(ref request, callback, UserData(Kind.Alert), IntPtr.Zero, IntPtr.Zero);
+            });
         }
 
         /// <summary>
@@ -145,25 +148,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         public void ShowConfirmDialog(string title, string message, string? confirmButtonText = "OK", string? cancelButtonText = "Cancel")
         {
             Debug.Log($"ShowConfirmDialog called with title: {title}, message: {message}, confirmButtonText: {confirmButtonText}, cancelButtonText: {cancelButtonText}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.Confirm, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
+
+            string confirm = confirmButtonText ?? "OK";
+            string cancel = cancelButtonText ?? "Cancel";
+            Start(Kind.Confirm, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                ConfirmDialogResult?.Invoke(null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                ConfirmDialogResult?.Invoke(null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            confirmButtonText ??= "OK";
-            cancelButtonText ??= "Cancel";
-
-            Debug.LogWarning(UnavailableMessage);
-            ConfirmDialogResult?.Invoke(null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildConfirm(title, message, confirm, cancel, allocated);
+                return IosDialogCApi.ntk_dialog_show_confirm_async(ref request, callback, UserData(Kind.Confirm), IntPtr.Zero, IntPtr.Zero);
+            });
         }
 
         /// <summary>
@@ -172,25 +165,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         public void ShowDestructiveDialog(string title, string message, string? destructiveButtonText = "Delete", string? cancelButtonText = "Cancel")
         {
             Debug.Log($"ShowDestructiveDialog called with title: {title}, message: {message}, destructiveButtonText: {destructiveButtonText}, cancelButtonText: {cancelButtonText}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.Destructive, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
+
+            string destructive = destructiveButtonText ?? "Delete";
+            string cancel = cancelButtonText ?? "Cancel";
+            Start(Kind.Destructive, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                DestructiveDialogResult?.Invoke(null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                DestructiveDialogResult?.Invoke(null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            destructiveButtonText ??= "Delete";
-            cancelButtonText ??= "Cancel";
-
-            Debug.LogWarning(UnavailableMessage);
-            DestructiveDialogResult?.Invoke(null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildDestructive(title, message, destructive, cancel, allocated);
+                return IosDialogCApi.ntk_dialog_show_destructive_async(ref request, callback, UserData(Kind.Destructive), IntPtr.Zero, IntPtr.Zero);
+            });
         }
 
         /// <summary>
@@ -200,31 +183,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         {
             var optionsList = options == null ? "[]" : $"[{string.Join(", ", options)}]";
             Debug.Log($"ShowActionSheet called with title: {title}, message: {message}, options: {optionsList}, cancelButtonText: {cancelButtonText}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.ActionSheet, IosDialogCApi.CheckTitleAndMessage(title, message) ?? IosDialogCApi.CheckOptions(options))) return;
+
+            string cancel = cancelButtonText ?? "Cancel";
+            string[] chosen = options!;
+            Start(Kind.ActionSheet, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                ActionSheetResult?.Invoke(null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                ActionSheetResult?.Invoke(null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            if (options == null || options.Length == 0)
-            {
-                Debug.LogError("Options cannot be null or empty.");
-                ActionSheetResult?.Invoke(null, false, "Options cannot be null or empty.");
-                return;
-            }
-
-            cancelButtonText ??= "Cancel";
-
-            Debug.LogWarning(UnavailableMessage);
-            ActionSheetResult?.Invoke(null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildActionSheet(title, message, chosen, cancel, allocated);
+                return IosDialogCApi.ntk_dialog_show_action_sheet_async(ref request, callback, UserData(Kind.ActionSheet), IntPtr.Zero, IntPtr.Zero);
+            });
         }
 
         /// <summary>
@@ -234,26 +201,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         public void ShowTextInputDialog(string title, string message, string? placeholder = "", string? confirmButtonText = "OK", string? cancelButtonText = "Cancel", bool enableConfirmWhenEmpty = false)
         {
             Debug.Log($"ShowTextInputDialog called with title: {title}, message: {message}, placeholder: {placeholder}, confirmButtonText: {confirmButtonText}, cancelButtonText: {cancelButtonText}, enableConfirmWhenEmpty: {enableConfirmWhenEmpty}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.TextInput, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
+
+            string hint = placeholder ?? "";
+            string confirm = confirmButtonText ?? "OK";
+            string cancel = cancelButtonText ?? "Cancel";
+            Start(Kind.TextInput, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                TextInputDialogResult?.Invoke(null, null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                TextInputDialogResult?.Invoke(null, null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            placeholder ??= "";
-            confirmButtonText ??= "OK";
-            cancelButtonText ??= "Cancel";
-
-            Debug.LogWarning(UnavailableMessage);
-            TextInputDialogResult?.Invoke(null, null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildTextInput(title, message, hint, confirm, cancel, enableConfirmWhenEmpty, allocated);
+                return IosDialogCApi.ntk_dialog_show_text_input_async(ref request, callback, UserData(Kind.TextInput), IntPtr.Zero, IntPtr.Zero);
+            });
         }
 
         /// <summary>
@@ -263,28 +220,142 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
         public void ShowLoginDialog(string title, string message, string? usernamePlaceholder = "Username", string? passwordPlaceholder = "Password", string? loginButtonText = "Login", string? cancelButtonText = "Cancel", bool enableLoginWhenEmpty = false)
         {
             Debug.Log($"ShowLoginDialog called with title: {title}, message: {message}, usernamePlaceholder: {usernamePlaceholder}, passwordPlaceholder: {passwordPlaceholder}, loginButtonText: {loginButtonText}, cancelButtonText: {cancelButtonText}, enableLoginWhenEmpty: {enableLoginWhenEmpty}");
-            if (string.IsNullOrEmpty(title))
+            if (RejectedInCSharp(Kind.Login, IosDialogCApi.CheckTitleAndMessage(title, message))) return;
+
+            string usernameHint = usernamePlaceholder ?? "Username";
+            string passwordHint = passwordPlaceholder ?? "Password";
+            string login = loginButtonText ?? "Login";
+            string cancel = cancelButtonText ?? "Cancel";
+            Start(Kind.Login, (allocated, callback) =>
             {
-                Debug.LogError("Title cannot be null or empty.");
-                LoginDialogResult?.Invoke(null, null, null, false, "Title cannot be null or empty.");
-                return;
-            }
-
-            if (string.IsNullOrEmpty(message))
-            {
-                Debug.LogError("Message cannot be null or empty.");
-                LoginDialogResult?.Invoke(null, null, null, false, "Message cannot be null or empty.");
-                return;
-            }
-
-            usernamePlaceholder ??= "Username";
-            passwordPlaceholder ??= "Password";
-            loginButtonText ??= "Login";
-            cancelButtonText ??= "Cancel";
-
-            Debug.LogWarning(UnavailableMessage);
-            LoginDialogResult?.Invoke(null, null, null, false, UnavailableMessage);
+                var request = IosDialogCApi.BuildLogin(title, message, usernameHint, passwordHint, login, cancel, enableLoginWhenEmpty, allocated);
+                return IosDialogCApi.ntk_dialog_show_login_async(ref request, callback, UserData(Kind.Login), IntPtr.Zero, IntPtr.Zero);
+            });
         }
+
+        // ── Calling the C ABI ──────────────────────────────────────────────────
+
+        private static IntPtr UserData(Kind kind) => new IntPtr((int)kind);
+
+        /// <summary>A C# check failed: log it as 1.x did and raise the event once inside the call.</summary>
+        private bool RejectedInCSharp(Kind kind, string? error)
+        {
+            if (error == null) return false;
+            Debug.LogError(error);
+            Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorUnknown), error);
+            return true;
+        }
+
+        /// <summary>
+        /// Calls the library (D-6, D-2): when it cannot be used, or it rejects the request, the event is
+        /// raised once inside the call. The request's strings are freed when the call returns (the
+        /// library copies them during the call).
+        /// </summary>
+        private void Start(Kind kind, Func<List<IntPtr>, IntPtr, int> call)
+        {
+            if (!IosNativeToolkitCApi.IsAvailable)
+            {
+                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorNotInitialized), IosDialogCApi.NativeUnavailableMessage(kind));
+                return;
+            }
+#if !UNITY_EDITOR
+            var allocated = new List<IntPtr>();
+            int error;
+            try
+            {
+                error = call(allocated, s_resultCallbackPointer);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"{IosDialogCApi.MethodName(kind)} error: {ex.Message}");
+                Raise(new IosDialogCApi.Answer(kind, IosDialogCApi.ErrorUnknown), $"Failed to {IosDialogCApi.MethodName(kind)}: {ex.Message}");
+                return;
+            }
+            finally
+            {
+                IosNativeToolkitCApi.FreeAll(allocated);
+            }
+            if (error != IosDialogCApi.ErrorNone)
+            {
+                // The C# checks should have caught anything the library rejects: a wrong request.
+                Debug.LogError($"{IosDialogCApi.MethodName(kind)} was rejected: {IosDialogCApi.ErrorName(error)}");
+                Raise(new IosDialogCApi.Answer(kind, error), IosDialogCApi.EntryFailureMessage(kind, error));
+            }
+#endif
+        }
+
+#if !UNITY_EDITOR
+        /// <summary>
+        /// The completion of every dialog (on the main thread). Reads the answer and frees the handle
+        /// here, then raises the kind's event on the next Update (D-7). No exception leaves.
+        /// </summary>
+        [MonoPInvokeCallback(typeof(IosDialogCApi.ResultCallback))]
+        private static void OnResult(IntPtr userData, ulong requestId, int error, uint systemCode, IntPtr result)
+        {
+            try
+            {
+                var kind = (Kind)userData.ToInt32();
+                IosDialogCApi.Answer answer = IosDialogCApi.ReadAnswer(kind, error, result);
+                UnityMainThreadDispatcher.Instance.Enqueue(() => Instance.Raise(answer));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"IosDialogManager completion error: {ex.Message}");
+            }
+            finally
+            {
+                if (result != IntPtr.Zero)
+                    IosDialogCApi.ntk_dialog_result_free(result);
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Raises the event of an answer's kind. A subscriber's exception is logged with 1.x's message
+        /// and does not leave (D-7): it would stop the dispatcher's Update and hold back the rest of
+        /// its queue. <paramref name="failure"/> replaces the completion's message for a call that
+        /// failed before it was accepted (every value is then null).
+        /// </summary>
+        internal void Raise(IosDialogCApi.Answer answer, string? failure = null)
+        {
+            try
+            {
+                switch (answer.Kind)
+                {
+                    case Kind.TextInput:
+                    {
+                        var a = failure != null ? (null, null, false, failure) : IosDialogCApi.ToTextInputArgs(answer);
+                        TextInputDialogResult?.Invoke(a.Item1, a.Item2, a.Item3, a.Item4);
+                        break;
+                    }
+                    case Kind.Login:
+                    {
+                        var a = failure != null ? (null, null, null, false, failure) : IosDialogCApi.ToLoginArgs(answer);
+                        LoginDialogResult?.Invoke(a.Item1, a.Item2, a.Item3, a.Item4, a.Item5);
+                        break;
+                    }
+                    default:
+                    {
+                        var a = failure != null ? (null, false, failure) : IosDialogCApi.ToButtonArgs(answer);
+                        ButtonEvent(answer.Kind)?.Invoke(a.Item1, a.Item2, a.Item3);
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"{IosDialogCApi.EventName(answer.Kind)} callback error: {ex.Message}");
+            }
+        }
+
+        private Action<string?, bool, string?>? ButtonEvent(Kind kind) => kind switch
+        {
+            Kind.Alert => DialogResult,
+            Kind.Confirm => ConfirmDialogResult,
+            Kind.Destructive => DestructiveDialogResult,
+            Kind.ActionSheet => ActionSheetResult,
+            _ => null,
+        };
     }
 }
 #endif
