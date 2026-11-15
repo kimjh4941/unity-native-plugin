@@ -40,18 +40,63 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator ID03_SampleConfirm_No() => SampleAndAnswer("ShowConfirmDialogButton", "No",
             "OK\nShowConfirmDialog buttonText: No, isSuccess: True, errorMessage: null");
 
+        [UnityTest]
+        public IEnumerator ID04_SampleDestructive_Delete() => SampleAndAnswer("ShowDestructiveDialogButton", "Delete",
+            "OK\nShowDestructiveDialog buttonText: Delete, isSuccess: True, errorMessage: null");
+
+        [UnityTest]
+        public IEnumerator ID05_SampleDestructive_Cancel() => SampleAndAnswer("ShowDestructiveDialogButton", "Cancel",
+            "OK\nShowDestructiveDialog buttonText: Cancel, isSuccess: True, errorMessage: null");
+
+        [UnityTest]
+        public IEnumerator ID06_SampleActionSheet_Option() => SampleAndAnswer("ShowActionSheetButton", "Photo Library",
+            "OK\nShowActionSheet buttonText: Photo Library, isSuccess: True, errorMessage: null");
+
+        [UnityTest]
+        public IEnumerator ID07_SampleActionSheet_Cancel() => SampleAndAnswer("ShowActionSheetButton", "Cancel",
+            "OK\nShowActionSheet buttonText: Cancel, isSuccess: True, errorMessage: null");
+
+        [UnityTest]
+        public IEnumerator ID08_SampleTextInput_Ok() => SampleAndAnswer("ShowTextInputDialogButton", "OK",
+            "OK\nShowTextInputDialog buttonText: OK, inputText: ntk42, isSuccess: True, errorMessage: null",
+            ("text", "0", "ntk42"));
+
+        [UnityTest]
+        public IEnumerator ID09_SampleTextInput_Cancel() => SampleAndAnswer("ShowTextInputDialogButton", "Cancel",
+            "OK\nShowTextInputDialog buttonText: Cancel, inputText: null, isSuccess: True, errorMessage: null");
+
+        // Login dialogs only on the simulator (UI driver design v3, chapter 7: password saving and AutoFill could
+        // reach the user's keychain on a device; the harness's ID-12 and ID-16 are simulator-only too).
+
+        [UnityTest, Category(IosUiDriver.SimulatorOnlyCategory)]
+        public IEnumerator ID10_SampleLogin_Login() => SampleAndAnswer("ShowLoginDialogButton", "Login",
+            "OK\nShowLoginDialog buttonText: Login, username: user1, password: pw1234, isSuccess: True, errorMessage: null",
+            ("text", "0", "user1"), ("secure", "0", "pw1234"));
+
+        [UnityTest, Category(IosUiDriver.SimulatorOnlyCategory)]
+        public IEnumerator ID11_SampleLogin_Cancel() => SampleAndAnswer("ShowLoginDialogButton", "Cancel",
+            "OK\nShowLoginDialog buttonText: Cancel, username: null, password: null, isSuccess: True, errorMessage: null");
+
         /// <summary>
-        /// Opens the Dialog screen, sends the driver's request, presses the sample button, waits for the
-        /// driver, then for the screen's result.
+        /// Opens the Dialog screen, sends the driver's requests (typing into fields first, then the button),
+        /// presses the sample button, waits for the driver, then for the screen's result.
         /// </summary>
-        private static IEnumerator SampleAndAnswer(string sampleButton, string alertButton, string expected)
+        private static IEnumerator SampleAndAnswer(string sampleButton, string alertButton, string expected,
+            params (string Kind, string Index, string Text)[] typed)
         {
             yield return LoadAtTopMenu(TopMenuDialog);
             yield return Open(TopMenuDialog, sampleButton);
+            int first = 0;
+            foreach (var field in typed)
+            {
+                yield return IosUiDriver.Send("alert-type", field.Kind, field.Index, IosUiDriver.Text(field.Text));
+                if (first == 0) first = IosUiDriver.LastSent;
+            }
             yield return IosUiDriver.Send("alert-tap", IosUiDriver.Text(alertButton));
-            int request = IosUiDriver.LastSent;
+            int last = IosUiDriver.LastSent;
             Press(sampleButton);
-            yield return IosUiDriver.Wait(request, IosUiDriverProtocol.AnswerTimeoutSeconds);
+            for (int request = first == 0 ? last : first; request <= last; request++)
+                yield return IosUiDriver.Wait(request, IosUiDriverProtocol.AnswerTimeoutSeconds);
             yield return WaitFor(() => LabelText(ResultLabel) == expected, $"the result \"{expected.Replace("\n", " / ")}\"");
         }
     }

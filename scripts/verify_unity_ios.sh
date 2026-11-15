@@ -299,6 +299,17 @@ if [ "$SKIP_EDITMODE" -eq 0 ]; then
   end_unity_step
 fi
 
+# The categories the player is built with. A device run leaves out what only the simulator may do (UI driver
+# design v3, chapter 7: backgrounding, login dialogs, banners, the general pasteboard). Unity's -testCategory
+# takes ';' as "or" for the included names and '!' for excluded ones.
+export_categories() {
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    echo "$CATEGORY;!IosSimulatorOnly;!IosGeneralPasteboard"
+  else
+    echo "$CATEGORY"
+  fi
+}
+
 # build_driver <destination> <signing...>: builds NtkUiTests for testing; sets DRIVER_XCTESTRUN.
 build_driver() {
   local destination="$1" log="$OUT_DIR/uitests-build.log"
@@ -393,7 +404,7 @@ run_player_tests() {
   begin_unity_step
   run_limited export 1800 600 "$export_log" "$OUT_DIR/ios-player-export.console.log" \
     "$UNITY_EXE" -batchmode -projectPath "$PROJECT_DIR" -activeBuildProfile "$PROFILE" \
-    -runTests -testPlatform iOS -testCategory "$CATEGORY" -doNotReportTestResultsBackToEditor \
+    -runTests -testPlatform iOS -testCategory "$(export_categories)" -doNotReportTestResultsBackToEditor \
     -ntkIosPlayerSdk "$sdk" -ntkIosPlayerOut "$export_dir" \
     -testResults "$OUT_DIR/ios-player-export-editor.xml" -logFile "$export_log"
   end_unity_step
