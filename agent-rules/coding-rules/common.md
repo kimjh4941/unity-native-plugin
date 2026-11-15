@@ -136,6 +136,11 @@ Notification も移した（`artifact/android/notification/designs/2026-10-12-an
   - 入口の拒みのログは `LogWarning`（利用者の入力から来るものがある）
   - 名前・型・道に U+0000 があれば C# で `CLIPBOARD_INVALID_REQUEST`（C の文字列で切れると別の pasteboard やファイルを指す）。書き込む値の U+0000 は値を出さない警告で渡す
   - 監視は、リスナーを 1 つだけ登録して破棄まで持ち、C# が自分の監視の状態を持って、状態が下りている間の変化を捨てる（`stop_observing_async` はプロセスのすべての監視を止め、変化はすべてのリスナーに配られるため）。状態を変えるのは、ライブラリが受け付けた監視の要求の完了と破棄だけ
+- Notification（`artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v4.md`）は公開の JSON を 1.x のブリッジと同じ規則で C# が読み（`IosNotificationRequests`。配列は全か無か、bool・整数は Swift の `as?` と同じ橋渡し）、1.x で通り 2.0.0 で拒まれる値のうち同じ結果になるものは C# で直して渡す:
+  - 呼び出しごとの受け手は `user_data` の番号の表（`IosNotificationPendingCalls`）。Manager の破棄でも空にしない（1.x の受け手は static で、破棄の後にも呼ばれた）
+  - 呼び出しの中で決まった結果は共通の `IosNextFrameQueue`（ディスパッチャーの GameObject のポンプが後のフレームに末尾へ渡す）。待ちがある間はネイティブの結果とイベントも後ろに並べる。どのスレッドからでも積める
+  - interaction の受け手はプロセスの間 1 つだけ登録し、外さない（外すとライブラリが次の登録まで 32 件抱え、作り直した Manager に古いタップが届く）。settings request の受け手は登録しない（抱えられた要求で後から設定の画面が開く）
+  - Awake は受け手の登録だけ。delegate を入れ直すのは公開の `Initialize()` だけ（`NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を効かせる）
 
 ### Windows（native-toolkit の C ABI）
 

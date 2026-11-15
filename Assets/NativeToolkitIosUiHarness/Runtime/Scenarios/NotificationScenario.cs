@@ -55,7 +55,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             // NU-4: userInfo with string values only, and one with a number (1.x reads no non-string value).
             IosUiHarness.Row("schedule-4", () => Schedule("ntkh-4", "ntk NU-4",
                 ",\"userInfo\":{\"k\":\"v\",\"jp\":\"日本\",\"slash\":\"a/b\",\"q\":\"x\\\"y\"}"));
-            IosUiHarness.Row("schedule-4n", () => Schedule("ntkh-4n", "ntk NU-4n", ",\"userInfo\":{\"n\":1}"));
+            IosUiHarness.Row("schedule-4n", () => Schedule("ntkh-4n", "ntk NU-4n", ",\"userInfo\":{\"n\":1,\"s\":\"x\"}"));
             IosUiHarness.Row("schedule-5", () => Schedule("ntkh-5", "ntk NU-5", ",\"categoryIdentifier\":\"" + Category + "\""));
             IosUiHarness.Row("schedule-6", () => Schedule("ntkh-6", "ntk NU-6", ",\"categoryIdentifier\":\"" + Category + "\""));
             IosUiHarness.Row("schedule-8", () => Schedule("ntkh-8", "ntk NU-8"));

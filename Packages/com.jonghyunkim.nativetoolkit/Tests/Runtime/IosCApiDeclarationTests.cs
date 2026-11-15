@@ -106,6 +106,53 @@ namespace JonghyunKim.NativeToolkit.Tests
             "ntk_bytes_data",
             "ntk_bytes_size",
             "ntk_bytes_free",
+            // Notification (C ABI design v3, D-1).
+            "ntk_notification_install",
+            "ntk_notification_show_async",
+            "ntk_notification_update_async",
+            "ntk_notification_schedule_async",
+            "ntk_notification_remove_async",
+            "ntk_notification_remove_all_async",
+            "ntk_notification_cancel_scheduled_async",
+            "ntk_notification_cancel_all_scheduled_async",
+            "ntk_notification_get_scheduled_async",
+            "ntk_notification_get_delivered_async",
+            "ntk_notification_request_permission_async",
+            "ntk_notification_get_authorization_status_async",
+            "ntk_notification_has_permission_async",
+            "ntk_notification_open_settings_async",
+            "ntk_notification_set_badge_count_async",
+            "ntk_notification_register_category_async",
+            "ntk_notification_remove_category_async",
+            "ntk_notification_add_interaction_listener",
+            "ntk_notification_content_create",
+            "ntk_notification_content_free",
+            "ntk_notification_content_set_subtitle",
+            "ntk_notification_content_set_body",
+            "ntk_notification_content_set_badge",
+            "ntk_notification_content_set_sound",
+            "ntk_notification_content_set_category",
+            "ntk_notification_content_set_interruption_level",
+            "ntk_notification_content_set_thread",
+            "ntk_notification_content_set_target_content",
+            "ntk_notification_content_set_relevance_score",
+            "ntk_notification_content_set_filter_criteria",
+            "ntk_notification_content_set_user_info_json",
+            "ntk_notification_content_add_attachment",
+            "ntk_notification_interaction_kind",
+            "ntk_notification_interaction_notification_id",
+            "ntk_notification_interaction_action_id",
+            "ntk_notification_interaction_user_text",
+            "ntk_notification_interaction_user_info_json",
+            "ntk_notification_interaction_free",
+            "ntk_notification_list_count",
+            "ntk_notification_list_identifier_at",
+            "ntk_notification_list_title_at",
+            "ntk_notification_list_subtitle_at",
+            "ntk_notification_list_body_at",
+            "ntk_notification_list_category_at",
+            "ntk_notification_list_date_millis_at",
+            "ntk_notification_list_free",
         };
 
         private static IEnumerable<string> DeclaredNames()
@@ -232,6 +279,52 @@ namespace JonghyunKim.NativeToolkit.Tests
             ["ntk_bytes_data"] = "IntPtr(IntPtr)",
             ["ntk_bytes_size"] = "UIntPtr(IntPtr)",
             ["ntk_bytes_free"] = "Void(IntPtr)",
+            ["ntk_notification_install"] = "Int32()",
+            ["ntk_notification_show_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_update_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_schedule_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_remove_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_remove_all_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_cancel_scheduled_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_cancel_all_scheduled_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_get_scheduled_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_get_delivered_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_request_permission_async"] = "Int32(UInt32, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_get_authorization_status_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_has_permission_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_open_settings_async"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_set_badge_count_async"] = "Int32(Int32, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_register_category_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_remove_category_async"] = "Int32(IntPtr, IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_add_interaction_listener"] = "Int32(IntPtr, IntPtr, IntPtr, out IntPtr)",
+            ["ntk_notification_content_create"] = "Int32(IntPtr, IntPtr, out IntPtr)",
+            ["ntk_notification_content_free"] = "Void(IntPtr)",
+            ["ntk_notification_content_set_subtitle"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_body"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_badge"] = "Int32(IntPtr, Int32)",
+            ["ntk_notification_content_set_sound"] = "Int32(IntPtr, Int32, IntPtr)",
+            ["ntk_notification_content_set_category"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_interruption_level"] = "Int32(IntPtr, Int32)",
+            ["ntk_notification_content_set_thread"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_target_content"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_relevance_score"] = "Int32(IntPtr, Double)",
+            ["ntk_notification_content_set_filter_criteria"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_set_user_info_json"] = "Int32(IntPtr, IntPtr)",
+            ["ntk_notification_content_add_attachment"] = "Int32(IntPtr, IntPtr, IntPtr)",
+            ["ntk_notification_interaction_kind"] = "Int32(IntPtr)",
+            ["ntk_notification_interaction_notification_id"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_notification_interaction_action_id"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_notification_interaction_user_text"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_notification_interaction_user_info_json"] = "IntPtr(IntPtr, out UIntPtr)",
+            ["ntk_notification_interaction_free"] = "Void(IntPtr)",
+            ["ntk_notification_list_count"] = "UIntPtr(IntPtr)",
+            ["ntk_notification_list_identifier_at"] = "IntPtr(IntPtr, UIntPtr, out UIntPtr)",
+            ["ntk_notification_list_title_at"] = "IntPtr(IntPtr, UIntPtr, out UIntPtr)",
+            ["ntk_notification_list_subtitle_at"] = "IntPtr(IntPtr, UIntPtr, out UIntPtr)",
+            ["ntk_notification_list_body_at"] = "IntPtr(IntPtr, UIntPtr, out UIntPtr)",
+            ["ntk_notification_list_category_at"] = "IntPtr(IntPtr, UIntPtr, out UIntPtr)",
+            ["ntk_notification_list_date_millis_at"] = "Int64(IntPtr, UIntPtr)",
+            ["ntk_notification_list_free"] = "Void(IntPtr)",
         };
 
         private static string SignatureOf(MethodInfo method)
@@ -287,6 +380,17 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard.IosClipboardCApi.ChangeCallback), "Void(IntPtr, IntPtr)")]
         [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard.IosClipboardCApi.ReleaseCallback), "Void(IntPtr)")]
         public void TheClipboardCallbacksHaveTheHeadersSignatures(Type callback, string signature)
+        {
+            Assert.AreEqual(signature, SignatureOf(callback.GetMethod("Invoke")!));
+        }
+
+        /// <summary>The callback types of Notification.h (C ABI design v3, D-2).</summary>
+        [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.DoneCallback), "Void(IntPtr, Int32, UInt32)")]
+        [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.PermissionCallback), "Void(IntPtr, Int32, UInt32, Int32)")]
+        [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.StatusCallback), "Void(IntPtr, Int32, UInt32, Int32)")]
+        [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.ListCallback), "Void(IntPtr, Int32, UInt32, IntPtr)")]
+        [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.InteractionCallback), "Void(IntPtr, IntPtr)")]
+        public void TheNotificationCallbacksHaveTheHeadersSignatures(Type callback, string signature)
         {
             Assert.AreEqual(signature, SignatureOf(callback.GetMethod("Invoke")!));
         }

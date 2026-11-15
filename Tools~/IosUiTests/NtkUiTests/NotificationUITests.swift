@@ -8,8 +8,8 @@ import XCTest
 /// (native-toolkit's CApiUITestApp and Springboard). Failure messages name no springboard label; the
 /// harness's own lines are printed for the record ([NTK-NOTIFICATION-UI]).
 ///
-/// 1.x is pinned in full. Where the 2.0.0 expectation waits for the Notification mapping design (stage 3,
-/// 2c), a run on the C ABI fails with "write the 2.0.0 expectation" instead of passing on a partial
+/// 1.x is pinned in full. On the C ABI 2.0.0 the expectations are those of section 3 of the Notification C ABI
+/// design v3 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v3.md), instead of a partial
 /// check: the harness's first line, `[abi@event] 1|2`, tells which ABI runs (implementation review v1, R-8).
 final class NotificationUITests: HarnessUITestCase {
     private static let title = "NTK UI Harness"
@@ -19,6 +19,9 @@ final class NotificationUITests: HarnessUITestCase {
     private static let allow = ["Allow", "許可"]
     private static let dontAllow = ["Don’t Allow", "Don't Allow", "許可しない"]
     private static let deniedError = "[permission@fail] error=The operation couldn’t be completed. (IosLibrary.NotificationError error 4.)"
+    /// The 2.0.0 messages (Notification C ABI design v3, D-6 and D-7).
+    private static let denied2 = "Notification permission was denied."
+    private static let invalid2 = "The notification request is invalid."
     /// Set by scripts/test_ios_ui.sh --keep-installed (TEST_RUNNER_NTK_KEEP_INSTALLED) after NU-1: the
     /// harness stays installed and allowed, so no prompt may appear (keep-installed design v4, 1.3).
     private let keepInstalled = ProcessInfo.processInfo.environment["NTK_KEEP_INSTALLED"] == "1"
@@ -40,12 +43,6 @@ final class NotificationUITests: HarnessUITestCase {
         return line.label == "[abi@event] 2"
     }
 
-    /// On the C ABI, fails the test where the 2.0.0 expectation is not written yet (returns true then).
-    private func pendingOn2(_ what: String) -> Bool {
-        guard abi2 else { return false }
-        XCTFail("write the 2.0.0 expectation of \(what) (stage 3, the Notification mapping design 2c)")
-        return true
-    }
 
     // MARK: Helpers
 
@@ -107,7 +104,7 @@ final class NotificationUITests: HarnessUITestCase {
         run("permission")
         answerPermission(Self.dontAllow)
         let line = waitLines("permission", count: 1)
-        if !abi2 { XCTAssertEqual(line, Self.deniedError, "1.x, measured 2026-11-15") }
+        XCTAssertEqual(line, abi2 ? "[permission@fail] error=\(Self.denied2)" : Self.deniedError, abi2 ? "D-8" : "1.x, measured 2026-11-15")
         return line
     }
 
@@ -212,7 +209,6 @@ final class NotificationUITests: HarnessUITestCase {
         try requireSimulator()
         launch("notification")
         _ = deny()
-        if pendingOn2("NU-2") { return }
         run("status"); XCTAssertEqual(waitLines("status", count: 1), "[status@ok] Denied")
         run("has"); XCTAssertEqual(waitLines("has", count: 1), "[has@ok] False")
     }
@@ -226,8 +222,11 @@ final class NotificationUITests: HarnessUITestCase {
         Thread.sleep(forTimeInterval: 1)
         run("pending"); XCTAssertEqual(waitLines("pending", count: 1), "[pending@ok] ids=none")
         run("delivered"); XCTAssertEqual(waitLines("delivered", count: 1), "[delivered@ok] ids=none date=<absent>")
-        if pendingOn2("NU-2b results") { return }
-        XCTAssertEqual(results, ["[denied-show@ok] done", "[denied-schedule@ok] done", "[denied-update@ok] done"], "1.x, measured 2026-11-15 (M2)")
+        if abi2 {
+            XCTAssertEqual(results, ["denied-show", "denied-schedule", "denied-update"].map { "[\($0)@fail] error=\(Self.denied2)" }, "D-7")
+        } else {
+            XCTAssertEqual(results, ["[denied-show@ok] done", "[denied-schedule@ok] done", "[denied-update@ok] done"], "1.x, measured 2026-11-15 (M2)")
+        }
     }
 
     func test_NU3() throws {
@@ -260,14 +259,17 @@ final class NotificationUITests: HarnessUITestCase {
         banner("ntk NU-4")?.tap()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         let tap = waitLines("tap", count: 1, timeout: 15)
-        // Every key in full; slash is a known-difference candidate (1.x a\/b, 2.0.0 a/b; 2c decides).
+        // Every key in full; 1.x wrote a\/b, 2.0.0 writes a/b (C ABI design v3, section 3).
         let expected = "[tap@event] id=ntkh-4 action=\(Self.bodyTap) userInfo=jp=日本,k=v,q=x\\\"y,slash="
-        XCTAssertTrue([expected + "a\\/b", expected + "a/b"].contains(tap), tap)
+        if abi2 { XCTAssertEqual(tap, expected + "a/b") } else { XCTAssertTrue([expected + "a\\/b", expected + "a/b"].contains(tap), tap) }
         run("schedule-4n"); waitLines("schedule", count: 2)
         pressHome()
         banner("ntk NU-4n")?.tap()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
-        XCTAssertEqual(waitLines("tap", count: 2, timeout: 15), "[tap@event] id=ntkh-4n action=\(Self.bodyTap) userInfo=<null>")
+        // {"n":1,"s":"x"}: 2.0.0 sorts the keys and skips the number (D-12); 1.x stopped at a number, in its own order.
+        let mixed = waitLines("tap", count: 2, timeout: 15)
+        let mixedPrefix = "[tap@event] id=ntkh-4n action=\(Self.bodyTap) userInfo="
+        if abi2 { XCTAssertEqual(mixed, mixedPrefix + "s=x") } else { XCTAssertTrue([mixedPrefix + "<null>", mixedPrefix + "s=x"].contains(mixed), mixed) }
         XCTAssertEqual(settle("tap").count, 2)
     }
 
@@ -325,8 +327,12 @@ final class NotificationUITests: HarnessUITestCase {
         XCTAssertTrue(result("[launch@ok] scenario=notification source=file").waitForExistence(timeout: 20), "the harness did not start from the file")
         let taps = settle("tap", 5)
         record("NU-8 taps=\(taps)")
-        if pendingOn2("NU-8 (the cold-start tap)") { return }
-        XCTAssertEqual(taps, [], "1.x loses the tap that starts the app (expected)")
+        if abi2 {
+            // 2.0.0 keeps the tap until the first listener, the manager's (D-12).
+            XCTAssertEqual(taps, ["[tap@event] id=ntkh-8 action=\(Self.bodyTap) userInfo=<null>"], "the tap that starts the app")
+        } else {
+            XCTAssertEqual(taps, [], "1.x loses the tap that starts the app (expected)")
+        }
     }
 
     // MARK: NU-9, NU-10, NU-14 to NU-15: Settings, inactive and background
@@ -347,7 +353,17 @@ final class NotificationUITests: HarnessUITestCase {
         run("late-permission")
         openControlCenterBriefly()
         XCTAssertEqual(waitLines("late", count: 1), "[late@event] state=foregroundInactive")
-        if pendingOn2("NU-10") { return }
+        if abi2 {
+            // 2.0.0 counts foreground-inactive as the foreground and shows the prompt (F-15); whether a result
+            // comes after it is recorded (none would be a native-toolkit issue to report).
+            let prompted2 = springboard.alerts.firstMatch.waitForExistence(timeout: 5)
+            XCTAssertTrue(prompted2, "the prompt for a call made while inactive")
+            if prompted2 { answerPermission(Self.dontAllow) }
+            let results = settle("permission", 15)
+            record("NU-10 2.0.0 prompt=\(prompted2) results=\(results)")
+            XCTAssertTrue(results.isEmpty || results == ["[permission@fail] error=\(Self.denied2)"], "\(results)")
+            return
+        }
         // 1.x, measured on the simulator twice (2026-11-15): the prompt appears, and after it is answered
         // no result comes at all.
         let prompted = springboard.alerts.firstMatch.waitForExistence(timeout: 5)
@@ -367,7 +383,14 @@ final class NotificationUITests: HarnessUITestCase {
         XCTAssertEqual(waitLines("late", count: 1), "[late@event] state=background")
         let prompted = springboard.alerts.firstMatch.waitForExistence(timeout: 5)
         record("NU-14 prompt=\(prompted)")
-        if pendingOn2("NU-14") { return }
+        if abi2 {
+            // 2.0.0: undetermined in the background is NOT_FOREGROUND at once, without a prompt (D-8).
+            XCTAssertFalse(prompted, "2.0.0 shows no prompt for a call made in the background")
+            if prompted { answerPermission(Self.dontAllow) }
+            XCTAssertEqual(waitLines("permission", count: 1, timeout: 15), "[permission@fail] error=The app is not in the foreground.")
+            XCTAssertEqual(settle("permission").count, 1)
+            return
+        }
         // 1.x, measured 2026-11-15: the prompt appears once the harness is back in front.
         XCTAssertTrue(prompted, "1.x shows the prompt after the harness is back")
         if prompted { answerPermission(Self.dontAllow) }
@@ -493,15 +516,15 @@ final class NotificationUITests: HarnessUITestCase {
         pressHome()
         let x1 = actionsShown("ntk NU-12 x", candidates: ["A", "B", "C"])
         record("NU-12 x after A then B: \(String(describing: x1))")
-        // 1.x keeps A (Set.insert, measured 3 of 3); which one is the 2c decision, so only "one of A, B" here.
-        XCTAssertTrue(x1 == ["A"] || x1 == ["B"], "x has no single action after it was registered twice")
+        // 1.x keeps A (Set.insert, measured 3 of 3); 2.0.0 replaces it with B (C ABI design v3, D-14).
+        if abi2 { XCTAssertEqual(x1, ["B"], "D-14") } else { XCTAssertTrue(x1 == ["A"] || x1 == ["B"], "x has no single action after it was registered twice") }
         backToHarness()
         run("cat-y"); waitLines("cat", count: 3); Thread.sleep(forTimeInterval: 1)
         run("schedule-12x2"); waitLines("schedule", count: 2)
         pressHome()
         let x2 = actionsShown("ntk NU-12 x2", candidates: ["A", "B", "C"])
         record("NU-12 x after Y: \(String(describing: x2))")
-        XCTAssertTrue(x2 == ["A"] || x2 == ["B"], "x has no single action before it is removed")
+        if abi2 { XCTAssertEqual(x2, ["B"], "D-14") } else { XCTAssertTrue(x2 == ["A"] || x2 == ["B"], "x has no single action before it is removed") }
         backToHarness()
         run("cat-remove-x"); waitLines("cat", count: 4); Thread.sleep(forTimeInterval: 1)
         // One notification at a time: two at once hid the first banner (2026-11-15).
@@ -557,7 +580,13 @@ final class NotificationUITests: HarnessUITestCase {
         XCTAssertTrue(alive, "the harness crashed")
         guard alive else { return }
         let line = waitLines("unmeasured", count: 1)
-        if pendingOn2("NU-16") { return }
+        if abi2 {
+            // Out-of-range locations are rejected at the entry; the nested null is removed and the call then meets
+            // the undecided permission (C ABI design v3, D-5, D-7).
+            let message = row == "u-nested-null" ? Self.denied2 : Self.invalid2
+            XCTAssertEqual(line, "[unmeasured@fail] \(row.dropFirst(2)) error=\(message)")
+            return
+        }
         XCTAssertEqual(line, "[unmeasured@ok] \(row.dropFirst(2)) done", "1.x, measured 2026-11-15")
     }
 

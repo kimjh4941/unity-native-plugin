@@ -25,9 +25,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// written with <see cref="Record"/>.
     /// <para>
     /// NTK_IOS_CABI_2_NOTIFICATION is defined when Notification itself moves to the C ABI 2.0.0 (stage 3,
-    /// the last feature; not at the 3-S switch, where Notification still runs a temporary path). Under it,
-    /// the expectations that wait for the mapping design (2c) fail with "write the 2.0.0 expectation"
-    /// instead of passing on a partial check (implementation review v1, R-2, R-3, R-10).
+    /// the last feature). Under it, the expectations are those of section 3 of the Notification C ABI design
+    /// v3 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v3.md).
     /// </para>
     /// <para>
     /// Every test reaches the native side, so the fixture is compiled out after the 3-S switch until
@@ -45,13 +44,11 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         private readonly List<string> _order = new();
 
-        /// <summary>On the C ABI, fails where the 2.0.0 expectation is not written yet.</summary>
-        private static void PendingOn2(string what)
-        {
 #if NTK_IOS_CABI_2_NOTIFICATION
-            Assert.Fail($"write the 2.0.0 expectation of {what} (stage 3, the Notification mapping design 2c)");
+        // The 2.0.0 messages (C ABI design v3, D-6, D-7).
+        private const string Denied = "Notification permission was denied.";
+        private const string Invalid = "The notification request is invalid.";
 #endif
-        }
 
         private static void Record(string what) => Debug.Log($"[NTK-NOTIFICATION-RECORD] {TestContext.CurrentContext.Test.Name} {what}");
 
@@ -219,7 +216,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"in-pending={Lists(list.Value, "ntkp-4")}");
             Assert.IsFalse(Lists(list.Value, "ntkp-4"), "nothing is pending without the permission (M2; 2.0.0 adds nothing)");
 #if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-4 (PERMISSION_DENIED or success)");
+            Assert.AreEqual(Denied, scheduled.Value.ErrorMessage, "D-7");
 #else
             Assert.IsTrue(scheduled.Value.IsSuccess);
 #endif
@@ -237,7 +234,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"show={Describe(shown.Value)} in-delivered={Lists(delivered.Value, "ntkp-5")}");
 #if NTK_IOS_CABI_2_NOTIFICATION
             Assert.IsFalse(Lists(delivered.Value, "ntkp-5"), "2.0.0 adds nothing without the permission");
-            PendingOn2("NP-5 (PERMISSION_DENIED or success)");
+            Assert.AreEqual(Denied, shown.Value.ErrorMessage, "D-7");
 #else
             // 1.x (M2): the immediate request of a NotDetermined app is delivered.
             Assert.IsTrue(shown.Value.IsSuccess);
@@ -261,7 +258,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(Lists(pending.Value, "ntkp-5b"));
             Assert.IsFalse(Lists(delivered.Value, "ntkp-5b"));
 #if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-5b (PERMISSION_DENIED or success)");
+            Assert.AreEqual(Denied, updated.Value.ErrorMessage, "D-7");
 #else
             Assert.IsTrue(updated.Value.IsSuccess);
 #endif
@@ -274,8 +271,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return ExpectOneResultAndEvent(shown);
             Record($"show={Describe(shown.Value)}");
 #if NTK_IOS_CABI_2_NOTIFICATION
-            Assert.IsFalse(shown.Value.IsSuccess, "2.0.0 rejects an unknown trigger");
-            PendingOn2("NP-6 (the INVALID_PARAMETER message)");
+            // An unknown trigger still means "at once" (D-4); without the permission that is D-7's failure.
+            Assert.AreEqual(Denied, shown.Value.ErrorMessage);
 #else
             Assert.IsTrue(shown.Value.IsSuccess, "1.x shows it at once");
 #endif
@@ -344,7 +341,18 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(cases.Length, lines.Count(l => l.EndsWith(" events=1") && !l.Contains("callbacks=")),
                 "a case did not give one callback and one event:\n" + string.Join("\n", lines));
 #if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-8 (INVALID_PARAMETER, a message other than the valid pairs' PERMISSION_DENIED)");
+            // Design v3, section 3: what C# adjusts (D-5 (a)) reaches the permission check and fails with D-7; what
+            // the C ABI rejects at the entry (D-5 (b)) is invalid.
+            var invalid = new HashSet<string>
+            {
+                "show-empty-content-id", "schedule-empty-identifier", "attachment-https", "calendar-without-components",
+                "location-empty-identifier", "userinfo-reserved-key",
+            };
+            foreach (string line in lines)
+            {
+                string label = line.Split(':')[0];
+                Assert.AreEqual($"{label}: fail error={(invalid.Contains(label) ? Invalid : Denied)} events=1", line);
+            }
 #else
             // 1.x, measured on the simulator (2026-11-15): only the https attachment fails (M4).
             foreach (string line in lines)
@@ -373,8 +381,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return RunCase($"{seconds}/{repeats}", () => Schedule(Id("ntkp-9"), Content("ntkp-9"), trigger), Describe, lines);
             }
             foreach (string line in lines) Record(line);
-            Assert.IsTrue(lines.All(l => l.Contains(": fail ")), string.Join("\n", lines));
-            PendingOn2("NP-9 (INVALID_PARAMETER, not only a failure)");
+            Assert.IsTrue(lines.All(l => l.EndsWith($": fail error={Invalid} events=1")), string.Join("\n", lines));
         }
 #endif
 
@@ -387,11 +394,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return RunCase($"interval={seconds}", () => Schedule(Id("ntkp-9b"), Content("ntkp-9b"), Interval(seconds)), Describe, lines);
             foreach (string line in lines) Record(line);
             Assert.IsTrue(lines.All(l => l.Contains(": fail ") && l.EndsWith(" events=1")), string.Join("\n", lines));
-#if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-9b (rejected in C# or INVALID_PARAMETER)");
-#else
+            // The C# builder writes JSON that cannot be read; 2.0.0 reads the JSON as 1.x did (D-4).
             Assert.IsTrue(lines.All(l => l.Contains("error=Failed to parse notification content or trigger JSON ")), string.Join("\n", lines));
-#endif
         }
 
         [UnityTest, Order(11)]
@@ -410,7 +414,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             foreach (string line in lines) Record(line);
             Assert.IsTrue(lines.All(l => l.EndsWith(" events=1")), string.Join("\n", lines));
 #if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-13 (the INVALID_PARAMETER message)");
+            Assert.AreEqual(new[] { $"count=-1: fail error={Invalid} events=1", "count=0: ok events=1" }, lines.ToArray(), "D-11");
 #else
             // 1.x, measured (2026-11-15): a negative badge already fails (the plan v4 expected success).
             Assert.AreEqual(2, lines.Count, string.Join("\n", lines));
@@ -458,11 +462,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             foreach (string line in lines) Record(line);
             foreach (var id in new[] { "ntkp-16a", "ntkp-16b", "ntkp-16c" }) M.RemoveCategory(id);
             Assert.IsTrue(lines.All(l => l.EndsWith(" events=1")), string.Join("\n", lines));
-#if NTK_IOS_CABI_2_NOTIFICATION
-            PendingOn2("NP-16 ((a) and (b) INVALID_PARAMETER, (c) 2c)");
-#else
-            Assert.IsTrue(lines.All(l => l.Contains(": ok ")), "1.x drops or keeps them and succeeds:\n" + string.Join("\n", lines));
-#endif
+            // 1.x and 2.0.0 (D-4: the incomplete and empty-id actions are dropped, unknown options ignored) succeed.
+            Assert.IsTrue(lines.All(l => l.Contains(": ok ")), "they are dropped or kept and the call succeeds:\n" + string.Join("\n", lines));
         }
 
         [UnityTest, Order(14)]
@@ -487,6 +488,26 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(shapes.Keys.All(s => s == "A=0,B=1,events=2" || s == "A=1,B=1,events=2" || s == "A=0,B=2,events=2"), string.Join(";", shapes.Keys));
 #endif
         }
+
+#if NTK_IOS_CABI_2_NOTIFICATION
+        /// <summary>
+        /// NP-19 (C ABI design v3, D-2): a call still waiting when the manager is destroyed gets its result, as 1.x's
+        /// static callbacks did.
+        /// </summary>
+        [UnityTest, Order(16)]
+        public IEnumerator NP19_ACallWaitingAtDestroyStillGetsItsResult()
+        {
+            M.NotificationOperationCompleted -= _onEvent;
+            var list = new Box<string>();
+            M.GetScheduledNotifications(json => { list.Value = json; list.Count++; });
+            UnityEngine.Object.Destroy(M.gameObject);
+            yield return WaitFor(() => list.Count > 0);
+            yield return WaitFor(() => false, 0.5f);
+            Assert.AreEqual(1, list.Count);
+            StringAssert.StartsWith("[", list.Value);
+            M.NotificationOperationCompleted += _onEvent; // a new manager for the teardown
+        }
+#endif
     }
 #endif
 

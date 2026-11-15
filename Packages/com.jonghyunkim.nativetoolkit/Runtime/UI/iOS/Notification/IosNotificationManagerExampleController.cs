@@ -886,6 +886,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
             return false;
         }
 
+        // native-toolkit 2.0.0's text (C ABI design v3, D-6, D-17); 1.x's generic, localized text below.
+        if (errorMessage == "Notification permission was denied.")
+        {
+            return true;
+        }
+
         var normalized = errorMessage.Replace(" ", string.Empty);
         return normalized.Contains("notificationerror", StringComparison.OrdinalIgnoreCase)
                && (normalized.Contains("error4", StringComparison.OrdinalIgnoreCase)

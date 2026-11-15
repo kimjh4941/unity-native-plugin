@@ -134,6 +134,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         internal IReadOnlyList<JsonValue> AsArray() =>
             Kind == JsonValueKind.Array ? _elements! : Array.Empty<JsonValue>();
 
+        /// <summary>The members of an object (none for another kind). Their order is not kept.</summary>
+        internal IReadOnlyDictionary<string, JsonValue> Members =>
+            Kind == JsonValueKind.Object ? _members! : EmptyMembers;
+
+        private static readonly Dictionary<string, JsonValue> EmptyMembers = new();
+
+        /// <summary>The text of a number as it was written (iOS Notification writes userInfo back without changing it).</summary>
+        internal string? RawNumber => Kind == JsonValueKind.Number ? _source!.Substring(_start, _length) : null;
+
         /// <summary>Materializes a string value, decoding escapes only when the scan found any.</summary>
         internal bool TryGetString(out string value)
         {

@@ -308,7 +308,5 @@
   "timeLimits": {
     "NotificationUITests/test_NU11": 1500
   },
-  "notMovedYet": [
-    "NotificationUITests"
-  ]
+  "notMovedYet": []
 }
