@@ -4,7 +4,7 @@
 - 設計: [../designs/2026-11-15-ios-clipboard-cabi-design-v5.md](../designs/2026-11-15-ios-clipboard-cabi-design-v5.md)
   - v1〜v3 はレビューを 3 回通した。3 回目でも Codex の A1 が 2 件あり、決まりの上限で止めた。
   - v4（その直し）と v5（実装のレビューの直し）は**レビューしていない**。v4 の D-12 の仕組みは、実装のレビュー v1 で全体を見てもらった。
-  - 4 回目の設計のレビューを回すかは、利用者に確かめる（5 章）。
+  - 4 回目の設計のレビューは回さない（利用者の判断。5 章）。
 - 設計のレビュー: [../reviews/2026-11-15-ios-clipboard-cabi-design-review-v1.md](../reviews/2026-11-15-ios-clipboard-cabi-design-review-v1.md)、[v2](../reviews/2026-11-15-ios-clipboard-cabi-design-review-v2.md)、[v3](../reviews/2026-11-15-ios-clipboard-cabi-design-review-v3.md)
 - 実装のレビュー: [../reviews/2026-11-15-ios-clipboard-cabi-implementation-review-v1.md](../reviews/2026-11-15-ios-clipboard-cabi-implementation-review-v1.md)
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3（3 つ目の機能）
@@ -81,5 +81,5 @@ Player の記録の行（`[NTK-CLIPBOARD-RECORD]`）は次のとおり:
 
 ## 5. 残っていること
 
-- 利用者に確かめること: 設計 v4・v5 はレビューしていない。4 回目の設計のレビューを回すか、実装のレビュー v1 を通したことで足りるとするか（推奨: 足りるとする。D-12 の仕組みは実装のレビューで全体を見てもらい、指摘は直してテストを足した）。
+- 設計 v4・v5 はレビューしていない。4 回目の設計のレビューは回さない（利用者の判断、2026-11-15。D-12 の仕組みは実装のレビュー v1 で全体を見てもらい、指摘は直してテストを足した）。
 - 段 4: JSON Builder（`IosClipboardJsonBuilder`）を消す。
