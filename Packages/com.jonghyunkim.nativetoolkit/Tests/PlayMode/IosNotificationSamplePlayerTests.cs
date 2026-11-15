@@ -58,7 +58,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return PressAndExpect("ShowImmediateButton", $"ShowImmediate: {PermissionRequired}");
         }
 
-        [UnityTest, Order(2)]
+        [UnityTest, Order(2), Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)]
         public IEnumerator NS02_RequestPermission_Allow()
         {
             yield return OpenScreen();
@@ -106,7 +106,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return PressAndExpectPrefix("RemoveCategoryButton", "RemoveCategory (");
         }
 
-        [UnityTest, Order(7)]
+        [UnityTest, Order(7), Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)]
         public IEnumerator NS07_OpenNotificationSettings_ComesBack()
         {
             yield return OpenScreen();

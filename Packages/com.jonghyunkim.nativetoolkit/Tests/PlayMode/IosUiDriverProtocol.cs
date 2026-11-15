@@ -9,7 +9,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// The lines between the iOS player tests and the UI driver (artifact/topics/ios-c-abi-2, UI driver design
-    /// v2, chapter 3): building requests and reading answers. No Unity API and no platform guard, so the
+    /// v3, chapter 3): building requests and reading answers. No Unity API and no platform guard, so the
     /// Editor's PlayMode run can check it (<c>IosUiDriverProtocolTests</c>); <c>IosUiDriver</c> sends them.
     /// </summary>
     internal static class IosUiDriverProtocol
@@ -26,6 +26,12 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>The wait for a screen command, whose own limit is 60 s (design 3.3).</summary>
         internal const float ScreenAnswerTimeoutSeconds = 120f;
 
+        /// <summary>
+        /// The Test Framework's limit for a test that waits for a screen command (design 3.3; its default 180 s is
+        /// too short: up to 170 s for the test and 120 s for the teardown's WaitForPending. Review v1, R-5).
+        /// </summary>
+        internal const int ScreenTestTimeoutMilliseconds = 300000;
+
         /// <summary>The screen commands: 60 s on the driver's side, and they close what they opened on failure.</summary>
         internal static readonly HashSet<string> ScreenCommands = new()
         {
@@ -38,10 +44,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             "alert-absent", "sheet-absent",
         };
 
-        private static readonly Regex s_command = new("^[a-z]+(-[a-z]+)*$", RegexOptions.CultureInvariant);
-        private static readonly Regex s_argument = new("^[A-Za-z0-9+/=-]+$", RegexOptions.CultureInvariant);
-        private static readonly Regex s_run = new("^[0-9a-f]{32}$", RegexOptions.CultureInvariant);
-        private static readonly Regex s_reason = new("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
+        // \A and \z, not ^ and $: .NET's $ also matches before a final "\n", which would let a value with a
+        // trailing newline split a line (implementation review v1, Codex C-4).
+        private static readonly Regex s_command = new(@"\A[a-z]+(-[a-z]+)*\z", RegexOptions.CultureInvariant);
+        private static readonly Regex s_argument = new(@"\A[A-Za-z0-9+/=-]+\z", RegexOptions.CultureInvariant);
+        private static readonly Regex s_run = new(@"\A[0-9a-f]{32}\z", RegexOptions.CultureInvariant);
+        private static readonly Regex s_reason = new(@"\A[a-z0-9]+(-[a-z0-9]+)*\z", RegexOptions.CultureInvariant);
 
         /// <summary>A new run id: 32 lower-case hex digits.</summary>
         internal static string NewRun() => Guid.NewGuid().ToString("N");

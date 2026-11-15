@@ -10,13 +10,17 @@ import XCTest
 /// - NTK_DRIVER_BUNDLE: the player's bundle id (required). A HELLO naming another app is refused.
 /// - NTK_DRIVER_LIMIT: seconds to wait for BYE (default 900).
 /// - NTK_DRIVER_DEVICE: "1" on a device run; the commands of design chapter 7 are refused there.
+/// - NTK_DRIVER_APP_NAME: the player's display name, from its Info.plist (the script reads it). A springboard
+///   prompt is answered only when it names the player. Reading the app element's label instead failed the whole
+///   test ("Failed to get matching snapshot") while the permission prompt was up (2026-11-16).
 ///
 /// The test-only command `drop-next` makes the driver handle the next request and then drop the connection
 /// once before answering it (V-11: the player connects again and sends the request again; it is answered from
 /// memory, not pressed again).
 ///
-/// Privacy (design chapter 7): nothing read from a screen is printed or kept: no element tree, no screenshot,
-/// no label. Failures answer with fixed words only.
+/// Privacy (design chapter 7): nothing read from a screen is printed: no element tree, no label. Failures answer
+/// with fixed words only. XCTest itself may put screenshots of a failure into the result bundle; on a device the
+/// script writes it into a temporary folder that it deletes at the end (implementation review v1, R-10).
 final class DriverUITests: XCTestCase {
     private static let allowLabels = ["Allow", "許可"]
     private static let dontAllowLabels = ["Don’t Allow", "Don't Allow", "許可しない"]
@@ -25,6 +29,7 @@ final class DriverUITests: XCTestCase {
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     private var app: XCUIApplication!
     private var onDevice = false
+    private var appName = ""
 
     private func log(_ text: String) {
         FileHandle.standardError.write(Data("[NTK-UI-DRIVER] \(text)\n".utf8))
@@ -43,6 +48,7 @@ final class DriverUITests: XCTestCase {
         }
         let limit = TimeInterval(env["NTK_DRIVER_LIMIT"] ?? "") ?? 900
         onDevice = env["NTK_DRIVER_DEVICE"] == "1"
+        appName = env["NTK_DRIVER_APP_NAME"] ?? ""
         var dropNext = false
         app = XCUIApplication(bundleIdentifier: bundle)
 
@@ -59,7 +65,9 @@ final class DriverUITests: XCTestCase {
         var connections = 0
 
         while Date() < deadline {
-            guard let connection = server.accept(until: deadline) else { break }
+            // A failed accept (EINTR, a connection reset before it was taken) is not the end of the run
+            // (implementation review v1, R-3); only the deadline is.
+            guard let connection = server.accept(until: deadline) else { continue }
             defer { connection.close() }
             guard let hello = connection.readLine(until: Date().addingTimeInterval(10)) else { continue }
             let parts = hello.split(separator: " ", omittingEmptySubsequences: false).map(String.init)
@@ -191,18 +199,27 @@ final class DriverUITests: XCTestCase {
     private func alertTap(_ label: String) -> String {
         guard let alert = waitForAlert(10) else { return "fail not-found" }
         let button = alert.buttons.matching(NSPredicate(format: "label == %@", label))
-        guard button.count == 1 else { return "fail not-found" }
+        guard button.count == 1 else { return dismissAlert(alert, "fail not-found") }
         button.firstMatch.tap()
         return waitForNoAlert(10) ? "ok" : "fail did-not-close"
+    }
+
+    /// Closes an alert a failed request leaves open, so the next test can show its own (implementation review
+    /// v1, R-7): the last button, which is the cancel-style one in the sample's alerts and action sheets.
+    private func dismissAlert(_ alert: XCUIElement, _ answer: String) -> String {
+        let buttons = alert.buttons
+        if buttons.count > 0 { buttons.element(boundBy: buttons.count - 1).tap() }
+        _ = waitForNoAlert(5)
+        return answer
     }
 
     private func alertType(secure: Bool, index: Int, text: String) -> String {
         guard let alert = waitForAlert(10) else { return "fail not-found" }
         // A device run never types into an alert that has a secure field (design chapter 7): password saving
         // and AutoFill would reach the user's keychain.
-        if onDevice && alert.secureTextFields.count > 0 { return "fail device-only-refused" }
+        if onDevice && alert.secureTextFields.count > 0 { return dismissAlert(alert, "fail device-only-refused") }
         let fields = secure ? alert.secureTextFields : alert.textFields
-        guard index < fields.count else { return "fail not-found" }
+        guard index < fields.count else { return dismissAlert(alert, "fail not-found") }
         let field = fields.element(boundBy: index)
         field.tap()
         field.typeText(text)
@@ -229,11 +246,22 @@ final class DriverUITests: XCTestCase {
         let answer = body()
         if answer.hasPrefix("fail") {
             if SystemUI.shareSheet(app, timeout: 1) { _ = SystemUI.closeShareSheet(app, timeout: 5) }
-            let prompt = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", Self.dontAllowLabels))
-            if prompt.firstMatch.exists { prompt.firstMatch.tap() }
             _ = front()
         }
         return answer
+    }
+
+    /// The springboard alert that names the player (its display name in the alert's label), or nil. Another
+    /// app's or the system's prompt is never answered (implementation review v1, R-8). Nothing read is printed.
+    private func playerPrompt(_ seconds: TimeInterval) -> XCUIElement? {
+        let name = appName
+        let end = Date().addingTimeInterval(seconds)
+        repeat {
+            let prompt = springboard.alerts.firstMatch
+            if prompt.exists && !name.isEmpty && prompt.label.contains(name) { return prompt }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date() < end
+        return nil
     }
 
     private func sheetClose() -> String {
@@ -255,10 +283,14 @@ final class DriverUITests: XCTestCase {
     }
 
     private func permissionAnswer(allow: Bool) -> String {
-        let prompt = springboard.alerts.firstMatch
-        guard prompt.waitForExistence(timeout: 15) else { return "fail dialog-did-not-open" }
-        let button = springboard.alerts.buttons.matching(NSPredicate(format: "label IN %@", allow ? Self.allowLabels : Self.dontAllowLabels))
-        guard button.count == 1 else { return "fail not-found" }
+        guard let prompt = playerPrompt(15) else { return "fail dialog-did-not-open" }
+        let button = prompt.buttons.matching(NSPredicate(format: "label IN %@", allow ? Self.allowLabels : Self.dontAllowLabels))
+        guard button.count == 1 else {
+            // Only this prompt (it names the player) is answered on the failure path.
+            let deny = prompt.buttons.matching(NSPredicate(format: "label IN %@", Self.dontAllowLabels))
+            if deny.count == 1 { deny.firstMatch.tap() }
+            return "fail not-found"
+        }
         button.firstMatch.tap()
         let end = Date().addingTimeInterval(10)
         while springboard.alerts.firstMatch.exists {
@@ -307,8 +339,9 @@ final class DriverUITests: XCTestCase {
         return front() ? "ok" : "fail not-in-front"
     }
 
+    /// Always activates: `state` of an app this runner did not launch can read as in front while it is not
+    /// (implementation review v1, R-4; the Settings round trip of 2026-11-15).
     private func front() -> Bool {
-        if app.state == .runningForeground { return true }
         app.activate()
         return app.wait(for: .runningForeground, timeout: 10)
     }

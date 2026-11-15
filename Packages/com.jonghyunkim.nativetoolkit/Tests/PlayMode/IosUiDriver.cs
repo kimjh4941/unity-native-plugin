@@ -21,7 +21,7 @@ using UnityEngine.TestRunner;
 namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
-    /// The test side of the iOS UI driver (artifact/topics/ios-c-abi-2, UI driver design v2): an XCUITest test
+    /// The test side of the iOS UI driver (artifact/topics/ios-c-abi-2, UI driver design v3): an XCUITest test
     /// method that scripts/verify_unity_ios.sh starts next to the player and that presses the system screens
     /// (alerts, the share sheet, the notification permission, Settings) the tests ask for. The iOS counterpart
     /// of <c>AndroidUiDriver</c>, with the same names: <see cref="Do"/>, <see cref="Send"/>, <see cref="Wait"/>,
@@ -44,10 +44,10 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>Tests that go through the sample scene (ignored where the player has none).</summary>
         internal const string SampleScreenCategory = "IosSampleScreen";
 
-        /// <summary>Tests the device runs leave out (design v2, chapter 7).</summary>
+        /// <summary>Tests the device runs leave out (design v3, chapter 7).</summary>
         internal const string SimulatorOnlyCategory = "IosSimulatorOnly";
 
-        /// <summary>The Notification sample tests, run in their own reinstalled player run (design v2, 4.5).</summary>
+        /// <summary>The Notification sample tests, run in their own reinstalled player run (design v3, 4.5).</summary>
         internal const string NotificationSampleCategory = "IosNotificationSample";
 
         private const float ConnectTimeoutSeconds = 5f;
@@ -80,10 +80,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// <summary>The number of requests sent and not yet waited for: 0 after every test.</summary>
         internal static int PendingCount => s_pending.Count;
 
+        /// <summary>How many times the connection was made again (V-11; implementation review v1, R-6).</summary>
+        internal static int ReconnectCount { get; private set; }
+
         /// <summary>A string argument (Base64 of UTF-8).</summary>
         internal static string Text(string value) => IosUiDriverProtocol.Base64(value);
 
-        /// <summary>Sends a request and waits for its answer (design v2, 3.3 for the waits).</summary>
+        /// <summary>Sends a request and waits for its answer (design v3, 3.3 for the waits).</summary>
         internal static IEnumerator Do(string command, params string[] args)
         {
             yield return Send(command, args);
@@ -92,7 +95,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         /// <summary>
         /// Sends a request without waiting for its answer: send first, then open the system screen, then
-        /// <see cref="Wait"/> (design v2, D-6). Every request sent must be waited for, on failure paths too
+        /// <see cref="Wait"/> (design v3, D-6). Every request sent must be waited for, on failure paths too
         /// (<see cref="WaitForPending"/>). Ignores the test when no driver is running.
         /// </summary>
         internal static IEnumerator Send(string command, params string[] args)
@@ -108,7 +111,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             s_pending[number] = (line, $"{command} {string.Join(" ", args)}".TrimEnd());
             LastSent = number;
             if (!TryWrite(line))
-                yield return Reconnect();
+                yield return Reconnect(Time.realtimeSinceStartup + IosUiDriverProtocol.ScreenAnswerTimeoutSeconds);
         }
 
         /// <summary>Waits for the answer of a request sent earlier; fails on "fail" or no answer in time.</summary>
@@ -118,9 +121,15 @@ namespace JonghyunKim.NativeToolkit.Tests
             float deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while (!s_answers.ContainsKey(number))
             {
+                // Checked on every path, the reconnect one too (implementation review v1, Codex C-3).
+                if (Time.realtimeSinceStartup > deadline)
+                {
+                    s_pending.Remove(number);
+                    Assert.Fail($"The UI driver did not answer {request} within {timeoutSeconds}s.");
+                }
                 if (!ReadAvailable())
                 {
-                    yield return Reconnect();
+                    yield return Reconnect(deadline);
                     if (s_lost)
                     {
                         s_pending.Remove(number);
@@ -129,11 +138,6 @@ namespace JonghyunKim.NativeToolkit.Tests
                     continue;
                 }
                 if (s_answers.ContainsKey(number)) break;
-                if (Time.realtimeSinceStartup > deadline)
-                {
-                    s_pending.Remove(number);
-                    Assert.Fail($"The UI driver did not answer {request} within {timeoutSeconds}s.");
-                }
                 yield return null;
             }
             s_pending.Remove(number);
@@ -173,7 +177,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         /// <summary>
-        /// Says BYE at the end of the run and waits for "BYE ok" (design v2, 4.2). Blocks the main thread for
+        /// Says BYE at the end of the run and waits for "BYE ok" (design v3, 4.2). Blocks the main thread for
         /// at most a few seconds. Connects first when no test used the driver; does nothing without a driver.
         /// </summary>
         internal static void SayBye()
@@ -232,6 +236,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
             s_client = client;
             s_stream = client.GetStream();
+            // A write that cannot go out does not hold Unity's main thread for ever (review v1, Codex C-8).
+            s_stream.WriteTimeout = 5000;
             if (!TryWrite(IosUiDriverProtocol.Hello(s_run!, Application.identifier)))
             {
                 Close();
@@ -253,8 +259,13 @@ namespace JonghyunKim.NativeToolkit.Tests
             Close();
         }
 
-        /// <summary>Connects again with the same run and sends every unanswered request again.</summary>
-        private static IEnumerator Reconnect()
+        /// <summary>
+        /// Connects again with the same run and sends every unanswered request again. Tries until
+        /// <paramref name="deadline"/>: the driver handles one connection at a time and accepts the new one only
+        /// after the command it is on (up to 77 s for settings-close), so one 5 s handshake is not enough
+        /// (implementation review v1, R-3 and Codex C-2).
+        /// </summary>
+        private static IEnumerator Reconnect(float deadline)
         {
             if (s_lost) yield break;
             string? port = Environment.GetEnvironmentVariable("NTK_DRIVER_PORT");
@@ -264,11 +275,18 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield break;
             }
             Debug.Log($"{LogTag} connection lost; connecting again");
-            yield return Connect(portNumber);
-            if (s_stream == null)
+            ReconnectCount++;
+            while (true)
             {
-                s_lost = true;
-                yield break;
+                yield return Connect(portNumber);
+                if (s_stream != null) break;
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    s_lost = true;
+                    yield break;
+                }
+                float pause = Time.realtimeSinceStartup + 1f;
+                while (Time.realtimeSinceStartup < pause) yield return null;
             }
             foreach (var pending in s_pending)
             {
@@ -389,7 +407,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
     }
 
-    /// <summary>Says BYE to the UI driver when the run ends (design v2, 4.2 and 4.3).</summary>
+    /// <summary>Says BYE to the UI driver when the run ends (design v3, 4.2 and 4.3).</summary>
     [Preserve]
     public sealed class IosUiDriverRunCallback : ITestRunCallback
     {

@@ -29,6 +29,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase("0123456789ABCDEF0123456789ABCDEF")]
         [TestCase("0123456789abcdef")]
         [TestCase("0123456789abcdef0123456789abcdef0")]
+        [TestCase("0123456789abcdef0123456789abcdef\n")]
         public void Hello_RejectsABadRun(string run)
         {
             Assert.Throws<ArgumentException>(() => IosUiDriverProtocol.Hello(run, "com.example.app"));
@@ -56,7 +57,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual("T0s=", ok);
             Assert.AreEqual("7 alert-tap T0s=", IosUiDriverProtocol.Request(7, "alert-tap", new[] { ok }));
             Assert.AreEqual("8 front", IosUiDriverProtocol.Request(8, "front", Array.Empty<string>()));
-            Assert.AreEqual("9 alert-type 1 YWJj", IosUiDriverProtocol.Request(9, "alert-type", new[] { "1", IosUiDriverProtocol.Base64("abc") }));
+            Assert.AreEqual("9 alert-type text 1 YWJj", IosUiDriverProtocol.Request(9, "alert-type", new[] { "text", "1", IosUiDriverProtocol.Base64("abc") }));
             Assert.AreEqual("44GC", IosUiDriverProtocol.Base64("あ"), "UTF-8");
         }
 
@@ -65,6 +66,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase(1, "alert tap")]
         [TestCase(1, "-front")]
         [TestCase(1, "")]
+        [TestCase(1, "front\n")]
         public void Request_RejectsABadNumberOrCommand(int number, string command)
         {
             Assert.That(() => IosUiDriverProtocol.Request(number, command, Array.Empty<string>()), Throws.InstanceOf<ArgumentException>());
@@ -74,6 +76,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase("OK Cancel")]
         [TestCase("a\nb")]
         [TestCase("了解")]
+        [TestCase("T0s=\n")]
         public void Request_RejectsAnArgumentThatIsNotRawOrBase64(string arg)
         {
             Assert.Throws<ArgumentException>(() => IosUiDriverProtocol.Request(1, "alert-tap", new[] { arg }));
@@ -112,6 +115,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase("3 fail Not Found")]
         [TestCase("3 fail not_found")]
         [TestCase("3 error x")]
+        [TestCase("3 fail timeout\n")]
         [TestCase("BYE ok")]
         public void TryParseAnswer_RejectsAnythingElse(string line)
         {

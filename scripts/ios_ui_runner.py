@@ -198,7 +198,7 @@ CATEGORIES = {
     "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
 "focus": "the harness is installed once and stays: the run waits until the user lets only NTK UI Harness through a Focus mode, then runs the tests in order without reinstalling",
     "longpress": "long-presses the harness's notification banner and presses an action only after the expanded notification shows that notification",
-    "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app). Next to the player runs the UI driver (an XCUITest runner on 127.0.0.1 of the device): it brings the player to the front, and for the sample-screen tests presses the player's own alerts and closes share sheets without choosing an activity; on a device it never sends the player to the background, never types into an alert that has a password field, never taps a notification banner, and prints nothing it reads from the screen. Then a second player run on a fresh install: the Notification sample screen asks for the notification permission once and the driver answers Allow (on the player only, removed at the end), shows and removes the player's own notifications and badge, and opens the player's page in Settings and comes back (no setting is changed)",
+    "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app). Next to the player runs the UI driver (an XCUITest runner on 127.0.0.1 of the device): it brings the player to the front, and for the sample-screen tests presses the player's own alerts and closes share sheets without choosing an activity; on a device it never sends the player to the background, never types into an alert that has a password field, never taps a notification banner, and prints nothing it reads from the screen; the Dialog sample's text-input alert gets a test value typed with the device's keyboard (never an alert that has a password field). Then a second player run on a fresh install: the Notification sample screen asks for the notification permission once and the driver answers Allow (on the player only, removed at the end), shows and removes the player's own notifications and badge, and opens the player's page in Settings and comes back (no setting is changed)",
 }
 
 
@@ -315,13 +315,23 @@ def mixed_kinds(tests):
 
 
 def judge_results(data, tests):
-    """(passed, lines) for xcresulttool's 'get test-results tests' JSON and the tests that should have run."""
+    """(passed, lines) for xcresulttool's 'get test-results tests' JSON and the tests that should have run.
+
+    Each test must appear exactly once: a test reported twice fails even when its last result passed (the
+    UI driver implementation review v1, Codex C-7: a dictionary kept only the last one).
+
+    >>> case = lambda result: {"nodeType": "Test Case", "nodeIdentifier": "DriverUITests/test_drive()", "result": result}
+    >>> judge_results({"testNodes": [case("Passed")]}, ["DriverUITests/test_drive"])
+    (True, ['DriverUITests/test_drive: Passed'])
+    >>> judge_results({"testNodes": [case("Failed"), case("Passed")]}, ["DriverUITests/test_drive"])
+    (False, ['DriverUITests/test_drive: Failed, Passed (reported 2 times)'])
+    """
     found = {}
 
     def walk(node):
         if node.get("nodeType") == "Test Case":
             name = node.get("nodeIdentifier", "").removesuffix("()")
-            found[name] = node.get("result", "unknown")
+            found.setdefault(name, []).append(node.get("result", "unknown"))
         for child in node.get("children", []):
             walk(child)
 
@@ -329,12 +339,16 @@ def judge_results(data, tests):
         walk(node)
     lines, ok = [], True
     for test in tests:
-        result = found.get(test, "did not run")
-        ok &= result in PASSING_RESULTS
-        lines.append(f"{test}: {result}")
+        results = found.get(test, ["did not run"])
+        if len(results) == 1:
+            ok &= results[0] in PASSING_RESULTS
+            lines.append(f"{test}: {results[0]}")
+        else:
+            ok = False
+            lines.append(f"{test}: {', '.join(results)} (reported {len(results)} times)")
     for name in sorted(set(found) - set(tests)):
         ok = False
-        lines.append(f"{name}: {found[name]} (not asked for)")
+        lines.append(f"{name}: {', '.join(found[name])} (not asked for)")
     return ok, lines
 
 

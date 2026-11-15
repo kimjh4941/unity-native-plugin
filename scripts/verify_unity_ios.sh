@@ -85,6 +85,8 @@ PLAYER_LIMIT=600
 DRIVER_PID=""
 DRIVER_PORT=""
 DRIVER_XCTESTRUN=""
+# The player's display name for the driver (it answers only a springboard prompt that names the player).
+PLAYER_APP_NAME=""
 ALLOW_SKIP=()
 # The category of the player run in progress, and the suffix of its files: the Notification sample tests run
 # in a second player run on a fresh install (UI driver design v3, 4.5: the permission can be asked once).
@@ -321,6 +323,8 @@ export_categories() {
 build_driver() {
   local destination="$1" log="$OUT_DIR/uitests-build.log"
   shift
+  # Once per script run: both player runs use the same build (implementation review v1, R-2).
+  [ -n "$DRIVER_XCTESTRUN" ] && return 0
   rm -rf "$OUT_DIR/uitests-dd" "$log"
   run_limited uitests 1200 600 "$log" "$log" \
     "$XCODEBUILD" -project "$UITESTS_DIR/NtkUiTests.xcodeproj" -scheme NtkUiTests \
@@ -343,23 +347,26 @@ build_driver() {
 # (design v3, 4.1). Its whole limit is the player's plus 120 s; no stall limit (it prints nothing while it
 # waits). Sets DRIVER_PID and DRIVER_PORT.
 start_driver() {
-  local destination="$1" log="$OUT_DIR/driver.log" device=0 waited=0
+  local destination="$1" log="$OUT_DIR/driver$RUN_SUFFIX.log" device=0 waited=0
   [ "$DEVICE_MODE" -eq 1 ] && device=1
-  rm -rf "$log" "$OUT_DIR/driver.xcresult" "$OUT_DIR/driver.json"
+  # This run's port only: an earlier run's must not be reused (implementation review v1, C-5).
+  DRIVER_PORT=""
+  rm -rf "$log" "$OUT_DIR/driver$RUN_SUFFIX.xcresult" "$OUT_DIR/driver$RUN_SUFFIX.json"
   # Made before the start: the background child may open it only after the first read below.
   : > "$log"
   env TEST_RUNNER_NTK_DRIVER_BUNDLE="$PLAYER_ID" TEST_RUNNER_NTK_DRIVER_LIMIT=$((PLAYER_LIMIT + 120)) \
-    TEST_RUNNER_NTK_DRIVER_DEVICE="$device" \
+    TEST_RUNNER_NTK_DRIVER_DEVICE="$device" TEST_RUNNER_NTK_DRIVER_APP_NAME="$PLAYER_APP_NAME" \
     "$XCODEBUILD" test-without-building -xctestrun "$DRIVER_XCTESTRUN" -destination "$destination" \
     -derivedDataPath "$OUT_DIR/driver-dd" -only-testing:"NtkUiTests/$DRIVER_TEST" -parallel-testing-enabled NO \
-    -test-timeouts-enabled NO -collect-test-diagnostics never -resultBundlePath "$OUT_DIR/driver.xcresult" > "$log" 2>&1 &
+    -test-timeouts-enabled NO -collect-test-diagnostics never -resultBundlePath "$OUT_DIR/driver$RUN_SUFFIX.xcresult" > "$log" 2>&1 &
   DRIVER_PID=$!
   while [ "$waited" -lt 120 ] && kill -0 "$DRIVER_PID" 2>/dev/null; do
     DRIVER_PORT="$(grep -o '\[NTK-UI-DRIVER\] listening [0-9]*' "$log" | head -1 | grep -o '[0-9]*$')"
     [ -n "$DRIVER_PORT" ] && break
     sleep 1; waited=$((waited + 1))
   done
-  if [ -z "$DRIVER_PORT" ]; then
+  if [ -z "$DRIVER_PORT" ] || ! kill -0 "$DRIVER_PID" 2>/dev/null; then
+    DRIVER_PORT=""
     echo "  driver: did not start listening within ${waited}s (see $log)"
     stop_driver
     return 1
@@ -376,9 +383,11 @@ stop_driver() {
 }
 
 # finish_driver <player had .done: 0|1>: after .done the driver ends on the player's BYE; wait 60 s for
-# it, then judge its one test (design v3, 4.1 and 4.3). Without .done, stop it first and fail.
+# it, then judge its one test (design v3, 4.1 and 4.3). Without .done the driver fails whatever it did (the
+# run is broken), and a driver still running is stopped first. A non-zero exit of its xcodebuild fails it
+# too (implementation review v1, C-6).
 finish_driver() {
-  local had_done="$1" waited=0
+  local had_done="$1" waited=0 code=0
   if [ "$had_done" -eq 1 ]; then
     while [ "$waited" -lt 60 ] && kill -0 "$DRIVER_PID" 2>/dev/null; do
       sleep 1; waited=$((waited + 1))
@@ -390,14 +399,23 @@ finish_driver() {
     return 1
   fi
   wait "$DRIVER_PID" 2>/dev/null
+  code=$?
   DRIVER_PID=""
-  if [ ! -d "$OUT_DIR/driver.xcresult" ]; then
-    echo "  driver: no result bundle (see $OUT_DIR/driver.log)"
+  if [ "$had_done" -ne 1 ]; then
+    echo "  driver: the player ended without its result"
     return 1
   fi
-  xcrun xcresulttool get test-results tests --path "$OUT_DIR/driver.xcresult" > "$OUT_DIR/driver.json" 2>/dev/null
+  if [ ! -d "$OUT_DIR/driver$RUN_SUFFIX.xcresult" ]; then
+    echo "  driver: no result bundle (see $OUT_DIR/driver$RUN_SUFFIX.log)"
+    return 1
+  fi
+  xcrun xcresulttool get test-results tests --path "$OUT_DIR/driver$RUN_SUFFIX.xcresult" > "$OUT_DIR/driver$RUN_SUFFIX.json" 2>/dev/null
   echo "  driver:"
-  python3 -I "$RUNNER" results "$OUT_DIR/driver.json" "$DRIVER_TEST"
+  python3 -I "$RUNNER" results "$OUT_DIR/driver$RUN_SUFFIX.json" "$DRIVER_TEST" || return 1
+  if [ "$code" -ne 0 ]; then
+    echo "  driver: xcodebuild exited $code"
+    return 1
+  fi
 }
 
 # The iOS player on the simulator or the device. Returns non-zero at the first step that fails.
@@ -454,6 +472,7 @@ run_player_tests() {
     return 1
   fi
   require_bundle_id "$apps" "$PLAYER_ID" || return 1
+  PLAYER_APP_NAME="$(plutil -extract CFBundleDisplayName raw "$apps/Info.plist" 2>/dev/null || plutil -extract CFBundleName raw "$apps/Info.plist" 2>/dev/null)"
   if [ "$DEVICE_MODE" -eq 1 ]; then
     build_driver "generic/platform=iOS" DEVELOPMENT_TEAM="$TEAM" || return 1
     run_on_device "$apps"

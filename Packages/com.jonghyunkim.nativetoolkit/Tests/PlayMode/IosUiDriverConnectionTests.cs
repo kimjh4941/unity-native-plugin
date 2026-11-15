@@ -15,6 +15,8 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// </summary>
     [Category(IosPlayerTestSupport.Category)]
     [Category(IosUiDriver.Category)]
+    // In the Notification sample run too, so every player run has a driver test (design v3, chapter 6; review v1, R-11).
+    [Category(IosUiDriver.NotificationSampleCategory)]
     public sealed class IosUiDriverConnectionTests
     {
         [UnityTearDown]

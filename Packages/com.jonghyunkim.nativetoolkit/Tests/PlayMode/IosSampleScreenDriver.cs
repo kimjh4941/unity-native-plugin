@@ -41,6 +41,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         internal const string TopMenuShare = "ShareFeatureButton";
         internal const string TopMenuClipboard = "ClipboardFeatureButton";
 
+        /// <summary>The Clipboard screen's status line ("Scope: … | Observing: … | Events: …").</summary>
+        internal const string ClipboardStatusLabel = "StatusTextBlock";
+
         // Design v3, chapter 7. Refused by name on a device: these reach the general pasteboard whatever the
         // screen's scope (ErrRemoveGeneral removes the general one directly).
         private static readonly HashSet<string> s_generalButtons = new() { "UseGeneralButton", "ErrRemoveGeneralButton" };
@@ -125,8 +128,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             if (s_generalButtons.Contains(button.name))
                 Assert.Fail($"{button.name} reaches the general pasteboard; a device run never presses it (UI driver design v3, chapter 7).");
             if (FindButton("UseGeneralButton") == null) return; // not the Clipboard screen
-            string? status = SampleDocument()?.rootVisualElement?.Q<Label>("StatusLabel")?.text;
-            bool general = status == null || status.IndexOf("Scope: general", StringComparison.Ordinal) >= 0;
+            // A missing status line fails by name rather than reading as "general" (implementation review v1,
+            // R-1: a wrong label name made every press after the switch fail on the device).
+            string? status = SampleDocument()?.rootVisualElement?.Q<Label>(ClipboardStatusLabel)?.text;
+            if (status == null)
+                Assert.Fail($"The Clipboard screen has no {ClipboardStatusLabel}; the device guard cannot read the scope.");
+            bool general = status!.IndexOf("Scope: general", StringComparison.Ordinal) >= 0;
             if (general && !s_switchButtons.Contains(button.name))
                 Assert.Fail($"{button.name} would act on the general pasteboard; switch to a named one first (UI driver design v3, chapter 7).");
         }

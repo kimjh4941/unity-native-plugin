@@ -22,7 +22,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     public sealed class IosClipboardSamplePlayerTests
     {
         private const string ResultLabel = "ResultTextBlock";
-        private const string StatusLabel = "StatusTextBlock";
+        private const string StatusLabel = IosSampleScreenDriver.ClipboardStatusLabel;
 
         [UnityTearDown]
         public IEnumerator TearDown()

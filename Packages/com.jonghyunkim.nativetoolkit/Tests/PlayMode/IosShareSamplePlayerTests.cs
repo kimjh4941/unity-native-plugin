@@ -31,32 +31,34 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Unload();
         }
 
-        [UnityTest] public IEnumerator SS01_Text() => Cancelled("ShareTextButton", "Share Text");
-        [UnityTest] public IEnumerator SS02_Url() => Cancelled("ShareUrlButton", "Share URL");
-        [UnityTest] public IEnumerator SS03_UrlPreview() => Cancelled("ShareUrlPreviewButton", "Share URL with Preview");
-        [UnityTest] public IEnumerator SS04_Image() => Cancelled("ShareImageButton", "Share Image");
-        [UnityTest] public IEnumerator SS05_Images() => Cancelled("ShareImagesButton", "Share Multiple Images");
-        [UnityTest] public IEnumerator SS06_File() => Cancelled("ShareFileButton", "Share File");
-        [UnityTest] public IEnumerator SS07_Files() => Cancelled("ShareFilesButton", "Share Multiple Files");
-        [UnityTest] public IEnumerator SS08_Multiple() => Cancelled("ShareMultipleButton", "Share Text + URL");
-        [UnityTest] public IEnumerator SS09_WithSubject() => Cancelled("ShareWithSubjectButton", "Share with Subject");
-        [UnityTest] public IEnumerator SS10_ExcludingActivities() => Cancelled("ShareExcludingActivitiesButton", "Share Excluding Activities");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS01_Text() => Cancelled("ShareTextButton", "Share Text");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS02_Url() => Cancelled("ShareUrlButton", "Share URL");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS03_UrlPreview() => Cancelled("ShareUrlPreviewButton", "Share URL with Preview");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS04_Image() => Cancelled("ShareImageButton", "Share Image");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS05_Images() => Cancelled("ShareImagesButton", "Share Multiple Images");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS06_File() => Cancelled("ShareFileButton", "Share File");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS07_Files() => Cancelled("ShareFilesButton", "Share Multiple Files");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS08_Multiple() => Cancelled("ShareMultipleButton", "Share Text + URL");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS09_WithSubject() => Cancelled("ShareWithSubjectButton", "Share with Subject");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS10_ExcludingActivities() => Cancelled("ShareExcludingActivitiesButton", "Share Excluding Activities");
 
-        [UnityTest] public IEnumerator SS11_InvalidUrl() => Fails("ShareInvalidUrlButton", "Share Invalid URL", "Invalid URL.");
-        [UnityTest] public IEnumerator SS12_MissingFile() => Fails("ShareMissingFileButton", "Share Missing File", "File not found.");
-        [UnityTest] public IEnumerator SS13_MissingImage() => Fails("ShareMissingImageButton", "Share Missing Image", "Failed to load image.");
-        [UnityTest] public IEnumerator SS14_Empty() => Fails("ShareEmptyButton", "Share Empty (error)", null);
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS11_InvalidUrl() => Fails("ShareInvalidUrlButton", "Share Invalid URL", "Invalid URL.");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS12_MissingFile() => Fails("ShareMissingFileButton", "Share Missing File", "File not found.");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS13_MissingImage() => Fails("ShareMissingImageButton", "Share Missing Image", "Failed to load image.");
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)] public IEnumerator SS14_Empty() => Fails("ShareEmptyButton", "Share Empty (error)", null);
 
         /// <summary>
         /// V-11 (UI driver design v3, 3.1): the driver closes the sheet and drops the connection before answering;
         /// the player connects again with the same run and sends the request again; the driver answers from
         /// memory instead of closing a sheet that is no longer there (which could not succeed a second time).
         /// </summary>
-        [UnityTest]
+        [UnityTest, Timeout(IosUiDriverProtocol.ScreenTestTimeoutMilliseconds)]
         public IEnumerator SS15_AnswerLostToADroppedConnection_ComesFromMemory()
         {
+            int reconnects = IosUiDriver.ReconnectCount;
             yield return IosUiDriver.Do("drop-next");
             yield return Cancelled("ShareTextButton", "Share Text");
+            Assert.AreEqual(reconnects + 1, IosUiDriver.ReconnectCount, "the connection was not dropped and made again");
         }
 
         private static IEnumerator Cancelled(string button, string title)
