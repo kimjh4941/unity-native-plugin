@@ -3,7 +3,7 @@
 - 記録日: 2026-11-15
 - 設計: [../designs/2026-11-15-ios-dialog-cabi-design-v2.md](../designs/2026-11-15-ios-dialog-cabi-design-v2.md)（レビュー v1 で 2 人とも A1 が 0）
 - 親: [artifact/topics/ios-c-abi-2](../../../topics/ios-c-abi-2/README.md) の段 3（1 つ目の機能）
-- コミット: `2464bed`（移行）、`672fc0a`（`test_ios_ui.sh` の bash 3.2 の直し）、`4fe490c`（実装のレビュー v1 の直し）
+- コミット: `2464bed`（移行）、`672fc0a`（`test_ios_ui.sh` の bash `3.2` の直し）、`4fe490c`（実装のレビュー v1 の直し）
 - 実装のレビュー: [../reviews/2026-11-15-ios-dialog-cabi-implementation-review-v1.md](../reviews/2026-11-15-ios-dialog-cabi-implementation-review-v1.md)
 
 ## 1. 作ったもの
@@ -43,7 +43,7 @@
 ## 3. 途中で起きたこと
 
 - 実装のレビュー v1 で、Manager の補助のメソッドを `Start` と名付けたため、Unity が読み込みのたびに `Script error (IosDialogManager): Start() can not take parameters.` を出していたことが分かった（Editor の EditMode・書き出しのログ、シミュレーターの Player の起動のログ）。テストは `LogAssert` の外なので捕まえていなかった。`ShowNative` に名前を変え、`UnityMessageNameTests` を足した（`4fe490c`）。直した後の読み込みのログでは 0 件（直す前は 4 件）
-- 実機の UI テストの承認（`test_ios_ui.sh --device --dry-run`）が、`--keep-installed` の無い形で `KEEP_FLAG[@]: unbound variable` で止まった。macOS の bash 3.2 は `set -u` のとき空の配列の `"${a[@]}"` を未定義とみなす。`--keep-installed` を足した `5e57387` から、入れ直す形の実機の回は始められなかった（その後の実機の回はどれも `--keep-installed` か Player のテストだった）。空になりうる配列（`KEEP_FLAG`・`INSTALLED_IDS`・`rest`・`SIGNING`）を `${a[@]+"${a[@]}"}` にした（`672fc0a`）
+- 実機の UI テストの承認（`test_ios_ui.sh --device --dry-run`）が、`--keep-installed` の無い形で `KEEP_FLAG[@]: unbound variable` で止まった。macOS の bash `3.2` は `set -u` のとき空の配列の `"${a[@]}"` を未定義とみなす。`--keep-installed` を足した `5e57387` から、入れ直す形の実機の回は始められなかった（その後の実機の回はどれも `--keep-installed` か Player のテストだった）。空になりうる配列（`KEEP_FLAG`・`INSTALLED_IDS`・`rest`・`SIGNING`）を `${a[@]+"${a[@]}"}` にした（`672fc0a`）
 
 ## 4. 設計との違いと既知の差分の足し
 
