@@ -21,7 +21,13 @@
 
 - シミュレーター（iPhone 16 / iOS 18.3）でも実機（iPhone XS / iOS 18.7.2）でも、**シートは 1 つだけ出て、閉じた結果は `share2` の受け手と `ShareCompleted` に 1 本ずつ届き、`share1` には 30 秒待っても結果が来なかった**（`[share2@ok] completed=False activity=<null>`、`[share-event@ok] completed=False activity=<null>`）。1.x の記録と同じ形
 - `ShareCompleted` は番号が表にあるかに関係なく、ネイティブの完了ごとに必ず 1 回出る。それが 1 本だけなので、**ネイティブの完了が 1 回しか来ていない**。拒みや例外なら失敗の行が出る。実装のレビューの 2 人（サブエージェントと Codex）も、この包みの誤りではなく native-toolkit の側と判断した
-- `Share.h:30-31` は「受け付けた呼び出しには完了がちょうど 1 回」と約束していて、この場面はその外（ホストが window を替えた、scene が切られた）に当たらない。**native-toolkit の不具合**として申し送る候補（利用者の判断を仰ぐ）。見立て（実装のレビュー v1 の「SH-13 で 1 つの呼び出しの完了が来ない原因の見立て」）: 2 つ目のシートが UIKit に断られたまま解放されず `ReleaseWatch` が働かない、か、遷移の待ちで手順が止まる。見分け方は native の `.debug` のログ
+- `Share.h:30-31` は「受け付けた呼び出しには完了がちょうど 1 回」と約束していて、この場面はその外（ホストが window を替えた、scene が切られた）に当たらない。**native-toolkit の不具合**として申し送った（下）。見立て（実装のレビュー v1 の「SH-13 で 1 つの呼び出しの完了が来ない原因の見立て」）: 2 つ目のシートが UIKit に断られたまま解放されず `ReleaseWatch` が働かない、か、遷移の待ちで手順が止まる。見分け方は native の `.debug` のログ
+- **native の `.debug` のログで確かめた（2026-11-15 20:48 と 20:56、シミュレーター）**。見立ての前者だった:
+  - 2 つの呼び出しは受け付けられ（`[start] id: 1`・`id: 2`）、どちらも `PresentationProcedure` の `[UIKit.isSettled]` を通って `[UIKit.present]` まで進む。2 つ目は 1 つ目の約 0.26 秒後で、1 つ目の表示（`markPresented` は約 1.5 秒後）が終わる前
+  - UIKit は 2 つ目を断る: `Attempt to present <UIActivityViewController: …> on <UnityDefaultViewController: …> which is waiting for a delayed presention of <UIActivityViewController: …>`
+  - share sheet の断りは `ReleaseWatch` の `deinit` でしか気づかない形（`declineCheck: releaseWatchOnly`）。しかし 2 つ目の `ReleaseWatch` には、ログの終わり（約 14 秒後）まで `markPresented` も `deinit` も出ない。箱は閉じず、`[finish] id: 2` は来ない
+  - 1 つ目を閉じると `[finish] id: 1` → `[runCallback] id: 1` で、結果は `share1` に届いた（2 回とも）。上の 1 行目の回（`share2` に届いた）とは逆。どちらの呼び出しが残るかは回によるとみられる。テストはどちらでも通る形
+  - 2026-11-15 に、ログの抜き出しと見立てを native-toolkit のセッションに送った（利用者の指示。issue や artifact ではなく、セッションへの申し送り）
 - 扱い: `ShareUITests.test_SH13` は、届いた結果が閉じた成功であることを照らし、約束（各呼び出しに 1 本、イベント 2 本）は `XCTExpectFailure` の中で照らす（native-toolkit が直れば、期待した失敗が起きずにテストが落ちて気づける）。来ない呼び出しの受け手は表に残る
 - 設計 v3 の 3 章（SH-13 は「呼び出しごとにちょうど 1 回」）と 4 章（各 id に 1 本、イベント 2 本を照らす）からの外れ。1.x との差分は「失われる 1 本が戻る」ではなく、**「届いた結果は正しい受け手に届く（1.x は後勝ちの枠で、2 つ目の受け手に届いた）。1 本は来ないまま」**
 
