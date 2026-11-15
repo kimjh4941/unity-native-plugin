@@ -31,7 +31,6 @@
   - NP-1・2・7・9b・15・16
   - NU-1・3・3b・5・6・7・9・11・13・14b・15
   - 一覧の JSON の形
-  - NU-10（ダイアログは出るが、拒否の後に結果が来ない。3 章）
 - 既知の差分（実測で確かめたもの）:
   - 呼び出しごとに結果が届く（NP-3・18 は 10 回とも `A=1,B=1`）
   - 権限が無いときの Show・Schedule・Update は `Notification permission was denied.` で失敗する（NP-4・5・5b・6、NU-2b・16）
@@ -40,16 +39,22 @@
   - 背景で未決の要求は、すぐ `The app is not in the foreground.` になる（NU-14）
   - category の登録し直しは置き換わる（NU-12）
   - userInfo の `/` がそのまま届き、数の後ろの文字列も残る（NU-4）
+  - 前面で非活性のときの許可の要求は、ダイアログが出て、答えた後に結果が 1 本届く（NU-10。3 章。1.x の「来ない」はテストの作りによる見え方だったとみられる）
 - 既知の差分（設計で決めたもの。実測していない）:
   - settings request で設定の画面を開かない
   - Manager を作っても delegate を入れ直さない（必要なら `Initialize()`）
   - そのほか、3 章の行
 
-## 3. NU-10 の結果の取りこぼし（native-toolkit への報告の候補）
+## 3. NU-10 の「結果が来ない」は、テストの作りの問題だった（2026-11-15 に調べ直した）
 
-- 前面で非活性（`foregroundInactive`）のときに `RequestPermission` を呼ぶと、許可のダイアログは出る。しかし「許可しない」を押しても、15 秒待って結果が来なかった（シミュレーター、2026-11-15）。
-- 1.x と同じ形だが、`Notification.h:30-31`（受け付けた呼び出しには完了がちょうど 1 回）と食い違う。受け手は表に残る。
-- 報告の前に、native の `.debug` のログ（`CApiLog` の `[finishPermission]`）で完了が出たかを確かめ、包みの取りこぼしでないことを分ける（実装のレビュー v1 のサブの R-4）。
+- 実装の時点では、前面で非活性（`foregroundInactive`）のときに `RequestPermission` を呼ぶと、許可のダイアログは出るが、「許可しない」を押して 15 秒待っても結果が来なかった（1.x と同じ形）。native-toolkit への報告の候補にしていた。
+- 報告の前に、シミュレーターで NU-10 を 1 件だけ流し、ライブラリの `.debug` のログ（`log stream --level debug`）を取った（3 回）:
+  - native は呼び出しの約 9 秒後（「許可しない」を押したころ）に `[finishPermission]` を出し、`[complete] state: active, completed: false` → `[runCallback] depth: 0` で受け手を呼んでいた。**native-toolkit は約束どおり完了を 1 回返している**
+  - 同じ時刻のアプリの非活性の理由（UIKit の `Deactivation reason`）は、コントロールセンターの分（2 と 12）が残ったままで、外れたのはテストの終わり（20:27:45）だった。テストの `openControlCenterBriefly()` は 5 秒後に下から上へなぞって閉じるが、許可のダイアログがその前（約 2.6 秒後）に出ていて、閉じる操作が効いていなかった
+  - アプリが非活性の間は Unity のループが止まり、ディスパッチャーを通る結果は流れない。だから 15 秒の待ちの中では来なかった
+- **直し**: `NotificationUITests.test_NU10` で、ダイアログに答えた後にコントロールセンターを閉じる（`closeControlCenter()`）。そのうえで、拒否の行がちょうど 1 本であることを照らす。シミュレーターで成功した（`NU-10 2.0.0 prompt=true results=["[permission@fail] error=Notification permission was denied."]`）
+- 1.x の記録（「答えた後に結果が来ない」）も同じ作りで取ったので、同じ見え方だったとみられる（1.x はもう流せないので確かめていない）
+- **native-toolkit への報告はしない**
 
 ## 4. 確かめたこと
 
@@ -82,7 +87,6 @@
 
 ## 6. 残っていること
 
-- NU-10 の報告の判断（3 章。SH-13 と一緒に native-toolkit へ）
 - 段 4 の候補:
   - 起動時の install を無効にした状態から、`Initialize()` で登録し直すことの確かめ
   - JSON の読み手を Common に移す

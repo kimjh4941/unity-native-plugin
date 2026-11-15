@@ -192,6 +192,14 @@ final class NotificationUITests: HarnessUITestCase {
         springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.005))
             .press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.6)))
         Thread.sleep(forTimeInterval: 5)
+        closeControlCenter()
+    }
+
+    /// Swipes Control Center away. It does nothing while an alert is in front of it (2026-11-15: the swipe of
+    /// `openControlCenterBriefly` came after NU-10's prompt, so Control Center stayed and the harness stayed
+    /// inactive until the test ended - Unity's loop was paused, so the result could not come), so NU-10 calls
+    /// it again after answering the prompt.
+    private func closeControlCenter() {
         springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
             .press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
     }
@@ -354,18 +362,24 @@ final class NotificationUITests: HarnessUITestCase {
         openControlCenterBriefly()
         XCTAssertEqual(waitLines("late", count: 1), "[late@event] state=foregroundInactive")
         if abi2 {
-            // 2.0.0 counts foreground-inactive as the foreground and shows the prompt (F-15); whether a result
-            // comes after it is recorded (none would be a native-toolkit issue to report).
+            // 2.0.0 counts foreground-inactive as the foreground and shows the prompt (F-15). The prompt comes
+            // before openControlCenterBriefly swipes Control Center away, so that swipe does nothing: Control
+            // Center is closed here, after the answer. The result comes once the harness is active again
+            // (native-toolkit's .debug log, 2026-11-15: [finishPermission] and [runCallback] about 9 s after the
+            // call; Unity's loop is paused while the app is inactive, and the result goes through it).
             let prompted2 = springboard.alerts.firstMatch.waitForExistence(timeout: 5)
             XCTAssertTrue(prompted2, "the prompt for a call made while inactive")
             if prompted2 { answerPermission(Self.dontAllow) }
-            let results = settle("permission", 15)
+            closeControlCenter()
+            XCTAssertEqual(waitLines("permission", count: 1, timeout: 15), "[permission@fail] error=\(Self.denied2)")
+            let results = settle("permission")
             record("NU-10 2.0.0 prompt=\(prompted2) results=\(results)")
-            XCTAssertTrue(results.isEmpty || results == ["[permission@fail] error=\(Self.denied2)"], "\(results)")
+            XCTAssertEqual(results.count, 1, "\(results)")
             return
         }
         // 1.x, measured on the simulator twice (2026-11-15): the prompt appears, and after it is answered
-        // no result comes at all.
+        // no result came within 15 s. Control Center was still open then (the same swipe problem as above),
+        // so this was most likely the paused Unity loop, not a lost result.
         let prompted = springboard.alerts.firstMatch.waitForExistence(timeout: 5)
         record("NU-10 prompt=\(prompted)")
         XCTAssertTrue(prompted, "1.x shows the prompt for a call made while inactive")
