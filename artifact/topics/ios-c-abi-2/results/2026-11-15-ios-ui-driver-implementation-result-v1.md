@@ -66,6 +66,21 @@
 - 終わりに 3 つのアプリ（Player、UI テストの空のホスト、ランナー）を消し、消えたことを確かめた
 - 回の途中で、手伝い役のログのファイルがまだ無いという grep の警告が 1 回出た（背景の子がファイルを開く前に読んだ競合。害は無い）。起こす前にファイルを作る形に直した
 
+## 4.3 配置の確かめ（ゲートの外。2026-11-16 2:10、シミュレーター iPhone 16 / iOS 18.3）
+
+`IosSampleLayoutPlayerTests`（カテゴリ `IosSampleLayout` だけ。`IosPlayer` を付けないのでゲートの Player に入らない）を、`scripts/verify_unity_ios.sh --skip-editmode --category IosSampleLayout` で 1 回流した。各ボタンを、スクロールでセーフエリアの中まで送れるなら送ってから照らす。10 件のうち 9 件が落ちた（崩れの一覧。数値はパネルの座標で、縦のセーフエリアは `[0,37,246,512]`、横は `[37,0,496,233]`）:
+
+| 画面 | 縦 | 横 |
+|---|---|---|
+| トップのメニュー | 問題なし | `ShareFeatureButton`・`ClipboardFeatureButton` が下にはみ出す。**`ClipboardFeatureButton`（y 258〜304）は画面の高さ（246）の外で押せない** |
+| Dialog | `HomeButton`（y 18〜64）が上の余白（37）にかかる | 7 個すべて左の余白（x 20〜24 < 37）にかかる |
+| Share | `HomeButton` が上に、`ShareMissingImageButton`（最後）がホームインジケーターに（y 515 > 512）かかる | 15 個すべて左の余白にかかる |
+| Clipboard | `HomeButton` と `ErrDetectEmptyPatternsButton`（最後） | 57 個すべて左の余白にかかる |
+| Notification | `HomeButton` と `RemoveCategoryButton`（最後） | 26 個すべて左の余白にかかる |
+
+- `panel.Pick` で別の要素に覆われたボタンは 0 件
+- サンプルの画面がセーフエリアに合わせていない（設計 v3 の 9 章のスパイクと同じ）。直すかは利用者の判断を待つ。直したら、このテストに `IosPlayer` を付けてゲートに入れる
+
 ## 5. 途中で起きたこと
 
 - `IReadOnlyCollection<string>` に `Contains` が無く、別の拡張メソッド（`MemoryExtensions.Contains`）が選ばれて組めなかった。`HashSet<string>` にした

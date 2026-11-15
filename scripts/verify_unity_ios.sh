@@ -94,6 +94,7 @@ RUN_CATEGORY="$CATEGORY"
 RUN_SUFFIX=""
 NOTIFICATION_SAMPLE_CATEGORY="IosNotificationSample"
 PACKAGE_USER=0
+EXPLORE_CATEGORY=""
 SKIP_EDITMODE=0
 KEEP_CHANGES=0
 # shellcheck source=scripts/ios_script_common.sh
@@ -107,6 +108,10 @@ APPROVAL_TESTS=("PlayerTests/IosPlayer")
 while [ $# -gt 0 ]; do
   case "$1" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
+    # Runs one other category of player tests on the simulator, on its own, to look at it (no driver test is
+    # required and the Notification sample run is left out). For tests kept out of the gate, such as
+    # IosSampleLayout (UI driver design v3, chapter 9).
+    --category) EXPLORE_CATEGORY="${2:-}"; shift ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     --as-package-user)
       PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset"
@@ -121,6 +126,15 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+if [ -n "$EXPLORE_CATEGORY" ]; then
+  if [ "$DEVICE_MODE" -eq 1 ]; then
+    echo "--category is for the simulator only." >&2
+    exit 2
+  fi
+  CATEGORY="$EXPLORE_CATEGORY"
+  RUN_CATEGORY="$EXPLORE_CATEGORY"
+fi
 
 if [ "$DEVICE_MODE" -eq 1 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -523,8 +537,10 @@ run_player_tests() {
   fi
   cp "$result" "$OUT_DIR/ios-player$RUN_SUFFIX.xml"
   echo -n "  run: "
+  local require=(--require IosUiDriver)
+  [ -n "$EXPLORE_CATEGORY" ] && require=()
   python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player$RUN_SUFFIX.xml" "$RUN_CATEGORY" \
-    --require IosUiDriver ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
+    ${require[@]+"${require[@]}"} ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
   return "$driver_ok"
 }
 
@@ -610,7 +626,7 @@ if ! clean_up_player; then
 fi
 # The Notification sample run (design v3, 4.5): a fresh install, so the permission can be asked once. Not on
 # the Test iOS Profile: its player has no sample scene, and every test of the run would ignore itself.
-if [ "$PACKAGE_USER" -eq 0 ]; then
+if [ "$PACKAGE_USER" -eq 0 ] && [ -z "$EXPLORE_CATEGORY" ]; then
   echo "iOS player, Notification sample ($([ "$DEVICE_MODE" -eq 1 ] && echo device || echo "$SIM_NAME")):"
   RUN_CATEGORY="$NOTIFICATION_SAMPLE_CATEGORY"
   RUN_SUFFIX="-notification"
