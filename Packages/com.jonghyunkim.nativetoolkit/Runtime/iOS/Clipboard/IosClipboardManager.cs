@@ -5,18 +5,28 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 {
     using System;
     using System.Collections.Generic;
+    using System.Runtime.InteropServices;
     using System.Threading;
+#if UNITY_IOS && !UNITY_EDITOR
+    using AOT;
+#endif
     using JonghyunKim.NativeToolkit.Runtime.Common;
+    using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
     using UnityEngine;
+    using Op = IosClipboardCApi.Op;
 
     /// <summary>
     /// Singleton manager for iOS native clipboard operations.
     /// <para>
-    /// <b>Unavailable for now.</b> native-toolkit 2.0.0 removed the 1.x bridge this Manager called, and
-    /// the Manager does not call the 2.0.0 C ABI yet (artifact/topics/ios-c-abi-2, stage 3-S). Until it
-    /// moves (stage 3), every operation that passes the argument checks fails with
-    /// <c>CLIPBOARD_BRIDGE_UNAVAILABLE</c> and "&lt;operation&gt; is only available on an iOS device.",
-    /// on the device as in the Editor: the common event, then the per-call callback, on the next Update.
+    /// Calls native-toolkit's C ABI 2.0.0 (<c>Clipboard.h</c>; artifact/ios/clipboard, C ABI design v4).
+    /// Results keep 1.x's codes and messages, but <see cref="IosClipboardErrorInfo.Domain"/> and
+    /// <see cref="IosClipboardErrorInfo.NativeCode"/> are always null: the C ABI carries an error number only.
+    /// A request the library rejects at once fails like any other failure, on a later Update, and the
+    /// operation stays busy until then, as in 1.x. Values written to the clipboard end at a U+0000 (with a
+    /// warning); a pasteboard name, a type identifier or an image path holding U+0000 fails with
+    /// <c>CLIPBOARD_INVALID_REQUEST</c>; text read back has U+FFFD for U+0000. In the Editor every operation
+    /// that passes the argument checks fails with <c>CLIPBOARD_BRIDGE_UNAVAILABLE</c> and
+    /// "&lt;operation&gt; is only available on an iOS device.".
     /// </para>
     /// <para>
     /// <b>Threading.</b> Every member, including <see cref="Instance"/>, must be used from the
@@ -25,11 +35,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     /// guarded, because it may create a GameObject before any check could run.
     /// </para>
     /// <para>
-    /// <b>Concurrency.</b> The native ABI carries no request identifier, so two concurrent calls to
-    /// the same operation would be indistinguishable when their callbacks arrive. Each operation is
-    /// therefore single-flight: a second call while one is pending fails immediately with
-    /// <c>CLIPBOARD_BUSY</c> and leaves the pending call untouched. Different operations still run
-    /// concurrently.
+    /// <b>Concurrency.</b> Each operation is single-flight, as in 1.x: a second call while one is
+    /// pending fails with <c>CLIPBOARD_BUSY</c> and leaves the pending call untouched. Different
+    /// operations still run concurrently.
     /// </para>
     /// <para>
     /// <b>Lifetime.</b> Destroying this Manager is not supported. Once <c>OnDestroy</c> has run,
@@ -221,6 +229,59 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         // API is guarded, native callbacks arrive on the main thread), so no lock is needed.
         private static readonly HashSet<string> s_inFlight = new();
 
+        // Whether this Manager's own observation is on (design D-6): set by a successful start, cleared by a
+        // stop result, a failed start and destroy. Changes are dropped while it is off, also when another
+        // component in the process started observing.
+        private static bool s_isObserving;
+
+        // The change listener, registered once before the first start and removed on destroy (D-6, D-7).
+        private static IntPtr s_listener;
+
+        /// <summary>
+        /// How many times the C ABI released the change listener (D-7). Read by the UI harness (CB-5) by
+        /// reflection after destroy; a field, so a player build keeps it.
+        /// </summary>
+        internal static int s_listenerReleaseCount;
+
+        // The request id of the pending LoadItem (0: none), for CancelLoads (D-5).
+        private static ulong s_loadRequestId;
+
+        // What the C ABI does not return and the result needs (table 2.1).
+        private static string s_readDataUtType = "";
+        private static IosPasteboardCreationRequestKind s_createKind;
+
+        // Bumped by every reset, so a result queued for later (D-12) cannot reach a call of a later lifetime.
+        private static int s_lifetime;
+
+        // Results decided during a call. IosClipboardLaterPump, on the dispatcher's GameObject, hands them to the
+        // dispatcher's queue once the frame they were queued in has passed (design v4, D-12). Once one is
+        // waiting, other results join the same list behind it, so a native completion cannot overtake it
+        // (CP-31). Main thread only.
+        private readonly struct Later
+        {
+            internal Later(int frame, string? operation, int lifetime, Action deliver)
+            {
+                Frame = frame;
+                Operation = operation;
+                Lifetime = lifetime;
+                Deliver = deliver;
+            }
+
+            internal int Frame { get; }           // the frame it was queued in; int.MinValue: due at once
+            internal string? Operation { get; }   // non-null: decided during a call, dropped after destroy
+            internal int Lifetime { get; }
+            internal Action Deliver { get; }
+        }
+
+        private static readonly List<Later> s_later = new();
+
+        // Set for one Dispatch while a result from the list is delivered: that Dispatch invokes at once instead of
+        // queuing again (a native result handed over behind it would otherwise overtake it). Used once, so a
+        // call made from the user's callback goes through the list again.
+        private static bool s_deliverInline;
+
+        private static IosClipboardLaterPump? s_pump;
+
         // ── Lifecycle ───────────────────────────────────────────────────────────
 
         private void Awake()
@@ -258,10 +319,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
             RunDestroyCleanup(
                 stop: StopObservingForTeardown,
+                removeListener: RemoveListenerForTeardown,
                 cancel: CancelLoadsForTeardown,
                 managedCleanup: () =>
                 {
-                    try { ClearAllPendingCallbacks(); }
+                    try
+                    {
+                        ClearAllPendingCallbacks();
+                        HandOverLaterResults();
+                    }
                     finally { _instance = null; }
                 });
 
@@ -269,17 +335,18 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         }
 
         /// <summary>
-        /// Runs the three teardown steps with the exception boundaries the destroy contract needs:
-        /// stop and cancel are isolated from each other, and managedCleanup always runs.
+        /// Runs the teardown steps with the exception boundaries the destroy contract needs:
+        /// stop, removeListener and cancel are isolated from each other, and managedCleanup always runs.
         /// <para>
         /// Pure with respect to Manager state, so tests can pass throwing actions directly instead
         /// of the Manager exposing a mutable, swappable hook that would also ship in player builds.
         /// </para>
         /// </summary>
         /// <param name="stop">Stops native change observation.</param>
+        /// <param name="removeListener">Removes the native change listener.</param>
         /// <param name="cancel">Cancels pending native item loads.</param>
         /// <param name="managedCleanup">Clears managed state. Always invoked.</param>
-        internal static void RunDestroyCleanup(Action stop, Action cancel, Action managedCleanup)
+        internal static void RunDestroyCleanup(Action stop, Action removeListener, Action cancel, Action managedCleanup)
         {
             try
             {
@@ -290,6 +357,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 catch (Exception ex)
                 {
                     Debug.LogError($"[{LogTag}][{nameof(RunDestroyCleanup)}] stop: {ex.Message}");
+                }
+
+                try
+                {
+                    removeListener();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(RunDestroyCleanup)}] removeListener: {ex.Message}");
                 }
 
                 try
@@ -314,14 +390,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             }
         }
 
+        // Destroy (design D-7). Each step runs only on an iOS player; in the Editor nothing native exists.
         private static void StopObservingForTeardown()
         {
-            // No native observation or load exists until Clipboard moves to the C ABI (stage 3).
+#if UNITY_IOS && !UNITY_EDITOR
+            // user_data 0: the completion is dropped (D-2).
+            IosClipboardCApi.ntk_clipboard_stop_observing_async(s_donePointer, IntPtr.Zero, IntPtr.Zero);
+#endif
+        }
+
+        private static void RemoveListenerForTeardown()
+        {
+            IntPtr listener = s_listener;
+            s_listener = IntPtr.Zero; // removing twice is undefined
+#if UNITY_IOS && !UNITY_EDITOR
+            if (listener != IntPtr.Zero) IosClipboardCApi.ntk_clipboard_listener_remove(listener);
+#endif
         }
 
         private static void CancelLoadsForTeardown()
         {
-            // No native observation or load exists until Clipboard moves to the C ABI (stage 3).
+            ulong id = s_loadRequestId;
+            s_loadRequestId = 0;
+#if UNITY_IOS && !UNITY_EDITOR
+            if (id != 0) IosClipboardCApi.ntk_clipboard_cancel_load(id);
+#endif
         }
 
         // Static state outlives an Editor Play session when "Reload Domain" is disabled, so a test
@@ -347,6 +440,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         // is owned by Unity.
         private static void ResetCore()
         {
+            s_later.Clear();
             s_isTerminated = false;
             s_dispatcher = null;
             s_mainThreadId = 0;
@@ -380,6 +474,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             s_pendingObservationGeneration = 0;
 
             s_inFlight.Clear();
+
+            // s_listener is left alone: only destroy removes it (D-7).
+            s_isObserving = false;
+            s_loadRequestId = 0;
+            s_readDataUtType = "";
+            s_lifetime++;
         }
 
         // ── Single-flight ───────────────────────────────────────────────────────
@@ -419,12 +519,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static bool IsBridgeAvailable()
         {
-            // The 1.x bridge is gone and the C ABI is not wired yet (artifact/topics/ios-c-abi-2,
-            // 3-S): on a player every operation takes the unavailable path, as in the Editor.
 #if UNITY_EDITOR
             return BridgeAvailableOverrideForTests;
 #else
-            return false;
+            return IosNativeToolkitCApi.IsAvailable;
 #endif
         }
 
@@ -634,6 +732,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         {
             // Native callbacks arrive on the main thread, so Unity's null operator applies here too
             // and catches a destroyed dispatcher (see DispatchRejectedResult).
+            if (s_deliverInline)
+            {
+                s_deliverInline = false;
+                InvokeInOrder(result, common, perCall);
+                return;
+            }
+            if (s_later.Count > 0)
+            {
+                // Behind a result decided during a call: keep the order (D-12).
+                s_later.Add(new Later(int.MinValue, null, s_lifetime, () => InvokeInOrder(result, common, perCall)));
+                return;
+            }
+
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
             if (dispatcher == null)
             {
@@ -709,7 +820,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static void FireClipboardChanged(IosClipboardChangeEvent changeEvent)
         {
-            Dispatch(changeEvent, _instance?.ClipboardChanged, s_onChanged);
+            // The registration is checked again when the change is delivered: a start rejected meanwhile has
+            // given its registration up and gets no change after its failure (design v4, D-12).
+            Action<IosClipboardChangeEvent>? registered = s_onChanged;
+            ulong generation = s_onChangedGeneration;
+            Dispatch(changeEvent, _instance?.ClipboardChanged, registered == null
+                ? null
+                : e =>
+                {
+                    if (s_onChangedGeneration == generation) registered(e);
+                });
         }
 
         /// <summary>
@@ -760,11 +880,24 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasOptions: {options != null}, hasCallback: {onResult != null}");
 
             s_onCopy = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope) || IosClipboardCApi.ContentTypeHasNul(content))
+            {
+                RejectAtEntry(OperationCopy, InvalidRequest);
+                return;
+            }
+            WarnIfValueHasNul(content);
             InvokeNative(
                 OperationCopy,
                 OperationCopy,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationCopy, allocated => IosClipboardCApi.ntk_clipboard_copy_async(
+                        IosClipboardCApi.BuildContent(content, allocated),
+                        IosClipboardCApi.BuildOptions(options, allocated),
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_donePointer, OpData(Op.Copy), IntPtr.Zero));
+#endif
                 });
         }
 
@@ -801,11 +934,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasCallback: {onResult != null}");
 
             s_onAppend = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope) || IosClipboardCApi.ContentTypeHasNul(content))
+            {
+                RejectAtEntry(OperationAppend, InvalidRequest);
+                return;
+            }
+            WarnIfValueHasNul(content);
             InvokeNative(
                 OperationAppend,
                 OperationAppend,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationAppend, allocated => IosClipboardCApi.ntk_clipboard_append_async(
+                        IosClipboardCApi.BuildContent(content, allocated),
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_donePointer, OpData(Op.Append), IntPtr.Zero));
+#endif
                 });
         }
 
@@ -829,11 +974,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             Debug.Log($"[{LogTag}][{nameof(Clear)}] hasScope: {scope != null}, hasCallback: {onResult != null}");
 
             s_onClear = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationClear, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationClear,
                 OperationClear,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationClear, allocated => IosClipboardCApi.ntk_clipboard_clear_async(
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_donePointer, OpData(Op.Clear), IntPtr.Zero));
+#endif
                 });
         }
 
@@ -861,11 +1016,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             Debug.Log($"[{LogTag}][{nameof(RemovePasteboard)}] scopeKind: {scope.Kind}, hasCallback: {onResult != null}");
 
             s_onRemovePasteboard = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationRemovePasteboard, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationRemovePasteboard,
                 OperationRemovePasteboard,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    // The general pasteboard too is a struct here: remove rejects NULL (D-8 (3)).
+                    CallNative(OperationRemovePasteboard, allocated => IosClipboardCApi.ntk_clipboard_remove_pasteboard_async(
+                        IosClipboardCApi.BuildRequiredScope(scope, allocated),
+                        s_donePointer, OpData(Op.RemovePasteboard), IntPtr.Zero));
+#endif
                 });
         }
 
@@ -895,6 +1061,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 OperationCancelLoads,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    // D-5: the C ABI cancels one request; at most one load is pending (single-flight). The load
+                    // completes later with CLIPBOARD_CANCELLED, after this result (D-12).
+                    if (s_loadRequestId != 0) IosClipboardCApi.ntk_clipboard_cancel_load(s_loadRequestId);
+                    CompleteLater(OperationCancelLoads, () => FireOperationResult(
+                        IosClipboardOperationResult.Success(OperationCancelLoads), OperationCancelLoads));
+#endif
                 });
         }
 
@@ -932,11 +1105,34 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             s_onChangedGeneration = ++s_observingGeneration;
             s_pendingObservationGeneration = s_onChangedGeneration;
 
+            if (IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationStartObserving, InvalidRequest);
+                return;
+            }
+
             InvokeNative(
                 OperationStartObserving,
                 ObservationControlKey,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    // D-6: the listener first, once; the C ABI runs the two in this order on the main queue.
+                    if (s_listener == IntPtr.Zero)
+                    {
+                        int registered = IosClipboardCApi.ntk_clipboard_add_change_listener(
+                            s_changePointer, IntPtr.Zero, s_listenerReleasePointer, out IntPtr listener);
+                        if (registered != IosClipboardCApi.ErrorNone)
+                        {
+                            RejectAtEntry(OperationStartObserving, IosClipboardCApi.ToErrorInfo(registered));
+                            return;
+                        }
+                        s_listener = listener;
+                    }
+                    CallNative(OperationStartObserving, allocated => IosClipboardCApi.ntk_clipboard_start_observing_async(
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_donePointer, OpData(Op.StartObserving), IntPtr.Zero));
+#endif
                 },
                 onNativeFailure: () =>
                 {
@@ -975,6 +1171,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 ObservationControlKey,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationStopObserving, _ => IosClipboardCApi.ntk_clipboard_stop_observing_async(
+                        s_donePointer, OpData(Op.StopObserving), IntPtr.Zero));
+#endif
                 },
                 onNativeFailure: () =>
                 {
@@ -1010,11 +1210,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             Debug.Log($"[{LogTag}][{nameof(Read)}] hasScope: {scope != null}, hasCallback: {onResult != null}");
 
             s_onRead = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationRead, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationRead,
                 OperationRead,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationRead, allocated => IosClipboardCApi.ntk_clipboard_read_async(
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_readPointer, OpData(Op.Read), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message =>
                     FireReadResult(IosClipboardReadResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1050,11 +1260,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasCallback: {onResult != null}");
 
             s_onReadData = onResult;
+            s_readDataUtType = utType;
+            if (IosClipboardCApi.ScopeHasNul(scope) || IosClipboardCApi.HasNul(utType))
+            {
+                RejectAtEntry(OperationReadData, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationReadData,
                 OperationReadData,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationReadData, allocated => IosClipboardCApi.ntk_clipboard_read_data_async(
+                        IosNativeToolkitCApi.AllocUtf8(utType, allocated),
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_dataPointer, OpData(Op.ReadData), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message =>
                     FireReadDataResult(IosClipboardReadDataResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1086,11 +1308,27 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"matchingTypeCount: {matchingTypes?.Length ?? 0}, hasCallback: {onResult != null}");
 
             s_onSnapshot = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope) ||
+                (matchingTypes != null && Array.Exists(matchingTypes, IosClipboardCApi.HasNul)))
+            {
+                RejectAtEntry(OperationGetSnapshot, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationGetSnapshot,
                 OperationGetSnapshot,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    // An empty array asks for no matching, as 1.x (matching was done only for a non-empty list).
+                    CallNative(OperationGetSnapshot, allocated => IosClipboardCApi.ntk_clipboard_get_snapshot_async(
+                        matchingTypes == null || matchingTypes.Length == 0
+                            ? IntPtr.Zero
+                            : IosNativeToolkitCApi.AllocStringArray(matchingTypes, allocated),
+                        new UIntPtr((uint)(matchingTypes?.Length ?? 0)),
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_snapshotPointer, OpData(Op.GetSnapshot), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message =>
                     FireSnapshotResult(IosClipboardSnapshotResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1127,11 +1365,23 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasCallback: {onResult != null}");
 
             s_onCreatePasteboard = onResult;
+            s_createKind = request.Kind;
+            if (IosClipboardCApi.HasNul(request.Name))
+            {
+                RejectAtEntry(OperationCreatePasteboard, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationCreatePasteboard,
                 OperationCreatePasteboard,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationCreatePasteboard, allocated => IosClipboardCApi.ntk_clipboard_create_pasteboard_async(
+                        request.Kind == IosPasteboardCreationRequestKind.Named ? IosClipboardCApi.ScopeNamed : IosClipboardCApi.ScopeUnique,
+                        IosNativeToolkitCApi.AllocUtf8(request.Name, allocated),
+                        s_namePointer, OpData(Op.CreatePasteboard), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message =>
                     FireCreatePasteboardResult(IosPasteboardScopeResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1164,11 +1414,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasScope: {scope != null}, hasCallback: {onResult != null}");
 
             s_onDetectPatterns = onResult;
+            if (!IosClipboardCApi.TryPatternBits(patterns, out uint patternBits) || IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationDetectPatterns, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationDetectPatterns,
                 OperationDetectPatterns,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationDetectPatterns, allocated => IosClipboardCApi.ntk_clipboard_detect_patterns_async(
+                        patternBits,
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_patternsPointer, OpData(Op.DetectPatterns), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message => FireDetectPatternsResult(
                     IosClipboardDetectedPatternsResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1201,11 +1462,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasScope: {scope != null}, hasCallback: {onResult != null}");
 
             s_onDetectValues = onResult;
+            if (!IosClipboardCApi.TryPatternBits(patterns, out uint patternBits) || IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationDetectValues, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationDetectValues,
                 OperationDetectValues,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationDetectValues, allocated => IosClipboardCApi.ntk_clipboard_detect_values_async(
+                        patternBits,
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_valuesPointer, OpData(Op.DetectValues), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message => FireDetectValuesResult(
                     IosClipboardDetectedValuesResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1244,11 +1516,28 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasCallback: {onResult != null}");
 
             s_onLoadItem = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope) || IosClipboardCApi.HasNul(request.UtType))
+            {
+                RejectAtEntry(OperationLoadItem, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationLoadItem,
                 OperationLoadItem,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationLoadItem, allocated =>
+                    {
+                        int error = IosClipboardCApi.ntk_clipboard_load_item_async(
+                            IosClipboardCApi.ItemKindOf(request.Kind),
+                            IosNativeToolkitCApi.AllocUtf8(request.UtType, allocated),
+                            IosClipboardCApi.BuildScope(scope, allocated),
+                            s_loadPointer, OpData(Op.LoadItem), IntPtr.Zero, out ulong requestId);
+                        if (error == IosClipboardCApi.ErrorNone) s_loadRequestId = requestId;
+                        return error;
+                    });
+#endif
                 },
                 onNativeFailureResult: message => FireLoadItemResult(
                     IosClipboardLoadedItemResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1278,11 +1567,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                       $"hasCallback: {onResult != null}");
 
             s_onCheckForegroundChange = onResult;
+            if (IosClipboardCApi.ScopeHasNul(scope))
+            {
+                RejectAtEntry(OperationCheckForegroundChange, InvalidRequest);
+                return;
+            }
             InvokeNative(
                 OperationCheckForegroundChange,
                 OperationCheckForegroundChange,
                 () =>
                 {
+#if UNITY_IOS && !UNITY_EDITOR
+                    CallNative(OperationCheckForegroundChange, allocated => IosClipboardCApi.ntk_clipboard_check_foreground_change_async(
+                        IosClipboardCApi.BuildScope(scope, allocated),
+                        s_foregroundPointer, OpData(Op.CheckForegroundChange), IntPtr.Zero));
+#endif
                 },
                 onNativeFailureResult: message => FireForegroundChangeResult(
                     IosClipboardForegroundChangeResult.Failure(BridgeUnavailableErrorCode, message)));
@@ -1320,18 +1619,22 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(InvokeNative)}] {operation}: {ex.Message}");
-                onNativeFailure?.Invoke();
-
-                if (onNativeFailureResult != null)
+                // A later frame, as every result decided during the call (design v4, D-12).
+                CompleteLater(operation, () =>
                 {
-                    onNativeFailureResult(CouldNotStartMessage(operation));
-                    return;
-                }
+                    onNativeFailure?.Invoke();
 
-                FireOperationResult(
-                    IosClipboardOperationResult.Failure(
-                        operation, BridgeUnavailableErrorCode, CouldNotStartMessage(operation)),
-                    inFlightKey);
+                    if (onNativeFailureResult != null)
+                    {
+                        onNativeFailureResult(CouldNotStartMessage(operation));
+                        return;
+                    }
+
+                    FireOperationResult(
+                        IosClipboardOperationResult.Failure(
+                            operation, BridgeUnavailableErrorCode, CouldNotStartMessage(operation)),
+                        inFlightKey);
+                });
             }
         }
 
@@ -1386,7 +1689,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             string operation,
             bool isSuccess,
             string? errorCode,
-            string? errorMessage)
+            string? errorMessage,
+            bool acceptedByLibrary = true)
         {
             if (DiscardIfTerminated(operation))
             {
@@ -1401,8 +1705,481 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             }
             s_pendingObservationGeneration = 0;
 
+            // D-6: changes are delivered only while this Manager's own observation is on. A call rejected at
+            // entry changed nothing natively (a previous observation goes on), so it leaves the state alone.
+            if (acceptedByLibrary)
+                s_isObserving = operation == OperationStartObserving && isSuccess;
+
             HandleOperationCallback(operation, ObservationControlKey, isSuccess, errorCode, errorMessage, guarded: true);
         }
+
+        // ── C ABI 2.0.0 (artifact/ios/clipboard, C ABI design v2) ─────────────────
+
+        private static IosClipboardErrorInfo InvalidRequest =>
+            IosClipboardCApi.ToErrorInfo(IosClipboardCApi.ErrorInvalidParameter);
+
+        private static IntPtr OpData(Op op) => new IntPtr((int)op);
+
+        /// <summary>The operation name of a <c>user_data</c> (D-2); null for 0 (destroy's stop) and unknown values.</summary>
+        internal static string? OperationNameOf(Op op) => op switch
+        {
+            Op.Copy => OperationCopy,
+            Op.Append => OperationAppend,
+            Op.Clear => OperationClear,
+            Op.RemovePasteboard => OperationRemovePasteboard,
+            Op.StartObserving => OperationStartObserving,
+            Op.StopObserving => OperationStopObserving,
+            Op.Read => OperationRead,
+            Op.ReadData => OperationReadData,
+            Op.GetSnapshot => OperationGetSnapshot,
+            Op.CreatePasteboard => OperationCreatePasteboard,
+            Op.DetectPatterns => OperationDetectPatterns,
+            Op.DetectValues => OperationDetectValues,
+            Op.LoadItem => OperationLoadItem,
+            Op.CheckForegroundChange => OperationCheckForegroundChange,
+            _ => null,
+        };
+
+        /// <summary>A value of the content that ends at a U+0000 is passed on with a warning (D-8 (5)).</summary>
+        private static void WarnIfValueHasNul(IosClipboardContent content)
+        {
+            if (IosClipboardCApi.ContentValueHasNul(content))
+                Debug.LogWarning($"[{LogTag}] {IosClipboardCApi.NulValueWarning}");
+        }
+
+        /// <summary>
+        /// Makes one C ABI call with the memory it needs, and frees it afterwards (the library copies what it
+        /// keeps). A rejection becomes the operation's failure on a later Update (D-4). An exception goes to
+        /// <see cref="InvokeNative"/>.
+        /// </summary>
+        private static void CallNative(string operation, Func<List<IntPtr>, int> call)
+        {
+            var allocated = new List<IntPtr>();
+            int error;
+            try
+            {
+                error = call(allocated);
+            }
+            finally
+            {
+                IosNativeToolkitCApi.FreeAll(allocated);
+            }
+            if (error != IosClipboardCApi.ErrorNone)
+                RejectAtEntry(operation, IosClipboardCApi.ToErrorInfo(error));
+        }
+
+        /// <summary>
+        /// A failure decided during the call: the library's rejection, or C#'s own check (D-4, D-8). The call
+        /// keeps its slot and the busy mark until it is delivered (D-12). A warning, not an error: the input
+        /// may be the user's.
+        /// </summary>
+        private static void RejectAtEntry(string operation, IosClipboardErrorInfo error)
+        {
+            Debug.LogWarning($"[{LogTag}] {operation} rejected: {error.Code}");
+            CompleteLater(operation, () => CompleteWithError(operation, error));
+        }
+
+        /// <summary>
+        /// Delivers a result decided during the call on a later frame, through the operation's normal
+        /// completion path (D-12): never in the frame it was decided in, so a callback that calls again cannot
+        /// keep one Update going. Dropped when the Manager was destroyed or reset meanwhile.
+        /// </summary>
+        private static void CompleteLater(string operation, Action complete)
+        {
+            if (!EnsurePump())
+            {
+                complete(); // no dispatcher: releases the mark; Dispatch reports the dropped result
+                return;
+            }
+            s_later.Add(new Later(Time.frameCount, operation, s_lifetime, complete));
+        }
+
+        /// <summary>The pump on the dispatcher's GameObject; false when there is no live dispatcher.</summary>
+        private static bool EnsurePump()
+        {
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (dispatcher == null) return false;
+            if (s_pump == null)
+            {
+                IosClipboardLaterPump pump = dispatcher.GetComponent<IosClipboardLaterPump>();
+                s_pump = pump != null ? pump : dispatcher.gameObject.AddComponent<IosClipboardLaterPump>();
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Hands the waiting results, in order, to the end of the dispatcher's queue, up to the first one queued
+        /// in <paramref name="frame"/> or later (also one queued by a callback). Called by
+        /// <see cref="IosClipboardLaterPump"/> every frame; internal for the Editor's tests.
+        /// </summary>
+        internal static void DeliverLater(int frame)
+        {
+            if (s_later.Count == 0 || s_later[0].Frame >= frame) return;
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            if (dispatcher == null) return;
+            while (s_later.Count > 0 && s_later[0].Frame < frame)
+            {
+                Later later = s_later[0];
+                s_later.RemoveAt(0);
+                dispatcher.Enqueue(() => RunLater(later));
+            }
+        }
+
+        private static void RunLater(Later later)
+        {
+            if (later.Operation != null &&
+                (DiscardIfTerminated(later.Operation) || later.Lifetime != s_lifetime))
+            {
+                return;
+            }
+            s_deliverInline = later.Operation != null;
+            try
+            {
+                later.Deliver();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(RunLater)}] {ex.Message}");
+            }
+            finally
+            {
+                s_deliverInline = false;
+            }
+        }
+
+        /// <summary>
+        /// On destroy: results that were already known still go out through the dispatcher, in order; those
+        /// decided during a call are dropped, as late completions are.
+        /// </summary>
+        private static void HandOverLaterResults()
+        {
+            var waiting = new List<Later>(s_later);
+            s_later.Clear();
+            UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            foreach (Later later in waiting)
+            {
+                if (later.Operation != null) continue;
+                if (dispatcher == null)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(HandOverLaterResults)}] No dispatcher; result dropped.");
+                    continue;
+                }
+                dispatcher.Enqueue(later.Deliver);
+            }
+        }
+
+        /// <summary>Completes an operation with a failure through its normal path (slot, mark, generation).</summary>
+        private static void CompleteWithError(string operation, IosClipboardErrorInfo error)
+        {
+            switch (operation)
+            {
+                case OperationStartObserving:
+                case OperationStopObserving:
+                    HandleObservationControlCallback(operation, false, error.Code, error.Message, acceptedByLibrary: false);
+                    return;
+                case OperationRead:
+                    FireReadResult(IosClipboardReadResult.Failure(error));
+                    return;
+                case OperationReadData:
+                    FireReadDataResult(IosClipboardReadDataResult.Failure(error));
+                    return;
+                case OperationGetSnapshot:
+                    FireSnapshotResult(IosClipboardSnapshotResult.Failure(error));
+                    return;
+                case OperationCreatePasteboard:
+                    FireCreatePasteboardResult(IosPasteboardScopeResult.Failure(error));
+                    return;
+                case OperationDetectPatterns:
+                    FireDetectPatternsResult(IosClipboardDetectedPatternsResult.Failure(error));
+                    return;
+                case OperationDetectValues:
+                    FireDetectValuesResult(IosClipboardDetectedValuesResult.Failure(error));
+                    return;
+                case OperationLoadItem:
+                    s_loadRequestId = 0;
+                    FireLoadItemResult(IosClipboardLoadedItemResult.Failure(error));
+                    return;
+                case OperationCheckForegroundChange:
+                    FireForegroundChangeResult(IosClipboardForegroundChangeResult.Failure(error));
+                    return;
+                default:
+                    FireOperationResult(IosClipboardOperationResult.Failure(operation, error), operation);
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// Whether a change is dropped (D-6): after destroy, or while this Manager's own observation is off.
+        /// Shared by the player's listener and the Editor's test seam.
+        /// </summary>
+        private static bool DropsChange() => DiscardIfTerminated(OperationStartObserving + " change") || !s_isObserving;
+
+        /// <summary>
+        /// The result of a completion that carries a handle (D-9): the error, UNKNOWN for NONE without a handle,
+        /// or what <paramref name="read"/> builds; UNKNOWN when reading throws. The caller frees the handle.
+        /// </summary>
+        internal static TResult ResultOf<TResult>(
+            int error, IntPtr handle, Func<IosClipboardErrorInfo, TResult> failure, Func<IntPtr, TResult> read)
+        {
+            if (error != IosClipboardCApi.ErrorNone) return failure(IosClipboardCApi.ToErrorInfo(error));
+            if (handle == IntPtr.Zero) return failure(IosClipboardCApi.MissingResult);
+            try
+            {
+                return read(handle);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}] could not read a clipboard result: {ex.Message}");
+                return failure(IosClipboardCApi.ToErrorInfo(IosClipboardCApi.ErrorUnknown));
+            }
+        }
+
+#if UNITY_IOS && !UNITY_EDITOR
+        // ── The completions (main thread). One per C ABI callback type; user_data names the operation (D-2).
+        // Kept for the life of the process, so the pointers handed to the C ABI stay valid. Internal for the
+        // player tests. No exception leaves; a handle is freed on every path. ──
+
+        private static readonly IosClipboardCApi.DoneCallback s_done = OnDone;
+        internal static readonly IntPtr s_donePointer = Marshal.GetFunctionPointerForDelegate(s_done);
+        private static readonly IosClipboardCApi.HandleCallback s_read = OnRead;
+        internal static readonly IntPtr s_readPointer = Marshal.GetFunctionPointerForDelegate(s_read);
+        private static readonly IosClipboardCApi.HandleCallback s_data = OnData;
+        internal static readonly IntPtr s_dataPointer = Marshal.GetFunctionPointerForDelegate(s_data);
+        private static readonly IosClipboardCApi.HandleCallback s_snapshot = OnSnapshot;
+        internal static readonly IntPtr s_snapshotPointer = Marshal.GetFunctionPointerForDelegate(s_snapshot);
+        private static readonly IosClipboardCApi.HandleCallback s_name = OnName;
+        internal static readonly IntPtr s_namePointer = Marshal.GetFunctionPointerForDelegate(s_name);
+        private static readonly IosClipboardCApi.PatternsCallback s_patterns = OnPatterns;
+        internal static readonly IntPtr s_patternsPointer = Marshal.GetFunctionPointerForDelegate(s_patterns);
+        private static readonly IosClipboardCApi.HandleCallback s_values = OnValues;
+        internal static readonly IntPtr s_valuesPointer = Marshal.GetFunctionPointerForDelegate(s_values);
+        private static readonly IosClipboardCApi.LoadCallback s_load = OnLoad;
+        internal static readonly IntPtr s_loadPointer = Marshal.GetFunctionPointerForDelegate(s_load);
+        private static readonly IosClipboardCApi.ForegroundChangeCallback s_foreground = OnForegroundChange;
+        internal static readonly IntPtr s_foregroundPointer = Marshal.GetFunctionPointerForDelegate(s_foreground);
+        private static readonly IosClipboardCApi.ChangeCallback s_change = OnChange;
+        internal static readonly IntPtr s_changePointer = Marshal.GetFunctionPointerForDelegate(s_change);
+        private static readonly IosClipboardCApi.ReleaseCallback s_listenerRelease = OnListenerReleased;
+        internal static readonly IntPtr s_listenerReleasePointer = Marshal.GetFunctionPointerForDelegate(s_listenerRelease);
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.DoneCallback))]
+        private static void OnDone(IntPtr userData, int error, uint systemCode)
+        {
+            try
+            {
+                var op = (Op)userData.ToInt64();
+                string? operation = OperationNameOf(op);
+                if (operation == null) return; // destroy's stop (D-2)
+
+                bool ok = error == IosClipboardCApi.ErrorNone;
+                IosClipboardErrorInfo info = IosClipboardCApi.ToErrorInfo(error);
+                if (op == Op.StartObserving || op == Op.StopObserving)
+                    HandleObservationControlCallback(operation, ok, ok ? null : info.Code, ok ? null : info.Message);
+                else
+                    HandleOperationCallback(operation, operation, ok, ok ? null : info.Code, ok ? null : info.Message);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnDone)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.HandleCallback))]
+        private static void OnRead(IntPtr userData, int error, uint systemCode, IntPtr handle)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationRead)) return;
+                FireReadResult(ResultOf<IosClipboardReadResult>(error, handle, IosClipboardReadResult.Failure, IosClipboardCApi.ReadReadResult));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnRead)}] {ex.Message}");
+            }
+            finally
+            {
+                if (handle != IntPtr.Zero) IosClipboardCApi.ntk_clipboard_read_result_free(handle);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.HandleCallback))]
+        private static void OnData(IntPtr userData, int error, uint systemCode, IntPtr bytes)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationReadData)) return;
+                IosClipboardReadDataResult result;
+                if (error != IosClipboardCApi.ErrorNone)
+                {
+                    result = IosClipboardReadDataResult.Failure(IosClipboardCApi.ToErrorInfo(error));
+                }
+                else
+                {
+                    // NULL is "no data", not a missing result (table 2.1).
+                    try
+                    {
+                        result = IosClipboardCApi.ReadReadData(bytes, s_readDataUtType);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[{LogTag}] could not read a clipboard result: {ex.Message}");
+                        result = IosClipboardReadDataResult.Failure(IosClipboardCApi.ToErrorInfo(IosClipboardCApi.ErrorUnknown));
+                    }
+                }
+                FireReadDataResult(result);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnData)}] {ex.Message}");
+            }
+            finally
+            {
+                if (bytes != IntPtr.Zero) IosClipboardCApi.ntk_bytes_free(bytes);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.HandleCallback))]
+        private static void OnSnapshot(IntPtr userData, int error, uint systemCode, IntPtr handle)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationGetSnapshot)) return;
+                FireSnapshotResult(ResultOf<IosClipboardSnapshotResult>(error, handle, IosClipboardSnapshotResult.Failure,
+                    h => IosClipboardSnapshotResult.Success(IosClipboardCApi.ReadSnapshot(h))));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnSnapshot)}] {ex.Message}");
+            }
+            finally
+            {
+                if (handle != IntPtr.Zero) IosClipboardCApi.ntk_clipboard_snapshot_free(handle);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.HandleCallback))]
+        private static void OnName(IntPtr userData, int error, uint systemCode, IntPtr name)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationCreatePasteboard)) return;
+                FireCreatePasteboardResult(ResultOf<IosPasteboardScopeResult>(error, name, IosPasteboardScopeResult.Failure,
+                    h => IosPasteboardScopeResult.Success(
+                        IosClipboardCApi.CreatedScopeOf(s_createKind, IosClipboardCApi.ReadString(h)))));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnName)}] {ex.Message}");
+            }
+            finally
+            {
+                if (name != IntPtr.Zero) IosClipboardCApi.ntk_string_free(name);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.PatternsCallback))]
+        private static void OnPatterns(IntPtr userData, int error, uint systemCode, uint patterns)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationDetectPatterns)) return;
+                FireDetectPatternsResult(error == IosClipboardCApi.ErrorNone
+                    ? IosClipboardDetectedPatternsResult.Success(IosClipboardCApi.PatternsOf(patterns))
+                    : IosClipboardDetectedPatternsResult.Failure(IosClipboardCApi.ToErrorInfo(error)));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnPatterns)}] {ex.Message}");
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.HandleCallback))]
+        private static void OnValues(IntPtr userData, int error, uint systemCode, IntPtr json)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationDetectValues)) return;
+                FireDetectValuesResult(ResultOf<IosClipboardDetectedValuesResult>(error, json, IosClipboardDetectedValuesResult.Failure,
+                    h => IosClipboardJsonParser.ParseBareDetectedValues(IosClipboardCApi.ReadString(h))));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnValues)}] {ex.Message}");
+            }
+            finally
+            {
+                if (json != IntPtr.Zero) IosClipboardCApi.ntk_string_free(json);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.LoadCallback))]
+        private static void OnLoad(IntPtr userData, ulong requestId, int error, uint systemCode, IntPtr item)
+        {
+            try
+            {
+                if (requestId == s_loadRequestId) s_loadRequestId = 0;
+                if (DiscardIfTerminated(OperationLoadItem)) return;
+                FireLoadItemResult(ResultOf<IosClipboardLoadedItemResult>(error, item, IosClipboardLoadedItemResult.Failure,
+                    h => IosClipboardLoadedItemResult.Success(IosClipboardCApi.ReadLoadedItem(h))));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnLoad)}] {ex.Message}");
+            }
+            finally
+            {
+                if (item != IntPtr.Zero) IosClipboardCApi.ntk_clipboard_loaded_item_free(item);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.ForegroundChangeCallback))]
+        private static void OnForegroundChange(IntPtr userData, int error, uint systemCode, int changed)
+        {
+            try
+            {
+                if (DiscardIfTerminated(OperationCheckForegroundChange)) return;
+                FireForegroundChangeResult(error == IosClipboardCApi.ErrorNone
+                    ? IosClipboardForegroundChangeResult.Success(changed != 0)
+                    : IosClipboardForegroundChangeResult.Failure(IosClipboardCApi.ToErrorInfo(error)));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnForegroundChange)}] {ex.Message}");
+            }
+        }
+
+        /// <summary>A change of the observed pasteboard (D-6): dropped after destroy or while the Manager is not observing.</summary>
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.ChangeCallback))]
+        private static void OnChange(IntPtr userData, IntPtr change)
+        {
+            try
+            {
+                if (DropsChange() || change == IntPtr.Zero) return;
+                IosClipboardChangeEvent changeEvent;
+                try
+                {
+                    changeEvent = IosClipboardCApi.ReadChange(change);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[{LogTag}] dropped a clipboard change that could not be read: {ex.Message}");
+                    return;
+                }
+                FireClipboardChanged(changeEvent);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(OnChange)}] {ex.Message}");
+            }
+            finally
+            {
+                if (change != IntPtr.Zero) IosClipboardCApi.ntk_clipboard_change_free(change);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(IosClipboardCApi.ReleaseCallback))]
+        private static void OnListenerReleased(IntPtr userData) => Interlocked.Increment(ref s_listenerReleaseCount);
+#endif
 
 #if UNITY_EDITOR
         // ── Editor-only completion seams ────────────────────────────────────────
@@ -1432,13 +2209,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         internal static void DeliverChangeEventForTests(string? eventJson)
         {
-            if (DiscardIfTerminated(OperationStartObserving)) return;
+            if (DropsChange()) return;
             IosClipboardChangeEvent? changeEvent = IosClipboardJsonParser.ParseChangeEvent(eventJson);
             if (changeEvent == null) return;
             FireClipboardChanged(changeEvent);
         }
 
         internal static bool IsInFlightForTests(string key) => s_inFlight.Contains(key);
+
+        /// <summary>Drives D-12 as the library's rejection of a pending call would (C ABI error number).</summary>
+        internal static void RejectAtEntryForTests(string operation, int error) =>
+            RejectAtEntry(operation, IosClipboardCApi.ToErrorInfo(error));
+
+        internal static bool IsObservingForTests => s_isObserving;
 
         internal static bool HasChangeRegistrationForTests => s_onChanged != null;
 

@@ -13,6 +13,14 @@ final class ClipboardUITests: HarnessUITestCase {
     private static let harnessName = "NTK UI Harness"
     private static let runnerName = "NtkUiTests-Runner"
 
+    /// Whether the harness runs on the C ABI 2.0.0 (its first line). There a failure has no domain and no
+    /// native code (Clipboard C ABI design v2, D-3).
+    private var abi2: Bool {
+        let line = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'result.line.' AND label BEGINSWITH '[abi@event]'")).firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: Self.timeout), "the harness did not report its ABI")
+        return line.label == "[abi@event] 2"
+    }
+
     /// The names quoted with “ and ” in the label, or nil when the quotes do not pair up (native-toolkit's
     /// Springboard.quotedNames).
     private static func quotedNames(_ label: String) -> [String]? {
@@ -89,6 +97,9 @@ final class ClipboardUITests: HarnessUITestCase {
         pressPastePrompt(Self.dontAllowPaste)
         let load = line("load")
         XCTAssertTrue(load.hasPrefix("[load@fail] code=CLIPBOARD_LOAD_FAILED "), load)
+        if abi2 {
+            XCTAssertEqual(load, "[load@fail] code=CLIPBOARD_LOAD_FAILED domain=<null> native-code=<null>")
+        }
         expectLines("load", [load])
     }
 
@@ -102,6 +113,9 @@ final class ClipboardUITests: HarnessUITestCase {
         let detect = line("detect")
         XCTAssertFalse(detect.contains("CLIPBOARD_TIMED_OUT"), "the detection timed out: \(detect)")
         XCTAssertTrue(detect.hasPrefix("[detect@fail] code=CLIPBOARD_DETECTION_FAILED "), detect)
+        if abi2 {
+            XCTAssertEqual(detect, "[detect@fail] code=CLIPBOARD_DETECTION_FAILED domain=<null> native-code=<null>")
+        }
         expectLines("detect", [detect])
     }
 
@@ -123,9 +137,10 @@ final class ClipboardUITests: HarnessUITestCase {
         let lineText = element.label
         print("[NTK-CLIPBOARD-UI] \(lineText)")
         if lineText.contains("abi=present") {
-            XCTAssertEqual(lineText, "[after-destroy@event] terminated=True abi=present late-change=0 native-listener=0")
+            // The manager's own listener was removed and released once (C ABI design v2, D-7).
+            XCTAssertEqual(lineText, "[after-destroy@event] terminated=True abi=present late-change=0 native-listener=0 listener-released=1")
         } else {
-            XCTAssertEqual(lineText, "[after-destroy@event] terminated=True abi=none late-change=0 native-listener=none")
+            XCTAssertEqual(lineText, "[after-destroy@event] terminated=True abi=none late-change=0 native-listener=none listener-released=none")
         }
     }
 }

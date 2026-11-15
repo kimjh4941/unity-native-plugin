@@ -256,6 +256,25 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 return IosClipboardDetectedValuesResult.Failure(error);
             }
 
+            return DetectedValuesFromData(data);
+        }
+
+        /// <summary>
+        /// Reads the values of native-toolkit's C ABI 2.0.0 (<c>ntk_clipboard_values_fn</c>): the object 1.x
+        /// carried as <c>data</c>, with no envelope (artifact/ios/clipboard, C ABI design v2, D-9).
+        /// </summary>
+        internal static IosClipboardDetectedValuesResult ParseBareDetectedValues(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return IosClipboardDetectedValuesResult.Failure(MalformedResponse());
+            }
+
+            return DetectedValuesFromData(IosClipboardJsonReader.Parse(json!));
+        }
+
+        private static IosClipboardDetectedValuesResult DetectedValuesFromData(JsonValue? data)
+        {
             if (data == null || data.Kind != JsonValueKind.Object ||
                 !TryGetRequiredArray(data, "detectedPatterns", out JsonValue detectedPatterns))
             {

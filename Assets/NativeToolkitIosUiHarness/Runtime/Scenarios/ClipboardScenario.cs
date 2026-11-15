@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 using UnityEngine;
@@ -18,7 +19,8 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
     internal static class ClipboardScenario
     {
         private const string Named = "com.jonghyunkim.nativetoolkit.uiharness.afterdestroy";
-        private const string LateChange = "Discarded a late startObserving callback";
+        // 1.x: "Discarded a late startObserving callback"; C ABI 2.0.0: "Discarded a late startObserving change callback".
+        private const string LateChange = "Discarded a late startObserving";
 
         [DllImport("__Internal")] private static extern void ntkh_pasteboard_write(string name);
         [DllImport("__Internal")] private static extern int ntkh_abi();
@@ -93,8 +95,20 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
                 string listener = s_listener == -1 ? "none" : s_listener == -2 ? "add-failed" : ntkh_native_listener_count().ToString();
                 IosUiHarness.Append("after-destroy", "event",
                     $"terminated={s_terminatedWhenWritten} abi={(ntkh_abi() == 1 ? "present" : "none")} " +
-                    $"late-change={System.Threading.Volatile.Read(ref s_lateChanges)} native-listener={listener}");
+                    $"late-change={System.Threading.Volatile.Read(ref s_lateChanges)} native-listener={listener} " +
+                    $"listener-released={ListenerReleased()}");
             });
+        }
+
+        /// <summary>
+        /// How many times the C ABI released the manager's own change listener (C ABI design v2, D-7): an
+        /// internal field of the package, read by reflection; "none" when the package has no such field (1.x).
+        /// </summary>
+        private static string ListenerReleased()
+        {
+            FieldInfo? field = typeof(IosClipboardManager).GetField(
+                "s_listenerReleaseCount", BindingFlags.NonPublic | BindingFlags.Static);
+            return field == null ? "none" : ((int)field.GetValue(null)!).ToString();
         }
 
         private static void CountLateChange(string message, string stackTrace, LogType type)

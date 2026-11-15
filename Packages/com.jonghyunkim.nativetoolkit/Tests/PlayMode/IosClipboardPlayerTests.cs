@@ -124,6 +124,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             var created = Create(IosPasteboardCreationRequest.Named(name));
             yield return Await(created, "CreatePasteboard");
             Assert.IsTrue(created.V.IsSuccess, $"CreatePasteboard failed: {created.V.Error?.Code}");
+            // C ABI design v2, table 2.1: the kind comes from the request, the name from the library.
+            Assert.AreEqual(IosPasteboardScopeKind.Named, created.V.Scope!.Kind);
+            Assert.AreEqual(name, created.V.Scope.Name);
         }
 
         [UnityTearDown]
@@ -204,6 +207,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var data = ReadData(_scope, "public.html");
             yield return Await(data, "ReadData");
             Assert.IsTrue(data.V.HasData);
+            Assert.AreEqual("public.html", data.V.UtType);
             CollectionAssert.AreEqual(Encoding.UTF8.GetBytes(html), data.V.Data);
         }
 
@@ -254,6 +258,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(copied.V.IsSuccess);
             var data = ReadData(_scope, CustomType);
             yield return Await(data, "ReadData");
+            Assert.AreEqual(CustomType, data.V.UtType);
             CollectionAssert.AreEqual(bytes, data.V.Data);
         }
 
@@ -342,6 +347,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(snap.V.IsSuccess);
             var s = snap.V.Snapshot!;
             Record($"types={string.Join(",", s.TypeIdentifiers)} all={string.Join("|", s.AllTypeIdentifiers.Select(t => string.Join(",", t)))}");
+            Record($"has strings={s.HasStrings} urls={s.HasUrls} images={s.HasImages} colors={s.HasColors}");
+            Assert.IsTrue(s.HasStrings);
+            Assert.IsTrue(s.HasUrls);
+            Assert.IsFalse(s.HasImages);
+            Assert.IsFalse(s.HasColors);
             Assert.AreEqual(2, s.NumberOfItems);
             CollectionAssert.AreEqual(new[] { "public.plain-text" }, s.TypeIdentifiers);
             Assert.AreEqual(2, s.AllTypeIdentifiers.Count);
@@ -426,6 +436,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsTrue(created.V.IsSuccess);
             var unique = created.V.Scope!;
             _extra = unique;
+            Assert.AreEqual(IosPasteboardScopeKind.Unique, unique.Kind);
             Assert.IsFalse(string.IsNullOrEmpty(unique.Name));
             var removed = Remove(unique);
             yield return Await(removed, "RemovePasteboard");
@@ -583,6 +594,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             ExpectError(loaded.V.Error, "CLIPBOARD_CANCELLED", "The clipboard load was cancelled.");
             Assert.AreEqual(1, cancelled.Count);
             Assert.IsTrue(cancelled.V.IsSuccess);
+            CollectionAssert.AreEqual(new[] { "cancel", "load" }, order, "1.x: the cancel result first");
         }
 
         private IEnumerator CountChanges(Func<IEnumerator> body, List<IosClipboardChangeEvent> events)
@@ -622,6 +634,11 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"events={events.Count} on-changed={perCall} kinds={Describe(events)}");
             Assert.AreEqual("Changed+;Changed+public.plain-text", Describe(events));
             Assert.AreEqual(2, perCall);
+            foreach (var e in events)
+            {
+                Assert.AreEqual(IosPasteboardScopeKind.Named, e.Scope?.Kind, "the change's scope");
+                Assert.AreEqual(_scope.Name, e.Scope!.Name);
+            }
         }
 
         [UnityTest]
@@ -702,6 +719,101 @@ namespace JonghyunKim.NativeToolkit.Tests
             Record($"events={events.Count} kinds={Describe(events)}");
             Assert.AreEqual("Removed+", Describe(events));
         }
+
+#if NTK_IOS_CABI_2_CLIPBOARD
+        // C ABI 2.0.0 only (artifact/ios/clipboard, C ABI design v2).
+
+        /// <summary>D-4, D-12: a call the library rejects at once fails on a later frame; until then the kind is busy.</summary>
+        [UnityTest]
+        public IEnumerator CP36_RejectedAtEntryKeepsTheKindBusyUntilDelivered()
+        {
+            var first = Copy(_scope, IosClipboardContent.MultipleText(new string[0]));
+            var second = Copy(_scope, IosClipboardContent.PlainText("ntk"));
+            Assert.AreEqual(0, first.Count + second.Count, "a result came inside the call");
+            yield return Await(first, "Copy");
+            yield return Await(second, "Copy");
+            ExpectError(first.V.Error, "CLIPBOARD_EMPTY_ITEMS", "No items provided for clipboard copy.");
+            Assert.AreEqual(IosClipboardManager.BusyErrorCode, second.V.Error?.Code);
+        }
+
+        /// <summary>D-12: a call made again from the callback of a rejected call is not delivered in the same frame.</summary>
+        [UnityTest]
+        public IEnumerator CP37_RecallingFromTheCallbackWaitsForAnotherFrame()
+        {
+            int frameOfFirst = -1, frameOfSecond = -1;
+            var second = new Box<IosClipboardOperationResult>();
+            var first = Track<IosClipboardOperationResult>(cb => M.Copy(IosClipboardContent.MultipleText(new string[0]), _scope, null, r =>
+            {
+                frameOfFirst = Time.frameCount;
+                cb(r);
+                _tracked.Add(("second", () => second.Count));
+                M.Copy(IosClipboardContent.MultipleText(new string[0]), _scope, null, r2 =>
+                {
+                    frameOfSecond = Time.frameCount;
+                    second.Value = r2;
+                    second.Count++;
+                });
+            }));
+            yield return Await(first, "Copy");
+            yield return Await(second, "Copy");
+            Record($"frames first={frameOfFirst} second={frameOfSecond}");
+            Assert.Greater(frameOfSecond, frameOfFirst);
+            Assert.AreEqual("CLIPBOARD_EMPTY_ITEMS", second.V.Error?.Code);
+        }
+
+        /// <summary>D-8 (5): a name or a type holding U+0000 fails in C#; a value holding it is cut, with a warning.</summary>
+        [UnityTest]
+        public IEnumerator CP38_NulInANameFailsAndInAValueIsCut()
+        {
+            var named = Read(IosPasteboardScope.Named(_scope.Name + "\0other"));
+            yield return Await(named, "Read");
+            ExpectError(named.V.Error, "CLIPBOARD_INVALID_REQUEST", "The request is invalid.");
+            var typed = ReadData(_scope, "public.plain-text\0x");
+            yield return Await(typed, "ReadData");
+            ExpectError(typed.V.Error, "CLIPBOARD_INVALID_REQUEST", "The request is invalid.");
+
+            LogAssert.Expect(LogType.Warning, new Regex("U\\+0000"));
+            var copied = Copy(_scope, IosClipboardContent.PlainText("ntk\0secret"));
+            yield return Await(copied, "Copy");
+            Assert.IsTrue(copied.V.IsSuccess);
+            var read = Read(_scope);
+            yield return Await(read, "Read");
+            Assert.AreEqual("ntk", read.V.Items[0].Text);
+        }
+
+        /// <summary>D-8 (4): a pattern outside the enum fails in C# instead of being taken for another pattern.</summary>
+        [UnityTest]
+        public IEnumerator CP39_PatternOutsideTheEnumFails()
+        {
+            var found = DetectPatterns(_scope, (IosClipboardDetectionPattern)35);
+            yield return Await(found, "DetectPatterns");
+            ExpectError(found.V.Error, "CLIPBOARD_INVALID_REQUEST", "The request is invalid.");
+        }
+
+        /// <summary>D-6 (design v3): a stop rejected as busy leaves the observation on; changes still come.</summary>
+        [UnityTest]
+        public IEnumerator CP40_BusyStopKeepsObserving()
+        {
+            var events = new List<IosClipboardChangeEvent>();
+            int perCall = 0;
+            yield return CountChanges(() => Body(), events);
+            IEnumerator Body()
+            {
+                var started = StartObserving(_scope, _ => perCall++);
+                var stopped = StopObserving();
+                yield return Await(started, "StartObserving");
+                yield return Await(stopped, "StopObserving");
+                Assert.IsTrue(started.V.IsSuccess);
+                Assert.AreEqual(IosClipboardManager.BusyErrorCode, stopped.V.Error?.Code);
+                var copied = Copy(_scope, IosClipboardContent.PlainText("ntk"));
+                yield return Await(copied, "Copy");
+                yield return WaitFor(() => false, Window);
+            }
+            Record($"events={events.Count} on-changed={perCall}");
+            Assert.AreEqual(2, events.Count, Describe(events));
+            Assert.AreEqual(2, perCall);
+        }
+#endif
     }
 #endif
 
