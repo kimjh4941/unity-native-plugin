@@ -50,7 +50,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             internal bool NotifyOnExit;
         }
 
-        internal sealed class Action
+        internal sealed class ActionItem
         {
             internal string Identifier = "";
             internal string Title = "";
@@ -58,7 +58,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             internal uint Options;
         }
 
-        internal sealed class TextInputAction
+        internal sealed class TextInputItem
         {
             internal string Identifier = "";
             internal string Title = "";
@@ -70,8 +70,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         {
             internal string Identifier = "";
             internal uint Options;
-            internal readonly List<Action> Actions = new();
-            internal readonly List<TextInputAction> TextInputActions = new();
+            internal readonly List<ActionItem> Actions = new();
+            internal readonly List<TextInputItem> TextInputActions = new();
         }
 
         /// <summary>What reading found wrong: nothing, a JSON 1.x could not read, or a value C# rejects (U+0000).</summary>
@@ -93,7 +93,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         {
             content = new Content();
             valueWithNul = false;
-            JsonValue? root = IosClipboardJsonReader.Parse(json);
+            JsonValue? root = ParseLike1x(json);
             if (root == null || root.Kind != JsonValueKind.Object) return Problem.Unreadable;
             if (!TryString(root, "id", out string id) || !TryString(root, "title", out string title)) return Problem.Unreadable;
 
@@ -187,7 +187,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         internal static Problem ReadTrigger(string? json, out Trigger? trigger)
         {
             trigger = null;
-            JsonValue? root = IosClipboardJsonReader.Parse(json);
+            JsonValue? root = ParseLike1x(json);
             if (root == null || root.Kind != JsonValueKind.Object || !TryString(root, "type", out string type))
                 return Problem.Unreadable;
 
@@ -236,7 +236,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         {
             category = new Category();
             valueWithNul = false;
-            JsonValue? root = IosClipboardJsonReader.Parse(json);
+            JsonValue? root = ParseLike1x(json);
             if (root == null || root.Kind != JsonValueKind.Object || !TryString(root, "identifier", out string identifier))
                 return Problem.Unreadable;
             category.Identifier = identifier;
@@ -250,7 +250,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
                     {
                         continue;
                     }
-                    var action = new Action { Identifier = id, Title = title, SfSymbolName = StringOrNull(element, "sfSymbolName") };
+                    var action = new ActionItem { Identifier = id, Title = title, SfSymbolName = StringOrNull(element, "sfSymbolName") };
                     foreach (string option in StringArray(element, "options"))
                     {
                         action.Options |= option switch
@@ -276,7 +276,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
                     {
                         continue;
                     }
-                    category.TextInputActions.Add(new TextInputAction
+                    category.TextInputActions.Add(new TextInputItem
                     {
                         Identifier = id, Title = title, ButtonTitle = buttonTitle, Placeholder = placeholder,
                     });
@@ -296,12 +296,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             }
 
             if (HasNul(category.Identifier)) return Problem.Invalid;
-            foreach (Action action in category.Actions)
+            foreach (ActionItem action in category.Actions)
             {
                 if (HasNul(action.Identifier)) return Problem.Invalid;
                 valueWithNul |= HasNul(action.Title) || HasNul(action.SfSymbolName);
             }
-            foreach (TextInputAction action in category.TextInputActions)
+            foreach (TextInputItem action in category.TextInputActions)
             {
                 if (HasNul(action.Identifier)) return Problem.Invalid;
                 valueWithNul |= HasNul(action.Title) || HasNul(action.ButtonTitle) || HasNul(action.Placeholder);
@@ -312,6 +312,16 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         // ── Readers that follow 1.x's Swift casts (F-17) ──────────────────
 
         internal static bool HasNul(string? value) => value != null && value.IndexOf('\0') >= 0;
+
+        /// <summary>The nesting 1.x's JSONSerialization read (much deeper than the Clipboard reader's default).</summary>
+        internal const int MaxDepth = 512;
+
+        /// <summary>Reads JSON as 1.x did: a leading byte order mark is skipped, and deep documents are read.</summary>
+        private static JsonValue? ParseLike1x(string? json)
+        {
+            if (json != null && json.Length > 0 && json[0] == '\uFEFF') json = json.Substring(1);
+            return IosClipboardJsonReader.Parse(json, MaxDepth);
+        }
 
         private static string CutAtNul(string value)
         {
@@ -361,7 +371,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
                 value = flag ? 1 : 0;
                 return true;
             }
-            return member.TryGetDouble(out value);
+            // 1.x's as? Double gave nil for a number JSONSerialization could not read (1e400) and for an integer a
+            // double cannot hold exactly (above 2^53); such a value is not read (design v4, D-4).
+            if (!member.TryGetDouble(out value) || double.IsNaN(value) || double.IsInfinity(value)) return false;
+            string? raw = member.RawNumber;
+            if (raw != null && raw.IndexOfAny(new[] { '.', 'e', 'E' }) < 0 && Math.Abs(value) >= 9007199254740992d &&
+                (!System.Numerics.BigInteger.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var exact) ||
+                 exact != new System.Numerics.BigInteger(value)))
+            {
+                return false;
+            }
+            return true;
         }
 
         /// <summary>

@@ -34,10 +34,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
         private static IosNextFrameQueuePump? s_pump;
         private static int s_mainThreadId;
 
+        // True while HandOver moves items to the dispatcher outside the lock: a result queued behind meanwhile
+        // waits in the list, so it cannot overtake them (implementation review v1).
+        private static bool s_handingOver;
+
+        /// <summary>Whether the caller is on Unity's main thread (as recorded at the start of the Play session).</summary>
+        internal static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == s_mainThreadId;
+
         /// <summary>Adds the pump to the dispatcher's GameObject. Main thread (the managers call it in Awake).</summary>
         internal static void EnsurePump()
         {
-            s_mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            if (!IsMainThread) return;
             UnityMainThreadDispatcher dispatcher = UnityMainThreadDispatcher.Instance;
             if (s_pump != null) return;
             IosNextFrameQueuePump pump = dispatcher.GetComponent<IosNextFrameQueuePump>();
@@ -61,10 +68,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
         internal static void EnqueueBehind(Action run)
         {
             // On the main thread, a dispatcher made again (its pump went with the old one) gets a pump here.
-            if (Thread.CurrentThread.ManagedThreadId == s_mainThreadId) EnsurePump();
+            if (IsMainThread) EnsurePump();
             lock (s_gate)
             {
-                if (s_waiting.Count > 0)
+                if (s_waiting.Count > 0 || s_handingOver)
                 {
                     s_waiting.Add((Due, run));
                     return;
@@ -79,24 +86,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
         /// </summary>
         internal static void HandOver(int frame)
         {
-            var handed = new List<Action>();
-            lock (s_gate)
+            int total = 0;
+            while (true)
             {
-                if (s_waiting.Count == 0) return;
-                for (int i = 0; i < s_waiting.Count; i++)
+                var handed = new List<Action>();
+                lock (s_gate)
                 {
-                    if (s_waiting[i].Frame == Unstamped) s_waiting[i] = (frame, s_waiting[i].Run);
+                    s_handingOver = false;
+                    for (int i = 0; i < s_waiting.Count; i++)
+                    {
+                        if (s_waiting[i].Frame == Unstamped) s_waiting[i] = (frame, s_waiting[i].Run);
+                    }
+                    while (s_waiting.Count > 0 && (s_waiting[0].Frame == Due || s_waiting[0].Frame < frame))
+                    {
+                        handed.Add(s_waiting[0].Run);
+                        s_waiting.RemoveAt(0);
+                    }
+                    if (handed.Count == 0) break;
+                    s_handingOver = true;
                 }
-                while (s_waiting.Count > 0 && (s_waiting[0].Frame == Due || s_waiting[0].Frame < frame))
-                {
-                    handed.Add(s_waiting[0].Run);
-                    s_waiting.RemoveAt(0);
-                }
+                // Outside the lock (the dispatcher takes its own; a subscriber may queue again from inside it).
+                UnityMainThreadDispatcher dispatcher = UnityMainThreadDispatcher.Instance;
+                foreach (Action run in handed) dispatcher.Enqueue(run);
+                total += handed.Count;
             }
-            if (handed.Count == 0) return;
-            UnityMainThreadDispatcher dispatcher = UnityMainThreadDispatcher.Instance;
-            foreach (Action run in handed) dispatcher.Enqueue(run);
-            Debug.Log($"[{LogTag}][{nameof(HandOver)}] frame: {frame}, handed: {handed.Count}, waiting: {CountForTests}");
+            if (total > 0) Debug.Log($"[{LogTag}][{nameof(HandOver)}] frame: {frame}, handed: {total}, waiting: {CountForTests}");
         }
 
         internal static int CountForTests
@@ -108,7 +122,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticState()
         {
-            lock (s_gate) s_waiting.Clear();
+            lock (s_gate)
+            {
+                s_waiting.Clear();
+                s_handingOver = false;
+            }
             s_pump = null;
             s_mainThreadId = Thread.CurrentThread.ManagedThreadId;
         }

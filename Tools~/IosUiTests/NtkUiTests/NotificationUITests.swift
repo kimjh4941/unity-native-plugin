@@ -9,7 +9,7 @@ import XCTest
 /// harness's own lines are printed for the record ([NTK-NOTIFICATION-UI]).
 ///
 /// 1.x is pinned in full. On the C ABI 2.0.0 the expectations are those of section 3 of the Notification C ABI
-/// design v3 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v3.md), instead of a partial
+/// design v4 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v4.md), instead of a partial
 /// check: the harness's first line, `[abi@event] 1|2`, tells which ABI runs (implementation review v1, R-8).
 final class NotificationUITests: HarnessUITestCase {
     private static let title = "NTK UI Harness"
@@ -19,7 +19,7 @@ final class NotificationUITests: HarnessUITestCase {
     private static let allow = ["Allow", "許可"]
     private static let dontAllow = ["Don’t Allow", "Don't Allow", "許可しない"]
     private static let deniedError = "[permission@fail] error=The operation couldn’t be completed. (IosLibrary.NotificationError error 4.)"
-    /// The 2.0.0 messages (Notification C ABI design v3, D-6 and D-7).
+    /// The 2.0.0 messages (Notification C ABI design v4, D-6 and D-7).
     private static let denied2 = "Notification permission was denied."
     private static let invalid2 = "The notification request is invalid."
     /// Set by scripts/test_ios_ui.sh --keep-installed (TEST_RUNNER_NTK_KEEP_INSTALLED) after NU-1: the
@@ -259,7 +259,7 @@ final class NotificationUITests: HarnessUITestCase {
         banner("ntk NU-4")?.tap()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         let tap = waitLines("tap", count: 1, timeout: 15)
-        // Every key in full; 1.x wrote a\/b, 2.0.0 writes a/b (C ABI design v3, section 3).
+        // Every key in full; 1.x wrote a\/b, 2.0.0 writes a/b (C ABI design v4, section 3).
         let expected = "[tap@event] id=ntkh-4 action=\(Self.bodyTap) userInfo=jp=日本,k=v,q=x\\\"y,slash="
         if abi2 { XCTAssertEqual(tap, expected + "a/b") } else { XCTAssertTrue([expected + "a\\/b", expected + "a/b"].contains(tap), tap) }
         run("schedule-4n"); waitLines("schedule", count: 2)
@@ -516,7 +516,7 @@ final class NotificationUITests: HarnessUITestCase {
         pressHome()
         let x1 = actionsShown("ntk NU-12 x", candidates: ["A", "B", "C"])
         record("NU-12 x after A then B: \(String(describing: x1))")
-        // 1.x keeps A (Set.insert, measured 3 of 3); 2.0.0 replaces it with B (C ABI design v3, D-14).
+        // 1.x keeps A (Set.insert, measured 3 of 3); 2.0.0 replaces it with B (C ABI design v4, D-14).
         if abi2 { XCTAssertEqual(x1, ["B"], "D-14") } else { XCTAssertTrue(x1 == ["A"] || x1 == ["B"], "x has no single action after it was registered twice") }
         backToHarness()
         run("cat-y"); waitLines("cat", count: 3); Thread.sleep(forTimeInterval: 1)
@@ -582,7 +582,7 @@ final class NotificationUITests: HarnessUITestCase {
         let line = waitLines("unmeasured", count: 1)
         if abi2 {
             // Out-of-range locations are rejected at the entry; the nested null is removed and the call then meets
-            // the undecided permission (C ABI design v3, D-5, D-7).
+            // the undecided permission (C ABI design v4, D-5, D-7).
             let message = row == "u-nested-null" ? Self.denied2 : Self.invalid2
             XCTAssertEqual(line, "[unmeasured@fail] \(row.dropFirst(2)) error=\(message)")
             return

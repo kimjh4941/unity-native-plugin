@@ -106,7 +106,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             "ntk_bytes_data",
             "ntk_bytes_size",
             "ntk_bytes_free",
-            // Notification (C ABI design v3, D-1).
+            // Notification (C ABI design v4, D-1).
             "ntk_notification_install",
             "ntk_notification_show_async",
             "ntk_notification_update_async",
@@ -384,7 +384,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(signature, SignatureOf(callback.GetMethod("Invoke")!));
         }
 
-        /// <summary>The callback types of Notification.h (C ABI design v3, D-2).</summary>
+        /// <summary>The callback types of Notification.h (C ABI design v4, D-2).</summary>
         [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.DoneCallback), "Void(IntPtr, Int32, UInt32)")]
         [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.PermissionCallback), "Void(IntPtr, Int32, UInt32, Int32)")]
         [TestCase(typeof(JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationCApi.StatusCallback), "Void(IntPtr, Int32, UInt32, Int32)")]

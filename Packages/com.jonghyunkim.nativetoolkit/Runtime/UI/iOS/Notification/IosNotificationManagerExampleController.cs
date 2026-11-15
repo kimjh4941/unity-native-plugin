@@ -886,7 +886,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
             return false;
         }
 
-        // native-toolkit 2.0.0's text (C ABI design v3, D-6, D-17); 1.x's generic, localized text below.
+        // native-toolkit 2.0.0's text (C ABI design v4, D-6, D-17); 1.x's generic, localized text below.
         if (errorMessage == "Notification permission was denied.")
         {
             return true;

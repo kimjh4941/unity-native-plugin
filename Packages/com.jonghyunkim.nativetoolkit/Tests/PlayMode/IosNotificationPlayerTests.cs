@@ -26,7 +26,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <para>
     /// NTK_IOS_CABI_2_NOTIFICATION is defined when Notification itself moves to the C ABI 2.0.0 (stage 3,
     /// the last feature). Under it, the expectations are those of section 3 of the Notification C ABI design
-    /// v3 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v3.md).
+    /// v3 (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v4.md).
     /// </para>
     /// <para>
     /// Every test reaches the native side, so the fixture is compiled out after the 3-S switch until
@@ -45,7 +45,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         private readonly List<string> _order = new();
 
 #if NTK_IOS_CABI_2_NOTIFICATION
-        // The 2.0.0 messages (C ABI design v3, D-6, D-7).
+        // The 2.0.0 messages (C ABI design v4, D-6, D-7).
         private const string Denied = "Notification permission was denied.";
         private const string Invalid = "The notification request is invalid.";
 #endif
@@ -438,6 +438,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             M.RemoveCategory("ntkp-15");
             Assert.IsTrue(registered.Value.IsSuccess);
             Assert.IsFalse(insideTheCall, "the callback came inside the call");
+            Assert.Greater(callbackFrame, frame, "the callback came in the frame of the call");
         }
 
         [UnityTest, Order(13)]
@@ -491,19 +492,22 @@ namespace JonghyunKim.NativeToolkit.Tests
 
 #if NTK_IOS_CABI_2_NOTIFICATION
         /// <summary>
-        /// NP-19 (C ABI design v3, D-2): a call still waiting when the manager is destroyed gets its result, as 1.x's
+        /// NP-19 (C ABI design v4, D-2): a call still waiting when the manager is destroyed gets its result, as 1.x's
         /// static callbacks did.
         /// </summary>
         [UnityTest, Order(16)]
         public IEnumerator NP19_ACallWaitingAtDestroyStillGetsItsResult()
         {
             M.NotificationOperationCompleted -= _onEvent;
+            IosNotificationManager old = M;
             var list = new Box<string>();
-            M.GetScheduledNotifications(json => { list.Value = json; list.Count++; });
-            UnityEngine.Object.Destroy(M.gameObject);
+            bool destroyedFirst = false;
+            old.GetScheduledNotifications(json => { destroyedFirst = old == null; list.Value = json; list.Count++; });
+            UnityEngine.Object.DestroyImmediate(old.gameObject);
             yield return WaitFor(() => list.Count > 0);
             yield return WaitFor(() => false, 0.5f);
             Assert.AreEqual(1, list.Count);
+            Assert.IsTrue(destroyedFirst, "the result came after the manager was destroyed");
             StringAssert.StartsWith("[", list.Value);
             M.NotificationOperationCompleted += _onEvent; // a new manager for the teardown
         }

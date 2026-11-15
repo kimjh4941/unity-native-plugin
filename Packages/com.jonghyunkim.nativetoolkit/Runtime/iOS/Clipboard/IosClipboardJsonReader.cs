@@ -138,7 +138,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         internal IReadOnlyDictionary<string, JsonValue> Members =>
             Kind == JsonValueKind.Object ? _members! : EmptyMembers;
 
-        private static readonly Dictionary<string, JsonValue> EmptyMembers = new();
+        private static readonly IReadOnlyDictionary<string, JsonValue> EmptyMembers =
+            new System.Collections.ObjectModel.ReadOnlyDictionary<string, JsonValue>(new Dictionary<string, JsonValue>());
 
         /// <summary>The text of a number as it was written (iOS Notification writes userInfo back without changing it).</summary>
         internal string? RawNumber => Kind == JsonValueKind.Number ? _source!.Substring(_start, _length) : null;
@@ -456,6 +457,31 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             }
 
             int index = 0;
+            return ParseDocument(json!, ref index);
+        }
+
+        /// <summary>
+        /// Parses a document allowing up to <paramref name="maxDepth"/> levels (iOS Notification reads JSON as 1.x's
+        /// JSONSerialization did, which allows much deeper documents than <see cref="MaxDepth"/>).
+        /// </summary>
+        internal static JsonValue? Parse(string? json, int maxDepth)
+        {
+            int saved = t_maxDepth;
+            t_maxDepth = maxDepth;
+            try
+            {
+                return Parse(json);
+            }
+            finally
+            {
+                t_maxDepth = saved;
+            }
+        }
+
+        [ThreadStatic] private static int t_maxDepth;
+
+        private static JsonValue? ParseDocument(string json, ref int index)
+        {
             JsonValue? value = ParseValue(json!, ref index, 0);
             if (value == null)
             {
@@ -468,7 +494,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static JsonValue? ParseValue(string json, ref int index, int depth)
         {
-            if (depth > MaxDepth)
+            if (depth > (t_maxDepth > 0 ? t_maxDepth : MaxDepth))
             {
                 return null;
             }

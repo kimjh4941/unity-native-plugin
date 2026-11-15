@@ -11,7 +11,7 @@ using Req = JonghyunKim.NativeToolkit.Runtime.iOS.Notification.IosNotificationRe
 namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
-    /// Layer 1 tests for the iOS Notification C ABI bridge (artifact/ios/notification, C ABI design v3): the structs
+    /// Layer 1 tests for the iOS Notification C ABI bridge (artifact/ios/notification, C ABI design v4): the structs
     /// against native-toolkit's StructLayoutTests.m, the messages (D-6), the list JSON (D-9), the JSON of the
     /// public API read as 1.13.0 read it (D-4, D-5, D-16), and the userInfo of the event results (D-12).
     /// </summary>
@@ -167,6 +167,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase("{\"id\":\"a\",\"title\":\"t\",\"sound\":\"bell\\u0000.caf\"}")]
         [TestCase("{\"id\":\"a\",\"title\":\"t\",\"attachments\":[{\"identifier\":\"i\",\"fileURL\":\"file:///a.png\\u0000x\"}]}")]
         [TestCase("{\"id\":\"a\",\"title\":\"t\",\"attachments\":[{\"identifier\":\"i\\u0000\",\"fileURL\":\"file:///a.png\"}]}")]
+        [TestCase("{\"id\":\"a\",\"title\":\"t\",\"threadIdentifier\":\"x\\u0000\"}")]
+        [TestCase("{\"id\":\"a\",\"title\":\"t\",\"targetContentIdentifier\":\"x\\u0000\"}")]
         public void Content_NulInAnIdentifierFileOrSoundIsInvalid(string json) =>
             Assert.AreEqual(Req.Problem.Invalid, Req.ReadContent(json, null, out _, out _));
 
@@ -222,6 +224,25 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [Test]
+        public void Json_ReadAs1xRead_ByteOrderMarkAndDeepNesting()
+        {
+            Assert.AreEqual(Req.Problem.None, Req.ReadTrigger("\uFEFF{\"type\":\"timeInterval\",\"interval\":3600}", out Req.Trigger? bom));
+            Assert.AreEqual(3600, bom!.IntervalSeconds);
+            string deep = new string('[', 70) + new string(']', 70);
+            Assert.AreEqual(Req.Problem.None, Req.ReadTrigger("{\"type\":\"timeInterval\",\"interval\":60,\"x\":" + deep + "}", out _),
+                "deeper than 64 levels, as JSONSerialization read it");
+        }
+
+        [Test]
+        public void Numbers_ThatSwiftCouldNotReadAsDoubleAreIgnored()
+        {
+            Assert.AreEqual(Req.Problem.Unreadable, Req.ReadTrigger("{\"type\":\"timeInterval\",\"interval\":1e400}", out _));
+            Assert.AreEqual(Req.Problem.Unreadable, Req.ReadTrigger("{\"type\":\"timeInterval\",\"interval\":-1e400}", out _));
+            Assert.AreEqual(Req.Problem.Unreadable, Req.ReadTrigger("{\"type\":\"timeInterval\",\"interval\":9007199254740993}", out _));
+            Assert.AreEqual(Req.Problem.None, Req.ReadTrigger("{\"type\":\"timeInterval\",\"interval\":9007199254740992}", out _));
+        }
+
+        [Test]
         public void Trigger_Location()
         {
             Assert.AreEqual(Req.Problem.None, Req.ReadTrigger(
@@ -260,6 +281,12 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.AreEqual(0u, c.Options);
         }
 
+        [TestCase("{\"identifier\":\"c\\u0000\"}")]
+        [TestCase("{\"identifier\":\"c\",\"actions\":[{\"identifier\":\"a\\u0000\",\"title\":\"A\"}]}")]
+        [TestCase("{\"identifier\":\"c\",\"textInputActions\":[{\"identifier\":\"r\\u0000\",\"title\":\"R\",\"buttonTitle\":\"S\",\"textInputPlaceholder\":\"p\"}]}")]
+        public void Category_NulInAnIdentifierIsInvalid(string json) =>
+            Assert.AreEqual(Req.Problem.Invalid, Req.ReadCategory(json, out _, out _));
+
         [Test]
         public void Category_Unreadable() =>
             Assert.AreEqual(Req.Problem.Unreadable, Req.ReadCategory("{\"actions\":[]}", out _, out _));
@@ -274,6 +301,8 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsNull(IosNotificationUserInfo.ParseFlat("{\"n\":1}"));
             Assert.IsNull(IosNotificationUserInfo.ParseFlat("{}"));
             Assert.AreEqual("a/b", IosNotificationUserInfo.ParseFlat("{\"slash\":\"a/b\"}")!["slash"]);
+            CollectionAssert.AreEquivalent(new Dictionary<string, string> { ["b"] = "c" },
+                IosNotificationUserInfo.ParseFlat("{\"a\":{\"x\":\"}\",\"y\":[\"]\"]},\"b\":\"c\"}"), "brackets inside nested strings");
         }
     }
 }

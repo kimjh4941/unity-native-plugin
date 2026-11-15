@@ -140,6 +140,59 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
+        public IEnumerator Rejected_EachKindGetsItsFailureOnALaterFrame()
+        {
+            // Design v4, D-2: a rejection takes the call out of the table and answers it by its kind.
+            IosNotificationManager manager = IosNotificationManager.Instance;
+            var seen = new List<string>();
+            manager.NotificationOperationCompleted += r => seen.Add("event:" + r.Operation);
+            IosNotificationManager.Begin(IosNotificationManager.OperationSetBadgeCount,
+                (Action<IosNotificationResult>)(r => seen.Add("badge:" + r.ErrorMessage)), _ => Api.ErrorInvalidParameter);
+            IosNotificationManager.Begin(IosNotificationManager.OperationHasPermission, (Action<bool>)(h => seen.Add("has:" + h)), _ => Api.ErrorUnknown);
+            IosNotificationManager.Begin(IosNotificationManager.OperationGetAuthorizationStatus,
+                (Action<IosNotificationAuthorizationStatus>)(s => seen.Add("status:" + s)), _ => Api.ErrorUnknown);
+            IosNotificationManager.Begin(IosNotificationManager.OperationGetDelivered, (Action<string>)(j => seen.Add("list:" + j)), _ => Api.ErrorUnknown);
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("native call failed"));
+            IosNotificationManager.Begin(IosNotificationManager.OperationShowNotification,
+                (Action<IosNotificationResult>)(r => seen.Add("show:" + r.ErrorMessage)), _ => throw new InvalidOperationException("native call failed"));
+            Assert.AreEqual(0, seen.Count, "nothing inside the call");
+            for (int i = 0; i < 3; i++) yield return null;
+
+            CollectionAssert.AreEqual(new[]
+            {
+                "badge:The notification request is invalid.", "event:" + IosNotificationManager.OperationSetBadgeCount,
+                "has:False", "status:Unknown", "list:[]",
+                "show:An unknown error occurred.", "event:" + IosNotificationManager.OperationShowNotification,
+            }, seen);
+        }
+
+        [UnityTest]
+        public IEnumerator Accepted_ACompletionBeforeTheCallReturnsComesOnce()
+        {
+            _ = IosNotificationManager.Instance;
+            int count = 0;
+            IosNotificationManager.Begin(IosNotificationManager.OperationSetBadgeCount, (Action<IosNotificationResult>)(_ => count++), id =>
+            {
+                IosNotificationManager.CompleteDone(id, Api.ErrorNone); // as a call made off the main thread may
+                return Api.ErrorNone;
+            });
+            for (int i = 0; i < 3; i++) yield return null;
+            Assert.AreEqual(1, count);
+        }
+
+        [UnityTest]
+        public IEnumerator ACallbackThatThrows_StillLetsTheEventCome()
+        {
+            IosNotificationManager manager = IosNotificationManager.Instance;
+            bool eventCame = false;
+            manager.NotificationOperationCompleted += _ => eventCame = true;
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("callback: boom"));
+            manager.SetBadgeCount(1, _ => throw new InvalidOperationException("boom"));
+            for (int i = 0; i < 3; i++) yield return null;
+            Assert.IsTrue(eventCame, "design v4, D-3: separate try blocks");
+        }
+
+        [UnityTest]
         public IEnumerator PermissionAndStatus_AreMapped()
         {
             _ = IosNotificationManager.Instance;

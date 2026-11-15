@@ -27,7 +27,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
     /// or updating without the permission fails with "Notification permission was denied." (1.x reported success
     /// and added nothing); registering a category again replaces it; a tap that launched the app reaches the first
     /// manager; a string member of userInfo after a non-string one is no longer lost; the settings page is no longer
-    /// opened by itself when the system asks for the app's notification settings.
+    /// opened by itself when the system asks for the app's notification settings; creating the manager no longer
+    /// installs the delegate again (call <see cref="Initialize"/> when another component replaced it).
     /// </para>
     /// <para>
     /// The notification center delegate is installed at launch by the package's NtkNotificationInstaller.mm.
@@ -165,6 +166,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         {
             Debug.Log($"[{LogTag}][{nameof(Initialize)}]");
             if (!Available) return;
+            if (!IosNextFrameQueue.IsMainThread)
+            {
+                Debug.LogError($"[{LogTag}][{nameof(Initialize)}] must be called on Unity's main thread; nothing was done");
+                return;
+            }
 #if !UNITY_EDITOR
             int error = Api.ntk_notification_install();
             if (error != Api.ErrorNone)
@@ -299,7 +305,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         /// <param name="identifier">Identifier of the pending notification to update.</param>
         /// <param name="contentJson">JSON string with updated notification content.</param>
-        /// <param name="triggerJson">JSON string with updated trigger, or null to keep the original trigger.</param>
+        /// <param name="triggerJson">JSON string with updated trigger; null (or a trigger that cannot be read) delivers the
+        /// notification at once, as in 1.x.</param>
         /// <param name="onResult">Optional callback receiving the result.</param>
         public void UpdateNotification(string identifier, string contentJson, string? triggerJson = null, Action<IosNotificationResult>? onResult = null)
         {
@@ -571,8 +578,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// Records the call, makes it, and turns a rejection or an exception into its failure on a later frame
         /// (D-2, D-3). The C ABI gets the call's number as <c>user_data</c> and no <c>release</c>.
         /// </summary>
-        private static void Begin(string op, Delegate? onResult, Func<long, int> call)
+        internal static void Begin(string op, Delegate? onResult, Func<long, int> call)
         {
+            Debug.Log($"[{LogTag}][{nameof(Begin)}] operation: {op}");
+            // A listener that could not be registered in Awake (the delegate was not installed yet) is tried again.
+            if (IosNextFrameQueue.IsMainThread) RegisterListeners();
             long id = s_pending.Add(op, onResult);
             int error;
             try
@@ -772,7 +782,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             IntPtr actions = IosNativeToolkitCApi.Alloc(actionSize * Math.Max(c.Actions.Count, 1), allocated);
             for (int i = 0; i < c.Actions.Count; i++)
             {
-                Req.Action a = c.Actions[i];
+                Req.ActionItem a = c.Actions[i];
                 Marshal.StructureToPtr(new Api.NotificationAction
                 {
                     StructSize = (uint)actionSize,
@@ -787,7 +797,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             IntPtr inputs = IosNativeToolkitCApi.Alloc(inputSize * Math.Max(c.TextInputActions.Count, 1), allocated);
             for (int i = 0; i < c.TextInputActions.Count; i++)
             {
-                Req.TextInputAction a = c.TextInputActions[i];
+                Req.TextInputItem a = c.TextInputActions[i];
                 Marshal.StructureToPtr(new Api.TextInputAction
                 {
                     StructSize = (uint)inputSize,
@@ -841,7 +851,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         [MonoPInvokeCallback(typeof(Api.DoneCallback))]
         private static void OnIgnoredDone(IntPtr userData, int error, uint systemCode)
         {
-            if (error != Api.ErrorNone) Debug.LogWarning($"[{LogTag}] {Api.ErrorMessage(error)}");
+            if (error != Api.ErrorNone) SafeLog(() => Debug.LogWarning($"[{LogTag}] a call without a result failed: {Api.ErrorMessage(error)}"));
         }
 
         [MonoPInvokeCallback(typeof(Api.PermissionCallback))]
@@ -873,7 +883,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{LogTag}][{nameof(OnList)}] {ex.Message}");
+                SafeLog(() => Debug.LogError($"[{LogTag}][{nameof(OnList)}] {ex.Message}"));
             }
             finally
             {
@@ -889,7 +899,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{LogTag}][{where}] {ex.Message}");
+                SafeLog(() => Debug.LogError($"[{LogTag}][{where}] {ex.Message}"));
             }
         }
 
@@ -937,7 +947,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{LogTag}][{nameof(OnInteraction)}] {ex.Message}");
+                SafeLog(() => Debug.LogError($"[{LogTag}][{nameof(OnInteraction)}] {ex.Message}"));
             }
             finally
             {
@@ -952,6 +962,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         internal static void CompleteDone(long id, int error)
         {
             if (!s_pending.TryTake(id, out string op, out Delegate? callback)) return;
+            Debug.Log($"[{LogTag}][{nameof(CompleteDone)}] operation: {op}, error: {error}");
             IosNotificationResult result = error == Api.ErrorNone
                 ? IosNotificationResult.Success(op)
                 : IosNotificationResult.Failure(op, Api.ErrorMessage(error));
@@ -962,6 +973,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         internal static void CompletePermission(long id, int error, int granted)
         {
             if (!s_pending.TryTake(id, out string op, out Delegate? callback)) return;
+            Debug.Log($"[{LogTag}][{nameof(CompletePermission)}] operation: {op}, error: {error}, granted: {granted}");
             if (op == OperationHasPermission)
             {
                 bool has = error == Api.ErrorNone && granted != 0;
@@ -979,6 +991,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         internal static void CompleteStatus(long id, int error, int status)
         {
             if (!s_pending.TryTake(id, out string op, out Delegate? callback)) return;
+            Debug.Log($"[{LogTag}][{nameof(CompleteStatus)}] error: {error}, status: {status}");
             IosNotificationAuthorizationStatus value = IosNotificationAuthorizationStatusParser.Parse(
                 error == Api.ErrorNone ? Api.StatusName(status) : "unknown");
             var onStatus = callback as Action<IosNotificationAuthorizationStatus>;
@@ -988,7 +1001,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         internal static void CompleteList(long id, int error, IReadOnlyList<Api.ListItem>? items)
         {
             if (!s_pending.TryTake(id, out string op, out Delegate? callback)) return;
-            string json = error == Api.ErrorNone && items != null ? Api.ListJson(items, op == OperationGetDelivered) : "[]";
+            Debug.Log($"[{LogTag}][{nameof(CompleteList)}] operation: {op}, error: {error}, count: {items?.Count ?? -1}");
+            string json = "[]";
+            if (error == Api.ErrorNone && items != null)
+            {
+                try
+                {
+                    json = Api.ListJson(items, op == OperationGetDelivered);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(CompleteList)}] could not write the list: {ex.Message}");
+                }
+            }
             var onList = callback as Action<string>;
             IosNextFrameQueue.EnqueueBehind(() => InvokeValue(op, onList, json));
         }
@@ -1000,6 +1025,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         internal static void DeliverInteraction(int kind, string notificationId, string actionId, string? userText, string? userInfoJson)
         {
+            Debug.Log($"[{LogTag}][{nameof(DeliverInteraction)}] kind: {kind}");
             if (_instance == null) return;
             switch (kind)
             {
@@ -1027,6 +1053,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// <summary>Records a call as an accepted one would be (the Editor makes no native call).</summary>
         internal static long RecordCallForTests(string operation, Delegate? callback) => s_pending.Add(operation, callback);
 #endif
+
+        /// <summary>Logs without letting a throwing log handler escape into the native caller.</summary>
+        private static void SafeLog(Action log)
+        {
+            try
+            {
+                log();
+            }
+            catch
+            {
+                // nothing more can be done from inside a native callback
+            }
+        }
 
         private static void RaiseAction(IosNotificationActionResult result)
         {
