@@ -130,7 +130,7 @@ fi
 
 if [ "$DEVICE_MODE" -eq 1 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
-    python3 -I "$RUNNER" approve "$PROJECT_DIR" "${KEEP_FLAG[@]}" "${TESTS[@]}"
+    python3 -I "$RUNNER" approve "$PROJECT_DIR" ${KEEP_FLAG[@]+"${KEEP_FLAG[@]}"} "${TESTS[@]}"
     exit $?
   fi
   if [ -z "$APPROVAL" ]; then
@@ -141,7 +141,7 @@ if [ "$DEVICE_MODE" -eq 1 ]; then
     echo "--keep-changes cannot be used with a device run: the guarded trees are checked again before every device step." >&2
     exit 2
   fi
-  python3 -I "$RUNNER" check-approval "$PROJECT_DIR" "$APPROVAL" "${KEEP_FLAG[@]}" "${TESTS[@]}" || exit 1
+  python3 -I "$RUNNER" check-approval "$PROJECT_DIR" "$APPROVAL" ${KEEP_FLAG[@]+"${KEEP_FLAG[@]}"} "${TESTS[@]}" || exit 1
 elif [ "$DRY_RUN" -eq 1 ] || [ -n "$APPROVAL" ]; then
   echo "--dry-run and --approved are for device runs (--device)." >&2
   exit 2
@@ -200,7 +200,7 @@ device_guard() {
     return 1
   fi
   [ "$DEVICE_MODE" -eq 1 ] || return 0
-  python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" "${KEEP_FLAG[@]}" "${TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
+  python3 -I "$RUNNER" guard "$PROJECT_DIR" "$APPROVAL" "$RUN_MARKER" ${KEEP_FLAG[@]+"${KEEP_FLAG[@]}"} "${TESTS[@]}" >/dev/null 2>"$OUT_DIR/guard.err" || {
     echo "  stopped: $(cat "$OUT_DIR/guard.err")"
     return 1
   }
@@ -228,12 +228,12 @@ CLEANED_UP=0
 clean_up_apps() {
   if [ "$DEVICE_MODE" -eq 1 ]; then
     if [ "$DEVICE_TOUCHED" -eq 1 ]; then
-      remove_from_device "${INSTALLED_IDS[@]}" || return 1
+      remove_from_device ${INSTALLED_IDS[@]+"${INSTALLED_IDS[@]}"} || return 1
     fi
     CLEANED_UP=1
     return 0
   fi
-  for id in "${INSTALLED_IDS[@]}"; do remove_app "$id"; done
+  for id in ${INSTALLED_IDS[@]+"${INSTALLED_IDS[@]}"}; do remove_app "$id"; done
   CLEANED_UP=1
 }
 on_exit() {
@@ -290,7 +290,7 @@ build_all() {
   echo "Harness build:"
   run_limited build 2400 600 "$OUT_DIR/harness-build.log" "$OUT_DIR/harness-build.log" \
     "$XCODEBUILD" -project "$export_dir/Unity-iPhone.xcodeproj" -scheme Unity-iPhone -configuration Release \
-    -destination "$GENERIC" -derivedDataPath "$OUT_DIR/harness-dd" "${SIGNING[@]}" build
+    -destination "$GENERIC" -derivedDataPath "$OUT_DIR/harness-dd" ${SIGNING[@]+"${SIGNING[@]}"} build
   if ! grep -q '\*\* BUILD SUCCEEDED \*\*' "$OUT_DIR/harness-build.log"; then
     show_build_errors "$OUT_DIR/harness-build.log" "$DEVICE_MODE"
     return 1
@@ -308,7 +308,7 @@ build_all() {
   echo "UI tests build:"
   run_limited uitests 1200 600 "$OUT_DIR/uitests-build.log" "$OUT_DIR/uitests-build.log" \
     "$XCODEBUILD" -project "$UITESTS_DIR/NtkUiTests.xcodeproj" -scheme NtkUiTests \
-    -destination "$GENERIC" -derivedDataPath "$OUT_DIR/uitests-dd" "${SIGNING[@]}" build-for-testing
+    -destination "$GENERIC" -derivedDataPath "$OUT_DIR/uitests-dd" ${SIGNING[@]+"${SIGNING[@]}"} build-for-testing
   if ! grep -q '\*\* TEST BUILD SUCCEEDED \*\*' "$OUT_DIR/uitests-build.log"; then
     show_build_errors "$OUT_DIR/uitests-build.log" "$DEVICE_MODE"
     return 1
@@ -437,12 +437,12 @@ run_keep_installed() {
   device_guard || { not_run "the guard stopped the run" "${TESTS[@]}"; return; }
   DEVICE_TOUCHED=$DEVICE_MODE
   if [ "$DEVICE_MODE" -eq 1 ]; then
-    if ! remove_from_device "${INSTALLED_IDS[@]}"; then
+    if ! remove_from_device ${INSTALLED_IDS[@]+"${INSTALLED_IDS[@]}"}; then
       not_run "a harness of an earlier run could not be confirmed removed" "${TESTS[@]}"
       return
     fi
   else
-    for i in "${INSTALLED_IDS[@]}"; do remove_app "$i"; done
+    for i in ${INSTALLED_IDS[@]+"${INSTALLED_IDS[@]}"}; do remove_app "$i"; done
   fi
   device_guard || { not_run "the guard stopped the run" "${TESTS[@]}"; return; }
   mkdir -p "$OUT_DIR/results"
@@ -450,15 +450,15 @@ run_keep_installed() {
   device_connected || { not_run "no development connection" "${TESTS[@]}"; return; }
   if ! run_test "$first"; then
     failures=$((failures + 1))
-    not_run "an earlier test failed" "${rest[@]}"
+    not_run "an earlier test failed" ${rest[@]+"${rest[@]}"}
     return
   fi
   if ! wait_until_ready; then
-    not_run "not ready" "${rest[@]}"
+    not_run "not ready" ${rest[@]+"${rest[@]}"}
     return
   fi
   if ! device_guard || ! device_connected; then
-    not_run "the guard or the connection stopped the run" "${rest[@]}"
+    not_run "the guard or the connection stopped the run" ${rest[@]+"${rest[@]}"}
     return
   fi
   for i in "${!rest[@]}"; do
@@ -472,7 +472,7 @@ run_keep_installed() {
 
 failures=0
 if [ "$DEVICE_MODE" -eq 1 ]; then
-  RUN_MARKER="$(python3 -I "$RUNNER" use-approval "$PROJECT_DIR" "$APPROVAL" "${KEEP_FLAG[@]}" "${TESTS[@]}")" || exit 1
+  RUN_MARKER="$(python3 -I "$RUNNER" use-approval "$PROJECT_DIR" "$APPROVAL" ${KEEP_FLAG[@]+"${KEEP_FLAG[@]}"} "${TESTS[@]}")" || exit 1
   [ -n "$RUN_MARKER" ] || exit 1
 fi
 if build_all; then
