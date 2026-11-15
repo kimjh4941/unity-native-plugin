@@ -225,14 +225,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         /// <summary>
         /// The 1.x code of a C ABI error: <c>CLIPBOARD_&lt;name&gt;</c>, with 1.x's three different names
-        /// (native-toolkit part 2, 11.3, read backwards). An unknown value is <c>CLIPBOARD_UNKNOWN</c>.
+        /// (native-toolkit part 2, 11.3, read backwards). An unknown value, and OUT_OF_MEMORY and NOT_INITIALIZED
+        /// (no 1.x code; the library does not return them), are <c>CLIPBOARD_UNKNOWN</c> (design D-3).
         /// </summary>
         internal static string ErrorCode(int error) => error switch
         {
             ErrorInvalidParameter => "CLIPBOARD_INVALID_REQUEST",
             ErrorNotSupported => "CLIPBOARD_NOT_SUPPORTED",
-            ErrorOutOfMemory => "CLIPBOARD_OUT_OF_MEMORY",
-            ErrorNotInitialized => "CLIPBOARD_NOT_INITIALIZED",
             ErrorEmptyContent => "CLIPBOARD_EMPTY_CONTENT",
             ErrorEmptyItems => "CLIPBOARD_EMPTY_ITEMS",
             ErrorInvalidUri => "CLIPBOARD_INVALID_URL",
@@ -349,7 +348,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// <summary>
         /// The type identifiers (ImageData, CustomData, representations) and the image path of content that
         /// hold U+0000: rejected, as names are. A path cut at U+0000 could name another, existing file, and
-        /// Copy puts it where other apps can read it (design v3, D-8 (5)).
+        /// Copy puts it where other apps can read it (design v5, D-8 (5)).
         /// </summary>
         internal static bool ContentTypeHasNul(IosClipboardContent content)
         {
@@ -441,6 +440,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                     c.Alpha = content.Alpha;
                     break;
                 case IosClipboardContentKind.MultipleText:
+                    // A null text becomes a NULL pointer, which the library rejects (INVALID_PARAMETER ->
+                    // CLIPBOARD_INVALID_REQUEST, as 1.x answered); the null is not checked here.
                     string[] texts = content.Texts ?? Array.Empty<string>();
                     c.Texts = IosNativeToolkitCApi.AllocStringArray(texts, allocated);
                     c.TextCount = new UIntPtr((uint)texts.Length);

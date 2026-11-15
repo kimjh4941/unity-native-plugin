@@ -12,7 +12,7 @@ using Api = JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard.IosClipboardCApi;
 namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
-    /// Layer 1 tests for <c>IosClipboardCApi</c> (artifact/ios/clipboard, C ABI design v3): the structs against
+    /// Layer 1 tests for <c>IosClipboardCApi</c> (artifact/ios/clipboard, C ABI design v5): the structs against
     /// <c>Clipboard.h</c>'s layout (native-toolkit's StructLayoutTests.m), the requests (D-8), the errors (D-3),
     /// and the pure part that builds the results from the values read off the handles (D-9, table 2.1, D-13).
     /// </summary>
@@ -61,6 +61,8 @@ namespace JonghyunKim.NativeToolkit.Tests
         [TestCase(Api.ErrorEmptyItems, "CLIPBOARD_EMPTY_ITEMS", "No items provided for clipboard copy.")]
         [TestCase(Api.ErrorContentTooLarge, "CLIPBOARD_CONTENT_TOO_LARGE", "The clipboard content exceeds the configured size limit.")]
         [TestCase(Api.ErrorUnknown, "CLIPBOARD_UNKNOWN", "An unknown error occurred.")]
+        [TestCase(Api.ErrorNotInitialized, "CLIPBOARD_UNKNOWN", "An unknown error occurred.")]
+        [TestCase(Api.ErrorOutOfMemory, "CLIPBOARD_UNKNOWN", "An unknown error occurred.")]
         [TestCase(10, "CLIPBOARD_UNKNOWN", "An unknown error occurred.")]
         [TestCase(999, "CLIPBOARD_UNKNOWN", "An unknown error occurred.")]
         public void ToErrorInfo_KeepsThe1xCodeAndMessage(int error, string code, string message)

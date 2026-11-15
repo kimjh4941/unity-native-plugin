@@ -261,7 +261,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         /// <summary>
         /// Reads the values of native-toolkit's C ABI 2.0.0 (<c>ntk_clipboard_values_fn</c>): the object 1.x
-        /// carried as <c>data</c>, with no envelope (artifact/ios/clipboard, C ABI design v2, D-9).
+        /// carried as <c>data</c>, with no envelope (artifact/ios/clipboard, C ABI design v5, D-9).
         /// </summary>
         internal static IosClipboardDetectedValuesResult ParseBareDetectedValues(string? json)
         {

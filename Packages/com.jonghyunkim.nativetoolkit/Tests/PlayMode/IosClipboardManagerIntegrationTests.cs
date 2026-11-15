@@ -763,6 +763,10 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             manager.Read(null, _ => { });
             manager.StartObserving(null, _ => { });
+            manager.Copy(IosClipboardContent.PlainText("x"));
+            IosClipboardManager.RejectAtEntryForTests(IosClipboardManager.OperationCopy, EmptyItems);
+            IosClipboardManager.NativeCallThrowsForTests = true;
+            Assert.AreEqual(1, IosClipboardManager.LaterCountForTests);
             Assert.IsTrue(IosClipboardManager.HasAnyPendingCallbackForTests);
             Assert.Greater(IosClipboardManager.InFlightCountForTests, 0);
 
@@ -777,6 +781,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             Assert.IsFalse(IosClipboardManager.HasChangeRegistrationForTests);
             Assert.AreEqual(0UL, IosClipboardManager.PendingObservationGenerationForTests);
             Assert.IsFalse(IosClipboardManager.BridgeAvailableOverrideForTests);
+            Assert.IsFalse(IosClipboardManager.NativeCallThrowsForTests);
+            Assert.AreEqual(0, IosClipboardManager.LaterCountForTests);
+            Assert.IsFalse(IosClipboardManager.IsObservingForTests);
 
             // Awake re-establishes the captured main-thread id and dispatcher that reset cleared.
             IosClipboardOperationResult? result = null;
@@ -845,9 +852,14 @@ namespace JonghyunKim.NativeToolkit.Tests
             IosClipboardManager.RejectAtEntryForTests(IosClipboardManager.OperationCopy, EmptyItems);
             manager.Copy(IosClipboardContent.PlainText("y"), null, null, results.Add);
 
+            // The gate itself: nothing is handed over in the frame of the call, and it is in the next.
+            Assert.AreEqual(1, IosClipboardManager.LaterCountForTests);
             IosClipboardManager.DeliverLater(Time.frameCount);
-            Assert.AreEqual(0, results.Count, "nothing in the frame of the call");
+            Assert.AreEqual(1, IosClipboardManager.LaterCountForTests, "nothing is handed over in the frame of the call");
+            Assert.AreEqual(0, results.Count);
             Assert.IsTrue(IosClipboardManager.IsInFlightForTests(IosClipboardManager.OperationCopy));
+            IosClipboardManager.DeliverLater(Time.frameCount + 1);
+            Assert.AreEqual(0, IosClipboardManager.LaterCountForTests, "handed over once the frame has passed");
 
             yield return null;
             yield return null;
@@ -921,6 +933,9 @@ namespace JonghyunKim.NativeToolkit.Tests
             manager.Append(IosClipboardContent.PlainText("y"), null, _ => order.Add("append"));
             IosClipboardManager.RejectAtEntryForTests(IosClipboardManager.OperationCopy, EmptyItems);
             IosClipboardManager.CompleteOperationForTests(IosClipboardManager.OperationAppend, isSuccess: true);
+            // Hand over now, while the change still waits in the dispatcher: the order then does not depend on
+            // which Update runs first.
+            IosClipboardManager.DeliverLater(Time.frameCount + 1);
 
             for (int i = 0; i < 4; i++) yield return null;
 
@@ -997,6 +1012,139 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return null;
 
             Assert.AreEqual("CLIPBOARD_INVALID_REQUEST", error?.Code);
+        }
+
+        [UnityTest]
+        public IEnumerator ChangeBeforeTheStopResult_ReachesTheRegistration()
+        {
+            // Implementation review v1 (Codex R-1, subagent R-1): as in 1.x, a change that arrived while a
+            // registration was current reaches it, even when the stop result comes before it is delivered.
+            IosClipboardManager manager = BridgedManager();
+            int common = 0, perRegistration = 0;
+            void OnChanged(IosClipboardChangeEvent e) => common++;
+            manager.ClipboardChanged += OnChanged;
+
+            manager.StartObserving(null, _ => perRegistration++);
+            IosClipboardManager.CompleteObservationControlForTests(IosClipboardManager.OperationStartObserving, isSuccess: true);
+            yield return null;
+            yield return null;
+
+            IosClipboardManager.DeliverChangeEventForTests(ChangeJson);
+            manager.StopObserving();
+            IosClipboardManager.CompleteObservationControlForTests(IosClipboardManager.OperationStopObserving, isSuccess: true);
+            yield return null;
+            yield return null;
+
+            manager.ClipboardChanged -= OnChanged;
+            Assert.AreEqual(1, common);
+            Assert.AreEqual(1, perRegistration);
+        }
+
+        [UnityTest]
+        public IEnumerator ChangeBeforeANewStart_ReachesTheRegistrationItArrivedFor()
+        {
+            IosClipboardManager manager = BridgedManager();
+            int first = 0, second = 0;
+
+            manager.StartObserving(null, _ => first++);
+            IosClipboardManager.CompleteObservationControlForTests(IosClipboardManager.OperationStartObserving, isSuccess: true);
+            yield return null;
+            yield return null;
+
+            IosClipboardManager.DeliverChangeEventForTests(ChangeJson);
+            manager.StartObserving(null, _ => second++);
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual(1, first);
+            Assert.AreEqual(0, second);
+        }
+
+        [UnityTest]
+        public IEnumerator NativeCallThrowing_FailsOnALaterFrameAndStaysBusyUntilThen()
+        {
+            // Design v5, D-12: a native call that throws is a result decided during the call.
+            LogAssert.ignoreFailingMessages = true;
+            IosClipboardManager manager = BridgedManager();
+            IosClipboardManager.NativeCallThrowsForTests = true;
+            var results = new List<IosClipboardOperationResult>();
+            int callFrame = Time.frameCount, resultFrame = -1;
+
+            manager.Copy(IosClipboardContent.PlainText("x"), null, null, r => { results.Add(r); resultFrame = Time.frameCount; });
+            manager.Copy(IosClipboardContent.PlainText("y"), null, null, results.Add);
+            Assert.AreEqual(0, results.Count, "nothing inside the call");
+            Assert.AreEqual(1, IosClipboardManager.LaterCountForTests);
+
+            for (int i = 0; i < 3; i++) yield return null;
+
+            Assert.AreEqual(2, results.Count);
+            Assert.IsTrue(results.Exists(r => r.Error?.Code == IosClipboardManager.BusyErrorCode), "busy until delivered");
+            IosClipboardOperationResult failed = results.Find(r => r.Error?.Code == IosClipboardManager.BridgeUnavailableErrorCode);
+            Assert.AreEqual("copy could not be started.", failed.Error?.Message);
+            Assert.Greater(resultFrame, callFrame);
+            Assert.IsFalse(IosClipboardManager.IsInFlightForTests(IosClipboardManager.OperationCopy));
+        }
+
+        [UnityTest]
+        public IEnumerator NativeCallThrowing_StartGivesItsRegistrationUpWhenDelivered()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            IosClipboardManager manager = BridgedManager();
+            IosClipboardManager.NativeCallThrowsForTests = true;
+            IosClipboardOperationResult? started = null;
+
+            manager.StartObserving(null, _ => { }, r => started = r);
+            Assert.IsTrue(IosClipboardManager.HasChangeRegistrationForTests, "kept until the failure is delivered");
+
+            for (int i = 0; i < 3; i++) yield return null;
+
+            Assert.AreEqual(IosClipboardManager.BridgeUnavailableErrorCode, started?.Error?.Code);
+            Assert.IsFalse(IosClipboardManager.HasChangeRegistrationForTests);
+            Assert.IsFalse(IosClipboardManager.IsInFlightForTests(IosClipboardManager.ObservationControlKey));
+        }
+
+        [UnityTest]
+        public IEnumerator NativeResultHandedOverOnDestroy_IsDroppedByAReset()
+        {
+            // Implementation review v1 (Codex R-2, subagent R-7): no result crosses into a later test.
+            LogAssert.ignoreFailingMessages = true;
+            IosClipboardManager manager = BridgedManager();
+            int delivered = 0;
+
+            manager.Copy(IosClipboardContent.PlainText("x"), null, null, _ => delivered++);
+            manager.Append(IosClipboardContent.PlainText("y"), null, _ => delivered++);
+            IosClipboardManager.RejectAtEntryForTests(IosClipboardManager.OperationCopy, EmptyItems);
+            IosClipboardManager.CompleteOperationForTests(IosClipboardManager.OperationAppend, isSuccess: true);
+            UnityEngine.Object.DestroyImmediate(manager.gameObject);
+            IosClipboardManager.ResetForTests();
+
+            for (int i = 0; i < 3; i++) yield return null;
+
+            Assert.AreEqual(0, delivered);
+        }
+
+        [UnityTest]
+        public IEnumerator DispatcherDestroyed_WaitingResultsAreDroppedAndTheMarkReleased()
+        {
+            // Implementation review v1 (Codex R-3, subagent R-6).
+            LogAssert.ignoreFailingMessages = true;
+            IosClipboardManager manager = BridgedManager();
+
+            manager.Copy(IosClipboardContent.PlainText("x"));
+            IosClipboardManager.RejectAtEntryForTests(IosClipboardManager.OperationCopy, EmptyItems);
+            Assert.AreEqual(1, IosClipboardManager.LaterCountForTests);
+
+            GameObject? dispatcherObject = GameObject.Find("UnityMainThreadDispatcher");
+            Assert.IsNotNull(dispatcherObject);
+            UnityEngine.Object.DestroyImmediate(dispatcherObject);
+            manager.Append(IosClipboardContent.PlainText("y"));
+            IosClipboardManager.CompleteOperationForTests(IosClipboardManager.OperationAppend, isSuccess: true);
+
+            yield return null;
+
+            Assert.AreEqual(0, IosClipboardManager.LaterCountForTests);
+            Assert.IsFalse(IosClipboardManager.IsInFlightForTests(IosClipboardManager.OperationCopy), "the busy mark is released");
+            Assert.IsFalse(IosClipboardManager.IsInFlightForTests(IosClipboardManager.OperationAppend));
         }
 
         [UnityTest]
@@ -1172,7 +1320,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator NulInAValue_WarnsWithoutTheValueAndGoesOn()
         {
             IosClipboardManager manager = BridgedManager();
-            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("U\\+0000"));
+            // The whole warning: it names no value.
+            LogAssert.Expect(LogType.Warning, "[IosClipboardManager] " + IosClipboardCApi.NulValueWarning);
+            StringAssert.DoesNotContain("secret", IosClipboardCApi.NulValueWarning);
 
             manager.Copy(IosClipboardContent.PlainText("secret\0tail"));
             yield return null;

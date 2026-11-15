@@ -18,7 +18,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     /// <summary>
     /// Singleton manager for iOS native clipboard operations.
     /// <para>
-    /// Calls native-toolkit's C ABI 2.0.0 (<c>Clipboard.h</c>; artifact/ios/clipboard, C ABI design v4).
+    /// Calls native-toolkit's C ABI 2.0.0 (<c>Clipboard.h</c>; artifact/ios/clipboard, C ABI design v5).
     /// Results keep 1.x's codes and messages, but <see cref="IosClipboardErrorInfo.Domain"/> and
     /// <see cref="IosClipboardErrorInfo.NativeCode"/> are always null: the C ABI carries an error number only.
     /// A request the library rejects at once fails like any other failure, on a later Update, and the
@@ -250,11 +250,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         private static string s_readDataUtType = "";
         private static IosPasteboardCreationRequestKind s_createKind;
 
-        // Bumped by every reset, so a result queued for later (D-12) cannot reach a call of a later lifetime.
+        // Bumped by every reset and destroy, so a result decided during a call (D-12) cannot reach a call of a
+        // later lifetime.
         private static int s_lifetime;
 
+        // Bumped by every reset only: a native result already known still goes out after destroy (as in 1.x),
+        // but never into a later Play session or test (implementation review v1).
+        private static int s_resetCount;
+
+        // The registrations of starts rejected at entry: a change that arrived meanwhile reaches only the common
+        // event (design v5, D-12). Any other registration gets the changes that arrived while it was current,
+        // as in 1.x.
+        private static readonly HashSet<ulong> s_revokedRegistrations = new();
+
         // Results decided during a call. IosClipboardLaterPump, on the dispatcher's GameObject, hands them to the
-        // dispatcher's queue once the frame they were queued in has passed (design v4, D-12). Once one is
+        // dispatcher's queue once the frame they were queued in has passed (design v5, D-12). Once one is
         // waiting, other results join the same list behind it, so a native completion cannot overtake it
         // (CP-31). Main thread only.
         private readonly struct Later
@@ -269,7 +279,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
             internal int Frame { get; }           // the frame it was queued in; int.MinValue: due at once
             internal string? Operation { get; }   // non-null: decided during a call, dropped after destroy
-            internal int Lifetime { get; }
+            internal int Lifetime { get; }        // s_lifetime for a decided result, s_resetCount for a native one
             internal Action Deliver { get; }
         }
 
@@ -436,16 +446,19 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 #endif
 
         // Single reset core shared by the Play-session hook and the Editor-only test seam so the
-        // two can never drift apart. Resets every mutable static except _instance, whose lifetime
-        // is owned by Unity.
+        // two can never drift apart. Resets the call state; left alone are _instance (owned by Unity), the
+        // listener and its release count (only destroy removes the listener), the pump (it lives on the
+        // dispatcher's GameObject) and the request kind kept for CreatePasteboard (set by every call).
         private static void ResetCore()
         {
             s_later.Clear();
+            s_resetCount++;
             s_isTerminated = false;
             s_dispatcher = null;
             s_mainThreadId = 0;
 #if UNITY_EDITOR
             BridgeAvailableOverrideForTests = false;
+            NativeCallThrowsForTests = false;
 #endif
             ClearAllPendingCallbacks();
         }
@@ -479,6 +492,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             s_isObserving = false;
             s_loadRequestId = 0;
             s_readDataUtType = "";
+            s_revokedRegistrations.Clear();
             s_lifetime++;
         }
 
@@ -738,17 +752,17 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 InvokeInOrder(result, common, perCall);
                 return;
             }
-            if (s_later.Count > 0)
-            {
-                // Behind a result decided during a call: keep the order (D-12).
-                s_later.Add(new Later(int.MinValue, null, s_lifetime, () => InvokeInOrder(result, common, perCall)));
-                return;
-            }
-
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
             if (dispatcher == null)
             {
                 Debug.LogError($"[{LogTag}][{nameof(Dispatch)}] No dispatcher; result dropped.");
+                DropLaterWithoutDispatcher();
+                return;
+            }
+            if (s_later.Count > 0)
+            {
+                // Behind a result decided during a call: keep the order (D-12).
+                s_later.Add(new Later(int.MinValue, null, s_resetCount, () => InvokeInOrder(result, common, perCall)));
                 return;
             }
             dispatcher.Enqueue(() => InvokeInOrder(result, common, perCall));
@@ -820,15 +834,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
 
         private static void FireClipboardChanged(IosClipboardChangeEvent changeEvent)
         {
-            // The registration is checked again when the change is delivered: a start rejected meanwhile has
-            // given its registration up and gets no change after its failure (design v4, D-12).
+            // The registration current when the change arrived gets it, as in 1.x, unless it belongs to a start
+            // rejected at entry in the meantime: that one gets no change after its failure (design v5, D-12).
             Action<IosClipboardChangeEvent>? registered = s_onChanged;
             ulong generation = s_onChangedGeneration;
             Dispatch(changeEvent, _instance?.ClipboardChanged, registered == null
                 ? null
                 : e =>
                 {
-                    if (s_onChangedGeneration == generation) registered(e);
+                    if (!s_revokedRegistrations.Contains(generation)) registered(e);
                 });
         }
 
@@ -1320,7 +1334,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 () =>
                 {
 #if UNITY_IOS && !UNITY_EDITOR
-                    // An empty array asks for no matching, as 1.x (matching was done only for a non-empty list).
+                    // An empty array asks for no matching, as 1.x (matching was done only for a non-empty list). A null
+                    // type becomes a NULL pointer, which the library rejects (CLIPBOARD_INVALID_REQUEST, as 1.x).
                     CallNative(OperationGetSnapshot, allocated => IosClipboardCApi.ntk_clipboard_get_snapshot_async(
                         matchingTypes == null || matchingTypes.Length == 0
                             ? IntPtr.Zero
@@ -1614,12 +1629,15 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         {
             try
             {
+#if UNITY_EDITOR
+                if (NativeCallThrowsForTests) throw new InvalidOperationException("native call failed (test)");
+#endif
                 nativeCall();
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[{LogTag}][{nameof(InvokeNative)}] {operation}: {ex.Message}");
-                // A later frame, as every result decided during the call (design v4, D-12).
+                // A later frame, as every result decided during the call (design v5, D-12).
                 CompleteLater(operation, () =>
                 {
                     onNativeFailure?.Invoke();
@@ -1643,7 +1661,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// <summary>
         /// Drops a callback belonging to a destroyed Manager lifetime.
         /// <para>
-        /// The native ABI carries no request or lifetime identifier, so a late callback is
+        /// <c>user_data</c> names the operation only, not the Manager's lifetime, so a late callback is
         /// indistinguishable from a fresh one here. The tombstone guarantees no new operation can
         /// have started after destruction, so discarding is always correct: no live caller is
         /// waiting for this result.
@@ -1713,7 +1731,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             HandleOperationCallback(operation, ObservationControlKey, isSuccess, errorCode, errorMessage, guarded: true);
         }
 
-        // ── C ABI 2.0.0 (artifact/ios/clipboard, C ABI design v2) ─────────────────
+        // ── C ABI 2.0.0 (artifact/ios/clipboard, C ABI design v5) ─────────────────
 
         private static IosClipboardErrorInfo InvalidRequest =>
             IosClipboardCApi.ToErrorInfo(IosClipboardCApi.ErrorInvalidParameter);
@@ -1754,6 +1772,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// </summary>
         private static void CallNative(string operation, Func<List<IntPtr>, int> call)
         {
+            Debug.Log($"[{LogTag}][{nameof(CallNative)}] operation: {operation}");
             var allocated = new List<IntPtr>();
             int error;
             try
@@ -1786,8 +1805,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// </summary>
         private static void CompleteLater(string operation, Action complete)
         {
+            Debug.Log($"[{LogTag}][{nameof(CompleteLater)}] operation: {operation}, frame: {Time.frameCount}");
             if (!EnsurePump())
             {
+                DropLaterWithoutDispatcher();
                 complete(); // no dispatcher: releases the mark; Dispatch reports the dropped result
                 return;
             }
@@ -1816,19 +1837,52 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         {
             if (s_later.Count == 0 || s_later[0].Frame >= frame) return;
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
-            if (dispatcher == null) return;
+            if (dispatcher == null)
+            {
+                DropLaterWithoutDispatcher();
+                return;
+            }
+            int handed = 0;
             while (s_later.Count > 0 && s_later[0].Frame < frame)
             {
                 Later later = s_later[0];
                 s_later.RemoveAt(0);
                 dispatcher.Enqueue(() => RunLater(later));
+                handed++;
+            }
+            Debug.Log($"[{LogTag}][{nameof(DeliverLater)}] frame: {frame}, handed: {handed}, waiting: {s_later.Count}");
+        }
+
+        /// <summary>
+        /// The dispatcher is gone: every waiting result is dropped, as <see cref="Dispatch"/> drops one. A result
+        /// decided during a call still runs its completion path, so its slot and busy mark are released (its
+        /// delivery is then reported as dropped).
+        /// </summary>
+        private static void DropLaterWithoutDispatcher()
+        {
+            if (s_later.Count == 0) return;
+            Debug.LogError($"[{LogTag}][{nameof(DropLaterWithoutDispatcher)}] No dispatcher; {s_later.Count} waiting result(s) dropped.");
+            var waiting = new List<Later>(s_later);
+            s_later.Clear();
+            foreach (Later later in waiting)
+            {
+                if (later.Operation == null || s_isTerminated || later.Lifetime != s_lifetime) continue;
+                try
+                {
+                    later.Deliver();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[{LogTag}][{nameof(DropLaterWithoutDispatcher)}] {ex.Message}");
+                }
             }
         }
 
         private static void RunLater(Later later)
         {
-            if (later.Operation != null &&
-                (DiscardIfTerminated(later.Operation) || later.Lifetime != s_lifetime))
+            if (later.Operation != null
+                    ? DiscardIfTerminated(later.Operation) || later.Lifetime != s_lifetime
+                    : later.Lifetime != s_resetCount)
             {
                 return;
             }
@@ -1856,6 +1910,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             var waiting = new List<Later>(s_later);
             s_later.Clear();
             UnityMainThreadDispatcher? dispatcher = s_dispatcher;
+            Debug.Log($"[{LogTag}][{nameof(HandOverLaterResults)}] waiting: {waiting.Count}");
             foreach (Later later in waiting)
             {
                 if (later.Operation != null) continue;
@@ -1864,17 +1919,21 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                     Debug.LogError($"[{LogTag}][{nameof(HandOverLaterResults)}] No dispatcher; result dropped.");
                     continue;
                 }
-                dispatcher.Enqueue(later.Deliver);
+                Later known = later;
+                dispatcher.Enqueue(() => RunLater(known)); // dropped by a reset before it runs
             }
         }
 
         /// <summary>Completes an operation with a failure through its normal path (slot, mark, generation).</summary>
         private static void CompleteWithError(string operation, IosClipboardErrorInfo error)
         {
+            Debug.Log($"[{LogTag}][{nameof(CompleteWithError)}] operation: {operation}, code: {error.Code}");
             switch (operation)
             {
                 case OperationStartObserving:
                 case OperationStopObserving:
+                    if (operation == OperationStartObserving && s_pendingObservationGeneration != 0)
+                        s_revokedRegistrations.Add(s_pendingObservationGeneration);
                     HandleObservationControlCallback(operation, false, error.Code, error.Message, acceptedByLibrary: false);
                     return;
                 case OperationRead:
@@ -1971,12 +2030,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 string? operation = OperationNameOf(op);
                 if (operation == null) return; // destroy's stop (D-2)
 
-                bool ok = error == IosClipboardCApi.ErrorNone;
-                IosClipboardErrorInfo info = IosClipboardCApi.ToErrorInfo(error);
+                IosClipboardOperationResult result = IosClipboardCApi.OperationResultOf(operation, error);
+                string? code = result.Error?.Code;
+                string? message = result.Error?.Message;
                 if (op == Op.StartObserving || op == Op.StopObserving)
-                    HandleObservationControlCallback(operation, ok, ok ? null : info.Code, ok ? null : info.Message);
+                    HandleObservationControlCallback(operation, result.IsSuccess, code, message);
                 else
-                    HandleOperationCallback(operation, operation, ok, ok ? null : info.Code, ok ? null : info.Message);
+                    HandleOperationCallback(operation, operation, result.IsSuccess, code, message);
             }
             catch (Exception ex)
             {
@@ -2222,6 +2282,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
             RejectAtEntry(operation, IosClipboardCApi.ToErrorInfo(error));
 
         internal static bool IsObservingForTests => s_isObserving;
+
+        internal static int LaterCountForTests => s_later.Count;
+
+        /// <summary>Makes the native call of every operation throw, as a missing symbol would (D-12).</summary>
+        internal static bool NativeCallThrowsForTests { get; set; }
 
         internal static bool HasChangeRegistrationForTests => s_onChanged != null;
 
