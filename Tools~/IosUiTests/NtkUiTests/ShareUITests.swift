@@ -8,7 +8,7 @@ import XCTest
 /// (`share-event`), in that order on the screen - the event comes first - and exactly once each. Items
 /// whose call fails also check that no share sheet appears.
 /// On the C ABI 2.0.0 (the harness's first line `[abi@event] 2`), the known differences of the C ABI design
-/// (artifact/ios/share/designs/2026-11-15-ios-share-cabi-design-v2.md, 3) are checked: messages without the
+/// (artifact/ios/share/designs/2026-11-15-ios-share-cabi-design-v3.md, 3) are checked: messages without the
 /// input URL or path (SH-9 to SH-12), one result per call (SH-13), and a sheet while inactive (SH-15).
 final class ShareUITests: HarnessUITestCase {
     private static let closedValue = "completed=False activity=<null>"
@@ -140,20 +140,28 @@ final class ShareUITests: HarnessUITestCase {
     func test_SH13() {
         launch("share"); run("sh-twice")
         if abi2 {
-            // 2.0.0, measured on the simulator (2026-11-15): as in 1.x, one sheet shows and one call's result
-            // never comes, also after 30 s - against Share.h's "exactly once" (a native-toolkit issue, recorded
-            // in the Share C ABI implementation result). The shown sheet's result reaches its own call (which
-            // one is not promised) and the event; the lines are printed so each run records them.
+            // 2.0.0, measured on the simulator and an iPhone (2026-11-15): one sheet shows and one call's
+            // result never comes, also after 30 s - against Share.h's "exactly once per accepted call". It is
+            // a native-toolkit issue (artifact/ios/share/results/2026-11-15-ios-share-cabi-implementation-
+            // result-v1.md). The contract is checked inside XCTExpectFailure, which fails the test once
+            // native-toolkit fixes it, so the expectation gets updated then. The lines are printed each run.
             openAndClose()
             if sheet(timeout: 3) {
-                XCTAssertTrue(SystemUI.closeShareSheet(app), "a second share sheet appeared - update the expectation")
+                XCTFail("a second share sheet appeared - update the expectation")
+                _ = SystemUI.closeShareSheet(app)
             }
             Thread.sleep(forTimeInterval: 5)
             let calls = finishedLines(ofIds: ["share1", "share2"])
-            print("SH-13 2.0.0 lines: \(calls + finishedLines("share-event"))")
-            XCTAssertEqual(calls.count, 1, "lines: \(harnessLines())")
-            XCTAssertTrue(calls.allSatisfy { $0.hasSuffix("@ok] \(Self.closedValue)") }, "lines: \(harnessLines())")
-            XCTAssertEqual(finishedLines("share-event"), ["[share-event@ok] \(Self.closedValue)"], "lines: \(harnessLines())")
+            let events = finishedLines("share-event")
+            print("SH-13 2.0.0 lines: \(calls + events)")
+            // What does come is the closed sheet's result, for its own call and the event.
+            XCTAssertFalse(calls.isEmpty, "no call got a result; lines: \(harnessLines())")
+            XCTAssertTrue((calls + events).allSatisfy { $0.hasSuffix("@ok] \(Self.closedValue)") }, "lines: \(harnessLines())")
+            XCTExpectFailure("native-toolkit 2.0.0: a share over a sheet being shown never completes") {
+                XCTAssertEqual(finishedLines("share1").count, 1, "share1")
+                XCTAssertEqual(finishedLines("share2").count, 1, "share2")
+                XCTAssertEqual(events.count, 2, "share-event")
+            }
             checkNoUnexpectedAlert()
             return
         }
@@ -196,7 +204,7 @@ final class ShareUITests: HarnessUITestCase {
             .press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
         waitLine("[late@event] state=foregroundInactive")
         if abi2 {
-            // Known difference (design v2, 3): a foreground but inactive scene counts as the foreground.
+            // Known difference (design v3, 3): a foreground but inactive scene counts as the foreground.
             openAndClose()
             expectShare("ok", Self.closedValue)
             return

@@ -14,7 +14,7 @@ namespace JonghyunKim.NativeToolkit.Tests
     /// <summary>
     /// Layer 1 tests for <c>IosShareCApi</c> and <c>IosSharePendingCalls</c>: the structs against
     /// <c>Share.h</c>'s layout, how a payload is passed on as 1.x did, the request, the messages, and the
-    /// per-call table (artifact/ios/share, C ABI design v2, 4).
+    /// per-call table (artifact/ios/share, C ABI design v3, 4).
     /// </summary>
     public sealed class IosShareCApiTests
     {
@@ -72,7 +72,23 @@ namespace JonghyunKim.NativeToolkit.Tests
             Api.Prepared p = Api.Prepare(payload);
             CollectionAssert.AreEqual(new[] { (0, "a"), (3, "/f"), (0, "") }, p.Items.Select(i => (i.Kind, i.Value)));
             Assert.AreEqual(3, p.DroppedItems);
-            StringAssert.Contains("left out 3 item(s)", Api.Warnings(p).Single());
+            Assert.AreEqual("Share: left out 3 item(s) of type <null>, unknown, url (null, unknown type or null value), as 1.x did.", Api.Warnings(p).Single());
+        }
+
+        [Test]
+        public void Warnings_NeverShowValuesOrPaths()
+        {
+            Api.Prepared p = Api.Prepare(new IosShareContentPayload
+            {
+                items = new[] { new IosShareItem { type = "unknown", value = "/private/secret.txt" }, IosShareItem.Text("kept\0x") },
+                excludedActivityTypes = new[] { null!, "a.b" },
+            });
+            foreach (string warning in Api.Warnings(p))
+            {
+                StringAssert.DoesNotContain("secret", warning);
+                StringAssert.DoesNotContain("kept", warning);
+            }
+            Assert.AreEqual(3, Api.Warnings(p).Count());
         }
 
         [Test]
@@ -85,6 +101,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             });
             Assert.IsNull(dropped.ExcludedActivityTypes);
             Assert.IsTrue(dropped.DroppedExcludedList);
+            Assert.AreEqual("Share: excludedActivityTypes holds null, so the whole list is ignored, as 1.x did.", Api.Warnings(dropped).Single());
 
             Api.Prepared kept = Api.Prepare(new IosShareContentPayload
             {
@@ -109,9 +126,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void Prepare_WarnsOfU0000()
         {
-            Api.Prepared p = Api.Prepare(new IosShareContentPayload { items = new[] { IosShareItem.Text("A\0B") } });
+            Api.Prepared p = Api.Prepare(new IosShareContentPayload { items = new[] { IosShareItem.Text("secret\0B") } });
             Assert.IsTrue(p.HasNul);
-            StringAssert.Contains("U+0000", Api.Warnings(p).Single());
+            string warning = Api.Warnings(p).Single();
+            StringAssert.Contains("U+0000", warning);
+            StringAssert.DoesNotContain("secret", warning, "a warning must not show the value");
             Assert.IsFalse(Api.Prepare(new IosShareContentPayload { items = new[] { IosShareItem.Text("AB") } }).HasNul);
         }
 

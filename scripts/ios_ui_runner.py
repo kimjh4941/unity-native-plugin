@@ -60,6 +60,12 @@ project, the build settings, and the runners.
     >>> judge_results({"testNodes": []}, ["DialogUITests/test_confirmOk"])
     (False, ['DialogUITests/test_confirmOk: did not run'])
 
+    A test that wraps a known issue in XCTExpectFailure reports "Expected Failure", and passes:
+
+    >>> sample["testNodes"][0]["children"][0]["children"][0]["children"][0]["result"] = "Expected Failure"
+    >>> judge_results(sample, ["DialogUITests/test_confirmOk"])
+    (True, ['DialogUITests/test_confirmOk: Expected Failure'])
+
     A test case nobody asked for fails the run too:
 
     >>> extra = {"testNodes": [{"nodeType": "Test Case", "nodeIdentifier": "X/test_a()", "result": "Passed"},
@@ -170,6 +176,9 @@ GUARDED = [
 APPROVALS = os.path.expanduser("~/Library/Application Support/unity-native-plugin/test_ios-approvals")
 PLAYER_TESTS = "PlayerTests/IosPlayer"
 DEFAULT_TIME_LIMIT = 600
+# xcresulttool's results that pass: "Expected Failure" is a test whose known issue is wrapped in
+# XCTExpectFailure (ShareUITests.test_SH13; it fails once the issue is fixed, as strict).
+PASSING_RESULTS = ("Passed", "Expected Failure")
 UI_APPS = [
     ("com.jonghyunkim.nativetoolkit.uiharness", "the UI harness (Unity)"),
     ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests"),
@@ -316,7 +325,7 @@ def judge_results(data, tests):
     lines, ok = [], True
     for test in tests:
         result = found.get(test, "did not run")
-        ok &= result == "Passed"
+        ok &= result in PASSING_RESULTS
         lines.append(f"{test}: {result}")
     for name in sorted(set(found) - set(tests)):
         ok = False

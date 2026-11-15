@@ -8,9 +8,11 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
 
     /// <summary>
     /// The per-call callbacks of the shares the C ABI accepted, by the number passed as <c>user_data</c>
-    /// (artifact/ios/share, C ABI design v2, D-1). Each call gets its own number, so two calls in a row each
-    /// get their own result (1.x kept one slot and lost one of them). The lock guards the dictionary only;
-    /// no native call is made under it.
+    /// (artifact/ios/share, C ABI design v3, D-1). Each call gets its own number, so a result reaches the
+    /// call it belongs to (1.x kept one slot). Cleared when the manager is destroyed; numbers are never
+    /// reused, so a late completion from before cannot reach a later call. A call native-toolkit never
+    /// completes (a share over a sheet being shown) stays here. The lock guards the dictionary only; no
+    /// native call is made under it.
     /// </summary>
     internal sealed class IosSharePendingCalls
     {

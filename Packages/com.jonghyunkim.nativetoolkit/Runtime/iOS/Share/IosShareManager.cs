@@ -17,10 +17,12 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
     /// Singleton manager for iOS native share sheet operations.
     /// </summary>
     /// <remarks>
-    /// Calls native-toolkit's C ABI 2.0.0 (<c>Share.h</c>; artifact/ios/share, C ABI design v2). Every result,
+    /// Calls native-toolkit's C ABI 2.0.0 (<c>Share.h</c>; artifact/ios/share, C ABI design v3). Every result,
     /// also a failure decided before the native call, comes on the Update after it is known:
-    /// <see cref="ShareCompleted"/> first, then the call's own callback. Each call gets its own result,
-    /// also when two are made in a row (1.x kept one slot and lost one of them). Items are passed on as 1.x
+    /// <see cref="ShareCompleted"/> first, then the call's own callback. A result reaches the call it belongs
+    /// to (1.x kept one slot, so a result could reach another call's callback). A share made while another
+    /// sheet is being shown may never complete: native-toolkit 2.0.0 shows one sheet and gives the other
+    /// call no result (measured on the simulator and an iPhone; Share.h promises one). Items are passed on as 1.x
     /// did: null items, unknown types and null values are left out, with a warning. In the Editor every
     /// share fails with "iOS share is only available on an iOS device.". The class compiles for
     /// <c>UNITY_IOS || UNITY_EDITOR</c> so it can be referenced and tested from the Editor.
@@ -58,7 +60,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
         /// </summary>
         public event Action<IosShareResult>? ShareCompleted;
 
-        /// <summary>The per-call callbacks of accepted shares (design v2, D-1).</summary>
+        /// <summary>The per-call callbacks of accepted shares (design v3, D-1).</summary>
         internal static readonly IosSharePendingCalls s_pending = new();
 
         /// <summary>The native call of <see cref="Begin"/>: a stand-in in the Editor's tests (D-13).</summary>
@@ -174,8 +176,10 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
                     return;
                 }
 
-                if (error != IosShareCApi.ErrorNone && s_pending.TryTake(id, out Action<IosShareResult>? rejected))
+                if (error != IosShareCApi.ErrorNone)
                 {
+                    // The result goes out even when the number is gone (the manager was destroyed meanwhile).
+                    s_pending.TryTake(id, out Action<IosShareResult>? rejected);
                     Debug.LogError($"[{LogTag}][{nameof(Share)}] rejected: {IosShareCApi.ErrorName(error)}");
                     FireResult(IosShareResult.Failure(IosShareCApi.EntryFailureMessage(error)), rejected);
                 }

@@ -11,7 +11,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
     /// <summary>
     /// The bridge to native-toolkit's C ABI for the iOS share sheet (<c>Share.h</c> in IosLibraryCApi): the
     /// structs, the <c>extern</c> declarations, and the pure conversions between <see cref="IosShareManager"/>'s
-    /// public API and the C ABI (artifact/ios/share, C ABI design v2).
+    /// public API and the C ABI (artifact/ios/share, C ABI design v3).
     /// </summary>
     /// <remarks>
     /// The declarations compile in the Editor too, so the EditMode check compares them with the headers;
@@ -41,7 +41,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
         internal const int ErrorCanceledBySystem = 20;
         internal const int ErrorActivityFailed = 21;
 
-        /// <summary><c>ntk_share_result_fn</c>: unlike Dialog's, it carries no request ID (design v2, D-9).</summary>
+        /// <summary><c>ntk_share_result_fn</c>: unlike Dialog's, it carries no request ID (design v3, D-9).</summary>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate void ResultCallback(IntPtr userData, int error, uint systemCode, IntPtr result);
 

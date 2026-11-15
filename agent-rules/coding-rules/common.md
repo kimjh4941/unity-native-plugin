@@ -130,7 +130,7 @@ Notification も移した（`artifact/android/notification/designs/2026-10-12-an
 - 完了は Unity と同じ主スレッドで来る。1.x と同じ時点にするため `UnityMainThreadDispatcher` で次の `Update` に出し、
   積むラムダの中でイベントを出す所を `try/catch` で囲む（購読者の例外を dispatcher の `Update` から漏らさない）
 - `IosNativeToolkitCApi.IsAvailable` が false（Editor、別の版）なら失敗を返す。時点は 1.x に合わせる: Dialog は呼び出しの中、Share はすべての結果を次の `Update` に出す
-- 呼び出しごとの受け手がある機能（Share）は、`user_data` に呼び出しの番号を渡し、番号から受け手を引く表（`IosSharePendingCalls`）を持つ。表には呼ぶ前に入れ、拒み・例外で取り出し、Manager の破棄で空にする（1.x の 1 つの枠の後勝ちで結果が失われていた）
+- 呼び出しごとの受け手がある機能（Share）は、`user_data` に呼び出しの番号を渡し、番号から受け手を引く表（`IosSharePendingCalls`）を持つ。表には呼ぶ前に入れ、拒み・例外で取り出し、Manager の破棄で空にする。番号は空にしても戻さない（戻すと、破棄の前の遅れた完了が後の呼び出しに届く）。表に無い番号の完了は、生きている Manager の共通イベントだけに出し、Manager を作り直さない。これで結果は必ずその呼び出しの受け手に届く（1.x は 1 つの枠の後勝ちだった）。ただし native-toolkit 2.0.0 は、表示中のシートに重ねた共有の完了を出さないことがある（その番号は表に残る。`artifact/ios/share/results/2026-11-15-ios-share-cabi-implementation-result-v1.md`）
 
 ### Windows（native-toolkit の C ABI）
 

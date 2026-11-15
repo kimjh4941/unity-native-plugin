@@ -14,7 +14,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
     /// <see cref="IosShareManager"/>'s own handling of a share around the native call (artifact/ios/share, C ABI
-    /// design v2, D-1, D-6, D-13), with a stand-in for the native call: a rejection or an exception takes the
+    /// design v3, D-1, D-6, D-13), with a stand-in for the native call: a rejection or an exception takes the
     /// call out of the table and gives its callback one failure on the next Update; an accepted call stays
     /// until its completion; a completion after the table was cleared reaches no callback. Also the Editor
     /// path for items 1.x would have left out. Editor only: in an iOS player these would sit outside the
@@ -111,13 +111,40 @@ namespace JonghyunKim.NativeToolkit.Tests
         }
 
         [UnityTest]
-        public IEnumerator CompletionAfterTheTableWasCleared_ReachesOnlyTheEvent()
+        public IEnumerator CompletionBeforeTheCallReturns_ReachesItsCall()
         {
-            long id = IosShareManager.s_pending.Add(r => _seen.Add("callback"));
-            IosShareManager.s_pending.Clear();   // what OnDestroy does
-            IosShareManager.Complete(id, Api.ToResult(Api.ErrorNone, true, "x.y"));
+            // Share.h: called off the main thread, the completion may come before the call returns. The
+            // call is recorded before the native call, so it still reaches its callback, once.
+            int before = IosShareManager.s_pending.Count;
+            IosShareManager.Begin(Text(), r => _seen.Add($"callback {Describe(r)}"), (ref Api.ShareRequest request, IntPtr userData) =>
+            {
+                IosShareManager.Complete(userData.ToInt64(), Api.ToResult(Api.ErrorNone, true, "x.y"));
+                return Api.ErrorNone;
+            });
+            Assert.AreEqual(before, IosShareManager.s_pending.Count, "the completed call is still recorded");
             yield return null;
-            CollectionAssert.AreEqual(new[] { "event ok completed=True activity=x.y" }, _seen);
+            CollectionAssert.AreEqual(new[] { "event ok completed=True activity=x.y", "callback ok completed=True activity=x.y" }, _seen);
+        }
+
+        [UnityTest]
+        public IEnumerator DestroyingTheManager_ForgetsItsCalls_AndALateCompletionCreatesNoManager()
+        {
+            var ids = new List<long>();
+            IosShareManager.Begin(Text(), r => _seen.Add("callback"), (ref Api.ShareRequest request, IntPtr userData) =>
+            {
+                ids.Add(userData.ToInt64());
+                return Api.ErrorNone;
+            });
+            IosShareManager.Instance.ShareCompleted -= _onEvent;
+            UnityEngine.Object.Destroy(IosShareManager.Instance.gameObject);
+            yield return null;
+
+            Assert.IsFalse(IosShareManager.s_pending.TryTake(ids[0], out _), "OnDestroy did not clear the table");
+            IosShareManager.Complete(ids[0], Api.ToResult(Api.ErrorNone, false, null));
+            yield return null;
+            CollectionAssert.IsEmpty(_seen, "a late completion reached the destroyed manager's call");
+            Assert.AreEqual(0, UnityEngine.Object.FindObjectsByType<IosShareManager>(FindObjectsSortMode.None).Length,
+                "a late completion created a manager");
         }
     }
 }

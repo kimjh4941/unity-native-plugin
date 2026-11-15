@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
@@ -83,26 +84,41 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
         }
 
-        // SH-23 to SH-25: 1.x's native parser left these items out; on the C ABI, C# does (C ABI design v2,
+        // SH-23 to SH-25: 1.x's native parser left these items out; on the C ABI, C# does (C ABI design v3,
         // D-2), so the result stays 1.x's. Compiled out between the 3-S switch and the move (3-S design v3, 1.7).
 #if !NTK_IOS_CABI_SWITCHED || NTK_IOS_CABI_2_SHARE
         [UnityTest]
-        public IEnumerator SH23_UnknownTypeOnlyFails() =>
-            ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "unknown", value = "x" } } }, NoItems);
+        public IEnumerator SH23_UnknownTypeOnlyFails()
+        {
+#if NTK_IOS_CABI_2_SHARE
+            LogAssert.Expect(LogType.Warning, "[IosShareManager] Share: left out 1 item(s) of type unknown (null, unknown type or null value), as 1.x did.");
+#endif
+            return ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "unknown", value = "x" } } }, NoItems);
+        }
 
         [UnityTest]
-        public IEnumerator SH24_NullItemOnlyFails() =>
-            ShareAndExpect(new IosShareContentPayload { items = new IosShareItem[] { null! } }, NoItems);
+        public IEnumerator SH24_NullItemOnlyFails()
+        {
+#if NTK_IOS_CABI_2_SHARE
+            LogAssert.Expect(LogType.Warning, "[IosShareManager] Share: left out 1 item(s) of type <null> (null, unknown type or null value), as 1.x did.");
+#endif
+            return ShareAndExpect(new IosShareContentPayload { items = new IosShareItem[] { null! } }, NoItems);
+        }
 
         [UnityTest]
-        public IEnumerator SH25_NullTextValueOnlyFails() =>
-            ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "text", value = null! } } }, NoItems);
+        public IEnumerator SH25_NullTextValueOnlyFails()
+        {
+#if NTK_IOS_CABI_2_SHARE
+            LogAssert.Expect(LogType.Warning, "[IosShareManager] Share: left out 1 item(s) of type text (null, unknown type or null value), as 1.x did.");
+#endif
+            return ShareAndExpect(new IosShareContentPayload { items = new[] { new IosShareItem { type = "text", value = null! } } }, NoItems);
+        }
 #endif
 
     }
 
     /// <summary>
-    /// iOS player: the C ABI paths of <see cref="IosShareManager"/> that no sheet reaches (C ABI design v2, 4).
+    /// iOS player: the C ABI paths of <see cref="IosShareManager"/> that no sheet reaches (C ABI design v3, 4).
     /// The library rejects a malformed request with no completion; each completion reaches its own call's
     /// callback on the next Update, in whatever order they come.
     /// </summary>
