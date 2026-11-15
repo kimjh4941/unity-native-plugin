@@ -184,7 +184,12 @@ UI_APPS = [
     ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests"),
     ("com.jonghyunkim.nativetoolkit.uitests.xctrunner", "the UI test runner Xcode installs"),
 ]
-PLAYER_APPS = [("com.jonghyunkim.nativetoolkit.playertests", "the iOS player tests (Unity)")]
+PLAYER_APPS = [
+    ("com.jonghyunkim.nativetoolkit.playertests", "the iOS player tests (Unity)"),
+    # The UI driver next to the player (artifact/topics/ios-c-abi-2, UI driver design v3, 4.4).
+    ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests (for the UI driver)"),
+    ("com.jonghyunkim.nativetoolkit.uitests.xctrunner", "the UI test runner Xcode installs (the UI driver)"),
+]
 CATEGORIES = {
     "systemui": "presses system alerts and the springboard (the notification permission, a banner)",
     "sharesheet": "opens the share sheet and closes it without choosing an activity",
@@ -193,7 +198,7 @@ CATEGORIES = {
     "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
 "focus": "the harness is installed once and stays: the run waits until the user lets only NTK UI Harness through a Focus mode, then runs the tests in order without reinstalling",
     "longpress": "long-presses the harness's notification banner and presses an action only after the expanded notification shows that notification",
-    "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app)",
+    "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app). Next to the player runs the UI driver (an XCUITest runner on 127.0.0.1 of the device): it brings the player to the front, and for the sample-screen tests presses the player's own alerts and closes share sheets without choosing an activity; on a device it never sends the player to the background, never types into an alert that has a password field, never taps a notification banner, and prints nothing it reads from the screen",
 }
 
 

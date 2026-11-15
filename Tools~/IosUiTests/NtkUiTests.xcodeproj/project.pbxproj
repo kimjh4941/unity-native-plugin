@@ -10,6 +10,7 @@
 		B20000000000000000000008 /* NtkUiTestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* NtkUiTestHostApp.swift */; };
 		B20000000000000000000009 /* HarnessUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* HarnessUITestCase.swift */; };
 		B2000000000000000000000A /* SystemUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* SystemUI.swift */; };
+		B2000000000000000000000F /* DriverUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* DriverUITests.swift */; };
 		B2000000000000000000000B /* DialogUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* DialogUITests.swift */; };
 		B2000000000000000000000C /* ShareUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ShareUITests.swift */; };
 		B2000000000000000000000D /* NotificationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* NotificationUITests.swift */; };
@@ -30,6 +31,7 @@
 		B10000000000000000000001 /* NtkUiTestHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NtkUiTestHostApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* HarnessUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessUITestCase.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* SystemUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemUI.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* DriverUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverUITests.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* DialogUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogUITests.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* ShareUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareUITests.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* NotificationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationUITests.swift; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 			children = (
 				B10000000000000000000002 /* HarnessUITestCase.swift */,
 				B10000000000000000000003 /* SystemUI.swift */,
+				B10000000000000000000008 /* DriverUITests.swift */,
 				B10000000000000000000004 /* DialogUITests.swift */,
 				B10000000000000000000005 /* ShareUITests.swift */,
 				B10000000000000000000006 /* NotificationUITests.swift */,
@@ -203,6 +206,7 @@
 			files = (
 				B20000000000000000000009 /* HarnessUITestCase.swift in Sources */,
 				B2000000000000000000000A /* SystemUI.swift in Sources */,
+				B2000000000000000000000F /* DriverUITests.swift in Sources */,
 				B2000000000000000000000B /* DialogUITests.swift in Sources */,
 				B2000000000000000000000C /* ShareUITests.swift in Sources */,
 				B2000000000000000000000D /* NotificationUITests.swift in Sources */,

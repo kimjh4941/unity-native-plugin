@@ -76,6 +76,16 @@ OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/unity-ios-verify}"
 PROFILE="Assets/Settings/Build Profiles/iOS Profile.asset"
 PLAYER_ID="com.jonghyunkim.nativetoolkit.playertests"
 CATEGORY="IosPlayer"
+# The UI driver (artifact/topics/ios-c-abi-2, UI driver design v3): an XCUITest test method next to the
+# player that presses the system screens the tests ask for over 127.0.0.1. Its runner installs these two.
+UITESTS_DIR="$PROJECT_DIR/Tools~/IosUiTests"
+DRIVER_APPS=("com.jonghyunkim.nativetoolkit.uitesthost" "com.jonghyunkim.nativetoolkit.uitests.xctrunner")
+DRIVER_TEST="DriverUITests/test_drive"
+PLAYER_LIMIT=600
+DRIVER_PID=""
+DRIVER_PORT=""
+DRIVER_XCTESTRUN=""
+ALLOW_SKIP=()
 SKIP_EDITMODE=0
 KEEP_CHANGES=0
 # shellcheck source=scripts/ios_script_common.sh
@@ -90,7 +100,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
-    --as-package-user) PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset" ;;
+    --as-package-user)
+      PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset"
+      # That profile's player has no sample scene: the sample-screen tests ignore themselves there.
+      ALLOW_SKIP=(--allow-skip IosSampleScreen) ;;
     --device) DEVICE_MODE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --approved) APPROVAL="${2:-}"; shift ;;
@@ -216,7 +229,11 @@ CLEANED_UP=0
 clean_up_player() {
   if [ "$DEVICE_MODE" -eq 1 ]; then
     if [ "$DEVICE_TOUCHED" -eq 1 ]; then
-      remove_from_device "$PLAYER_ID" || return 1
+      local id failed=0
+      for id in "$PLAYER_ID" "${DRIVER_APPS[@]}"; do
+        remove_from_device "$id" || failed=1
+      done
+      [ "$failed" -eq 0 ] || return 1
     fi
     CLEANED_UP=1
     return 0
@@ -225,11 +242,15 @@ clean_up_player() {
   # player left by an earlier run is removed before the install. Once installed, the player must be
   # confirmed gone: a failed query is a failure, not "not installed".
   if [ "$SIM_INSTALLED" -eq 1 ]; then
-    xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-    xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-    local listed
+    local id listed
+    for id in "$PLAYER_ID" "${DRIVER_APPS[@]}"; do
+      xcrun simctl terminate "$SIM_ID" "$id" >/dev/null 2>&1
+      xcrun simctl uninstall "$SIM_ID" "$id" >/dev/null 2>&1
+    done
     listed=$(xcrun simctl listapps "$SIM_ID" 2>/dev/null) || return 1
-    grep -qF "$PLAYER_ID" <<<"$listed" && return 1
+    for id in "$PLAYER_ID" "${DRIVER_APPS[@]}"; do
+      grep -qF "$id" <<<"$listed" && return 1
+    done
   fi
   CLEANED_UP=1
 }
@@ -238,6 +259,7 @@ on_exit() {
   # Unity or xcodebuild may still be running (a signal stopped the script mid-step). Stop them
   # before restoring files they could write again.
   stop_running_step
+  stop_driver
   if [ "$CLEANED_UP" -eq 0 ]; then
     clean_up_player || echo "WARNING: the player of this run may still be on the device"
   fi
@@ -276,6 +298,87 @@ if [ "$SKIP_EDITMODE" -eq 0 ]; then
   run_editor_tests playmode-editor PlayMode
   end_unity_step
 fi
+
+# build_driver <destination> <signing...>: builds NtkUiTests for testing; sets DRIVER_XCTESTRUN.
+build_driver() {
+  local destination="$1" log="$OUT_DIR/uitests-build.log"
+  shift
+  rm -rf "$OUT_DIR/uitests-dd" "$log"
+  run_limited uitests 1200 600 "$log" "$log" \
+    "$XCODEBUILD" -project "$UITESTS_DIR/NtkUiTests.xcodeproj" -scheme NtkUiTests \
+    -destination "$destination" -derivedDataPath "$OUT_DIR/uitests-dd" "$@" build-for-testing
+  if ! grep -q '\*\* TEST BUILD SUCCEEDED \*\*' "$log"; then
+    show_build_errors "$log" "$DEVICE_MODE"
+    return 1
+  fi
+  local runs
+  runs="$(ls "$OUT_DIR"/uitests-dd/Build/Products/*.xctestrun 2>/dev/null)"
+  if [ "$(printf '%s\n' "$runs" | grep -c .)" != "1" ]; then
+    echo "  driver build: expected exactly one .xctestrun"
+    return 1
+  fi
+  DRIVER_XCTESTRUN="$runs"
+  echo "  driver build: ok"
+}
+
+# start_driver <destination>: starts the driver in the background and waits for the port it announces
+# (design v3, 4.1). Its whole limit is the player's plus 120 s; no stall limit (it prints nothing while it
+# waits). Sets DRIVER_PID and DRIVER_PORT.
+start_driver() {
+  local destination="$1" log="$OUT_DIR/driver.log" device=0 waited=0
+  [ "$DEVICE_MODE" -eq 1 ] && device=1
+  rm -rf "$log" "$OUT_DIR/driver.xcresult" "$OUT_DIR/driver.json"
+  env TEST_RUNNER_NTK_DRIVER_BUNDLE="$PLAYER_ID" TEST_RUNNER_NTK_DRIVER_LIMIT=$((PLAYER_LIMIT + 120)) \
+    TEST_RUNNER_NTK_DRIVER_DEVICE="$device" \
+    "$XCODEBUILD" test-without-building -xctestrun "$DRIVER_XCTESTRUN" -destination "$destination" \
+    -derivedDataPath "$OUT_DIR/driver-dd" -only-testing:"NtkUiTests/$DRIVER_TEST" -parallel-testing-enabled NO \
+    -test-timeouts-enabled NO -collect-test-diagnostics never -resultBundlePath "$OUT_DIR/driver.xcresult" > "$log" 2>&1 &
+  DRIVER_PID=$!
+  while [ "$waited" -lt 120 ] && kill -0 "$DRIVER_PID" 2>/dev/null; do
+    DRIVER_PORT="$(grep -o '\[NTK-UI-DRIVER\] listening [0-9]*' "$log" | head -1 | grep -o '[0-9]*$')"
+    [ -n "$DRIVER_PORT" ] && break
+    sleep 1; waited=$((waited + 1))
+  done
+  if [ -z "$DRIVER_PORT" ]; then
+    echo "  driver: did not start listening within ${waited}s (see $log)"
+    stop_driver
+    return 1
+  fi
+  echo "  driver: listening after ${waited}s"
+}
+
+# stop_driver: stops the driver when it still runs (a run that ended without .done, or a signal).
+stop_driver() {
+  if [ -n "$DRIVER_PID" ] && kill -0 "$DRIVER_PID" 2>/dev/null; then
+    stop_tree "$DRIVER_PID"
+  fi
+  DRIVER_PID=""
+}
+
+# finish_driver <player had .done: 0|1>: after .done the driver ends on the player's BYE; wait 60 s for
+# it, then judge its one test (design v3, 4.1 and 4.3). Without .done, stop it first and fail.
+finish_driver() {
+  local had_done="$1" waited=0
+  if [ "$had_done" -eq 1 ]; then
+    while [ "$waited" -lt 60 ] && kill -0 "$DRIVER_PID" 2>/dev/null; do
+      sleep 1; waited=$((waited + 1))
+    done
+  fi
+  if [ -n "$DRIVER_PID" ] && kill -0 "$DRIVER_PID" 2>/dev/null; then
+    stop_driver
+    echo "  driver: stopped (no BYE$([ "$had_done" -eq 1 ] && echo " within 60 s of the result"))"
+    return 1
+  fi
+  wait "$DRIVER_PID" 2>/dev/null
+  DRIVER_PID=""
+  if [ ! -d "$OUT_DIR/driver.xcresult" ]; then
+    echo "  driver: no result bundle (see $OUT_DIR/driver.log)"
+    return 1
+  fi
+  xcrun xcresulttool get test-results tests --path "$OUT_DIR/driver.xcresult" > "$OUT_DIR/driver.json" 2>/dev/null
+  echo "  driver:"
+  python3 -I "$RUNNER" results "$OUT_DIR/driver.json" "$DRIVER_TEST"
+}
 
 # The iOS player on the simulator or the device. Returns non-zero at the first step that fails.
 run_player_tests() {
@@ -332,18 +435,24 @@ run_player_tests() {
   fi
   require_bundle_id "$apps" "$PLAYER_ID" || return 1
   if [ "$DEVICE_MODE" -eq 1 ]; then
+    build_driver "generic/platform=iOS" DEVELOPMENT_TEAM="$TEAM" || return 1
     run_on_device "$apps"
     return $?
   fi
 
+  build_driver "generic/platform=iOS Simulator" \
+    CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= || return 1
   if ! xcrun simctl list devices | grep -F "($SIM_ID) (Booted)" >/dev/null; then
     SIM_BOOTED_BY_US=1
   fi
   run_limited boot 300 300 "$OUT_DIR/ios-player-boot.log" "$OUT_DIR/ios-player-boot.log" \
     xcrun simctl bootstatus "$SIM_ID" -b || return 1
   local app="$apps"
-  xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
-  xcrun simctl uninstall "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
+  local id
+  for id in "$PLAYER_ID" "${DRIVER_APPS[@]}"; do
+    xcrun simctl terminate "$SIM_ID" "$id" >/dev/null 2>&1
+    xcrun simctl uninstall "$SIM_ID" "$id" >/dev/null 2>&1
+  done
   SIM_INSTALLED=1
   if ! xcrun simctl install "$SIM_ID" "$app"; then
     echo "  install: failed ($app)"
@@ -355,21 +464,29 @@ run_player_tests() {
   data="$(xcrun simctl get_app_container "$SIM_ID" "$PLAYER_ID" data)" || return 1
   result="$data/Documents/ntk-player-tests/$run.xml"
   done_file="$data/Documents/ntk-player-tests/$run.done"
-  SIMCTL_CHILD_NTK_RUN="$run" xcrun simctl launch --console-pty "$SIM_ID" "$PLAYER_ID" > "$OUT_DIR/ios-player-run.log" 2>&1 &
-  local launcher=$! waited=0
+  start_driver "platform=iOS Simulator,id=$SIM_ID" || return 1
+  SIMCTL_CHILD_NTK_RUN="$run" SIMCTL_CHILD_NTK_DRIVER_PORT="$DRIVER_PORT" \
+    xcrun simctl launch --console-pty "$SIM_ID" "$PLAYER_ID" > "$OUT_DIR/ios-player-run.log" 2>&1 &
+  local launcher=$! waited=0 had_done=0
   # Stop waiting when the player has ended (it crashed: a finished run keeps it running).
-  while [ ! -f "$done_file" ] && [ "$waited" -lt 600 ] && kill -0 "$launcher" 2>/dev/null; do
+  while [ ! -f "$done_file" ] && [ "$waited" -lt "$PLAYER_LIMIT" ] && kill -0 "$launcher" 2>/dev/null; do
     sleep 2; waited=$((waited + 2))
   done
+  [ -f "$done_file" ] && had_done=1
+  # The player says BYE at the end of its run; it keeps running until the driver has ended (design v3, 4.3).
+  local driver_ok=0
+  finish_driver "$had_done" || driver_ok=1
   xcrun simctl terminate "$SIM_ID" "$PLAYER_ID" >/dev/null 2>&1
   kill "$launcher" 2>/dev/null; wait "$launcher" 2>/dev/null
   if [ ! -f "$done_file" ] || [ ! -f "$result" ]; then
-    echo "  run: no result after ${waited}s (the player ended, or 600s passed; see $OUT_DIR/ios-player-run.log)"
+    echo "  run: no result after ${waited}s (the player ended, or ${PLAYER_LIMIT}s passed; see $OUT_DIR/ios-player-run.log)"
     return 1
   fi
   cp "$result" "$OUT_DIR/ios-player.xml"
   echo -n "  run: "
-  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player.xml" "$CATEGORY"
+  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$OUT_DIR/ios-player.xml" "$CATEGORY" \
+    --require IosUiDriver ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
+  return "$driver_ok"
 }
 
 # run_on_device <app>: install, launch with the run id, copy the result out, stop, judge.
@@ -379,16 +496,23 @@ run_on_device() {
   mkdir -p "$results"
   device_guard || return 1
   DEVICE_TOUCHED=1
-  run_limited "remove before install" 120 120 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
-    xcrun devicectl device uninstall app --device "$DEVICE_ID" "$PLAYER_ID" >/dev/null
+  local id
+  for id in "$PLAYER_ID" "${DRIVER_APPS[@]}"; do
+    device_guard || return 1
+    run_limited "remove before install" 120 120 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
+      xcrun devicectl device uninstall app --device "$DEVICE_ID" "$id" >/dev/null
+  done
   device_guard || return 1
   run_limited install 300 300 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
     xcrun devicectl device install app --device "$DEVICE_ID" "$app" >/dev/null || { echo "  install: failed"; return 1; }
   device_guard || return 1
+  start_driver "platform=iOS,id=$DEVICE_UDID" || return 1
+  device_guard || { stop_driver; return 1; }
   run="$(uuidgen | tr -d - | tr 'A-F' 'a-f')"
   run_limited launch 120 120 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
-    xcrun devicectl device process launch --device "$DEVICE_ID" --environment-variables "{\"NTK_RUN\": \"$run\"}" \
-    --json-output "$OUT_DIR/launch.json" "$PLAYER_ID" >/dev/null || { echo "  launch: failed"; return 1; }
+    xcrun devicectl device process launch --device "$DEVICE_ID" \
+    --environment-variables "{\"NTK_RUN\": \"$run\", \"NTK_DRIVER_PORT\": \"$DRIVER_PORT\"}" \
+    --json-output "$OUT_DIR/launch.json" "$PLAYER_ID" >/dev/null || { echo "  launch: failed"; stop_driver; return 1; }
   pid="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"]["process"]["processIdentifier"])' "$OUT_DIR/launch.json" 2>/dev/null)"
   # Poll for the .done marker (the player keeps running after the tests), at most 600 seconds of real
   # time. Every copy is a device step, so the approval is checked again before each.
@@ -396,7 +520,7 @@ run_on_device() {
   start=$(date +%s)
   while :; do
     now=$(date +%s); waited=$((now - start))
-    [ "$waited" -ge 600 ] && break
+    [ "$waited" -ge "$PLAYER_LIMIT" ] && break
     device_guard || break
     rm -f "$results/$run.done"
     if run_limited "copy" 60 60 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
@@ -415,6 +539,9 @@ run_on_device() {
       --domain-identifier "$PLAYER_ID" --source "Documents/ntk-player-tests/$run.xml" \
       --destination "$results/$run.xml" >/dev/null || rm -f "$results/$run.xml"
   fi
+  # The player says BYE at the end of its run; it keeps running until the driver has ended (design v3, 4.3).
+  local driver_ok=0
+  finish_driver "$copied" || driver_ok=1
   # Stop the player this run launched (the removal at the end would stop it too).
   if [ -n "$pid" ] && device_guard; then
     run_limited terminate 60 60 "$OUT_DIR/device.log" "$OUT_DIR/device.log" \
@@ -425,7 +552,9 @@ run_on_device() {
     return 1
   fi
   echo -n "  run: "
-  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$results/$run.xml" "$CATEGORY"
+  python3 -I "$PROJECT_DIR/scripts/ios_player_results.py" "$results/$run.xml" "$CATEGORY" \
+    --require IosUiDriver ${ALLOW_SKIP[@]+"${ALLOW_SKIP[@]}"} || return 1
+  return "$driver_ok"
 }
 
 if [ "$DEVICE_MODE" -eq 1 ]; then
