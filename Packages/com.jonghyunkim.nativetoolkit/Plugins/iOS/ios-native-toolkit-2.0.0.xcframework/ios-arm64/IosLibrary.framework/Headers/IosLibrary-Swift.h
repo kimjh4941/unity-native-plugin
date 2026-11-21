@@ -688,13 +688,15 @@ SWIFT_CLASS("_TtC10IosLibrary22IosNotificationManager")
 /// | <code>ShareError/noValidItems</code>, <code>ShareError/invalidURL(_:)</code>, <code>ShareError/imageLoadFailed(path:)</code>, <code>ShareError/fileNotFound(path:)</code> | <code>(false, false, nil, <description>)</code> | The content could not be shared; no sheet is shown |
 /// | <code>ShareError/noRootViewController</code> | the same | <code>PresenterSelection/firstActiveScene</code> found no view controller to present from |
 /// | <code>ShareError/notForeground</code> | (not used) | <code>PresenterSelection/foreground</code> or <code>PresenterSelection/viewController(_:)</code> found no view controller in the foreground |
-/// | <code>ShareError/presentationFailed</code> | <code>(false, false, nil, "Failed to present the share sheet.")</code> | The view controller was not settled (<code>PresenterSelection/firstActiveScene</code>: being presented or dismissed, or presenting something; the others: still so after waiting once), UIKit declined the presentation, or the sheet was freed before its presentation finished (dismissed from outside during the animation) |
+/// | <code>ShareError/presentationFailed</code> | <code>(false, false, nil, "Failed to present the share sheet.")</code> | The view controller was not settled (<code>PresenterSelection/firstActiveScene</code>: being presented or dismissed, or presenting something; the others: still so after waiting once), UIKit declined the presentation, or the sheet was freed before its presentation finished (dismissed from outside during the animation). Also when the foreground is a share sheet (a share sheet is never shown on another one), which is how one of two shares requested in the same main-queue turn ends, once the other’s sheet is shown (which one is shown is not decided) |
 /// | <code>ShareError/dismissedBySystem</code> | <code>(false, false, nil, "The share sheet was dismissed without a result.")</code> | The sheet went away without reporting a result: dismissed from outside the library, or its scene was disconnected and the sheet freed |
 /// | <code>ShareError/activityFailed(_:)</code> | <code>(false, false, nil, "The share activity failed.")</code> | The chosen activity reported an error |
 /// The result is not guaranteed when the app changes the window, its root view controller or the
 /// scene while the sheet is shown, or keeps the presented <code>UIActivityViewController</code> alive, nor
-/// when the sheet’s scene is disconnected but the sheet is not freed. A share cannot be
-/// cancelled.
+/// when the sheet’s scene is disconnected but the sheet is not freed. Nor when the app shares
+/// while a view controller it presented itself (for example its own <code>UIActivityViewController</code>)
+/// is still being presented, before that <code>present</code> completes: UIKit may decline and keep the
+/// sheet. A share cannot be cancelled.
 /// <h2>Threading</h2>
 /// The manager is <code>Sendable</code> and may be called from any thread. Each completion is invoked on the
 /// main thread exactly once, never inside the call, on every path (including validation

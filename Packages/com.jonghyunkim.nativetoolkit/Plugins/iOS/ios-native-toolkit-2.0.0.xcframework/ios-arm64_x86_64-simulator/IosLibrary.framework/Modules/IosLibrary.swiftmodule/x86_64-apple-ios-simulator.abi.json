@@ -18899,6 +18899,16 @@
       },
       {
         "kind": "Import",
+        "name": "os",
+        "printedName": "os",
+        "declKind": "Import",
+        "moduleName": "IosLibrary",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
         "name": "UIKit",
         "printedName": "UIKit",
         "declKind": "Import",
@@ -40588,10 +40598,59 @@
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationProcedure.swift",
+      "kind": "IntegerLiteral",
+      "offset": 6289,
+      "length": 2,
+      "value": "10"
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationProcedure.swift",
       "kind": "BooleanLiteral",
-      "offset": 5089,
+      "offset": 7400,
       "length": 4,
       "value": "true"
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "StringLiteral",
+      "offset": 102,
+      "length": 42,
+      "value": "\"com.jonghyunkim.nativetoolkit.IosLibrary\""
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "StringLiteral",
+      "offset": 156,
+      "length": 21,
+      "value": "\"PresentationRecords\""
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "BooleanLiteral",
+      "offset": 3463,
+      "length": 5,
+      "value": "false"
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "Dictionary",
+      "offset": 3619,
+      "length": 3,
+      "value": "[]"
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "Dictionary",
+      "offset": 3663,
+      "length": 3,
+      "value": "[]"
+    },
+    {
+      "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresentationRecords.swift",
+      "kind": "IntegerLiteral",
+      "offset": 3696,
+      "length": 1,
+      "value": "0"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/PresenterSelection+UIKit.swift",
@@ -40624,21 +40683,21 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/ReleaseWatch.swift",
       "kind": "BooleanLiteral",
-      "offset": 1469,
+      "offset": 1738,
       "length": 5,
       "value": "false"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/ReleaseWatch.swift",
       "kind": "IntegerLiteral",
-      "offset": 1734,
+      "offset": 2054,
       "length": 1,
       "value": "1"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Common\/Presentation\/ReleaseWatch.swift",
       "kind": "IntegerLiteral",
-      "offset": 1748,
+      "offset": 2068,
       "length": 1,
       "value": "1"
     },
@@ -40967,119 +41026,119 @@
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "Array",
-      "offset": 18483,
+      "offset": 18940,
       "length": 2,
       "value": "[]"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 18768,
+      "offset": 19225,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 20847,
+      "offset": 21304,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 22584,
+      "offset": 23041,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 22621,
+      "offset": 23078,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 24992,
+      "offset": 25449,
       "length": 8,
       "value": "\"Delete\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 25033,
+      "offset": 25490,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 27753,
+      "offset": 28210,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 27851,
+      "offset": 28308,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 31082,
+      "offset": 31539,
       "length": 4,
       "value": "\"OK\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 31119,
+      "offset": 31576,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 31168,
+      "offset": 31625,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 34302,
+      "offset": 34759,
       "length": 10,
       "value": "\"Username\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 34353,
+      "offset": 34810,
       "length": 10,
       "value": "\"Password\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 34395,
+      "offset": 34852,
       "length": 7,
       "value": "\"Login\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "StringLiteral",
-      "offset": 34435,
+      "offset": 34892,
       "length": 8,
       "value": "\"Cancel\""
     },
     {
       "filePath": "\/Users\/jonghyunkim\/Desktop\/native-toolkit\/ios\/IosLibrary\/IosLibrary\/Dialog\/IosDialogManager.swift",
       "kind": "BooleanLiteral",
-      "offset": 34482,
+      "offset": 34939,
       "length": 4,
       "value": "true"
     },

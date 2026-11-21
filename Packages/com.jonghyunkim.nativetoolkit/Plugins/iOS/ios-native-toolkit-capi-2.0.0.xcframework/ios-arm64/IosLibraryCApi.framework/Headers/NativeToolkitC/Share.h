@@ -69,7 +69,13 @@ typedef struct ntk_share_result ntk_share_result;
 /** result is NULL unless error is NTK_SHARE_ERROR_NONE. A share cannot be cancelled, so the callback and release,
     and with them user_data, can be held for as long as a host that replaced its window or root view controller,
     or a scene the system disconnected, keeps the sheet alive. On an iPad with several windows, which one shows
-    the sheet is not decided. The order of the callbacks of several shares is not promised. */
+    the sheet is not decided. The order of the callbacks of several shares is not promised.
+    A share sheet is never shown on top of another share sheet: a share made while the foreground is a
+    share sheet ends with NTK_SHARE_ERROR_SHOW_FAILED. So does one of two shares made one right after
+    the other (which one is not decided): it waits until the other's sheet has appeared, at most 10
+    seconds, and then fails. Do not call this while a view controller the host presented itself (for
+    example its own UIActivityViewController) is still being presented, before that present's
+    completion: UIKit may then decline and keep the sheet, and the callback and release may never come. */
 typedef void (NTK_CALL *ntk_share_result_fn)(void* user_data, ntk_share_error error, uint32_t system_code,
                                              ntk_share_result* result);
 
