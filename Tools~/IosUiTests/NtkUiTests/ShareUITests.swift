@@ -148,7 +148,8 @@ final class ShareUITests: HarnessUITestCase {
             // Timing for native-toolkit (the 10 s record lifetime, D-3): the failing call ends when the shown
             // sheet's presentation completes, so the time from the tap to its line approximates the
             // present-to-completion time. Both values are upper bounds (polling, and the sheet is looked for first).
-            // The [NTK-REPORT] line is shown by test_ios_ui.sh even on a device, where the logs are removed.
+            // test_ios_ui.sh shows the [NTK-REPORT] line; on a device the print does not reach the log, so it is
+            // also kept as an activity of the result bundle.
             let tapped = Date()
             XCTAssertTrue(sheet(), "the share sheet did not appear")
             let sheetSeconds = Date().timeIntervalSince(tapped)
@@ -156,8 +157,10 @@ final class ShareUITests: HarnessUITestCase {
                 format: "identifier BEGINSWITH 'result.line.' AND label IN %@",
                 ["[share1@fail] \(failed)", "[share2@fail] \(failed)"])).firstMatch
             XCTAssertTrue(failure.waitForExistence(timeout: 15), "no call failed while the sheet was shown; lines: \(harnessLines())")
-            print(String(format: "[NTK-REPORT] SH-13 timing: sheet seen %.2f s, failure line seen %.2f s after the tap",
-                         sheetSeconds, Date().timeIntervalSince(tapped)))
+            let report = String(format: "[NTK-REPORT] SH-13 timing: sheet seen %.2f s, failure line seen %.2f s after the tap",
+                                sheetSeconds, Date().timeIntervalSince(tapped))
+            print(report)
+            XCTContext.runActivity(named: report) { _ in }
             XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
             checkNoUnexpectedAlert()
             if sheet(timeout: 3) {

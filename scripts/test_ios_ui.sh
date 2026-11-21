@@ -344,11 +344,33 @@ run_one() {
   run_test "$test"
 }
 
-# report_lines <log>: shows the lines a test printed for the record with the [NTK-REPORT] prefix (such as
-# the SH-13 timing), since a device run removes its logs. Only lines of plain words, numbers and a few
-# punctuation marks are shown, so nothing read from the screen can pass.
+# report_lines <log> <bundle> <Class/test>: shows the lines a test left for the record with the [NTK-REPORT]
+# prefix (such as the SH-13 timing), since a device run removes its logs. They are read from the log and
+# from the activity titles of the result bundle (on a device, the test's print does not reach the log).
+# Only lines of plain words, numbers and a few punctuation marks are shown, so nothing read from the
+# screen can pass.
 report_lines() {
-  LC_ALL=C grep -aE '^\[NTK-REPORT\] [A-Za-z0-9 .,:()_-]{1,200}$' "$1" 2>/dev/null | sort -u | sed 's/^/    /'
+  {
+    LC_ALL=C grep -a '^\[NTK-REPORT\] ' "$1" 2>/dev/null
+    xcrun xcresulttool get test-results activities --test-id "$3()" --path "$2" --compact 2>/dev/null |
+      python3 -I -c '
+import json, sys
+def walk(node):
+    if isinstance(node, dict):
+        title = node.get("title")
+        if isinstance(title, str) and title.startswith("[NTK-REPORT] "):
+            print(title)
+        for value in node.values():
+            walk(value)
+    elif isinstance(node, list):
+        for value in node:
+            walk(value)
+try:
+    walk(json.load(sys.stdin))
+except ValueError:
+    pass
+'
+  } | LC_ALL=C grep -aE '^\[NTK-REPORT\] [A-Za-z0-9 .,:()_-]{1,200}$' | sort -u | sed 's/^/    /'
 }
 
 # run_test <Class/test> [keep]: runs the test on what is installed and judges its result bundle. With
@@ -374,8 +396,8 @@ run_test() {
     return 1
   fi
   xcrun xcresulttool get test-results tests --path "$bundle" > "$OUT_DIR/results/$name.json" 2>/dev/null
-  python3 -I "$RUNNER" results "$OUT_DIR/results/$name.json" "$test" || { report_lines "$log"; return 1; }
-  report_lines "$log"
+  python3 -I "$RUNNER" results "$OUT_DIR/results/$name.json" "$test" || { report_lines "$log" "$bundle" "$test"; return 1; }
+  report_lines "$log" "$bundle" "$test"
   if [ "$code" -ne 0 ]; then
     echo "  $test: xcodebuild exited $code"
     return 1
