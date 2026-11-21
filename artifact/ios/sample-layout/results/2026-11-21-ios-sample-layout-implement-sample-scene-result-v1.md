@@ -80,5 +80,6 @@
 
 - ~~実機（iPhone XS、ノッチ）での配置の確かめ（V-3）~~ → **済み**（2026-11-21 17:23〜17:40、HEAD `83a0d55`、dist の作り直しの後）。ゲートの 1 つ目の回で Player 112 件（配置の確かめ 11 件を含む）がすべて成功、Notification のサンプルの回 8 件も成功。シミュレーターとの差の 2 件は、シミュレーターだけのログインのテスト。同じ日の 1 回目（16:42）は、ビルドの間に端末の画面がロックされ、手伝い役の XCUITest が `Timed out while enabling automation mode.` で起動できず、1 つ目の回が流れなかった（テストの中身の失敗ではない）
 - 実機の回の 1 つ目の回の所要時間（実装のレビュー v1 の L5）: ゲートの出力からは 1 つ目の回だけを切り分けられなかった。ゲート全体（書き出し・ビルド 2 回ずつと 2 つの回）は 994 秒で、配置の確かめを入れる前の実機のゲート（2026-11-16、約 26 分）より長くはなっていない。目に見える遅れは無いとして閉じる
+- サンプルの画面のドライバー（iOS・Android・Windows）は、ボタンに `NavigationSubmitEvent` を直接送るので、隠れたボタンや画面の外のボタンでも押せてしまう。押す前にボタンの中心を `Pick` して当たるかを確かめる案は、一旦入れない（利用者の判断、2026-11-21）。UI Test Framework（`com.unity.ui.test-framework`）の `simulate.Click` への置き換えも今は行わない
 - iPad の横は確かめていない。横の形（見出しの横並び）は `Screen.width > Screen.height` だけで決まるので、高さの十分ある iPad の横でも題と説明が隠れる（実装のレビュー v1 の L3。iPad は今回の対象外）
 - 実装のレビュー v1（[../reviews/2026-11-21-ios-sample-layout-implement-sample-scene-review-v1.md](../reviews/2026-11-21-ios-sample-layout-implement-sample-scene-review-v1.md)）の直しの後のゲートの結果は 3.1 に書く
