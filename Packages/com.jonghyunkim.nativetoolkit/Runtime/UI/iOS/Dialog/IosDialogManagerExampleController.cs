@@ -12,7 +12,8 @@ using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 /// Controller for the iOS native dialog manager example UI.
 /// Provides functionality to demonstrate various types of iOS native dialogs including
 /// basic alerts, confirmation dialogs, destructive alerts, action sheets, text input, and login dialogs.
-/// Also handles responsive UI layout and safe area adaptation for iOS devices.
+/// Also applies the responsive screen-size classes; the safe area is handled for every iOS sample screen by
+/// <c>IosSampleSafeArea</c>, which the navigator adds.
 /// </summary>
 public class IosDialogManagerExampleController : MonoBehaviour
 {
@@ -30,13 +31,6 @@ public class IosDialogManagerExampleController : MonoBehaviour
     private Button? _btnTextInput;
     private Button? _btnLogin;
 
-    [Header("Manual Safe Area Override (for testing)")]
-    [SerializeField] private bool useManualSafeArea = false;
-    [SerializeField] private int manualTopPadding = 0;
-    [SerializeField] private int manualBottomPadding = 0;
-    [SerializeField] private int manualLeftPadding = 0;
-    [SerializeField] private int manualRightPadding = 0;
-
     // Screen orientation monitoring variables
     private ScreenOrientation lastOrientation;
     private Vector2 lastScreenSize;
@@ -53,7 +47,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Initialize UI elements, safe area configuration, and responsive layout on Start.
+    /// Initialize UI elements and responsive layout on Start.
     /// Sets up event handlers and initial screen state monitoring.
     /// </summary>
     private void Start()
@@ -74,7 +68,6 @@ public class IosDialogManagerExampleController : MonoBehaviour
         lastScreenSize = new Vector2(Screen.width, Screen.height);
 
         InitializeUI();
-        ApplyIosSafeArea();
         ApplyResponsiveClasses();
 
         Debug.Log("[IosDialogManagerExampleController] Initialized successfully");
@@ -303,58 +296,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
 
     #endregion
 
-    #region Safe Area and Responsive Layout
-
-    private void ApplyIosSafeArea()
-    {
-        StartCoroutine(ApplySafeAreaCoroutine());
-    }
-
-    /// <summary>
-    /// Coroutine that applies iOS safe area (or manual overrides) after UI layout stabilization.
-    /// </summary>
-    private IEnumerator ApplySafeAreaCoroutine()
-    {
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForEndOfFrame();
-
-        var root = uiDocument?.rootVisualElement;
-        if (root == null)
-        {
-            Debug.LogError("[IosDialogManagerExampleController] rootVisualElement is null!");
-            yield break;
-        }
-
-        float topPadding, bottomPadding, leftPadding, rightPadding;
-        if (useManualSafeArea)
-        {
-            topPadding = manualTopPadding;
-            bottomPadding = manualBottomPadding;
-            leftPadding = manualLeftPadding;
-            rightPadding = manualRightPadding;
-            Debug.Log($"[IosDialogManagerExampleController] Using manual Safe Area values - Top: {topPadding}, Bottom: {bottomPadding}, Left: {leftPadding}, Right: {rightPadding}");
-        }
-        else
-        {
-            topPadding = 0;
-            bottomPadding = 0;
-            leftPadding = 0;
-            rightPadding = 0;
-            Debug.Log("[IosDialogManagerExampleController] Using default Safe Area values for iOS");
-        }
-
-        root.style.paddingTop = StyleKeyword.Null;
-        root.style.paddingBottom = StyleKeyword.Null;
-        root.style.paddingLeft = StyleKeyword.Null;
-        root.style.paddingRight = StyleKeyword.Null;
-
-        yield return null;
-
-        root.style.paddingTop = topPadding;
-        root.style.paddingBottom = bottomPadding;
-        root.style.paddingLeft = leftPadding;
-        root.style.paddingRight = rightPadding;
-    }
+    #region Responsive Layout
 
     private void ApplyResponsiveClasses()
     {

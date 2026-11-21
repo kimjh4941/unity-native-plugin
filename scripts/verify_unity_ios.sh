@@ -109,8 +109,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --skip-editmode) SKIP_EDITMODE=1 ;;
     # Runs one other category of player tests on the simulator, on its own, to look at it (no driver test is
-    # required and the Notification sample run is left out). For tests kept out of the gate, such as
-    # IosSampleLayout (UI driver design v3, chapter 9).
+    # required and the Notification sample run is left out). For looking at one category alone, such as
+    # IosSampleLayout (UI driver design v3, chapter 9; in the gate since the sample plan of 2026-11-21).
     --category) EXPLORE_CATEGORY="${2:-}"; shift ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     --as-package-user)

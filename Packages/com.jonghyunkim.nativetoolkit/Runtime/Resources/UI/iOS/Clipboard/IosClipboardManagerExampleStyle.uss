@@ -1,4 +1,6 @@
 .ios-clipboard-root {
+    /* The colour of the safe-area padding (IosSampleSafeArea): that of the header and the list, not this black. */
+    --ios-sample-inset-color: rgb(255, 255, 255);
     flex-grow: 1;
     background-color: rgba(0, 0, 0, 1);
     display: flex;
@@ -148,4 +150,40 @@
 .ios-secondary-button:disabled {
     background-color: #CCCCCC;
     color: #999999;
+}
+
+/*
+ * Landscape (IosSampleSafeArea puts .ios-sample-landscape on the root while the screen is wider than tall;
+ * UI Toolkit has no media queries). The portrait header would take almost the whole height and leave the
+ * button list less than a button tall, so the header becomes one row - the Home button, then the result -
+ * and the title and the description are hidden. The result keeps its full text: the header grows with it.
+ */
+.ios-sample-landscape .ios-clipboard-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.ios-sample-landscape .ios-clipboard-title {
+    display: none;
+}
+
+.ios-sample-landscape #HomeButton {
+    width: 30%;
+    flex-shrink: 0;
+}
+
+/* Basis 0, so a long result never pushes the box onto the next line (sample plan v3, R3-1). */
+.ios-sample-landscape .ios-clipboard-result-border {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    height: 52px;
+}
+
+/* The status line takes the second row. */
+.ios-sample-landscape #StatusTextBlock {
+    width: 100%;
 }

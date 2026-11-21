@@ -464,6 +464,8 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 `UI/` は `UI/<Platform>/<Feature>/` の構造を採る（Runtime の正しい形と同じ順）。ファイル名の接頭辞は同じ規則に従う。
 
+- そのプラットフォームのサンプルの全画面が使う部品（機能の中身ではないもの）は `UI/<Platform>/Common/` に置く。例: iOS のサンプルの画面をセーフエリアに合わせる `UI/iOS/Common/IosSampleSafeArea.cs`（`artifact/ios/sample-layout/designs/2026-11-21-ios-sample-layout-sample-scene-design-v3.md` の D-1。2026-11-21）。全 OS の画面の切り替えは今までどおり `UI/Common/`
+
 **既知の逸脱（新規実装で真似しない）: Runtime 9 件**
 
 | 逸脱している型 | 実際の所属 |

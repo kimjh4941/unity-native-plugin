@@ -122,13 +122,22 @@ namespace JonghyunKim.NativeToolkit.Tests
             }
         }
 
+        /// <summary>The label every iOS sample screen shows its results in.</summary>
+        internal const string ResultLabel = "ResultTextBlock";
+
+        /// <summary>The least height a sample button may have: the samples' buttons are 46 tall.</summary>
+        private const float MinButtonHeight = 44f;
+
         /// <summary>
-        /// The layout problems of the screen shown now (UI driver design v3, chapter 9): for every visible button,
-        /// scrolled into view and, inside a ScrollView, on into the safe area when the scroll allows it, whether it
-        /// lies inside <see cref="Screen.safeArea"/> and whether <c>panel.Pick</c> at its centre reaches it. Each
-        /// problem names the button (the sample's own names) and what is wrong.
+        /// The layout problems of the screen shown now (UI driver design v3, chapter 9; sample plan v3, D-5): for
+        /// every visible button, scrolled into view and, inside a ScrollView, on into the safe area when the scroll
+        /// allows it, whether it lies inside <see cref="Screen.safeArea"/>, inside the ScrollView's viewport, and
+        /// whether <c>panel.Pick</c> at its centre reaches it. Also (a) whether the root's padding is the part of
+        /// the screen outside the safe area and the root carries the landscape class exactly in landscape, and
+        /// (c) whether the result box is inside its header and the safe area and can be seen, with the screen's
+        /// result and with a long one. Each problem names the element (the sample's own names) and what is wrong.
         /// </summary>
-        internal static IEnumerator CheckLayout(List<string> problems)
+        internal static IEnumerator CheckLayout(List<string> problems, bool expectResult)
         {
             UIDocument? document = SampleDocument();
             if (document == null)
@@ -136,12 +145,14 @@ namespace JonghyunKim.NativeToolkit.Tests
                 problems.Add("no sample document");
                 yield break;
             }
-            IPanel panel = document.rootVisualElement.panel;
+            VisualElement root = document.rootVisualElement;
+            IPanel panel = root.panel;
             Rect safe = Screen.safeArea;
             // Screen y grows upwards, panel y downwards.
             Vector2 topLeft = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(safe.xMin, Screen.height - safe.yMax));
             Vector2 bottomRight = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(safe.xMax, Screen.height - safe.yMin));
             Rect safePanel = Rect.MinMaxRect(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
+            CheckPadding(root, panel, safePanel, problems, expectResult);
             foreach (Button button in document.rootVisualElement.Query<Button>().ToList())
             {
                 if (button.resolvedStyle.display == DisplayStyle.None || button.resolvedStyle.visibility == Visibility.Hidden)
@@ -165,7 +176,25 @@ namespace JonghyunKim.NativeToolkit.Tests
                     }
                 }
                 Rect r = button.worldBound;
-                if (r.width <= 0f || r.height <= 0f) continue;
+                if (r.width <= 0f || r.height <= 0f)
+                {
+                    // Hidden through an ancestor: not on the screen, nothing to check.
+                    if (HiddenByAncestor(button)) continue;
+                    problems.Add($"{button.name}: shown but has no size [{r.width:F0}x{r.height:F0}]");
+                    continue;
+                }
+                if (r.height < MinButtonHeight)
+                {
+                    problems.Add($"{button.name}: squashed to {r.height:F0} tall (the samples' buttons are 46)");
+                    continue;
+                }
+                if (scroll != null && !Inside(r, scroll.contentViewport.worldBound))
+                {
+                    Rect v = scroll.contentViewport.worldBound;
+                    problems.Add($"{button.name}: not inside the scroll view's viewport " +
+                                 $"[{r.xMin:F0},{r.yMin:F0},{r.xMax:F0},{r.yMax:F0}] vs [{v.xMin:F0},{v.yMin:F0},{v.xMax:F0},{v.yMax:F0}]");
+                    continue;
+                }
                 if (r.xMin < safePanel.xMin - 0.5f || r.xMax > safePanel.xMax + 0.5f ||
                     r.yMin < safePanel.yMin - 0.5f || r.yMax > safePanel.yMax + 0.5f)
                 {
@@ -177,7 +206,120 @@ namespace JonghyunKim.NativeToolkit.Tests
                 if (picked == null || (picked != button && !button.Contains(picked)))
                     problems.Add($"{button.name}: covered by {picked?.name ?? picked?.GetType().Name ?? "nothing"}");
             }
+
+            Label? result = root.Q<Label>(ResultLabel);
+            if (result == null)
+            {
+                if (expectResult) problems.Add($"no {ResultLabel} on a sample screen");
+                yield break; // the top menu has no result
+            }
+            CheckResult(result, panel, safePanel, problems, "");
+            // A long result, such as a native error message (sample plan v3, R3-1 and R3-2): the box must stay
+            // inside its header. The header may then leave the button list short: that is accepted (R3-2), so
+            // its height is only logged.
+            string before = result.text;
+            result.text = "Long result: " + string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 6)) +
+                          "\nSecond line of the result.\nThird line of the result.";
+            yield return null;
+            yield return null;
+            CheckResult(result, panel, safePanel, problems, " (long result)");
+            ScrollView? list = root.Query<ScrollView>().ToList().FirstOrDefault(view => !view.Contains(result));
+            float listHeight = list?.contentViewport.worldBound.height ?? -1f;
+            Debug.Log($"[IosSampleScreenDriver] long result: button list viewport height {listHeight:F0} (orientation {Screen.orientation})");
+            // Accepted (R3-2): the list gets shorter while a long result shows, but stays at least a button tall.
+            if (listHeight < MinButtonHeight)
+                problems.Add($"long result: the button list is {listHeight:F0} tall, less than a button");
+            result.text = before;
+            yield return null;
         }
+
+        /// <summary>(a): the padding IosSampleSafeArea puts on the root, and its landscape class.</summary>
+        private static void CheckPadding(VisualElement root, IPanel panel, Rect safePanel, List<string> problems, bool sampleScreen)
+        {
+            Vector2 size = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(Screen.width, Screen.height));
+            var expected = new[] { safePanel.yMin, size.y - safePanel.yMax, safePanel.xMin, size.x - safePanel.xMax };
+            IResolvedStyle style = root.resolvedStyle;
+            var actual = new[] { style.paddingTop, style.paddingBottom, style.paddingLeft, style.paddingRight };
+            string[] sides = { "top", "bottom", "left", "right" };
+            for (int i = 0; i < sides.Length; i++)
+            {
+                if (Math.Abs(actual[i] - Math.Max(0f, expected[i])) > 1f)
+                    problems.Add($"root padding {sides[i]}: {actual[i]:F1}, the safe area needs {Math.Max(0f, expected[i]):F1}");
+            }
+            // The padding colour (implementation review v1, M1; Codex M1): the four sample screens must declare it,
+            // so a missing or misspelt declaration fails instead of falling back to their black background; the top
+            // menu declares none and takes its first element's background.
+            if (root.childCount == 0)
+            {
+                problems.Add("root: no screen inside");
+            }
+            else if (root[0].customStyle.TryGetValue(new CustomStyleProperty<Color>(IosSampleSafeArea.InsetColorProperty), out Color declared))
+            {
+                if (root.resolvedStyle.backgroundColor != declared)
+                    problems.Add($"root: padding colour {root.resolvedStyle.backgroundColor}, the screen declares {declared}");
+            }
+            else if (sampleScreen)
+            {
+                problems.Add($"root: the sample screen declares no {IosSampleSafeArea.InsetColorProperty}");
+            }
+            else if (root.resolvedStyle.backgroundColor != root[0].resolvedStyle.backgroundColor)
+            {
+                problems.Add($"root: padding colour {root.resolvedStyle.backgroundColor}, the screen's background is {root[0].resolvedStyle.backgroundColor}");
+            }
+            bool landscape = Screen.width > Screen.height;
+            if (root.ClassListContains(IosSampleSafeArea.LandscapeClass) != landscape)
+                problems.Add($"root: {IosSampleSafeArea.LandscapeClass} is {(landscape ? "missing" : "set")} in {(landscape ? "landscape" : "portrait")}");
+        }
+
+        /// <summary>
+        /// (c): the box of the result (the header's child that holds <see cref="ResultLabel"/>) lies inside the
+        /// header and the safe area, is at least a line tall, and is what a tap at its centre reaches. On the
+        /// Clipboard screen the status line has to stay inside the header too.
+        /// </summary>
+        private static void CheckResult(Label result, IPanel panel, Rect safePanel, List<string> problems, string when)
+        {
+            VisualElement box = result;
+            VisualElement? header = result.parent;
+            while (header != null && !IsHeader(header))
+            {
+                box = header;
+                header = header.parent;
+            }
+            if (header == null)
+            {
+                problems.Add($"{ResultLabel}{when}: no header above it");
+                return;
+            }
+            Rect b = box.worldBound;
+            Rect h = header.worldBound;
+            if (!Inside(b, h))
+                problems.Add($"{ResultLabel}{when}: its box [{b.xMin:F0},{b.yMin:F0},{b.xMax:F0},{b.yMax:F0}] is not inside the header [{h.xMin:F0},{h.yMin:F0},{h.xMax:F0},{h.yMax:F0}]");
+            if (!Inside(b, safePanel))
+                problems.Add($"{ResultLabel}{when}: its box [{b.xMin:F0},{b.yMin:F0},{b.xMax:F0},{b.yMax:F0}] is outside the safe area");
+            if (b.height < 20f)
+                problems.Add($"{ResultLabel}{when}: its box is {b.height:F0} tall, less than a line");
+            VisualElement? picked = panel.Pick(b.center);
+            if (picked == null || (picked != box && !box.Contains(picked)))
+                problems.Add($"{ResultLabel}{when}: covered by {picked?.name ?? picked?.GetType().Name ?? "nothing"}");
+            Label? status = header.Q<Label>(ClipboardStatusLabel);
+            if (status != null && !Inside(status.worldBound, h))
+                problems.Add($"{ClipboardStatusLabel}{when}: not inside the header");
+        }
+
+        /// <summary>The sample screens' header: <c>ios-dialog-header</c>, <c>ios-notif-header</c> and so on.</summary>
+        private static bool IsHeader(VisualElement element) =>
+            element.GetClasses().Any(name => name.EndsWith("-header", StringComparison.Ordinal));
+
+        private static bool HiddenByAncestor(VisualElement element)
+        {
+            for (VisualElement? e = element.parent; e != null; e = e.parent)
+                if (e.resolvedStyle.display == DisplayStyle.None) return true;
+            return false;
+        }
+
+        private static bool Inside(Rect inner, Rect outer) =>
+            inner.xMin >= outer.xMin - 0.5f && inner.xMax <= outer.xMax + 0.5f &&
+            inner.yMin >= outer.yMin - 0.5f && inner.yMax <= outer.yMax + 0.5f;
 
         private static void GuardGeneralPasteboard(Button button)
         {

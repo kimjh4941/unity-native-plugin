@@ -37,7 +37,7 @@
 - ~~Share・Clipboard・Notification のサンプルのテスト~~（入れた。Notification は 4.5 の別の回）
 - ~~V-11 のテスト~~（SS15。手伝い役の試験用の命令 `drop-next` で、次の依頼の答えの前に 1 回だけ切る。設計 v3 の環境変数の形から変えた: 番号はテストの順で変わるので、前もって決められない）
 - ~~実機での 2 つの回~~（`44349ce` で成功）
-- 配置の確かめ: スパイクで、iOS のサンプルの画面がセーフエリアに合わせていないことが分かった（設計 v3 の 9 章）。サンプルを直すかは利用者の判断を待つ。それまで、配置の確かめのテストはゲートに入れない
+- 配置の確かめ: スパイクで、iOS のサンプルの画面がセーフエリアに合わせていないことが分かった（設計 v3 の 9 章）。サンプルを直すかは利用者の判断を待つ。それまで、配置の確かめのテストはゲートに入れない（**2026-11-21: 利用者の判断でサンプルを直し、ゲートの 1 つ目の回に入れた**。[artifact/ios/sample-layout](../../../ios/sample-layout/results/2026-11-21-ios-sample-layout-implement-sample-scene-result-v1.md)）
 - ~~実装のレビュー~~（[reviews/2026-11-16-ios-ui-driver-implementation-review-v1.md](../reviews/2026-11-16-ios-ui-driver-implementation-review-v1.md)。指摘を直した）
 - 外した分と流れなかった分の見分け（レビュー v1 の C-9）: 流すはずのテストの一覧と結果を照らす形
 - `test_ios_ui.sh` との組み立ての手順の共有（設計 4.1 の 1。今は `verify_unity_ios.sh` に `build_driver` を持った）
@@ -67,6 +67,8 @@
 - 回の途中で、手伝い役のログのファイルがまだ無いという grep の警告が 1 回出た（背景の子がファイルを開く前に読んだ競合。害は無い）。起こす前にファイルを作る形に直した
 
 ## 4.3 配置の確かめ（ゲートの外。2026-11-16 2:10、シミュレーター iPhone 16 / iOS 18.3）
+
+> 2026-11-21 の追記: サンプルを直し、このテストはゲートに入った（カテゴリ `IosPlayer`・`IosSampleScreen` を足した）。下の値は直す前の記録。
 
 `IosSampleLayoutPlayerTests`（カテゴリ `IosSampleLayout` だけ。`IosPlayer` を付けないのでゲートの Player に入らない）を、`scripts/verify_unity_ios.sh --skip-editmode --category IosSampleLayout` で 1 回流した。各ボタンを、スクロールでセーフエリアの中まで送れるなら送ってから照らす。10 件のうち 9 件が落ちた（崩れの一覧。数値はパネルの座標で、縦のセーフエリアは `[0,37,246,512]`、横は `[37,0,496,233]`）:
 
