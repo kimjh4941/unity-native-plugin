@@ -62,8 +62,10 @@ final class DialogUITests: HarnessUITestCase {
         expectDialog(["[sheet@ok] button=B"])
     }
 
+    /// iOS 26.2 has no Cancel button on the sheet: its dismiss region is pressed (SystemUI.cancelActionSheet).
     func test_ID8() {
-        launch("dialog"); run("show-sheet"); press("Cancel", in: app.sheets.firstMatch)
+        launch("dialog"); run("show-sheet")
+        XCTAssertTrue(SystemUI.cancelActionSheet(app, cancel: "Cancel"), "the action sheet could not be cancelled")
         expectDialog(["[sheet@ok] button=Cancel"])
     }
 
@@ -98,6 +100,8 @@ final class DialogUITests: HarnessUITestCase {
         alert.secureTextFields.firstMatch.tap()
         alert.secureTextFields.firstMatch.typeText("pw1234")
         press("Login")
+        // iOS 26.2 (simulator) then offers to save the password, a few seconds later: Not Now, so nothing is saved.
+        XCTAssertTrue(SystemUI.declinePasswordSaving(app), "iOS 26's offer to save the password was not declined")
         // password-match: the harness compares the value with what is typed here (C ABI design v2, 4).
         expectDialog(["[login@ok] button=Login username=user1 password-length=6 password-match=True"])
     }

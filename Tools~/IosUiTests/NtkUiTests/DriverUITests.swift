@@ -19,7 +19,8 @@ import XCTest
 /// memory, not pressed again).
 ///
 /// Privacy (design chapter 7): nothing read from a screen is printed: no element tree, no label. Failures answer
-/// with fixed words only. XCTest itself may put screenshots of a failure into the result bundle; on a device the
+/// with fixed words only; on the simulator a failed sheet-close also carries counts of the share sheet's views
+/// (numbers, no text). XCTest itself may put screenshots of a failure into the result bundle; on a device the
 /// script writes it into a temporary folder that it deletes at the end (implementation review v1, R-10).
 final class DriverUITests: XCTestCase {
     private static let allowLabels = ["Allow", "許可"]
@@ -129,6 +130,13 @@ final class DriverUITests: XCTestCase {
         case "alert-tap":
             guard args.count == 1, let label = decode(args[0]) else { return "fail bad-arg" }
             return alertTap(label)
+        case "sheet-cancel":
+            guard args.count == 1, let label = decode(args[0]) else { return "fail bad-arg" }
+            return sheetCancel(label)
+        case "password-offer-close":
+            if onDevice { return "fail device-only-refused" }
+            guard args.isEmpty else { return "fail bad-arg" }
+            return SystemUI.declinePasswordSaving(app) ? "ok" : "fail not-found"
         case "alert-type":
             guard args.count == 3, ["text", "secure"].contains(args[0]), let index = Int(args[1]), (0...3).contains(index),
                   let text = decode(args[2]), (1...64).contains(text.count),
@@ -213,6 +221,16 @@ final class DriverUITests: XCTestCase {
         return answer
     }
 
+    /// Cancels the action sheet with SystemUI.cancelActionSheet: its cancel button on iOS 18, its dismiss region
+    /// on iOS 26 (which shows no cancel button).
+    private func sheetCancel(_ label: String) -> String {
+        guard waitForAlert(10) != nil else { return "fail not-found" }
+        // On failure nothing else is pressed: on iOS 26 the sheet's last button is an option, not its cancel
+        // (Codex P2), and pressing it would run that option.
+        guard SystemUI.cancelActionSheet(app, cancel: label, timeout: 5) else { return "fail not-found" }
+        return waitForNoAlert(10) ? "ok" : "fail did-not-close"
+    }
+
     private func alertType(secure: Bool, index: Int, text: String) -> String {
         guard let alert = waitForAlert(10) else { return "fail not-found" }
         // A device run never types into an alert that has a secure field (design chapter 7): password saving
@@ -266,12 +284,10 @@ final class DriverUITests: XCTestCase {
 
     private func sheetClose() -> String {
         guard SystemUI.shareSheet(app, timeout: 15) else { return "fail sheet-did-not-open" }
-        guard SystemUI.closeShareSheet(app, timeout: 10) else { return "fail did-not-close" }
-        let end = Date().addingTimeInterval(10)
-        while SystemUI.shareSheet(app, timeout: 0.5) {
-            if Date() > end { return "fail did-not-close" }
-        }
-        return "ok"
+        if SystemUI.closeShareSheetAndWait(app) { return "ok" }
+        // On the simulator the answer carries the counts of the sheet's views and dismiss regions (numbers only);
+        // a device run answers with fixed words.
+        return onDevice ? "fail did-not-close" : "fail did-not-close-\(SystemUI.shareSheetCounts(app))"
     }
 
     private func sheetAbsent(ms: Int) -> String {

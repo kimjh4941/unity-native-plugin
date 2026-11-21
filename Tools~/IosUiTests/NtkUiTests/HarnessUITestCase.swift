@@ -34,8 +34,22 @@ class HarnessUITestCase: XCTestCase {
         let leftInApp = (app?.alerts.count ?? 0) + (app?.sheets.count ?? 0)
         XCTAssertFalse(unexpectedAlert, "an unexpected alert appeared during the test")
         XCTAssertEqual(leftOver, 0, "a system alert is still on screen after the test")
-        XCTAssertEqual(leftInApp, 0, "an alert of the harness is still on screen after the test")
+        XCTAssertEqual(leftInApp, 0, "an alert of the harness is still on screen after the test\(Self.describeAlerts(app))")
         super.tearDown()
+    }
+
+    /// The titles and button labels of the app's alerts and sheets, for a failure message: on the simulator only,
+    /// since a device run prints nothing read from the screen.
+    private static func describeAlerts(_ app: XCUIApplication?) -> String {
+        #if targetEnvironment(simulator)
+        guard let app else { return "" }
+        let shown = (app.alerts.allElementsBoundByIndex + app.sheets.allElementsBoundByIndex).map { element in
+            "\(element.label) [\(element.buttons.allElementsBoundByIndex.map(\.label).joined(separator: ", "))]"
+        }
+        return shown.isEmpty ? "" : ": " + shown.joined(separator: "; ")
+        #else
+        return ""
+        #endif
     }
 
     /// Launches the harness with a scenario and waits for its launch line.

@@ -33,7 +33,8 @@ final class ShareUITests: HarnessUITestCase {
     /// Waits for the sheet and closes it with Close.
     private func openAndClose() {
         XCTAssertTrue(sheet(), "the share sheet did not appear")
-        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet has no Close button")
+        // Closed and gone, as the UI driver's sheet-close (SystemUI.closeShareSheetAndWait).
+        XCTAssertTrue(SystemUI.closeShareSheetAndWait(app), "the share sheet could not be closed")
         checkNoUnexpectedAlert()
     }
 
@@ -89,11 +90,14 @@ final class ShareUITests: HarnessUITestCase {
         launch("share"); run("sh-exclude-copy")
         let header = app.navigationBars.matching(identifier: "UIActivityContentView").firstMatch
         XCTAssertTrue(header.waitForExistence(timeout: 15), "the share sheet header did not appear")
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label IN {'Close', '閉じる'}")).firstMatch.waitForExistence(timeout: 10))
+        if SystemUI.osMajorVersion < 26 {
+            // iOS 26.2 has no Close button (SystemUI.closeShareSheet).
+            XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label IN {'Close', '閉じる'}")).firstMatch.waitForExistence(timeout: 10))
+        }
         Thread.sleep(forTimeInterval: 2)
         XCTAssertGreaterThan(app.cells.count, 0, "no action cell was drawn")
         XCTAssertEqual(SystemUI.copyCells(app).count, 0, "Copy is shown although it was excluded")
-        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet has no Close button")
+        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
         expectShare("ok", Self.closedValue)
     }
 
@@ -105,7 +109,7 @@ final class ShareUITests: HarnessUITestCase {
         let shown = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'NTK Preview'")).allElementsBoundByIndex
             .map { "\($0.elementType.rawValue):\($0.identifier)" }
         XCTAssertTrue(titles.contains("NTK Preview"), "the header title was \(titles); elements labelled NTK Preview: \(shown); bars: \(app.navigationBars.allElementsBoundByIndex.map { "\($0.identifier)/\($0.children(matching: .other).count)" })")
-        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet has no Close button")
+        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
         expectShare("ok", Self.closedValue)
     }
 
@@ -182,7 +186,7 @@ final class ShareUITests: HarnessUITestCase {
         }
         openAndClose()
         if sheet(timeout: 2) {
-            XCTAssertTrue(SystemUI.closeShareSheet(app), "the second share sheet has no Close button")
+            XCTAssertTrue(SystemUI.closeShareSheet(app), "the second share sheet could not be closed")
         }
         waitLine("[share2@ok] \(Self.closedValue)")
         Thread.sleep(forTimeInterval: 3)
@@ -203,7 +207,7 @@ final class ShareUITests: HarnessUITestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(sheet(timeout: 5), "the share sheet did not survive the trip to the home screen")
         XCTAssertEqual(finishedLines(ofIds: ["share", "share-event"]), [], "a result came before Close")
-        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet has no Close button")
+        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
         expectShare("ok", Self.closedValue)
     }
 
@@ -241,7 +245,7 @@ final class ShareUITests: HarnessUITestCase {
         XCTAssertTrue(sheet(), "the share sheet did not appear")
         Thread.sleep(forTimeInterval: 2)
         XCTAssertEqual(SystemUI.copyCells(app).count, 1, "Copy was expected (1.x drops the excluded list)")
-        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet has no Close button")
+        XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
         expectShare("ok", Self.closedValue)
     }
 

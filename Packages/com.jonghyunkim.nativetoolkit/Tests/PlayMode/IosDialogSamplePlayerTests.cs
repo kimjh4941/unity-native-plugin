@@ -25,6 +25,13 @@ namespace JonghyunKim.NativeToolkit.Tests
         public IEnumerator TearDown()
         {
             yield return IosUiDriver.WaitForPending();
+            // iOS 26 (simulator) offers to save the password seconds after ID10's login, over the next test's alert:
+            // the driver declines it here, also when ID10 failed (nothing is saved; on iOS 18 it answers at once).
+            if (TestContext.CurrentContext.Test.MethodName == nameof(ID10_SampleLogin_Login))
+            {
+                yield return IosUiDriver.Send("password-offer-close");
+                yield return IosUiDriver.Wait(IosUiDriver.LastSent, IosUiDriverProtocol.AnswerTimeoutSeconds);
+            }
             yield return Unload();
         }
 
@@ -54,7 +61,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
         [UnityTest]
         public IEnumerator ID07_SampleActionSheet_Cancel() => SampleAndAnswer("ShowActionSheetButton", "Cancel",
-            "OK\nShowActionSheet buttonText: Cancel, isSuccess: True, errorMessage: null");
+            "OK\nShowActionSheet buttonText: Cancel, isSuccess: True, errorMessage: null", answer: "sheet-cancel");
 
         [UnityTest]
         public IEnumerator ID08_SampleTextInput_Ok() => SampleAndAnswer("ShowTextInputDialogButton", "OK",
@@ -82,6 +89,14 @@ namespace JonghyunKim.NativeToolkit.Tests
         /// presses the sample button, waits for the driver, then for the screen's result.
         /// </summary>
         private static IEnumerator SampleAndAnswer(string sampleButton, string alertButton, string expected,
+            params (string Kind, string Index, string Text)[] typed) =>
+            SampleAndAnswer(sampleButton, alertButton, expected, "alert-tap", typed);
+
+        /// <summary>
+        /// <paramref name="answer"/> is the driver's command for the button: "sheet-cancel" cancels an action sheet,
+        /// which has no cancel button on iOS 26 (the driver presses its dismiss region there).
+        /// </summary>
+        private static IEnumerator SampleAndAnswer(string sampleButton, string alertButton, string expected, string answer,
             params (string Kind, string Index, string Text)[] typed)
         {
             yield return LoadAtTopMenu(TopMenuDialog);
@@ -92,7 +107,7 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield return IosUiDriver.Send("alert-type", field.Kind, field.Index, IosUiDriver.Text(field.Text));
                 if (first == 0) first = IosUiDriver.LastSent;
             }
-            yield return IosUiDriver.Send("alert-tap", IosUiDriver.Text(alertButton));
+            yield return IosUiDriver.Send(answer, IosUiDriver.Text(alertButton));
             int last = IosUiDriver.LastSent;
             Press(sampleButton);
             for (int request = first == 0 ? last : first; request <= last; request++)
