@@ -145,11 +145,18 @@ final class ShareUITests: HarnessUITestCase {
             // 10 s). Which call fails is not decided (each call goes through a Task), so the failed one is read
             // from its line: each call gets exactly one result, and the event both.
             let failed = "completed=False activity=<null> error=Failed to present the share sheet."
+            // Timing for native-toolkit (the 10 s record lifetime, D-3): the failing call ends when the shown
+            // sheet's presentation completes, so the time from the tap to its line approximates the
+            // present-to-completion time. Both values are upper bounds (polling, and the sheet is looked for first).
+            let tapped = Date()
             XCTAssertTrue(sheet(), "the share sheet did not appear")
+            let sheetSeconds = Date().timeIntervalSince(tapped)
             let failure = app.staticTexts.matching(NSPredicate(
                 format: "identifier BEGINSWITH 'result.line.' AND label IN %@",
                 ["[share1@fail] \(failed)", "[share2@fail] \(failed)"])).firstMatch
             XCTAssertTrue(failure.waitForExistence(timeout: 15), "no call failed while the sheet was shown; lines: \(harnessLines())")
+            print(String(format: "SH-13 timing: sheet seen %.2f s, failure line seen %.2f s after the tap",
+                         sheetSeconds, Date().timeIntervalSince(tapped)))
             XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
             checkNoUnexpectedAlert()
             if sheet(timeout: 3) {
