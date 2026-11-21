@@ -344,6 +344,13 @@ run_one() {
   run_test "$test"
 }
 
+# report_lines <log>: shows the lines a test printed for the record with the [NTK-REPORT] prefix (such as
+# the SH-13 timing), since a device run removes its logs. Only lines of plain words, numbers and a few
+# punctuation marks are shown, so nothing read from the screen can pass.
+report_lines() {
+  LC_ALL=C grep -aE '^\[NTK-REPORT\] [A-Za-z0-9 .,:()_-]{1,200}$' "$1" 2>/dev/null | sort -u | sed 's/^/    /'
+}
+
 # run_test <Class/test> [keep]: runs the test on what is installed and judges its result bundle. With
 # "keep", the test learns it runs in a keep-installed run (NTK_KEEP_INSTALLED=1 through Xcode's
 # TEST_RUNNER_ prefix); otherwise both names are removed from the environment.
@@ -367,7 +374,8 @@ run_test() {
     return 1
   fi
   xcrun xcresulttool get test-results tests --path "$bundle" > "$OUT_DIR/results/$name.json" 2>/dev/null
-  python3 -I "$RUNNER" results "$OUT_DIR/results/$name.json" "$test" || return 1
+  python3 -I "$RUNNER" results "$OUT_DIR/results/$name.json" "$test" || { report_lines "$log"; return 1; }
+  report_lines "$log"
   if [ "$code" -ne 0 ]; then
     echo "  $test: xcodebuild exited $code"
     return 1
