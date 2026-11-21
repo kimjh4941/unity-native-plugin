@@ -574,7 +574,7 @@ AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
 | 사용자가 아니라 시스템이 공유 시트를 닫음 | 결과가 오지 않았습니다 | `The share sheet was dismissed without a result.`로 실패합니다 |
 | 앱이 포그라운드에 있지만 비활성일 때(제어 센터를 연 상태 등) `Share` 호출 | `No root view controller available to present the share sheet.`로 실패했고, 시트는 나타나지 않았습니다 | 공유 시트가 나타납니다. 닫으면 `IsSuccess = true`, `Completed = false`가 전달됩니다 |
 | 이전 결과가 오기 전에 `Share`를 다시 호출 | 나중 호출이 콜백을 바꿔 넣었습니다. 이전 콜백은 호출되지 않았고, 이전 결과가 나중 호출의 콜백에 전달되기도 했습니다 | 각 결과는 해당 호출에서 전달한 콜백에 전달됩니다 |
-| 같은 프레임에서 `Share`를 2번 호출 <!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> | 공유 시트는 하나만 나타났습니다. 닫으면 결과가 `ShareCompleted`와 두 번째 호출의 콜백에 한 번씩 전달되었고, 첫 번째 호출의 콜백은 호출되지 않았습니다 | 지금도 공유 시트는 하나만 나타납니다. 닫으면 결과가 `ShareCompleted`와, 그 결과가 속한 호출의 콜백에 한 번씩 전달됩니다(기록한 실행에서는 첫 번째 호출일 때도, 두 번째 호출일 때도 있었습니다). 나머지 호출에는 실패를 포함해 아무 결과도 오지 않습니다. native-toolkit 2.0.0의 알려진 문제입니다. 고쳐질 때까지는 이전 결과가 온 뒤에 다음 `Share`를 호출해 주세요 |
+| 같은 프레임에서 `Share`를 2번 호출 | 공유 시트는 하나만 나타났습니다. 닫으면 결과가 `ShareCompleted`와 두 번째 호출의 콜백에 한 번씩 전달되었고, 첫 번째 호출의 콜백은 호출되지 않았습니다 | 지금도 공유 시트는 하나만 나타납니다. 나머지 호출은 시트가 표시된 뒤(늦어도 약 10초 뒤) `Failed to present the share sheet.`로 실패하고, 시트를 닫으면 그 결과는 시트를 띄운 호출에 전달됩니다. 두 호출 모두 결과를 정확히 한 번 받고, `ShareCompleted`도 두 번 발생합니다. 어느 쪽이 실패할지는 정해져 있지 않습니다 |
 | null 아이템, `type`이 `text`·`url`·`image`·`file` 중 어느 것도 아닌 아이템, `value`가 null인 아이템 | 조용히 제외했습니다 | 똑같이 제외하고, 로그에 경고를 출력합니다. 경고에는 아이템의 수와 `type`만 나오고 값은 나오지 않습니다 |
 | null을 포함한 `excludedActivityTypes` | 목록 전체를 조용히 무시했습니다 | 똑같이 목록 전체를 무시하고, 로그에 경고를 출력합니다 |
 | 아이템의 `value`, `subject`, `previewTitle`, 제외할 액티비티 타입에 U+0000이 있음 | 전체가 전달되었습니다 | 그 문자에서 잘리고, 로그에 경고를 출력합니다 |
@@ -851,7 +851,7 @@ private void OnShareCompleted(IosShareResult result)
 
 ### 에러 처리
 
-모든 `Share` 호출 결과는 호출이 반환된 뒤 `ShareCompleted`(및 `Share`에 전달한 개별 콜백)를 통해 보고됩니다. 예외는 같은 프레임에서 2번 호출한 경우로, 한쪽 호출에는 결과가 오지 않습니다([1.13.0과 다른 동작](#1130과-다른-동작) 참조). <!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> `IsSuccess`가 `false`인 경우 `ErrorMessage`는 항상 non-null입니다. 메시지에는 전달한 URL이나 경로가 들어가지 않습니다.
+모든 `Share` 호출 결과는 호출이 반환된 뒤 `ShareCompleted`(및 `Share`에 전달한 개별 콜백)를 통해 보고됩니다. 호출이 겹친 경우(같은 프레임에서 2번 호출한 경우 등)에는 시트가 하나만 나타나고, 다른 호출은 `Failed to present the share sheet.`로 실패합니다([1.13.0과 다른 동작](#1130과-다른-동작) 참조). `IsSuccess`가 `false`인 경우 `ErrorMessage`는 항상 non-null입니다. 메시지에는 전달한 URL이나 경로가 들어가지 않습니다.
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR

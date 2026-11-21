@@ -574,7 +574,7 @@ AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
 | ユーザーではなくシステムが共有シートを閉じた | 結果は届きませんでした | `The share sheet was dismissed without a result.` で失敗します |
 | アプリがフォアグラウンドにあるが非アクティブなとき（コントロールセンターを開いているときなど）に `Share` を呼ぶ | `No root view controller available to present the share sheet.` で失敗し、シートは出ませんでした | 共有シートが出ます。閉じると `IsSuccess = true`、`Completed = false` が届きます |
 | 先の結果が届く前に `Share` をもう一度呼ぶ | 後の呼び出しがコールバックを置き換えました。先のコールバックは呼ばれず、先の結果が後の呼び出しのコールバックに届くことがありました | それぞれの結果は、その呼び出しで渡したコールバックに届きます |
-| 同じフレームで `Share` を 2 回呼ぶ <!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> | 共有シートは 1 つだけ出ました。閉じると、結果が `ShareCompleted` と 2 つ目の呼び出しのコールバックに 1 回ずつ届き、1 つ目の呼び出しのコールバックは呼ばれませんでした | 共有シートは今も 1 つだけ出ます。閉じると、結果が `ShareCompleted` と、その結果が属する呼び出しのコールバックに 1 回ずつ届きます（記録した回では、1 つ目のときも 2 つ目のときもありました）。もう 1 つの呼び出しには、失敗も含めて結果が届きません。native-toolkit 2.0.0 の既知の不具合です。直るまでは、前の結果が届いてから次の `Share` を呼んでください |
+| 同じフレームで `Share` を 2 回呼ぶ | 共有シートは 1 つだけ出ました。閉じると、結果が `ShareCompleted` と 2 つ目の呼び出しのコールバックに 1 回ずつ届き、1 つ目の呼び出しのコールバックは呼ばれませんでした | 共有シートは今も 1 つだけ出ます。もう 1 つの呼び出しは、シートが表示された後（遅くとも約 10 秒後）に `Failed to present the share sheet.` で失敗し、シートを閉じると、その結果はシートを出した呼び出しに届きます。どちらの呼び出しも結果をちょうど 1 回受け取り、`ShareCompleted` も 2 回発生します。どちらが失敗するかは決まっていません |
 | null の項目、`type` が `text`・`url`・`image`・`file` のどれでもない項目、`value` が null の項目 | 黙って除きました | 同じく除き、ログに警告を出します。警告に出るのは項目の数と `type` だけで、値は出ません |
 | null を含む `excludedActivityTypes` | 一覧ごと黙って無視しました | 同じく一覧ごと無視し、ログに警告を出します |
 | 項目の `value`、`subject`、`previewTitle`、除外するアクティビティタイプに U+0000 がある | 全体が渡りました | その文字のところで切れ、ログに警告を出します |
@@ -851,7 +851,7 @@ private void OnShareCompleted(IosShareResult result)
 
 ### エラーハンドリング
 
-すべての `Share` 呼び出しの結果は、呼び出しから戻った後に `ShareCompleted`（および `Share` に渡した任意の個別コールバック）を通じて報告されます。例外は同じフレームで 2 回呼んだ場合で、片方の呼び出しには結果が届きません（[1.13.0 との動きの違い](#1130-との動きの違い)参照）。<!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> `IsSuccess` が `false` の場合、`ErrorMessage` は必ず non-null になります。メッセージには、渡した URL やパスは入りません。
+すべての `Share` 呼び出しの結果は、呼び出しから戻った後に `ShareCompleted`（および `Share` に渡した任意の個別コールバック）を通じて報告されます。呼び出しが重なった場合（同じフレームで 2 回呼んだときなど）は、シートが 1 つだけ出て、もう片方の呼び出しは `Failed to present the share sheet.` で失敗します（[1.13.0 との動きの違い](#1130-との動きの違い)参照）。`IsSuccess` が `false` の場合、`ErrorMessage` は必ず non-null になります。メッセージには、渡した URL やパスは入りません。
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR

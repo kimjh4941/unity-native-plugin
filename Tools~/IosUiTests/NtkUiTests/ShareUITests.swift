@@ -140,28 +140,32 @@ final class ShareUITests: HarnessUITestCase {
     func test_SH13() {
         launch("share"); run("sh-twice")
         if abi2 {
-            // 2.0.0, measured on the simulator and an iPhone (2026-11-15): one sheet shows and one call's
-            // result never comes, also after 30 s - against Share.h's "exactly once per accepted call". It is
-            // a native-toolkit issue (artifact/ios/share/results/2026-11-15-ios-share-cabi-implementation-
-            // result-v1.md). The contract is checked inside XCTExpectFailure, which fails the test once
-            // native-toolkit fixes it, so the expectation gets updated then. The lines are printed each run.
-            openAndClose()
+            // 2.0.0 with native-toolkit's SH-13 fix (dist/1.14.0 rebuilt in 56d5e0e2; Share.h): one sheet shows,
+            // and the other call fails with SHOW_FAILED once that sheet's presentation completes (at most
+            // 10 s). Which call fails is not decided (each call goes through a Task), so the failed one is read
+            // from its line: each call gets exactly one result, and the event both.
+            let failed = "completed=False activity=<null> error=Failed to present the share sheet."
+            XCTAssertTrue(sheet(), "the share sheet did not appear")
+            let failure = app.staticTexts.matching(NSPredicate(
+                format: "identifier BEGINSWITH 'result.line.' AND label IN %@",
+                ["[share1@fail] \(failed)", "[share2@fail] \(failed)"])).firstMatch
+            XCTAssertTrue(failure.waitForExistence(timeout: 15), "no call failed while the sheet was shown; lines: \(harnessLines())")
+            XCTAssertTrue(SystemUI.closeShareSheet(app), "the share sheet could not be closed")
+            checkNoUnexpectedAlert()
             if sheet(timeout: 3) {
-                XCTFail("a second share sheet appeared - update the expectation")
+                XCTFail("a second share sheet appeared")
                 _ = SystemUI.closeShareSheet(app)
             }
-            Thread.sleep(forTimeInterval: 5)
-            let calls = finishedLines(ofIds: ["share1", "share2"])
-            let events = finishedLines("share-event")
-            print("SH-13 2.0.0 lines: \(calls + events)")
-            // What does come is the closed sheet's result, for its own call and the event.
-            XCTAssertFalse(calls.isEmpty, "no call got a result; lines: \(harnessLines())")
-            XCTAssertTrue((calls + events).allSatisfy { $0.hasSuffix("@ok] \(Self.closedValue)") }, "lines: \(harnessLines())")
-            XCTExpectFailure("native-toolkit 2.0.0: a share over a sheet being shown never completes") {
-                XCTAssertEqual(finishedLines("share1").count, 1, "share1")
-                XCTAssertEqual(finishedLines("share2").count, 1, "share2")
-                XCTAssertEqual(events.count, 2, "share-event")
-            }
+            let failedId = failure.label.hasPrefix("[share1@") ? "share1" : "share2"
+            let shownId = failedId == "share1" ? "share2" : "share1"
+            waitLine("[\(shownId)@ok] \(Self.closedValue)")
+            Thread.sleep(forTimeInterval: 3)
+            print("SH-13 2.0.0 lines: \(finishedLines(ofIds: ["share1", "share2"]) + finishedLines("share-event"))")
+            XCTAssertEqual(finishedLines(failedId), ["[\(failedId)@fail] \(failed)"], "lines: \(harnessLines())")
+            XCTAssertEqual(finishedLines(shownId), ["[\(shownId)@ok] \(Self.closedValue)"], "lines: \(harnessLines())")
+            XCTAssertEqual(finishedLines("share-event").sorted(),
+                           ["[share-event@fail] \(failed)", "[share-event@ok] \(Self.closedValue)"].sorted(),
+                           "lines: \(harnessLines())")
             checkNoUnexpectedAlert()
             return
         }
