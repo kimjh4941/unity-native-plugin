@@ -510,7 +510,8 @@ private void OnLoginDialogResult(
 #### 코드 수정 방법
 
 - iOS 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;`로 바꿔 주세요. macOS 코드의 줄은 그대로 두세요(`MacDialogManager`는 옮겨지지 않았습니다).
-- Dialog 타입은 이름이 바뀌지 않았으므로, 고칠 것은 위의 `using` 줄뿐입니다. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.13.0의 네임스페이스를 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_IOS && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 iOS Player를 빌드할 때 처음 나타납니다.
+- Dialog 타입은 이름이 바뀌지 않았으므로, 아래의 제거된 델리게이트 타입을 쓰고 있지 않다면 고칠 것은 위의 `using` 줄뿐입니다. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.13.0의 네임스페이스를 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_IOS && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 iOS Player를 빌드할 때 처음 나타납니다.
+- `IosDialogManager` 안의 델리게이트 타입 6개(`DialogCallback`, `ConfirmDialogCallback`, `DestructiveDialogCallback`, `ActionSheetCallback`, `TextInputDialogCallback`, `LoginDialogCallback`)는 제거되었습니다. 1.x 브리지의 콜백 타입으로, C ABI로 옮긴 뒤로는 패키지 어디에서도 쓰이지 않았습니다. 결과는 이 페이지의 예처럼 `IosDialogManager`의 이벤트로 받아 주세요.
 
 #### iOS 전체 기능에 공통인 호환성이 깨지는 변경
 

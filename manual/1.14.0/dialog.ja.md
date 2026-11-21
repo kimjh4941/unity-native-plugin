@@ -510,7 +510,8 @@ private void OnLoginDialogResult(
 #### コードの直し方
 
 - iOS のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;` に書き換えてください。macOS のコードの行はそのままにしてください（`MacDialogManager` は移っていません）。
-- Dialog の型は名前が変わっていないので、直すのは上の `using` の行だけです。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.13.0 の名前空間のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_IOS && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは iOS の Player をビルドしたときに初めて出ます。
+- Dialog の型は名前が変わっていないので、下の消えたデリゲートの型を使っていない限り、直すのは上の `using` の行だけです。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.13.0 の名前空間のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_IOS && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは iOS の Player をビルドしたときに初めて出ます。
+- `IosDialogManager` の中の 6 つのデリゲートの型（`DialogCallback`、`ConfirmDialogCallback`、`DestructiveDialogCallback`、`ActionSheetCallback`、`TextInputDialogCallback`、`LoginDialogCallback`）は無くなりました。1.x のブリッジのコールバックの型で、C ABI に移ってからはパッケージのどこからも使われていませんでした。結果は、このページの例のように `IosDialogManager` のイベントで受け取ってください。
 
 #### iOS の全機能に共通の破壊的変更
 

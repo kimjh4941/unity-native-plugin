@@ -82,47 +82,6 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Dialog
             }
         }
 
-        // The callback types of the 1.x bridge. Not used since native-toolkit 2.0.0; kept so that code
-        // naming them still compiles (C ABI design v2, D-13: whether to remove them is decided in stage 4).
-        /// <summary>
-        /// Callback signature for basic alert dialog results.
-        /// </summary>
-        /// <param name="buttonText">Pressed button text (may be null on failure)</param>
-        /// <param name="isSuccess">True if native dialog completed successfully</param>
-        /// <param name="errorMessage">Error details if <paramref name="isSuccess"/> is false</param>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void DialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
-
-        /// <summary>
-        /// Callback signature for confirmation dialog (OK / Cancel) results.
-        /// </summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void ConfirmDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
-
-        /// <summary>
-        /// Callback signature for destructive confirmation dialog results.
-        /// </summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void DestructiveDialogCallback(string? buttonText, bool isSuccess, string? errorMessage);
-
-        /// <summary>
-        /// Callback signature for action sheet selection results.
-        /// </summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void ActionSheetCallback(string? buttonText, bool isSuccess, string? errorMessage);
-
-        /// <summary>
-        /// Callback signature for text input dialog results.
-        /// </summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void TextInputDialogCallback(string? buttonText, string? inputText, bool isSuccess, string? errorMessage);
-
-        /// <summary>
-        /// Callback signature for login dialog results (username + password).
-        /// </summary>
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate void LoginDialogCallback(string? buttonText, string? username, string? password, bool isSuccess, string? errorMessage);
-
 #if !UNITY_EDITOR
         // Kept for the life of the process, so the function pointer handed to the C ABI stays valid.
         // Internal for the player tests, which call the C ABI and the completion with it.

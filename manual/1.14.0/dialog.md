@@ -510,7 +510,8 @@ Since 1.14.0 the iOS dialogs run on native-toolkit's C ABI 2.0.0 (`ios-native-to
 #### Updating your code
 
 - Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;` in your iOS code. Keep the old line in macOS code: `MacDialogManager` did not move.
-- No Dialog type was renamed, so the `using` line above is the only edit your code needs. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.13.0 namespace fails to compile. Code inside `#if UNITY_IOS && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the iOS player.
+- No Dialog type was renamed, so the `using` line above is the only edit your code needs, unless it names one of the removed delegate types below. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.13.0 namespace fails to compile. Code inside `#if UNITY_IOS && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the iOS player.
+- The six delegate types nested in `IosDialogManager` (`DialogCallback`, `ConfirmDialogCallback`, `DestructiveDialogCallback`, `ActionSheetCallback`, `TextInputDialogCallback`, `LoginDialogCallback`) were removed. They were the callback types of the 1.x bridge, and nothing in the package has used them since the move to the C ABI. Receive the results through the events of `IosDialogManager`, as in the examples on this page.
 
 #### Breaking changes shared by every iOS feature
 
