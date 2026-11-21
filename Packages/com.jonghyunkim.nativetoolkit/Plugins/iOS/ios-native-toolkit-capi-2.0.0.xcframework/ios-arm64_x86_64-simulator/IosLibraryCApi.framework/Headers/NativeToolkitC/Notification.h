@@ -22,7 +22,8 @@
 extern "C" {
 #endif
 
-/* The rules of this header (design part 1, chapter 1):
+/** @file
+   The rules of this header (design part 1, chapter 1):
    - Every function except ntk_notification_install can be called from any thread, and none waits for the main thread. Completions,
      events and an accepted call's release run on the main thread, and never inside the function when
      you call it on the main thread; called elsewhere, a completion can come before the function
@@ -37,7 +38,10 @@ extern "C" {
    - Text comes back as UTF-8; invalid surrogates and U+0000 become U+FFFD.
    - Zero-filled means every field except struct_size.
    - Enumerations can grow: write a default branch. */
+
+/** The error of a notification function or callback: one of NTK_NOTIFICATION_ERROR_*. */
 typedef int32_t ntk_notification_error;
+/** The values of ntk_notification_error. */
 enum {
     NTK_NOTIFICATION_ERROR_NONE = 0,
     NTK_NOTIFICATION_ERROR_INVALID_PARAMETER = 1,
@@ -55,7 +59,9 @@ enum {
     NTK_NOTIFICATION_ERROR_AUTHORIZATION_FAILED = 20
 };
 
+/** The sound of a notification (ntk_notification_content_set_sound): one of NTK_NOTIFICATION_SOUND_*. */
 typedef int32_t ntk_notification_sound_kind;
+/** The values of ntk_notification_sound_kind. */
 enum {
     NTK_NOTIFICATION_SOUND_DEFAULT = 0,
     NTK_NOTIFICATION_SOUND_DEFAULT_CRITICAL = 1,
@@ -63,7 +69,10 @@ enum {
     NTK_NOTIFICATION_SOUND_NONE = 3
 };
 
+/** The interruption level of a notification (ntk_notification_content_set_interruption_level): one of
+    NTK_NOTIFICATION_INTERRUPTION_*. */
 typedef int32_t ntk_notification_interruption_level;
+/** The values of ntk_notification_interruption_level. */
 enum {
     NTK_NOTIFICATION_INTERRUPTION_NOT_SET = 0,
     NTK_NOTIFICATION_INTERRUPTION_PASSIVE = 1,
@@ -72,14 +81,16 @@ enum {
     NTK_NOTIFICATION_INTERRUPTION_CRITICAL = 4
 };
 
+/** What a ntk_notification_trigger is: one of NTK_NOTIFICATION_TRIGGER_*. */
 typedef int32_t ntk_notification_trigger_kind;
+/** The values of ntk_notification_trigger_kind. */
 enum {
     NTK_NOTIFICATION_TRIGGER_TIME_INTERVAL = 0,
     NTK_NOTIFICATION_TRIGGER_CALENDAR = 1,
     NTK_NOTIFICATION_TRIGGER_LOCATION = 2
 };
 
-/* Which calendar fields of ntk_notification_trigger are read: an OR of these bits. */
+/** Which calendar fields of ntk_notification_trigger are read: an OR of these bits. */
 enum {
     NTK_NOTIFICATION_CALENDAR_YEAR = 1u << 0,
     NTK_NOTIFICATION_CALENDAR_MONTH = 1u << 1,
@@ -89,22 +100,25 @@ enum {
     NTK_NOTIFICATION_CALENDAR_SECOND = 1u << 5
 };
 
-/* ntk_notification_action.options. */
+/** The bits of ntk_notification_action.options. */
 enum {
     NTK_NOTIFICATION_ACTION_AUTHENTICATION_REQUIRED = 1u << 0,
     NTK_NOTIFICATION_ACTION_DESTRUCTIVE = 1u << 1,
     NTK_NOTIFICATION_ACTION_FOREGROUND = 1u << 2
 };
 
-/* ntk_notification_category.options. */
+/** The bits of ntk_notification_category.options. */
 enum {
     NTK_NOTIFICATION_CATEGORY_CUSTOM_DISMISS_ACTION = 1u << 0,
     NTK_NOTIFICATION_CATEGORY_ALLOW_IN_CAR_PLAY = 1u << 1,
     NTK_NOTIFICATION_CATEGORY_HIDDEN_PREVIEWS_SHOW_TITLE = 1u << 2,
-    NTK_NOTIFICATION_CATEGORY_ALLOW_ANNOUNCEMENT = 1u << 3
+    NTK_NOTIFICATION_CATEGORY_ALLOW_ANNOUNCEMENT = 1u << 3  /**< Accepted, but has no effect: the system ignores it
+                                                                since iOS 15, so the library does not pass it on. */
 };
 
+/** The authorization status (ntk_notification_get_authorization_status_async): one of NTK_NOTIFICATION_STATUS_*. */
 typedef int32_t ntk_notification_authorization_status;
+/** The values of ntk_notification_authorization_status. */
 enum {
     NTK_NOTIFICATION_STATUS_NOT_DETERMINED = 0,
     NTK_NOTIFICATION_STATUS_DENIED = 1,
@@ -114,8 +128,8 @@ enum {
     NTK_NOTIFICATION_STATUS_UNKNOWN = 5
 };
 
-/* The options of ntk_notification_request_permission_async: an OR of these bits; the values are those of
-   UNAuthorizationOptions. 0 means ALERT, SOUND and BADGE. */
+/** The options of ntk_notification_request_permission_async: an OR of these bits; the values are those of
+    UNAuthorizationOptions. 0 means ALERT, SOUND and BADGE. */
 enum {
     NTK_NOTIFICATION_AUTH_BADGE = 1u << 0,
     NTK_NOTIFICATION_AUTH_SOUND = 1u << 1,
@@ -125,7 +139,9 @@ enum {
     NTK_NOTIFICATION_AUTH_PROVIDES_APP_SETTINGS = 1u << 5
 };
 
+/** What the user did with a notification (ntk_notification_interaction_kind): one of NTK_NOTIFICATION_EVENT_KIND_*. */
 typedef int32_t ntk_notification_event_kind;
+/** The values of ntk_notification_event_kind. */
 enum {
     NTK_NOTIFICATION_EVENT_KIND_BODY_TAP = 0,
     NTK_NOTIFICATION_EVENT_KIND_ACTION = 1,
@@ -144,80 +160,89 @@ typedef struct ntk_notification_list ntk_notification_list;
 /** An event listener registration. */
 typedef struct ntk_notification_listener ntk_notification_listener;
 
+/** Completes an operation that has no value to return. */
 typedef void (NTK_CALL *ntk_notification_done_fn)(void* user_data, ntk_notification_error error, uint32_t system_code);
-/** granted is 1 when permitted, 0 when not. ntk_notification_has_permission_async gives 0 for
+/** Completes ntk_notification_request_permission_async and ntk_notification_has_permission_async.
+    granted is 1 when permitted, 0 when not. ntk_notification_has_permission_async gives 0 for
     NTK_NOTIFICATION_STATUS_EPHEMERAL; ntk_notification_request_permission_async gives 1. */
 typedef void (NTK_CALL *ntk_notification_permission_fn)(void* user_data, ntk_notification_error error,
                                                         uint32_t system_code, int32_t granted);
+/** Completes ntk_notification_get_authorization_status_async with the status. */
 typedef void (NTK_CALL *ntk_notification_status_fn)(void* user_data, ntk_notification_error error,
                                                     uint32_t system_code,
                                                     ntk_notification_authorization_status status);
-/** list is NULL unless error is NTK_NOTIFICATION_ERROR_NONE. */
+/** Completes ntk_notification_get_scheduled_async and ntk_notification_get_delivered_async. list is NULL
+    unless error is NTK_NOTIFICATION_ERROR_NONE. */
 typedef void (NTK_CALL *ntk_notification_list_fn)(void* user_data, ntk_notification_error error,
                                                   uint32_t system_code, ntk_notification_list* list);
-/** response is NULL when there is none for now: until the app first becomes active it can appear later. Use
+/** Completes ntk_notification_get_launch_response_async.
+    response is NULL when there is none for now: until the app first becomes active it can appear later. Use
     the interaction listener when you can (ntk_notification_interaction_is_launch). */
 typedef void (NTK_CALL *ntk_notification_launch_fn)(void* user_data, ntk_notification_error error,
                                                     uint32_t system_code, ntk_notification_interaction* response);
+/** The user responded to a notification. event is owned by the receiver. */
 typedef void (NTK_CALL *ntk_notification_interaction_fn)(void* user_data, ntk_notification_interaction* event);
+/** The system asked the app to show its notification settings. request is owned by the receiver. */
 typedef void (NTK_CALL *ntk_notification_settings_request_fn)(void* user_data,
                                                               ntk_notification_settings_request* request);
 
 #pragma pack(push, 8)
 /** kind decides which fields are read; the others are not. */
 typedef struct ntk_notification_trigger {
-    uint32_t                      struct_size;
-    uint32_t                      reserved0;
-    ntk_notification_trigger_kind kind;
+    uint32_t                      struct_size;          /**< Set to sizeof(ntk_notification_trigger). */
+    uint32_t                      reserved0;            /**< Reserved; must be 0. */
+    ntk_notification_trigger_kind kind;                 /**< TIME_INTERVAL, CALENDAR or LOCATION. */
     int32_t                       repeats;              /**< TIME_INTERVAL, CALENDAR. */
     double                        interval_seconds;     /**< TIME_INTERVAL: above 0; 60 or more when repeating. */
     uint32_t                      calendar_fields;      /**< CALENDAR: NTK_NOTIFICATION_CALENDAR_*; not 0. */
-    int32_t                       year;
-    int32_t                       month;
-    int32_t                       day;
-    int32_t                       hour;
-    int32_t                       minute;
-    int32_t                       second;
-    uint32_t                      reserved1;
+    int32_t                       year;                 /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_YEAR. */
+    int32_t                       month;                /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_MONTH. */
+    int32_t                       day;                  /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_DAY. */
+    int32_t                       hour;                 /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_HOUR. */
+    int32_t                       minute;               /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_MINUTE. */
+    int32_t                       second;               /**< CALENDAR, with NTK_NOTIFICATION_CALENDAR_SECOND. */
+    uint32_t                      reserved1;            /**< Reserved; must be 0. */
     const char*                   location_identifier;  /**< LOCATION. */
-    double                        latitude;
-    double                        longitude;
-    double                        radius;
+    double                        latitude;             /**< LOCATION: -90 to 90. */
+    double                        longitude;            /**< LOCATION: -180 to 180. */
+    double                        radius;               /**< LOCATION: above 0. */
     int32_t                       not_notify_on_entry;  /**< Nonzero: do not notify when entering. */
     int32_t                       notify_on_exit;       /**< Nonzero: notify when leaving. Location triggers need the
                                                              location permission and its Info.plist text. */
 } ntk_notification_trigger;
 
-/* Every element of an array has the same struct_size. */
+/** An action of a ntk_notification_category. Every element of an array has the same struct_size. */
 typedef struct ntk_notification_action {
-    uint32_t    struct_size;
-    uint32_t    reserved0;
-    const char* identifier;
-    const char* title;
+    uint32_t    struct_size;                            /**< Set to sizeof(ntk_notification_action). */
+    uint32_t    reserved0;                              /**< Reserved; must be 0. */
+    const char* identifier;                             /**< Required; not empty. */
+    const char* title;                                  /**< Required; may be empty. */
     const char* sf_symbol_name;                         /**< NULL: none. */
     uint32_t    options;                                /**< NTK_NOTIFICATION_ACTION_*. */
-    uint32_t    reserved1;
+    uint32_t    reserved1;                              /**< Reserved; must be 0. */
 } ntk_notification_action;
 
+/** A text input action of a ntk_notification_category. Every element of an array has the same struct_size. */
 typedef struct ntk_notification_text_input_action {
-    uint32_t    struct_size;
-    uint32_t    reserved0;
-    const char* identifier;
-    const char* title;
-    const char* button_title;
-    const char* placeholder;
+    uint32_t    struct_size;                            /**< Set to sizeof(ntk_notification_text_input_action). */
+    uint32_t    reserved0;                              /**< Reserved; must be 0. */
+    const char* identifier;                             /**< Required; not empty. */
+    const char* title;                                  /**< Required; may be empty. */
+    const char* button_title;                           /**< Required; may be empty. */
+    const char* placeholder;                            /**< Required; may be empty. */
 } ntk_notification_text_input_action;
 
+/** A category of actions, for ntk_notification_register_category_async. */
 typedef struct ntk_notification_category {
-    uint32_t                                  struct_size;
-    uint32_t                                  reserved0;
+    uint32_t                                  struct_size;  /**< Set to sizeof(ntk_notification_category). */
+    uint32_t                                  reserved0;    /**< Reserved; must be 0. */
     uint32_t                                  options;  /**< NTK_NOTIFICATION_CATEGORY_*. */
-    uint32_t                                  reserved1;
-    const char*                               identifier;
-    const ntk_notification_action*            actions;
-    size_t                                    action_count;
-    const ntk_notification_text_input_action* text_input_actions;
-    size_t                                    text_input_action_count;
+    uint32_t                                  reserved1;    /**< Reserved; must be 0. */
+    const char*                               identifier;   /**< Required; not empty. */
+    const ntk_notification_action*            actions;      /**< May be NULL when action_count is 0. */
+    size_t                                    action_count; /**< The number of actions; may be 0. */
+    const ntk_notification_text_input_action* text_input_actions;  /**< May be NULL when the count is 0. */
+    size_t                                    text_input_action_count;  /**< May be 0. */
 } ntk_notification_category;
 #pragma pack(pop)
 
@@ -228,10 +253,12 @@ typedef struct ntk_notification_category {
     from SwiftUI's App.init. Calling it before UIApplicationMain is outside the contract. */
 ntk_notification_error NTK_CALL ntk_notification_install(void);
 
-/* Without permission (the status is not authorized, provisional or ephemeral) these three end with
-   NTK_NOTIFICATION_ERROR_PERMISSION_DENIED and add nothing; a status that changes right after the check is not
-   caught. */
-/** trigger may be NULL: deliver now. */
+/** @name Adding notifications
+    Without permission (the status is not authorized, provisional or ephemeral) these three end with
+    NTK_NOTIFICATION_ERROR_PERMISSION_DENIED and add nothing; a status that changes right after the check is not
+    caught. */
+/** @{ */
+/** Adds a request for content, with the id of content as its identifier. trigger may be NULL: deliver now. */
 ntk_notification_error NTK_CALL ntk_notification_show_async(const ntk_notification_content* content,
                                                             const ntk_notification_trigger* trigger,
                                                             ntk_notification_done_fn callback, void* user_data,
@@ -244,116 +271,152 @@ ntk_notification_error NTK_CALL ntk_notification_update_async(const char* identi
                                                               const ntk_notification_trigger* trigger,
                                                               ntk_notification_done_fn callback, void* user_data,
                                                               ntk_release_fn release);
-/** identifier must not be empty. The id of content is not used. trigger must not be NULL. */
+/** Schedules content as the request of identifier. identifier must not be empty. The id of content is not used.
+    trigger must not be NULL. */
 ntk_notification_error NTK_CALL ntk_notification_schedule_async(const char* identifier,
                                                                 const ntk_notification_content* content,
                                                                 const ntk_notification_trigger* trigger,
                                                                 ntk_notification_done_fn callback, void* user_data,
                                                                 ntk_release_fn release);
+/** @} */
 
-/* The order against other calls is decided by these completions: add new requests after the callback. */
-/** "" removes nothing and completes with NONE. */
+/** @name Removing notifications
+    The order against other calls is decided by these completions: add new requests after the callback. */
+/** @{ */
+/** Removes the delivered notification of identifier. "" removes nothing and completes with NONE. */
 ntk_notification_error NTK_CALL ntk_notification_remove_async(const char* identifier,
                                                               ntk_notification_done_fn callback, void* user_data,
                                                               ntk_release_fn release);
-/** Also removes what the host app delivered itself. */
+/** Removes every delivered notification. Also removes what the host app delivered itself. */
 ntk_notification_error NTK_CALL ntk_notification_remove_all_async(ntk_notification_done_fn callback, void* user_data,
                                                                   ntk_release_fn release);
-/** "" removes nothing and completes with NONE. */
+/** Cancels the pending request of identifier. "" removes nothing and completes with NONE. */
 ntk_notification_error NTK_CALL ntk_notification_cancel_scheduled_async(const char* identifier,
                                                                         ntk_notification_done_fn callback,
                                                                         void* user_data, ntk_release_fn release);
-/** Also cancels what the host app scheduled itself. */
+/** Cancels every pending request. Also cancels what the host app scheduled itself. */
 ntk_notification_error NTK_CALL ntk_notification_cancel_all_scheduled_async(ntk_notification_done_fn callback,
                                                                             void* user_data, ntk_release_fn release);
+/** @} */
 
+/** Lists the pending requests. */
 ntk_notification_error NTK_CALL ntk_notification_get_scheduled_async(ntk_notification_list_fn callback,
                                                                      void* user_data, ntk_release_fn release);
+/** Lists the delivered notifications. */
 ntk_notification_error NTK_CALL ntk_notification_get_delivered_async(ntk_notification_list_fn callback,
                                                                      void* user_data, ntk_release_fn release);
-/** options: NTK_NOTIFICATION_AUTH_*; an unknown bit is rejected. Put everything in the first request: once the
+/** Asks for permission to notify.
+    options: NTK_NOTIFICATION_AUTH_*; an unknown bit is rejected. Put everything in the first request: once the
     status is decided, the system is not asked again and the current status is reported. Needs the foreground
     only while the status is undetermined. */
 ntk_notification_error NTK_CALL ntk_notification_request_permission_async(uint32_t options,
                                                                           ntk_notification_permission_fn callback,
                                                                           void* user_data, ntk_release_fn release);
+/** Gets the authorization status. */
 ntk_notification_error NTK_CALL ntk_notification_get_authorization_status_async(ntk_notification_status_fn callback,
                                                                                 void* user_data,
                                                                                 ntk_release_fn release);
+/** Tells whether notifications are permitted (see ntk_notification_permission_fn). */
 ntk_notification_error NTK_CALL ntk_notification_has_permission_async(ntk_notification_permission_fn callback,
                                                                       void* user_data, ntk_release_fn release);
-/** Needs the foreground. */
+/** Opens the notification settings of the app. Needs the foreground. */
 ntk_notification_error NTK_CALL ntk_notification_open_settings_async(ntk_notification_done_fn callback,
                                                                      void* user_data, ntk_release_fn release);
+/** Sets the badge count of the app. count must not be negative. */
 ntk_notification_error NTK_CALL ntk_notification_set_badge_count_async(int32_t count,
                                                                        ntk_notification_done_fn callback,
                                                                        void* user_data, ntk_release_fn release);
-/** The callback comes after the write and one read-back; the read-back is not reported. */
+/** Registers category. The callback comes after the write and one read-back; the read-back is not reported. */
 ntk_notification_error NTK_CALL ntk_notification_register_category_async(const ntk_notification_category* category,
                                                                          ntk_notification_done_fn callback,
                                                                          void* user_data, ntk_release_fn release);
-/** "" removes nothing and completes with NONE. */
+/** Removes the category of identifier. "" removes nothing and completes with NONE. */
 ntk_notification_error NTK_CALL ntk_notification_remove_category_async(const char* identifier,
                                                                        ntk_notification_done_fn callback,
                                                                        void* user_data, ntk_release_fn release);
 
-/* These three return NTK_NOTIFICATION_ERROR_NOT_INITIALIZED until the delegate has been installed. Up to
-   32 events wait for the next listener when there is none. */
+/** @name Events
+    These three return NTK_NOTIFICATION_ERROR_NOT_INITIALIZED until the delegate has been installed. Up to
+    32 events wait for the next listener when there is none. */
+/** @{ */
+/** Registers callback for the user's responses to notifications. out_listener receives the registration. */
 ntk_notification_error NTK_CALL ntk_notification_add_interaction_listener(ntk_notification_interaction_fn callback,
                                                                           void* user_data, ntk_release_fn release,
                                                                           ntk_notification_listener** out_listener);
-/** Comes only for an app that asked for NTK_NOTIFICATION_AUTH_PROVIDES_APP_SETTINGS: in its first request here, or
+/** Registers callback for the system's requests to show the app's notification settings. out_listener receives
+    the registration.
+    Comes only for an app that asked for NTK_NOTIFICATION_AUTH_PROVIDES_APP_SETTINGS: in its first request here, or
     natively with requestAuthorization. */
 ntk_notification_error NTK_CALL ntk_notification_add_settings_request_listener(
     ntk_notification_settings_request_fn callback, void* user_data, ntk_release_fn release,
     ntk_notification_listener** out_listener);
+/** Gets the response that launched the app (see ntk_notification_launch_fn). */
 ntk_notification_error NTK_CALL ntk_notification_get_launch_response_async(ntk_notification_launch_fn callback,
                                                                            void* user_data, ntk_release_fn release);
+/** @} */
 /** Removes the registration. The handle is invalid afterwards; user_data is not until release. Does nothing
     for NULL. */
 void NTK_CALL ntk_notification_listener_remove(ntk_notification_listener* listener);
 
-/* The builder. Setters copy what they receive. A NULL string restores the default. */
-/** id must not be empty. */
+/** @name The content builder
+    The builder. Setters copy what they receive. A NULL string restores the default. */
+/** @{ */
+/** Creates a builder with id and title; the other values start at their defaults. id must not be empty.
+    out_content receives the builder. */
 ntk_notification_error NTK_CALL ntk_notification_content_create(const char* id, const char* title,
                                                                 ntk_notification_content** out_content);
+/** Releases the builder. Does nothing for NULL. */
 void NTK_CALL ntk_notification_content_free(ntk_notification_content* content);
+/** Sets the subtitle. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_subtitle(ntk_notification_content* content,
                                                                        const char* subtitle);
+/** Sets the body. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_body(ntk_notification_content* content, const char* body);
-/** 0 or more; -1 means not set. */
+/** Sets the badge: 0 or more; -1 means not set. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_badge(ntk_notification_content* content, int32_t badge);
-/** name is required for NTK_NOTIFICATION_SOUND_NAMED and not read otherwise. */
+/** Sets the sound. name is required for NTK_NOTIFICATION_SOUND_NAMED and not read otherwise. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_sound(ntk_notification_content* content,
                                                                     ntk_notification_sound_kind kind,
                                                                     const char* name);
+/** Sets the category identifier. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_category(ntk_notification_content* content,
                                                                        const char* identifier);
+/** Sets the interruption level. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_interruption_level(
     ntk_notification_content* content, ntk_notification_interruption_level level);
+/** Sets the thread identifier. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_thread(ntk_notification_content* content,
                                                                      const char* identifier);
+/** Sets the target content identifier. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_target_content(ntk_notification_content* content,
                                                                              const char* identifier);
-/** 0.0 to 1.0. */
+/** Sets the relevance score: 0.0 to 1.0. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_relevance_score(ntk_notification_content* content,
                                                                               double score);
+/** Sets the filter criteria. */
 ntk_notification_error NTK_CALL ntk_notification_content_set_filter_criteria(ntk_notification_content* content,
                                                                               const char* criteria);
-/** A JSON object without null and without the reserved top-level key "com.jonghyunkim.nativetoolkit". */
+/** Sets the user info: a JSON object without null and without the reserved top-level key
+    "com.jonghyunkim.nativetoolkit". */
 ntk_notification_error NTK_CALL ntk_notification_content_set_user_info_json(ntk_notification_content* content,
                                                                              const char* json);
-/** file_url is a file:// URL. The system moves the file when the notification is added, so a second use of the
+/** Adds an attachment.
+    file_url is a file:// URL. The system moves the file when the notification is added, so a second use of the
     same builder fails with NTK_NOTIFICATION_ERROR_ATTACHMENT_LOAD_FAILED. */
 ntk_notification_error NTK_CALL ntk_notification_content_add_attachment(ntk_notification_content* content,
                                                                          const char* identifier,
                                                                          const char* file_url);
+/** @} */
 
-/* Readers: pointers stay valid until the handle is freed. out_size may be NULL. */
-/** -1 for NULL. */
+/** @name Readers
+    Readers: pointers stay valid until the handle is freed. out_size may be NULL. */
+/** @{ */
+/** What the user did. -1 for NULL. */
 ntk_notification_event_kind NTK_CALL ntk_notification_interaction_kind(const ntk_notification_interaction* event);
+/** The identifier of the notification. */
 const char* NTK_CALL ntk_notification_interaction_notification_id(const ntk_notification_interaction* event,
                                                                size_t* out_size);
+/** The action identifier of the response. */
 const char* NTK_CALL ntk_notification_interaction_action_id(const ntk_notification_interaction* event, size_t* out_size);
 /** "" when the notification has no category. */
 const char* NTK_CALL ntk_notification_interaction_category_id(const ntk_notification_interaction* event,
@@ -366,14 +429,18 @@ const char* NTK_CALL ntk_notification_interaction_user_info_json(const ntk_notif
 /** Nonzero when this response launched the app. A background action followed at once by bringing the app forward
     can also count. */
 int32_t     NTK_CALL ntk_notification_interaction_is_launch(const ntk_notification_interaction* event);
+/** Releases the event. Does nothing for NULL. */
 void        NTK_CALL ntk_notification_interaction_free(ntk_notification_interaction* event);
 
-/** NULL when the request came from the Settings app. */
+/** The identifier of the notification the request came from; NULL when the request came from the Settings app. */
 const char* NTK_CALL ntk_notification_settings_request_notification_id(
     const ntk_notification_settings_request* request, size_t* out_size);
+/** Releases the request. Does nothing for NULL. */
 void        NTK_CALL ntk_notification_settings_request_free(ntk_notification_settings_request* request);
 
+/** The number of notifications. */
 size_t      NTK_CALL ntk_notification_list_count(const ntk_notification_list* list);
+/** The identifier of the notification at index. */
 const char* NTK_CALL ntk_notification_list_identifier_at(const ntk_notification_list* list, size_t index,
                                                          size_t* out_size);
 /** May be empty. NULL for a NULL list, a handle of another type or an index out of range; then out_size is 0. */
@@ -390,7 +457,9 @@ const char* NTK_CALL ntk_notification_list_category_at(const ntk_notification_li
                                                        size_t* out_size);
 /** Unix milliseconds of a delivered notification; 0 for a scheduled one or an index out of range. */
 int64_t     NTK_CALL ntk_notification_list_date_millis_at(const ntk_notification_list* list, size_t index);
+/** Releases the list. Does nothing for NULL. */
 void        NTK_CALL ntk_notification_list_free(ntk_notification_list* list);
+/** @} */
 
 #ifdef __cplusplus
 }

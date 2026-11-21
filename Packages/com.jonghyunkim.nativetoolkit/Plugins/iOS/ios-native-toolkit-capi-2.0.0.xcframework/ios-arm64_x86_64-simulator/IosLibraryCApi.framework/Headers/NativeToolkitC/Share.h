@@ -22,7 +22,8 @@
 extern "C" {
 #endif
 
-/* The rules of this header (design part 1, chapter 1):
+/** @file
+   The rules of this header (design part 1, chapter 1):
    - Every function can be called from any thread and never waits for the main thread. Completions,
      events and an accepted call's release run on the main thread, and never inside the function when
      you call it on the main thread; called elsewhere, a completion can come before the function
@@ -37,7 +38,10 @@ extern "C" {
    - Text comes back as UTF-8; invalid surrogates and U+0000 become U+FFFD.
    - Zero-filled means every field except struct_size.
    - Enumerations can grow: write a default branch. */
+
+/** The error of a share function or callback: one of NTK_SHARE_ERROR_*. */
 typedef int32_t ntk_share_error;
+/** The values of ntk_share_error. */
 enum {
     NTK_SHARE_ERROR_NONE = 0,
     NTK_SHARE_ERROR_INVALID_PARAMETER = 1,
@@ -55,7 +59,9 @@ enum {
     NTK_SHARE_ERROR_ACTIVITY_FAILED = 21
 };
 
+/** What a ntk_share_item is: one of NTK_SHARE_ITEM_*. */
 typedef int32_t ntk_share_item_kind;
+/** The values of ntk_share_item_kind. */
 enum {
     NTK_SHARE_ITEM_TEXT = 0,
     NTK_SHARE_ITEM_URL = 1,
@@ -66,7 +72,8 @@ enum {
 /** The result of a share. Owned by the receiver: free it with ntk_share_result_free. */
 typedef struct ntk_share_result ntk_share_result;
 
-/** result is NULL unless error is NTK_SHARE_ERROR_NONE. A share cannot be cancelled, so the callback and release,
+/** Completes ntk_share_content_async.
+    result is NULL unless error is NTK_SHARE_ERROR_NONE. A share cannot be cancelled, so the callback and release,
     and with them user_data, can be held for as long as a host that replaced its window or root view controller,
     or a scene the system disconnected, keeps the sheet alive. On an iPad with several windows, which one shows
     the sheet is not decided. The order of the callbacks of several shares is not promised.
@@ -80,35 +87,39 @@ typedef void (NTK_CALL *ntk_share_result_fn)(void* user_data, ntk_share_error er
                                              ntk_share_result* result);
 
 #pragma pack(push, 8)
-/** Every element of an array has the same struct_size. */
+/** An item to share. Every element of an array has the same struct_size. */
 typedef struct ntk_share_item {
-    uint32_t            struct_size;
-    uint32_t            reserved0;
-    ntk_share_item_kind kind;
-    uint32_t            reserved1;
+    uint32_t            struct_size;             /**< Set to sizeof(ntk_share_item). */
+    uint32_t            reserved0;               /**< Reserved; must be 0. */
+    ntk_share_item_kind kind;                    /**< TEXT, URL, IMAGE_FILE or FILE. */
+    uint32_t            reserved1;               /**< Reserved; must be 0. */
     const char*         value;                   /**< The text, the URL, or the file path. */
 } ntk_share_item;
 
+/** What ntk_share_content_async shares. */
 typedef struct ntk_share_request {
-    uint32_t              struct_size;
-    uint32_t              reserved0;
-    const ntk_share_item* items;
-    size_t                item_count;
+    uint32_t              struct_size;           /**< Set to sizeof(ntk_share_request). */
+    uint32_t              reserved0;             /**< Reserved; must be 0. */
+    const ntk_share_item* items;                 /**< The items to share. */
+    size_t                item_count;            /**< The number of items; 0 gives NTK_SHARE_ERROR_EMPTY_CONTENT. */
     const char*           subject;               /**< NULL: none. */
     const char*           preview_title;         /**< NULL: none. */
-    const char* const*    excluded_activity_types;
-    size_t                excluded_activity_type_count;
+    const char* const*    excluded_activity_types;  /**< The activity types not to offer. May be NULL when
+                                                         excluded_activity_type_count is 0. */
+    size_t                excluded_activity_type_count;  /**< The number of excluded_activity_types. */
 } ntk_share_request;
 #pragma pack(pop)
 
-/** Needs the foreground: otherwise the callback gets NTK_SHARE_ERROR_NOT_FOREGROUND. */
+/** Shows the share sheet for the items of request. Needs the foreground: otherwise the callback gets
+    NTK_SHARE_ERROR_NOT_FOREGROUND. */
 ntk_share_error NTK_CALL ntk_share_content_async(const ntk_share_request* request, ntk_share_result_fn callback,
                                                  void* user_data, ntk_release_fn release);
 
-/** 0 when the user closed the sheet. */
+/** Whether the share completed: 0 when the user closed the sheet. */
 int32_t     NTK_CALL ntk_share_result_completed(const ntk_share_result* result);
 /** The identifier of the chosen activity, or NULL. Valid until the handle is freed. out_size may be NULL. */
 const char* NTK_CALL ntk_share_result_activity_type(const ntk_share_result* result, size_t* out_size);
+/** Releases the result. Does nothing for NULL. */
 void        NTK_CALL ntk_share_result_free(ntk_share_result* result);
 
 #ifdef __cplusplus

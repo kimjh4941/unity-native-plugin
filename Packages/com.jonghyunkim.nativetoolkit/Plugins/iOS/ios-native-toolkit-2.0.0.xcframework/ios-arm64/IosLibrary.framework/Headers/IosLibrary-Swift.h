@@ -402,19 +402,25 @@ SWIFT_CLASS("_TtC10IosLibrary26ClipboardPasteReceiverView")
 @end
 
 @class NSString;
-/// Objective-C-visible facade for redacting sensitive clipboard values before logging.
-/// Used both from Swift (<code>ClipboardLog</code>) and from the Unity Bridge’s Objective-C <code>.m</code> files
-/// (via <code>#import <IosLibrary/IosLibrary-Swift.h></code>), since a plain <code>internal</code> Swift type cannot be
-/// called from another module or from Objective-C.
-/// Redacted: copied/pasted values, request JSON bodies, Base64 strings, file paths/names, URLs,
+/// Redacts sensitive clipboard values before they are logged, from Swift or Objective-C.
+/// The library’s clipboard code logs through these helpers. They are public, and visible to
+/// Objective-C, so that code outside the library that logs clipboard values (an app, or a
+/// wrapper of its own) can redact them the same way. Each helper returns a short placeholder
+/// that keeps only a size (and, for a path, its extension), never the value itself.
+/// Redacted: copied/pasted values, JSON strings, Base64 strings, file paths/names, URLs,
 /// system error messages. Never redacted (safe to log as-is): kind, length, count,
 /// <code>PasteboardScope</code> kind, <code>localOnly</code>, <code>errorCode</code>, and failure detail <code>domain</code>/<code>code</code>.
 /// A UTI is a value the caller passes in: the library logs it with <code>privacy: .private</code>.
 SWIFT_CLASS("_TtC10IosLibrary18ClipboardRedaction")
 @interface ClipboardRedaction : NSObject
+/// A placeholder for a text value: <code><text:N></code>, where N is its length in UTF-8 bytes.
 + (NSString * _Nonnull)text:(NSString * _Nonnull)value SWIFT_WARN_UNUSED_RESULT;
+/// A placeholder for binary data of <code>byteCount</code> bytes: <code><data:N></code>.
 + (NSString * _Nonnull)dataByteCount:(NSInteger)byteCount SWIFT_WARN_UNUSED_RESULT;
+/// A placeholder for a JSON string: <code><json:N></code>, where N is its length in UTF-8 bytes.
 + (NSString * _Nonnull)json:(NSString * _Nonnull)value SWIFT_WARN_UNUSED_RESULT;
+/// A placeholder for a file path: <code><path:ext=E,len=N></code>, with the path extension E and the
+/// length N of the path in UTF-8 bytes; the directories and the file name are left out.
 + (NSString * _Nonnull)path:(NSString * _Nonnull)value SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
 @end
@@ -433,14 +439,16 @@ SWIFT_CLASS("_TtC10IosLibrary18ClipboardRedaction")
 /// <h2>API shape</h2>
 /// <ul>
 ///   <li>
-///     P-1〜P-11 (data-bearing operations) offer both a callback form and an <code>async throws</code> native
-///     form. <code>loadItem</code> also has a callback form that takes a <code>RequestBox</code>
-///     (<code>loadItem(_:scope:requestBox:completion:)</code>), cancelled with <code>cancelLoad(_:)</code>.
+///     The operations that carry data (<code>copy</code>, <code>append</code>, <code>read</code>, <code>readData</code>, <code>snapshot</code>, <code>clear</code>,
+///     <code>createPasteboard</code>, <code>removePasteboard</code>, <code>detectPatterns</code>, <code>detectValues</code> and <code>loadItem</code>)
+///     offer both a callback form and an <code>async throws</code> form. <code>loadItem</code> also has a callback form
+///     that takes a <code>RequestBox</code> (<code>loadItem(_:scope:requestBox:completion:)</code>), cancelled with
+///     <code>cancelLoad(_:)</code>.
 ///   </li>
 ///   <li>
-///     P-12〜P-16 (<code>cancelAllLoads</code>, <code>startObserving</code>, <code>stopObserving</code>, <code>checkForegroundChange</code>,
-///     <code>makePasteControl</code>) and <code>cancelLoad(_:)</code> complete synchronously and therefore have a
-///     single, synchronous form only (see <code>common.md</code>’s “同期 control / factory API” exception).
+///     <code>cancelAllLoads</code>, <code>startObserving</code>, <code>stopObserving</code>, <code>checkForegroundChange</code>,
+///     <code>makePasteControl</code> and <code>cancelLoad(_:)</code> complete synchronously and therefore have a single,
+///     synchronous form only.
 ///   </li>
 /// </ul>
 /// <h2>Cancelling a load</h2>
@@ -565,9 +573,10 @@ SWIFT_CLASS("_TtC10IosLibrary19IosClipboardManager")
 ///     }
 /// }
 ///
-/// IosDialogManager.shared.showAlert(title: "Notice", message: "Operation finished") { result, success, error in
-///     guard success else { print(error ?? "Unknown"); return }
-///     print("User tapped: \(result ?? "?")")
+/// IosDialogManager.shared.showAlert(title: "Notice", message: "Operation finished") { buttonText, _, _ in
+///     print("User tapped: \(buttonText ?? "?")")
+/// } completion: { isSuccess, errorMessage in
+///     if !isSuccess { print(errorMessage ?? "Unknown") }
 /// }
 ///
 /// \endcode
@@ -688,7 +697,7 @@ SWIFT_CLASS("_TtC10IosLibrary22IosNotificationManager")
 /// | <code>ShareError/noValidItems</code>, <code>ShareError/invalidURL(_:)</code>, <code>ShareError/imageLoadFailed(path:)</code>, <code>ShareError/fileNotFound(path:)</code> | <code>(false, false, nil, <description>)</code> | The content could not be shared; no sheet is shown |
 /// | <code>ShareError/noRootViewController</code> | the same | <code>PresenterSelection/firstActiveScene</code> found no view controller to present from |
 /// | <code>ShareError/notForeground</code> | (not used) | <code>PresenterSelection/foreground</code> or <code>PresenterSelection/viewController(_:)</code> found no view controller in the foreground |
-/// | <code>ShareError/presentationFailed</code> | <code>(false, false, nil, "Failed to present the share sheet.")</code> | The view controller was not settled (<code>PresenterSelection/firstActiveScene</code>: being presented or dismissed, or presenting something; the others: still so after waiting once), UIKit declined the presentation, or the sheet was freed before its presentation finished (dismissed from outside during the animation). Also when the foreground is a share sheet (a share sheet is never shown on another one), which is how one of two shares requested in the same main-queue turn ends, once the other’s sheet is shown (which one is shown is not decided) |
+/// | <code>ShareError/presentationFailed</code> | <code>(false, false, nil, "Failed to present the share sheet.")</code> | The view controller was not settled (<code>PresenterSelection/firstActiveScene</code>: being presented or dismissed, or presenting something; the others: still so after waiting once), UIKit declined the presentation, or the sheet was freed before its presentation finished (dismissed from outside during the animation). Also when the foreground is a share sheet (a share sheet is never shown on another one), which is how one of two shares requested in the same main-queue turn ends, once the other’s sheet is shown (which one is shown is not decided). Also while a share sheet of this library is still appearing in the same window: <code>PresenterSelection/firstActiveScene</code> fails at once, and the others wait for it and fail when it has not finished appearing within 10 seconds |
 /// | <code>ShareError/dismissedBySystem</code> | <code>(false, false, nil, "The share sheet was dismissed without a result.")</code> | The sheet went away without reporting a result: dismissed from outside the library, or its scene was disconnected and the sheet freed |
 /// | <code>ShareError/activityFailed(_:)</code> | <code>(false, false, nil, "The share activity failed.")</code> | The chosen activity reported an error |
 /// The result is not guaranteed when the app changes the window, its root view controller or the

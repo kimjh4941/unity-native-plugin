@@ -22,13 +22,18 @@ extern "C" {
 #endif
 
 #if defined(_MSC_VER)
+/** The calling convention of every function and callback: __cdecl with MSVC, the default otherwise. */
 #define NTK_CALL __cdecl
 #else
+/** The calling convention of every function and callback: __cdecl with MSVC, the default otherwise. */
 #define NTK_CALL
 #endif
 
+/** The major version of the library. */
 #define NTK_VERSION_MAJOR 2
+/** The minor version of the library. */
 #define NTK_VERSION_MINOR 0
+/** The patch version of the library. */
 #define NTK_VERSION_PATCH 0
 /** (MAJOR << 16) | (MINOR << 8) | PATCH, written as a literal so that every binding generator can read it. */
 #define NTK_VERSION 0x020000
