@@ -679,8 +679,6 @@ The full set of stable error codes reported through `ErrorCode`:
 
 Since 1.14.0 the iOS clipboard runs on native-toolkit's C ABI 2.0.0 (`ios-native-toolkit-capi-2.0.0.xcframework`) instead of the 1.x Unity bridge. The type names, the methods and events of `IosClipboardManager`, the `Operation*` constants, the content, scope, option and result types, the error codes and the error messages are unchanged. What you need to change, and what behaves differently from 1.13.0:
 
-<!-- 要確認: IosClipboardCApi.ErrorCode は C ABI の NOT_SUPPORTED（3）を、1.13.0 に無い CLIPBOARD_NOT_SUPPORTED に写す。ライブラリがこれを返すことがあるかは記録に無いので、「エラーコードは変わらない」の例外として本文には書いていない。 -->
-
 #### Updating your code
 
 - Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;` in your iOS code, and change fully qualified names the same way. Keep the old line in macOS code: the macOS types (`Mac*`) did not move. A script that uses both needs both lines.
@@ -816,9 +814,7 @@ IosClipboardManager.Instance.RemovePasteboard(_scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_RemoveActivePasteboard.png" alt="Example_IosClipboardManager_RemoveActivePasteboard" width="400" />
 </p>
 
-> **Note:** Reading a unique pasteboard after `RemovePasteboard` fails with `CLIPBOARD_UNAVAILABLE`.
-
-<!-- 要確認: 削除した Named のペーストボードを Read したときの結果。1.13.0 までの文「失敗せず、空で作り直される」は、Unique では実測（CP-19: 1.x と 2.0.0 で CLIPBOARD_UNAVAILABLE）と食い違ったので外した。Named の記録は無い。 -->
+> **Note:** Reading a named or unique pasteboard after `RemovePasteboard` fails with `CLIPBOARD_UNAVAILABLE`. Reading does not create the pasteboard again.
 
 ---
 

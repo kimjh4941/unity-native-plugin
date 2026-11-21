@@ -532,8 +532,6 @@ private void OnLoginDialogResult(
 | すぐに出る失敗（空のタイトルなど）のイベントで、ハンドラーが例外を投げた | 例外は `Show*` の呼び出し元まで伝わった | `"<イベント名> callback error: <例外の文言>"`（例: `DialogResult callback error: ...`）としてエラーのログに出し、呼び出し元には伝わりません。後で届く結果のハンドラーは、1.13.0 でもこう扱われていました |
 | iPad のアクションシート（ポップオーバーで出る）の基点 | ルートビュー全体 | 最前面の画面の中央。iPad では確かめていません |
 
-<!-- 要確認: 「アプリがバックグラウンドにあるときに呼ぶ」「ボタンを押さずにダイアログが消えた」「閉じかけの画面の上に出す」「iPad のアクションシートの基点」の 4 行は、artifact/ios/dialog/designs/2026-11-15-ios-dialog-cabi-design-v2.md の 3 章（1.x と native-toolkit の一次ソースの読み）による。UI テストでも実機でも確かめていない -->
-
 `errorMessage` の文言は次のとおりです。`<method>` には `showDialog`、`showConfirmDialog`、`showDestructiveDialog`、`showActionSheet`、`showTextInputDialog`、`showLoginDialog` のどれかが入ります。「すぐ」は `Show*` メソッドが戻る前に、「後で」は戻った後にイベントが出ることを表します。
 
 | 原因 | 時点 | `errorMessage` |

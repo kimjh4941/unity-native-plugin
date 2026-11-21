@@ -679,8 +679,6 @@ AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 
 1.14.0 から、iOS のクリップボードは 1.x の Unity 向けのブリッジではなく、native-toolkit の C ABI 2.0.0（`ios-native-toolkit-capi-2.0.0.xcframework`）で動きます。型の名前、`IosClipboardManager` のメソッドとイベント、`Operation*` の定数、内容・スコープ・オプション・結果の型、エラーコード、エラーメッセージは変わりません。直すところと、1.13.0 と動きが違うところは次のとおりです。
 
-<!-- 要確認: IosClipboardCApi.ErrorCode は C ABI の NOT_SUPPORTED（3）を、1.13.0 に無い CLIPBOARD_NOT_SUPPORTED に写す。ライブラリがこれを返すことがあるかは記録に無いので、「エラーコードは変わらない」の例外として本文には書いていない。 -->
-
 #### コードの直し方
 
 - iOS のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を `using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;` に書き換えてください。完全修飾名で書いたところも同じように直してください。macOS のコードの行はそのままにしてください（macOS の型 `Mac*` は移っていません）。両方を使うスクリプトには、両方の行が要ります。
@@ -816,9 +814,7 @@ IosClipboardManager.Instance.RemovePasteboard(_scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_RemoveActivePasteboard.png" alt="Example_IosClipboardManager_RemoveActivePasteboard" width="400" />
 </p>
 
-> **注意:** `RemovePasteboard` で削除した Unique のペーストボードを読み取ると、`CLIPBOARD_UNAVAILABLE` で失敗します。
-
-<!-- 要確認: 削除した Named のペーストボードを Read したときの結果。1.13.0 までの文「失敗せず、空で作り直される」は、Unique では実測（CP-19: 1.x と 2.0.0 で CLIPBOARD_UNAVAILABLE）と食い違ったので外した。Named の記録は無い。 -->
+> **注意:** `RemovePasteboard` で削除した Named / Unique のペーストボードを読み取ると、`CLIPBOARD_UNAVAILABLE` で失敗します。読み取りでペーストボードが作り直されることはありません。
 
 ---
 

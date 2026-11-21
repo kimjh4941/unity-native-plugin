@@ -916,11 +916,11 @@ IosNotificationManager.Instance.Initialize();
 #endif
 ```
 
-빌드가 이 파일을 추가하지 않게 하려면, Player Settings > Other Settings > Scripting Define Symbols(iOS)나 빌드에 사용하는 빌드 프로필의 Scripting Defines에 `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL`을 추가해 주세요. 빌드는 파일을 추가하지 않습니다(이전 빌드가 파일을 추가한 Xcode 프로젝트에서는 제거합니다). 이 패키지로 탭을 받아야 할 시점에 `Initialize()`를 호출해 주세요. 델리게이트가 설정될 때까지 Manager는 이벤트 수신자를 등록할 수 없으므로, `NotificationActionReceived`와 `NotificationTextInputActionReceived`는 발생하지 않습니다.
+빌드가 이 파일을 추가하지 않게 하려면, Player Settings > Other Settings > Scripting Define Symbols(iOS)나 빌드에 사용하는 빌드 프로필의 Scripting Defines에 `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL`을 추가해 주세요. 빌드는 파일을 추가하지 않습니다(이전 빌드가 파일을 추가한 Xcode 프로젝트에서는 제거합니다). 이 패키지로 탭을 받아야 할 시점에 `Initialize()`를 호출해 주세요. 델리게이트가 설정될 때까지 Manager는 이벤트 수신자를 등록할 수 없으므로, `NotificationActionReceived`와 `NotificationTextInputActionReceived`는 발생하지 않습니다. 앱 시작이 끝난 뒤에 설정한 델리게이트에는 앱을 시작한 탭이 전달되지 않을 수 있습니다(델리게이트를 설정할 때 라이브러리가 그 내용을 로그에 남깁니다).
 
 > **참고:** 빌드 프로필의 Scripting Defines는 Player Settings의 정의에 더해집니다. Player Settings에 정의가 있으면, 빌드 프로필에서 빼도 없어지지 않습니다.
 
-<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けた状態から Initialize() で入れ直す流れと、Unity の Mobile Notifications など別の通知パッケージとの共存は実測していない（段 4 の項目 5 の確かめが残っている）。起動の後に Initialize() で入れた場合に、アプリを起動したタップが届くかも未確認 -->
+<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けたビルドで Initialize() が delegate を入れ、イベントが届くようになる流れは実測していない（段 4 の項目 5）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み（NotificationDelegateInstaller.install のログ、NotificationDelegateRouter.noteFirstInstall）。Mobile Notifications との共存は、1a の試作での実機の実測（U-4、artifact/topics/ios-c-abi-handoff/results/2026-10-31-ios-c-abi-handoff-2-results.md）で、2.0.0 では測っていない -->
 
 #### 즉시 알림 표시
 

@@ -532,8 +532,6 @@ private void OnLoginDialogResult(
 | 바로 발생하는 실패(빈 제목 등)의 이벤트에서 핸들러가 예외를 던짐 | 예외가 `Show*`를 호출한 코드까지 전달되었음 | `"<이벤트 이름> callback error: <예외 메시지>"`(예: `DialogResult callback error: ...`)로 오류 로그에 출력하고, 호출한 쪽에는 전달되지 않습니다. 나중에 도착하는 결과의 핸들러는 1.13.0에서도 이렇게 처리되었습니다 |
 | iPad 액션 시트(팝오버로 표시)의 기준점 | 루트 뷰 전체 | 최상위 화면의 중앙. iPad에서는 확인하지 않았습니다 |
 
-<!-- 要確認: 「アプリがバックグラウンドにあるときに呼ぶ」「ボタンを押さずにダイアログが消えた」「閉じかけの画面の上に出す」「iPad のアクションシートの基点」の 4 行は、artifact/ios/dialog/designs/2026-11-15-ios-dialog-cabi-design-v2.md の 3 章（1.x と native-toolkit の一次ソースの読み）による。UI テストでも実機でも確かめていない -->
-
 `errorMessage`의 문구는 다음과 같습니다. `<method>`에는 `showDialog`, `showConfirmDialog`, `showDestructiveDialog`, `showActionSheet`, `showTextInputDialog`, `showLoginDialog` 중 하나가 들어갑니다. "바로"는 `Show*` 메서드가 반환되기 전에, "나중"은 반환된 뒤에 이벤트가 발생한다는 뜻입니다.
 
 | 원인 | 시점 | `errorMessage` |

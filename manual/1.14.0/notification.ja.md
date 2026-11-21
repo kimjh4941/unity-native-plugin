@@ -916,11 +916,11 @@ IosNotificationManager.Instance.Initialize();
 #endif
 ```
 
-ビルドにこのファイルを足させないようにするには、Player Settings > Other Settings > Scripting Define Symbols（iOS）か、ビルドに使うビルドプロファイルの Scripting Defines に `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を足してください。ビルドはファイルを足さなくなります（前のビルドがファイルを足した Xcode プロジェクトからは、取り除きます）。このパッケージでタップを受け取る時点になったら、`Initialize()` を呼んでください。デリゲートが設定されるまで、Manager はイベントの受け手を登録できないので、`NotificationActionReceived` と `NotificationTextInputActionReceived` は発生しません。
+ビルドにこのファイルを足させないようにするには、Player Settings > Other Settings > Scripting Define Symbols（iOS）か、ビルドに使うビルドプロファイルの Scripting Defines に `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を足してください。ビルドはファイルを足さなくなります（前のビルドがファイルを足した Xcode プロジェクトからは、取り除きます）。このパッケージでタップを受け取る時点になったら、`Initialize()` を呼んでください。デリゲートが設定されるまで、Manager はイベントの受け手を登録できないので、`NotificationActionReceived` と `NotificationTextInputActionReceived` は発生しません。アプリの起動が終わった後に設定したデリゲートには、アプリを起動したタップが届かないことがあります（デリゲートを設定するときに、ライブラリがその旨をログに出します）。
 
 > **注意:** ビルドプロファイルの Scripting Defines は、Player Settings の定義に足されます。Player Settings に定義がある場合、ビルドプロファイルで外しても消えません。
 
-<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けた状態から Initialize() で入れ直す流れと、Unity の Mobile Notifications など別の通知パッケージとの共存は実測していない（段 4 の項目 5 の確かめが残っている）。起動の後に Initialize() で入れた場合に、アプリを起動したタップが届くかも未確認 -->
+<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けたビルドで Initialize() が delegate を入れ、イベントが届くようになる流れは実測していない（段 4 の項目 5）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み（NotificationDelegateInstaller.install のログ、NotificationDelegateRouter.noteFirstInstall）。Mobile Notifications との共存は、1a の試作での実機の実測（U-4、artifact/topics/ios-c-abi-handoff/results/2026-10-31-ios-c-abi-handoff-2-results.md）で、2.0.0 では測っていない -->
 
 #### 即座通知を表示する
 

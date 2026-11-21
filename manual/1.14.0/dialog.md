@@ -532,8 +532,6 @@ Since 1.14.0 the iOS dialogs run on native-toolkit's C ABI 2.0.0 (`ios-native-to
 | Your handler throws while a failure is reported at once (an empty title, for example) | The exception reached the code that called `Show*` | Logged as an error, `"<event> callback error: <exception message>"` (for example `DialogResult callback error: ...`), and does not reach the caller. Handlers of results that arrive later were already treated this way in 1.13.0 |
 | The anchor of an action sheet on iPad (shown as a popover) | The whole root view | The center of the topmost screen. Not checked on an iPad |
 
-<!-- 要確認: 「アプリがバックグラウンドにあるときに呼ぶ」「ボタンを押さずにダイアログが消えた」「閉じかけの画面の上に出す」「iPad のアクションシートの基点」の 4 行は、artifact/ios/dialog/designs/2026-11-15-ios-dialog-cabi-design-v2.md の 3 章（1.x と native-toolkit の一次ソースの読み）による。UI テストでも実機でも確かめていない -->
-
 The `errorMessage` texts are below. `<method>` is one of `showDialog`, `showConfirmDialog`, `showDestructiveDialog`, `showActionSheet`, `showTextInputDialog` or `showLoginDialog`. "At once" means the event is raised before the `Show*` method returns; "later" means after it returns.
 
 | Cause | When | `errorMessage` |

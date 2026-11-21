@@ -916,11 +916,11 @@ IosNotificationManager.Instance.Initialize();
 #endif
 ```
 
-To keep the build from adding the file, add `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` to Player Settings > Other Settings > Scripting Define Symbols for iOS, or to the Scripting Defines of the build profile you build with. The build then leaves the file out (and removes it from an Xcode project that an earlier build added it to). Call `Initialize()` when this package should receive taps: until the delegate is installed, the manager cannot register its event listeners, so `NotificationActionReceived` and `NotificationTextInputActionReceived` are not raised.
+To keep the build from adding the file, add `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` to Player Settings > Other Settings > Scripting Define Symbols for iOS, or to the Scripting Defines of the build profile you build with. The build then leaves the file out (and removes it from an Xcode project that an earlier build added it to). Call `Initialize()` when this package should receive taps: until the delegate is installed, the manager cannot register its event listeners, so `NotificationActionReceived` and `NotificationTextInputActionReceived` are not raised. A delegate installed after the app has finished launching may miss the tap that launched the app; the library logs this when it installs the delegate.
 
 > **Note:** A build profile's Scripting Defines are added to those in Player Settings. If the define is in Player Settings, leaving it out of a build profile does not remove it.
 
-<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けた状態から Initialize() で入れ直す流れと、Unity の Mobile Notifications など別の通知パッケージとの共存は実測していない（段 4 の項目 5 の確かめが残っている）。起動の後に Initialize() で入れた場合に、アプリを起動したタップが届くかも未確認 -->
+<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けたビルドで Initialize() が delegate を入れ、イベントが届くようになる流れは実測していない（段 4 の項目 5）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み（NotificationDelegateInstaller.install のログ、NotificationDelegateRouter.noteFirstInstall）。Mobile Notifications との共存は、1a の試作での実機の実測（U-4、artifact/topics/ios-c-abi-handoff/results/2026-10-31-ios-c-abi-handoff-2-results.md）で、2.0.0 では測っていない -->
 
 #### Show an immediate notification
 
