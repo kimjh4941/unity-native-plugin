@@ -36,7 +36,13 @@
 
 ## 2. 実機（G-7）
 
-利用者の許可を得てから流す（`--device --dry-run` で承認 ID を作る）。結果はここに書き足す。
+2026-11-22 08:18〜08:22、iPhone XS / iOS 18.7.2、HEAD `a764789`。利用者の許可を得て、承認 ID を 1 回使った。
+
+- 成功。結果のファイルは `started`、回ごとの `run=<id>`、`version=0x020000`、`delegate=IosLibrary.NotificationDelegateProxy`、`done`
+- アプリ（`com.jonghyunkim.nativetoolkit.giturlapp`）は回の終わりに消え、消えたことを確かめた（`cleanup: the app is removed`）
+- 回の一時フォルダーは残っていない。手元のログも消した
+
+同じ朝、同じ HEAD で、いつもの実機の回も流した（今夜の手伝い役の直しを iOS 18 の実機でも確かめるため）: ゲート（Player 112 件、Notification のサンプル 8 件）と UI テスト 25 件がすべて成功。SH-13 は、押してから失敗の行が見えるまで 2.56 秒（上限の値）。
 
 ## 3. 途中で起きたこと
 
