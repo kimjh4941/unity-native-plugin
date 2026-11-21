@@ -1,0 +1,1724 @@
+# Notification Feature
+
+Language:
+
+- English (this page)
+- 日本語: [notification.ja.md](notification.ja.md)
+- 한국어: [notification.ko.md](notification.ko.md)
+
+← [Back to manual top](index.md)
+
+---
+
+## Table of Contents
+
+- [Android](#android)
+  - [Changes in 1.13.0](#changes-in-1130)
+  - [Setup](#setup)
+  - [Permission](#permission)
+  - [Channel Management](#channel-management)
+  - [Basic Notification Operations](#basic-notification-operations)
+  - [Notification Styles](#notification-styles)
+  - [Custom View Styles](#custom-view-styles)
+  - [Interaction](#interaction)
+  - [Progress Notifications](#progress-notifications)
+  - [Foreground Service Notifications](#foreground-service-notifications)
+  - [Scheduled Notifications](#scheduled-notifications)
+- [iOS](#ios)
+  - [Overview](#overview)
+  - [Supported capabilities](#supported-capabilities)
+    - [Basic setup](#basic-setup)
+    - [Show an immediate notification](#show-an-immediate-notification)
+    - [Show an immediate notification with an app icon attachment](#show-an-immediate-notification-with-an-app-icon-attachment)
+    - [Schedule a notification](#schedule-a-notification)
+    - [Register categories and actions](#register-categories-and-actions)
+    - [Receive events](#receive-events)
+- [Windows](#windows)
+  - [Changes in 1.12.0](#changes-in-1120)
+  - [Setup](#setup-1)
+  - [Initialize](#initialize)
+  - [Show notification](#show-notification)
+  - [Scheduled notifications](#scheduled-notifications-2)
+  - [Update progress](#update-progress)
+  - [Remove notifications](#remove-notifications)
+  - [Query](#query-1)
+  - [Receive events](#receive-events-1)
+- [macOS](#macos)
+  - [Supported capabilities](#supported-capabilities-1)
+  - [Basic setup](#basic-setup-1)
+  - [Permission](#permission-1)
+  - [Show notification](#show-notification)
+  - [Update, cancel, and remove](#update-cancel-and-remove)
+  - [Scheduled notifications](#scheduled-notifications-1)
+  - [Query](#query)
+  - [Badge](#badge)
+  - [Category and actions](#category-and-actions)
+  - [Receive events](#receive-events)
+
+---
+
+## Android
+
+### Changes in 1.13.0
+
+Since 1.13.0 Android notifications run on native-toolkit's C ABI 2.0.0 instead of the 1.x Kotlin bridge. `AndroidNotificationManager` keeps its methods, events and constants, and they still take the JSON that `AndroidNotificationJsonBuilder` builds, read by the same rules as in 1.12.0. What to change, and what differs from 1.12.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
+- Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
+
+Renamed types. `AndroidNotificationManager` and `AndroidNotificationJsonBuilder` keep their names and only move to the new namespace.
+
+| 1.12.0 | 1.13.0 |
+| --- | --- |
+| `NotificationResult` | `AndroidNotificationResult` |
+| `NotificationActionResult` | `AndroidNotificationActionResult` |
+| `NotificationReceivedResult` | `AndroidNotificationReceivedResult` |
+| `NotificationResourcePayload` | `AndroidNotificationResourcePayload` |
+| `ChannelPayload` | `AndroidChannelPayload` |
+| `NotificationPayload` | `AndroidNotificationPayload` |
+| `NotificationActionPayload` | `AndroidNotificationActionPayload` |
+| `ScheduledNotificationEnvelopePayload` | `AndroidScheduledNotificationEnvelopePayload` |
+| `NotificationSchedulePayload` | `AndroidNotificationSchedulePayload` |
+| `NotificationProgressPayload` | `AndroidNotificationProgressPayload` |
+| `NotificationStylePayload` | `AndroidNotificationStylePayload` |
+| `NotificationMessagePayload` | `AndroidNotificationMessagePayload` |
+| `NotificationDataEntryPayload` | `AndroidNotificationDataEntryPayload` |
+| `NotificationViewActionPayload` | `AndroidNotificationViewActionPayload` |
+
+#### Breaking changes shared by every Android feature
+
+- **The 1.x native libraries are no longer bundled.** `android-native-toolkit-1.3.0.aar` and `unity-android-native-toolkit-1.3.0.aar` were removed. The package ships `android-native-toolkit-2.0.0.aar` and `android-native-toolkit-capi-2.0.0.aar` (native-toolkit's C ABI 2.0.0). Code that called their classes (`android.unity.*`, `android.library.*`) directly no longer works.
+- **"Configure Gradle Project" is gone.** The menu Tools > Native Toolkit > Android > Configure Gradle Project and its window were removed. The build now adds the runtime dependencies to `unityLibrary/build.gradle` itself (7 libraries, including `kotlin-stdlib` 2.2.21 and `kotlinx-coroutines-core` 1.9.0) and no longer applies the Kotlin Gradle plugin. If you use your own Gradle templates or EDM4U, check them for conflicting versions.
+- **64-bit and IL2CPP only.** A build that also targets ARMv7 (32-bit) stops with a message, and Mono is not supported. See [Android requirements](index.md#android-requirements).
+
+#### Notification changes
+
+- **Remove the `<service>` entry you added for 1.12.0.** The 1.12.0 manual told you to add `<service android:name="android.library.notification.presentation.progress.ProgressForegroundService" ... />` to your `AndroidManifest.xml`. That class was in the 1.x libraries and no longer exists. Delete the entry: the library declares its own foreground service, so progress notifications need nothing in your manifest.
+- **Showing a notification without the permission now fails.** When the `POST_NOTIFICATIONS` permission is not granted (Android 13 and later) or the app's notifications are turned off, `ShowNotification`, `UpdateNotification` and `ScheduleNotification` for a time already past report a failure through `NotificationOperationCompleted`. 1.12.0 reported success and showed nothing. Check `HasPermission()` and `AreNotificationsEnabled()`, or call `RequestPermission`, first.
+- **A resource name that cannot be found now fails.** Icons, pictures, layouts and view IDs are given by name and looked up when the notification is shown, updated, scheduled, or passed to a progress method. A name the app does not have fails the call, and nothing is shown; 1.12.0 used the app's icon or the default style instead. The `type` of `AndroidNotificationResourcePayload` is no longer used (icons and pictures are looked up in `drawable`, then `mipmap`). Resource shrinking can remove resources that only a name refers to: keep them with `tools:keep` (see [Keep the resources you name](#keep-the-resources-you-name)).
+- **Schedules saved by 1.12.0 are cleared.** The first time the app starts with 1.13.0, the library cannot read the schedules 1.12.0 saved, so it cancels their alarms and deletes them, once. Schedule them again after the update. A 1.12.0 schedule made with `persistAcrossBoot = false` cannot be found: it stays with Android, but shows nothing when it fires.
+- **Notifications shown by 1.12.0 no longer respond.** A notification posted before the update stays in the notification shade, but tapping it or its buttons does nothing after the update (the classes that received the taps are gone).
+- **`IsNotificationScheduled` sees only the schedules kept across a reboot.** As in 1.12.0, `IsNotificationScheduled` and `CancelAllScheduledNotifications` find only the schedules made with `persistAcrossBoot = true` (the default). Cancel the others by ID with `CancelScheduledNotification`.
+
+#### Behavior differences from 1.12.0
+
+`{op}` stands for the operation name, such as `showNotification`.
+
+| Case | 1.12.0 | 1.13.0 |
+| --- | --- | --- |
+| Showing, updating, or scheduling for a time already past, without the notification permission or with the app's notifications turned off | Succeeded; nothing was shown | Fails: `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` |
+| A resource name (icon, picture, layout, view ID) the app does not have | The app's icon, the item left out, or the default style in its place | Fails: `Failed to {op}: a resource named in the notification was not found.` Nothing is shown |
+| The `type` of a resource | Looked up in that type only | Not used: `drawable`, then `mipmap` (layouts in `layout`, view IDs in `id`) |
+| A value out of the platform's range (`groupAlertBehavior`, `timestamp`, `timeoutAfter`, `semanticAction`, `alarmType`, negative vibration values, negative message times) | Passed on unchecked | `Invalid argument for {op}: Please verify the input parameters.` |
+| A JSON syntax error, or `null` or empty JSON | `Failed to {op}:` and the JSON parser's message | `Failed to {op}: the JSON could not be read.` |
+| Lenient JSON (unquoted keys, single quotes, comments) | Accepted | A syntax error |
+| A JSON value of the wrong type (a number written as a string, and so on) | Converted | Treated as missing; a decimal for an integer field is cut toward zero |
+| A `data` value that is not a string, or a `null` in `lines` | Turned into a string (`null` became `"null"`) | Dropped |
+| Values in `AndroidNotificationActionResult.Data` | JSON escapes left in (`a\"b`, `c\/d`) | The values as sent |
+| Tapping the body, or an action with `launchApp` | The app did not come to the front (seen on Android 16) | The app opens |
+| The action of the Intent that opens the app from a tap | The action ID | None (the launcher Intent) |
+| The flags of the Intent that opens the app (a tap or a full-screen intent) | `NEW_TASK \| CLEAR_TOP` | `NEW_TASK \| RESET_TASK_IF_NEEDED` |
+| A tap made while no manager existed, even before the app started | Dropped | Kept (up to 32) and delivered in a frame after the manager is first created: subscribe to `NotificationActionTapped` in the frame you first read `Instance` |
+| A call from a thread other than Unity's main thread | `{op} could not be started.` | Accepted (`RequestPermission` and the first read of `Instance` still need the main thread) |
+| `OpenNotificationSettings` | Fell back to the app details screen | Opens the app's notification settings |
+| Opening a settings screen while the app is in the background | Called from another thread (Unity's main thread is paused in the background), it failed with `{op} could not be started.` | `Failed to {op}: the app is not in the foreground.` |
+| A progress method while the app is in the background | Failed with the system's exception message | `Failed to {op}: the system did not allow the foreground service from the background.` |
+| `DeleteChannel(null)` | Failed with a `NullPointerException` message | Succeeds (deletes the channel `""`) |
+| A schedule made inexact for lack of the exact alarm permission, after a reboot | Made exact again if the permission had been granted | Stays inexact |
+| Results and events that arrive around the time the manager is destroyed | Raised on the destroyed manager | Raised on the manager alive at that time, or dropped if there is none |
+| Schedules saved by 1.12.0 | Kept | Cancelled and deleted once, at the first start |
+| Notifications shown by 1.12.0 | Responded to taps and buttons | Do not respond |
+| The types in the Editor | Only with the Android build target | With any build target (in the Editor the operations still do nothing and report that they could not be started) |
+
+Unchanged: the methods, the events, the `Operation*` and `Action*` constants and the shape of the JSON; an exact schedule without the exact alarm permission is made inexact; 1.12.0's corrections of the JSON (for example an `importance` outside 0 to 4 becomes 3, and `priority` is clamped to -2 to 2).
+
+### Setup
+
+#### AndroidManifest.xml
+
+Add the permissions required for the features you use.
+
+```xml
+<!-- Required to post notifications on Android 13 and above -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+<!-- Required for scheduled notifications (exact alarms) -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+<!-- Required for foreground services -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+```
+
+#### Import the namespace
+
+```csharp
+// Guard: Android (Player) only. Prevents native calls in the Editor.
+#if UNITY_ANDROID && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Android.Notification;
+#endif
+```
+
+> **Note:** `AndroidChannelPayload`, `AndroidNotificationPayload`, and `AndroidNotificationJsonBuilder` are included in the runtime package. Prefer `AndroidNotificationJsonBuilder` over `JsonUtility.ToJson(...)` when you need spec-aligned JSON for optional fields and `data`.
+
+#### Keep the resources you name
+
+Icons, pictures, layouts and view IDs in a notification are given by name and looked up when the notification is shown, updated, scheduled, or passed to a progress method: icons and pictures in `drawable`, then `mipmap`; layouts in `layout`; view IDs in `id`. The `type` of `AndroidNotificationResourcePayload` is not used. A name the app does not have fails the call with `Failed to {op}: a resource named in the notification was not found.`, and nothing is shown.
+
+Resource shrinking removes resources that only a name refers to. If your build shrinks resources, keep them with `tools:keep`, for example in `res/raw/keep.xml` of your Android library folder (such as `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/`):
+
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/my_image,@layout/nt_notification_custom_view_sample,@layout/nt_notification_custom_view_sample_expanded" />
+```
+
+---
+
+### Permission
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+// Whether notification permission is granted (Android 13+)
+bool hasPermission = AndroidNotificationManager.Instance.HasPermission();
+
+// Whether app notifications are enabled
+bool enabled = AndroidNotificationManager.Instance.AreNotificationsEnabled();
+
+// Whether exact alarm scheduling is permitted (Android 12+)
+bool canSchedule = AndroidNotificationManager.Instance.CanScheduleExactAlarms();
+
+// Request POST_NOTIFICATIONS permission (Android 13+)
+AndroidNotificationManager.Instance.RequestPermission(granted =>
+{
+    if (granted) { /* permission granted */ }
+});
+
+// Open settings screens
+AndroidNotificationManager.Instance.OpenNotificationSettings();
+AndroidNotificationManager.Instance.OpenAppDetailsSettings();
+AndroidNotificationManager.Instance.OpenExactAlarmSettings();
+#endif
+```
+
+---
+
+### Channel Management
+
+A notification channel must be created before posting notifications.
+
+#### Create a channel
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+string channelJson = AndroidNotificationJsonBuilder.BuildChannelJson(new AndroidChannelPayload
+{
+    id = "my_channel",
+    name = "My Channel",
+    importance = 3,             // 3 = DEFAULT
+    description = "Sample notification channel",
+    showBadge = true,
+    enableLights = true,
+    lightColor = unchecked((int)0xFF4CAF50),
+    enableVibration = true,
+    vibrationPattern = new long[] { 0, 250, 200, 250 },
+    lockscreenVisibility = 1,   // 1 = PUBLIC
+    groupId = "my_group",
+    groupName = "My Group"
+});
+
+AndroidNotificationManager.Instance.CreateChannel(channelJson);
+#endif
+```
+
+Channel importance levels:
+
+| Value | Level   | Description           |
+| ----- | ------- | --------------------- |
+| 1     | MIN     | No sound, no heads-up |
+| 2     | LOW     | No sound              |
+| 3     | DEFAULT | Sound                 |
+| 4     | HIGH    | Sound + heads-up      |
+
+#### Delete a channel
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.DeleteChannel("my_channel");
+#endif
+```
+
+#### Receive results via event
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+#endif
+
+private void OnOperationCompleted(AndroidNotificationResult result)
+{
+    // result.Operation  — identifies which operation completed
+    // result.IsSuccess  — true on success
+    // result.ErrorMessage — non-null on failure
+}
+```
+
+---
+
+### Basic Notification Operations
+
+#### Show
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1101,
+    title = "Energy Refilled",
+    message = "Your squad is fully rested. Jump back in and clear the next raid.",
+    tag = "energy",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    largeIcon = CreateUnityAppIconResource(),
+    subText = "Raid Ready",
+    autoCancel = true,
+    priority = 1,
+    category = "recommendation",
+    ticker = "Energy refilled",
+    number = 3,
+    style = new AndroidNotificationStylePayload
+    {
+        type = "bigText",
+        bigText = "Your squad is fully rested. Jump back in and clear the next raid before the stamina cap overflows.",
+        bigContentTitle = "Energy Refilled",
+        summaryText = "Raid Ready"
+    }
+});
+
+AndroidNotificationManager.Instance.ShowNotification(notificationJson);
+#endif
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ShowNotification.png" alt="Example_AndroidNotificationManager_ShowNotification" width="400" />
+</p>
+
+> **Note:** The `channel` field in the notification payload is used to create the channel if it does not exist. For a channel already created, you can pass just `id` and `name`.
+
+> **Note:** These snippets intentionally use the same helper calls as `AndroidNotificationManagerExampleController`, including `CreateGameplayChannelReference()` and `CreateUnityAppIconResource()`, so the manual stays aligned with the sample scene.
+
+> **Note:** `ShowNotification` and `UpdateNotification` fail when the `POST_NOTIFICATIONS` permission is not granted (Android 13 and later) or the app's notifications are turned off: `NotificationOperationCompleted` reports `Failed to {op}: notifications are not allowed for this app (permission or app notification setting).` Check `HasPermission()` and `AreNotificationsEnabled()` first.
+
+#### Update
+
+Pass a payload with the same `id` / `tag` to overwrite an active notification.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+string updatedNotificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1101,
+    title = "Daily Reward Ready",
+    message = "Your login streak chest is waiting in town.",
+    tag = "energy",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    largeIcon = CreateUnityAppIconResource(),
+    subText = "Town Reward",
+    autoCancel = true,
+    priority = 1,
+    style = new AndroidNotificationStylePayload
+    {
+        type = "bigPicture",
+        picture = CreateUnityAppIconResource(),
+        largeIcon = CreateUnityAppIconResource(),
+        hideExpandedLargeIcon = false,
+        bigText = "Your login streak chest is waiting in town. Claim it now to keep your reward multiplier active.",
+        bigContentTitle = "Daily Reward Ready",
+        summaryText = "Town Reward"
+    }
+});
+
+AndroidNotificationManager.Instance.UpdateNotification(updatedNotificationJson);
+#endif
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_UpdateNotification.png" alt="Example_AndroidNotificationManager_UpdateNotification" width="400" />
+</p>
+
+#### Cancel
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+// Cancel a specific notification
+AndroidNotificationManager.Instance.CancelNotification(1001);
+AndroidNotificationManager.Instance.CancelNotification(1001, "energy");
+
+// Cancel all notifications
+AndroidNotificationManager.Instance.CancelAllNotifications();
+#endif
+```
+
+---
+
+### Notification Styles
+
+Set the `style` field in the notification payload.
+
+#### Default
+
+```csharp
+// No style field — renders as a standard notification.
+```
+
+#### BigText
+
+Displays long text when the notification is expanded.
+
+```csharp
+style = new AndroidNotificationStylePayload
+{
+    type = "bigText",
+    bigText = "Long body text shown when the notification is expanded.",
+    bigContentTitle = "Expanded Title",
+    summaryText = "Summary"
+}
+```
+
+#### Inbox
+
+Displays multiple lines in list format when expanded. Pass each line in the `lines` array.
+
+```csharp
+style = new AndroidNotificationStylePayload
+{
+    type = "inbox",
+    lines = new[] { "Item 1", "Item 2", "Item 3" },
+    bigContentTitle = "Expanded Title",
+    summaryText = "3 items"
+}
+```
+
+#### BigPicture
+
+Displays an image when the notification is expanded. Pass a resource reference in `picture`.
+
+```csharp
+style = new AndroidNotificationStylePayload
+{
+    type = "bigPicture",
+    picture = new AndroidNotificationResourcePayload { name = "my_image", type = "drawable" },
+    bigContentTitle = "Expanded Title",
+    summaryText = "Image description"
+}
+```
+
+---
+
+### Custom View Styles
+
+Display notifications using a custom Android layout.
+
+#### DecoratedCustomView
+
+Provide collapsed and optional expanded layout resource names. Layout XML files must be placed in `Assets/Plugins/Android/com.jonghyunkim.nativetoolkit.androidlib/res/layout/` (prefixed with `nt_` to avoid resource name conflicts).
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1601,
+    title = "Custom Layout Notification",
+    message = "Expand to see the custom view and tap Dismiss.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    autoCancel = true,
+    style = new AndroidNotificationStylePayload
+    {
+        type = "decoratedCustomView",
+        customViewLayout = "nt_notification_custom_view_sample",         // collapsed layout
+        bigCustomViewLayout = "nt_notification_custom_view_sample_expanded", // expanded layout (optional)
+        viewActions = new[]
+        {
+            new AndroidNotificationViewActionPayload
+            {
+                type = "setClickIntent",
+                viewId = "nt_notification_btn_dismiss",  // view ID in the layout
+                actionId = "com.jonghyunkim.nativetoolkit.ACTION_CUSTOM_VIEW_DISMISS"  // received in NotificationActionTapped
+            }
+        }
+    }
+});
+
+AndroidNotificationManager.Instance.ShowNotification(notificationJson);
+#endif
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ShowDecoratedCustomViewNotification.png" alt="Example_AndroidNotificationManager_ShowDecoratedCustomViewNotification" width="400" />
+</p>
+
+> **Note:** Due to `RemoteViews` constraints, use `LinearLayout` + `TextView` instead of `Button` for clickable elements.
+
+---
+
+### Interaction
+
+#### NotificationOperationCompleted event
+
+Fired after each operation (show, cancel, schedule, etc.) completes.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+#endif
+
+private void OnOperationCompleted(AndroidNotificationResult result)
+{
+    // result.Operation     — e.g. AndroidNotificationManager.OperationShowNotification
+    // result.IsSuccess     — true on success
+    // result.ErrorMessage  — non-null on failure
+}
+```
+
+Operation constants:
+
+| Constant                                                                | Description                                   |
+| ----------------------------------------------------------------------- | --------------------------------------------- |
+| `AndroidNotificationManager.OperationShowNotification`                  | `ShowNotification` completed                  |
+| `AndroidNotificationManager.OperationUpdateNotification`                | `UpdateNotification` completed                |
+| `AndroidNotificationManager.OperationCancelNotification`                | `CancelNotification` completed                |
+| `AndroidNotificationManager.OperationCancelAllNotifications`            | `CancelAllNotifications` completed            |
+| `AndroidNotificationManager.OperationScheduleNotification`              | `ScheduleNotification` completed              |
+| `AndroidNotificationManager.OperationCancelScheduledNotification`       | `CancelScheduledNotification` completed       |
+| `AndroidNotificationManager.OperationCancelAllScheduledNotifications`   | `CancelAllScheduledNotifications` completed   |
+| `AndroidNotificationManager.OperationStartProgressForegroundService`    | `StartProgressForegroundService` completed    |
+| `AndroidNotificationManager.OperationUpdateProgressForegroundService`   | `UpdateProgressForegroundService` completed   |
+| `AndroidNotificationManager.OperationCompleteProgressForegroundService` | `CompleteProgressForegroundService` completed |
+| `AndroidNotificationManager.OperationStopProgressForegroundService`     | `StopProgressForegroundService` completed     |
+
+#### NotificationActionTapped event
+
+Fired when the user taps the notification body, a notification action button, or dismisses the notification.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.NotificationActionTapped += OnActionTapped;
+#endif
+
+private void OnActionTapped(AndroidNotificationActionResult result)
+{
+    bool isBodyTap = result.ActionId == AndroidNotificationManager.ActionBodyTap;
+    bool isDismiss = result.ActionId == AndroidNotificationManager.ActionNotificationDismissed;
+
+    // result.NotificationId — notification ID
+    // result.ActionId       — action identifier
+    // result.Data           — Dictionary<string, string> custom data payload (may be null)
+}
+```
+
+To send custom data, populate `data` entries and pass the payload through `AndroidNotificationJsonBuilder`:
+
+```csharp
+payload.data = new[]
+{
+    new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+    new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+};
+
+string json = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
+```
+
+#### NotificationReceived event
+
+Fired when a scheduled notification fires while the app is in the foreground.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.NotificationReceived += OnNotificationReceived;
+#endif
+
+private void OnNotificationReceived(AndroidNotificationReceivedResult result)
+{
+    // result.NotificationId — notification ID
+    // result.Tag            — tag (may be null)
+    // result.ChannelId      — channel ID
+}
+```
+
+#### Action buttons
+
+Add action buttons to a notification.
+
+```csharp
+AndroidNotificationPayload payload = new AndroidNotificationPayload
+{
+    id = 1401,
+    title = "Match Found",
+    message = "A ranked match is ready. Accept within 30 seconds.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    autoCancel = true,
+    priority = 1,
+    launchAction = "open_battle_screen",
+    actions = new[]
+    {
+        new AndroidNotificationActionPayload
+        {
+            title = "Play Now",
+            actionId = "com.jonghyunkim.nativetoolkit.ACTION_PLAY_NOW",
+            icon = CreateUnityAppIconResource(),
+            launchApp = true,
+            showsUserInterface = true
+        },
+        new AndroidNotificationActionPayload
+        {
+            title = "Dismiss",
+            actionId = "com.jonghyunkim.nativetoolkit.ACTION_DISMISS",
+            launchApp = false,
+            showsUserInterface = false
+        }
+    },
+    data = new[]
+    {
+        new AndroidNotificationDataEntryPayload { key = "screen", value = "battle" },
+        new AndroidNotificationDataEntryPayload { key = "matchId", value = "match_5678" }
+    }
+};
+
+string notificationJson = AndroidNotificationJsonBuilder.BuildNotificationJson(payload);
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ShowActionNotification.png" alt="Example_AndroidNotificationManager_ShowActionNotification" width="400" />
+</p>
+
+#### Full-screen intent
+
+Launches a full-screen activity when the device is locked or the screen is off (e.g. alarms, incoming calls). Set `fullScreenIntent = true` and use a high-priority channel (`importance = 4`).
+
+```csharp
+new AndroidNotificationPayload
+{
+    id = 1501,
+    title = "Match Starting",
+    message = "Your match begins now. Launching game screen.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    priority = 2,
+    category = "call",
+    fullScreenIntent = true,
+    autoCancel = true
+}
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ShowFullScreenNotification.png" alt="Example_AndroidNotificationManager_ShowFullScreenNotification" width="400" />
+</p>
+
+> **Note:** Depending on device state and Android policy, the notification may appear as a heads-up notification instead of full-screen.
+
+---
+
+### Progress Notifications
+
+Display a progress bar for downloads or long-running operations.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+// Start with a determinate progress bar
+AndroidNotificationManager.Instance.StartProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1301,
+    title = "Downloading Guild Battle Assets",
+    message = "Preparing the arena for your next match.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    ongoing = true,
+    autoCancel = false,
+    progress = new AndroidNotificationProgressPayload { max = 100, current = _currentProgressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
+    {
+        type = "bigText",
+        bigText = "Preparing the arena for your next match. Keep the app alive while assets finish downloading.",
+        bigContentTitle = "Downloading Guild Battle Assets",
+        summaryText = "Background Download"
+    }
+}));
+
+// Update progress
+AndroidNotificationManager.Instance.UpdateProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1301,
+    title = "Crafting Legendary Gear",
+    message = "The forge is running at full power.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    ongoing = true,
+    autoCancel = false,
+    onlyAlertOnce = true,
+    progress = new AndroidNotificationProgressPayload { max = 100, current = progressValue, indeterminate = false },
+    style = new AndroidNotificationStylePayload
+    {
+        type = "bigText",
+        bigText = "The forge is running at full power. Stay ready to equip the reward when crafting finishes.",
+        bigContentTitle = "Crafting Legendary Gear",
+        summaryText = "Forge Update"
+    }
+}));
+
+// Complete — stop service and demote to a regular notification
+AndroidNotificationManager.Instance.CompleteProgressForegroundService(AndroidNotificationJsonBuilder.BuildNotificationJson(new AndroidNotificationPayload
+{
+    id = 1301,
+    title = "Crafting Complete",
+    message = "Your legendary sword is ready to claim.",
+    channel = CreateGameplayChannelReference(),
+    smallIcon = CreateUnityAppIconResource(),
+    ongoing = false,
+    autoCancel = true,
+    progress = new AndroidNotificationProgressPayload { max = 100, current = 100, indeterminate = false },
+    style = new AndroidNotificationStylePayload
+    {
+        type = "bigText",
+        bigText = "Your legendary sword is ready to claim. Return to the forge and equip it before the next battle.",
+        bigContentTitle = "Crafting Complete",
+        summaryText = "Forge Complete"
+    }
+}));
+
+// Force stop — also removes the notification
+AndroidNotificationManager.Instance.StopProgressForegroundService();
+#endif
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ProgressNotification.png" alt="Example_AndroidNotificationManager_ProgressNotification" width="400" />
+</p>
+
+---
+
+### Foreground Service Notifications
+
+The library declares the foreground service (type `dataSync`) in its own manifest, so you do not add a `<service>` entry. If you added one for 1.12.0, remove it: see [Changes in 1.13.0](#changes-in-1130).
+
+Use `StartProgressForegroundService`, `UpdateProgressForegroundService`, `CompleteProgressForegroundService`, and `StopProgressForegroundService` as shown in [Progress Notifications](#progress-notifications).
+
+---
+
+### Scheduled Notifications
+
+Automatically show a notification at a specified time.
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+long triggerTime = DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds();
+
+string scheduleJson = AndroidNotificationJsonBuilder.BuildScheduledNotificationJson(new AndroidScheduledNotificationEnvelopePayload
+{
+    notification = new AndroidNotificationPayload
+    {
+        id = 1201,
+        title = "Guild Battle Starts Soon",
+        message = "Your team queue opens in 15 seconds. Rally your guild and prepare to deploy.",
+        tag = "guild-battle",
+        channel = CreateGameplayChannelReference(),
+        smallIcon = CreateUnityAppIconResource(),
+        autoCancel = true,
+        priority = 1,
+        groupKey = "guild-events",
+        sortKey = "001",
+        style = new AndroidNotificationStylePayload
+        {
+            type = "bigText",
+            bigText = "Your team queue opens in 15 seconds. Rally your guild, finalize your loadout, and prepare to deploy.",
+            bigContentTitle = "Guild Battle Starts Soon",
+            summaryText = "Guild Event"
+        }
+    },
+    schedule = new AndroidNotificationSchedulePayload
+    {
+        triggerAtMillis = triggerTime,
+        exact = true,           // exact alarm (requires SCHEDULE_EXACT_ALARM)
+        allowWhileIdle = true,  // fires even in Doze mode
+        persistAcrossBoot = true,
+        alarmType = 0           // RTC_WAKEUP
+    }
+});
+
+AndroidNotificationManager.Instance.ScheduleNotification(scheduleJson);
+#endif
+```
+
+<p align="center">
+    <img src="images/android/notification/Example_AndroidNotificationManager_ScheduleNotification.png" alt="Example_AndroidNotificationManager_ScheduleNotification" width="400" />
+</p>
+
+#### Cancel scheduled notifications
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+AndroidNotificationManager.Instance.CancelScheduledNotification(1201, "guild-battle");
+AndroidNotificationManager.Instance.CancelAllScheduledNotifications();
+#endif
+```
+
+#### Check scheduled status
+
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1201, "guild-battle");
+#endif
+```
+
+> **Note:** `IsNotificationScheduled` and `CancelAllScheduledNotifications` see only the schedules made with `persistAcrossBoot = true` (the default). Cancel a schedule made with `persistAcrossBoot = false` by ID with `CancelScheduledNotification`.
+
+---
+
+## iOS
+
+### Overview
+
+iOS notifications are provided through `IosNotificationManager`. The sample scene demonstrates permission flow, immediate notifications, attachment notifications, scheduled notifications, category/actions, and badge operations.
+
+#### Supported capabilities
+
+- Request permission / check authorization status / open notification settings
+- Immediate notifications (including attachment notifications)
+- Scheduled notifications (time interval / calendar / location)
+- Update / cancel / remove delivered / fetch lists
+- Badge count management
+- Category registration / actions / text input actions
+
+#### Basic setup
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+IosNotificationManager.Instance.RequestPermission(result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("iOS notification permission granted");
+    }
+    else
+    {
+        Debug.LogError($"Permission failed: {result.ErrorMessage}");
+    }
+});
+
+IosNotificationManager.Instance.GetAuthorizationStatus(status =>
+{
+    Debug.Log($"Authorization status: {status}");
+});
+#endif
+```
+
+<a id="ios-basic-setup-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
+</p>
+
+#### Show an immediate notification
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    sound = "default",
+    categoryIdentifier = "sample-category"
+};
+
+var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<a id="ios-show-immediate-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediate.png" alt="Example_IosNotificationManager_ShowImmediate" width="400" />
+</p>
+
+#### Show an immediate notification with an app icon attachment
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "sample-notification",
+    title = "Immediate Notification with Attachment",
+    body = "Displayed with app icon attachment.",
+    sound = "default",
+    attachments = new[]
+    {
+        new NotificationAttachmentPayload
+        {
+            identifier = "app-icon",
+            fileURL = appIconFileUrl
+        }
+    }
+};
+
+var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
+#endif
+```
+
+<a id="ios-show-attachment-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ShowImmediateWithAttachment.png" alt="Example_IosNotificationManager_ShowImmediateWithAttachment" width="400" />
+</p>
+
+#### Schedule a notification
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "scheduled-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
+    sound = "default"
+};
+
+var trigger = new TimeIntervalTriggerPayload
+{
+    repeats = false,
+    interval = 10.0
+};
+
+string contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
+string triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+
+IosNotificationManager.Instance.ScheduleNotification(
+    contentJson,
+    triggerJson,
+    "scheduled-notification",
+    result => Debug.Log($"ScheduleNotification: {result.IsSuccess}"));
+#endif
+```
+
+<a id="ios-schedule-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
+</p>
+
+Use `CalendarTriggerPayload` for calendar schedules and `LocationTriggerPayload` for location-based schedules.
+
+#### Register categories and actions
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+var category = new IosNotificationCategoryPayload
+{
+    identifier = "sample-category",
+    actions = new[]
+    {
+        new IosNotificationActionPayload
+        {
+            identifier = "open",
+            title = "Open",
+            options = new[] { "foreground" }
+        }
+    },
+    textInputActions = new[]
+    {
+        new IosNotificationTextInputActionPayload
+        {
+            identifier = "reply",
+            title = "Reply",
+            buttonTitle = "Send",
+            textInputPlaceholder = "Type a message"
+        }
+    }
+};
+
+string categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
+IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
+#endif
+```
+
+<a id="ios-category-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_RegisterCategory.png" alt="Example_IosNotificationManager_RegisterCategory" width="400" />
+</p>
+
+#### Receive events
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+IosNotificationManager.Instance.NotificationOperationCompleted += result =>
+{
+    Debug.Log($"Operation={result.Operation}, Success={result.IsSuccess}");
+};
+
+IosNotificationManager.Instance.NotificationActionReceived += result =>
+{
+    Debug.Log($"Action={result.ActionId}, Notification={result.NotificationId}");
+};
+
+IosNotificationManager.Instance.NotificationTextInputActionReceived += result =>
+{
+    Debug.Log($"TextInput={result.UserText}");
+};
+#endif
+```
+
+<a id="ios-events-sample"></a>
+
+<p align="center">
+    <img src="images/ios/notification/Example_IosNotificationManager_Result.png" alt="Example_IosNotificationManager_Result" width="400" />
+</p>
+
+---
+
+## Windows
+
+Windows notifications are provided through `WindowsNotificationManager`. The sample scene demonstrates initialization, immediate notifications, scheduled notifications, progress-bar notifications, removing notifications, and querying notification permission — all for unpackaged Win32 apps built with Unity.
+
+### Changes in 1.12.0
+
+Since 1.12.0 Windows notifications run on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the JSON payload and its units are unchanged. What differs from 1.11.0:
+
+- **Namespace.** `WindowsNotificationManager` and its payload, builder and result types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Notification`. Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` in Windows code. The iOS and macOS types keep their namespace; the Android types moved to `JonghyunKim.NativeToolkit.Runtime.Android.Notification` in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
+- **Clicks now arrive.** In an unpackaged app (every Unity Windows standalone build), clicking a notification or one of its buttons while the app is running raises `NotificationInvoked`. In 1.11.0 the click was not delivered. A click while the app is not running starts it, and the click is delivered once after `Initialize`.
+- **Registration.** `Initialize` also writes `HKCU\Software\Classes\AppUserModelId\<displayName>\CustomActivator`, which routes clicks to this executable. **Two applications that use the same `displayName` compete for the clicks**: give each build its own display name.
+- **Error code `-4`** ("Native library unavailable"). Only `Initialize` returns it: the native library is missing, lacks a function, cannot be loaded, or is not C ABI 2.x. No manager is created, so later operations fail with `1`.
+- **The Editor.** The Windows notification API does nothing in the Editor and reports nothing.
+
+| Case | 1.11.0 | 1.12.0 |
+| --- | --- | --- |
+| A JSON key that is missing, of the wrong type, or `null` | `5` | `7` |
+| A JSON number that does not fit a `double` (`1e400`, `1e-400`) | `5` | `3` |
+| A decimal in the JSON that rounds to 0 | Succeeded with 0 | `3` |
+| JSON nested deeper than 512 containers | `5` | `3` |
+| A `null` payload | The process crashed | `3` |
+| `NUL` inside a string | Passed on in full | Cut at the `NUL` |
+| `timestamp`, `expiration` or `scheduledTimeUnixMs` out of range | Passed on unchecked | `7` |
+| The arguments of a button with two or more of them | In an unspecified order | In the order of the JSON |
+| `UpdateNotificationProgress` with `valueStr` or `status` set to `null` | That field was left unchanged | That field is set to `""` |
+| The native library is missing or cannot be loaded | An exception from any method | `Initialize` returns `-4`; other methods `1` |
+| Any other exception in C# | Thrown to the caller | `5` |
+| After the manager is destroyed | The Windows App SDK runtime stayed initialized | It is shut down once; a new manager's `Initialize` starts it again |
+| Unpaired surrogates in strings | Passed through | Replaced with U+FFFD |
+
+Unchanged: a second `Initialize` succeeds; `timestamp` is in seconds; `Audio.Src` is still not read by the native layer, so the default sound plays whatever it holds.
+
+### Supported capabilities
+
+- Initialize the Windows App SDK runtime and register the notification callback
+- Show immediate notifications
+- Schedule notifications for future delivery
+- Cancel scheduled notifications
+- Show and update progress-bar notifications
+- Remove notifications by tag or remove all
+- Query notification permission setting
+- Open system notification settings
+- Receive notification activation events (including cold-start activation)
+
+### Setup
+
+#### Requirements
+
+- Windows 11 or later
+- [Windows App Runtime 1.7.2 (1.7.250513003)](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads-archive) installed on the target machine
+- `StreamingAssets/app-icon.png` — place the notification icon at this path; Unity includes it in the build output automatically
+
+#### Import the namespace
+
+```csharp
+using JonghyunKim.NativeToolkit.Runtime.Windows.Notification;
+```
+
+> **Note:** Wrap all Windows notification calls in `#if UNITY_STANDALONE_WIN && !UNITY_EDITOR` to prevent native calls from running in the Editor.
+
+### Initialize
+
+Call `Initialize` once before using any other notification API. For unpackaged apps (all Unity Windows standalone builds), pass `isPackaged: false` along with a display name and icon URI.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+string iconPath = System.IO.Path.Combine(Application.streamingAssetsPath, "app-icon.png");
+string iconUri  = new Uri(iconPath).AbsoluteUri; // file:/// URI format
+
+WindowsNotificationManager.Instance.Initialize(
+    isPackaged: false,
+    displayName: Application.productName,
+    iconUri: iconUri,
+    onResult: result =>
+    {
+        if (result.IsSuccess)
+            Debug.Log("Windows notification initialized");
+        else
+            Debug.LogError($"Initialize failed: {result.ErrorMessage}");
+    });
+#endif
+```
+
+> **Note:** `iconUri` is required for unpackaged apps. `new Uri(path).AbsoluteUri` produces the `file:///` format expected by the Windows App SDK.
+
+
+### Show notification
+
+#### Immediate notification
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "Energy Refilled",
+    Body    = "Your squad is fully rested. Jump back in and clear the next raid.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowNotification.png" alt="Example_WindowsNotificationManager_ShowNotification" width="720" />
+</p>
+
+### Scheduled notifications
+
+#### Schedule
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+var payload = new WindowsNotificationPayload
+{
+    Title   = "Guild Battle Starts Soon",
+    Body    = "Battle queue opens in 1 minute. Finalize your loadout and deploy.",
+    Tag     = "win-sample-notification",
+    Group   = "win-sample-group",
+    Buttons = new List<WindowsNotificationButtonPayload>
+    {
+        new() { Label = "Open", Args = new Dictionary<string, string> { ["action"] = "open" } }
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+long scheduledTimeUnixMs = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds();
+
+WindowsNotificationManager.Instance.ScheduleNotification(json, scheduledTimeUnixMs, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ScheduleNotification.png" alt="Example_WindowsNotificationManager_ScheduleNotification" width="720" />
+</p>
+
+#### Cancel scheduled
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.CancelScheduledNotification(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"CancelScheduled: {result.IsSuccess}"));
+#endif
+```
+
+
+### Update progress
+
+Show a progress-bar notification first, then update it with `UpdateNotificationProgress`. Both calls must use the same `tag` and `group`. `_sequenceNumber` must increase on each update call.
+
+#### Show progress notification
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+uint sequenceNumber = 0; // reset when showing a new progress notification
+
+var payload = new WindowsNotificationPayload
+{
+    Title    = "Downloading...",
+    Tag      = "win-sample-notification",
+    Group    = "win-sample-group",
+    Progress = new WindowsNotificationProgressPayload
+    {
+        Value    = 0.3,
+        ValueStr = "30%",
+        Status   = "Downloading"
+    }
+};
+
+string json = WindowsNotificationJsonBuilder.BuildNotificationPayload(payload);
+WindowsNotificationManager.Instance.ShowNotification(json, result =>
+{
+    Debug.Log($"ShowProgressNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_ShowProgressNotification.png" alt="Example_WindowsNotificationManager_ShowProgressNotification" width="720" />
+</p>
+
+#### Update progress
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+sequenceNumber++; // must be greater than the previous value
+
+WindowsNotificationManager.Instance.UpdateNotificationProgress(
+    tag:            "win-sample-notification",
+    group:          "win-sample-group",
+    value:          0.5,
+    valueStr:       "50%",
+    status:         "Downloading...",
+    sequenceNumber: sequenceNumber,
+    onResult: result =>
+    {
+        if (!result.IsSuccess && result.ErrorCode == 4)
+            Debug.LogWarning("Progress notification not found. Call ShowProgressNotification first.");
+        else
+            Debug.Log($"UpdateProgress: {result.IsSuccess}");
+    });
+#endif
+```
+
+> **Note:** Call `ShowProgressNotification` before `UpdateNotificationProgress`. If the progress notification is no longer visible in Notification Center, error code `4` (`NOTIFICATION_ERROR_PROGRESS_NOT_FOUND`) is returned.
+
+<p align="center">
+  <img src="images/windows/notification/Example_WindowsNotificationManager_UpdateProgress.png" alt="Example_WindowsNotificationManager_UpdateProgress" width="720" />
+</p>
+
+### Remove notifications
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+// Remove notifications matching a specific tag and group
+WindowsNotificationManager.Instance.RemoveNotificationsByTag(
+    "win-sample-notification",
+    "win-sample-group",
+    result => Debug.Log($"RemoveByTag: {result.IsSuccess}"));
+
+// Remove all notifications from Notification Center
+WindowsNotificationManager.Instance.RemoveAllNotifications(result =>
+{
+    Debug.Log($"RemoveAll: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### Query
+
+#### Notification permission setting
+
+`GetNotificationSetting` is synchronous and returns immediately.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationSetting setting = WindowsNotificationManager.Instance.GetNotificationSetting();
+Debug.Log($"NotificationSetting: {setting}");
+// Enabled / DisabledForApplication / DisabledForUser / DisabledByGroupPolicy / DisabledByManifest / Unknown
+#endif
+```
+
+#### Open notification settings
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+WindowsNotificationManager.Instance.OpenNotificationSettings(result =>
+{
+    Debug.Log($"OpenNotificationSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+
+### Receive events
+
+Subscribe in `OnEnable` and unsubscribe in `OnDisable`.
+
+```csharp
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+private void OnEnable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted += OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            += OnNotificationInvoked;
+}
+
+private void OnDisable()
+{
+    WindowsNotificationManager.Instance.NotificationOperationCompleted -= OnOperationCompleted;
+    WindowsNotificationManager.Instance.NotificationInvoked            -= OnNotificationInvoked;
+}
+
+private void OnOperationCompleted(WindowsNotificationResult result)
+{
+    Debug.Log($"Operation={result.Operation}, IsSuccess={result.IsSuccess}");
+}
+
+private void OnNotificationInvoked(string argsJson)
+{
+    // Fired when the user clicks the notification or an action button.
+    // Also fired on cold start: if the app was launched by clicking a notification,
+    // call Initialize() after the scene loads to receive the activation args.
+    // argsJson example: {"action":"open"}
+    Debug.Log($"NotificationInvoked: {argsJson}");
+}
+#endif
+```
+
+#### Operation constants
+
+| Constant | Description |
+|---|---|
+| `WindowsNotificationManager.OperationInitialize` | `Initialize` completed |
+| `WindowsNotificationManager.OperationShow` | `ShowNotification` completed |
+| `WindowsNotificationManager.OperationSchedule` | `ScheduleNotification` completed |
+| `WindowsNotificationManager.OperationCancelScheduled` | `CancelScheduledNotification` completed |
+| `WindowsNotificationManager.OperationUpdateProgress` | `UpdateNotificationProgress` completed |
+| `WindowsNotificationManager.OperationRemoveByTag` | `RemoveNotificationsByTag` completed |
+| `WindowsNotificationManager.OperationRemoveAll` | `RemoveAllNotifications` completed |
+| `WindowsNotificationManager.OperationOpenSettings` | `OpenNotificationSettings` completed |
+
+---
+
+## macOS
+
+macOS notifications are provided through `MacNotificationManager`. The sample scene demonstrates permission flow, immediate notifications, scheduled notifications, category and action registration, badge management, and query operations.
+
+### Supported capabilities
+
+- Request permission / check authorization status / open system notification settings
+- Immediate notifications
+- Scheduled notifications (time interval / calendar)
+- Update / cancel / remove delivered notifications
+- Fetch scheduled and delivered notification lists
+- Badge count management
+- Category registration / actions / text input actions
+
+### Basic setup
+
+```csharp
+// Guard: macOS Standalone only. Prevents native calls in the Editor.
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.Notification;
+#endif
+```
+
+---
+
+### Permission
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Request notification permission
+MacNotificationManager.Instance.RequestPermission(result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("macOS notification permission granted");
+    }
+    else
+    {
+        Debug.LogError($"Permission failed: {result.ErrorMessage}");
+    }
+});
+
+// Check whether notification permission is granted
+MacNotificationManager.Instance.HasPermission(hasPermission =>
+{
+    Debug.Log($"HasPermission: {hasPermission}");
+});
+
+// Get full authorization status
+MacNotificationManager.Instance.GetAuthorizationStatus(result =>
+{
+    var status = MacNotificationAuthorizationStatusParser.ParseJson(result.Json);
+    Debug.Log($"AuthorizationStatus: {status}");
+});
+
+// Open system notification settings
+MacNotificationManager.Instance.OpenSettings(result =>
+{
+    Debug.Log($"OpenSettings: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RequestPermission.png" alt="Example_MacNotificationManager_RequestPermission" width="720" />
+</p>
+
+---
+
+### Show notification
+
+#### Immediate
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Energy Refilled",
+    body = "Your squad is fully rested. Jump back in and clear the next raid.",
+    categoryIdentifier = "mac-sample-category"
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    if (result.IsSuccess)
+    {
+        Debug.Log("Notification shown");
+    }
+    else
+    {
+        Debug.LogError($"ShowNotification failed: {result.ErrorMessage}");
+    }
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowImmediate.png" alt="Example_MacNotificationManager_ShowImmediate" width="720" />
+</p>
+
+#### Time interval trigger
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Countdown",
+    body = "Your team queue opens in 5 seconds. Rally your party and get ready."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowTimeInterval.png" alt="Example_MacNotificationManager_ShowTimeInterval" width="720" />
+</p>
+
+#### Calendar trigger
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var now = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Ready",
+    body = "Your login streak chest is ready in town. Claim it before reset."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = now.Year,
+    month = now.Month,
+    day = now.Day,
+    hour = now.Hour,
+    minute = now.Minute,
+    second = now.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ShowNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_ShowCalendar.png" alt="Example_MacNotificationManager_ShowCalendar" width="720" />
+</p>
+
+---
+
+### Update, cancel, and remove
+
+#### Update
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Town Entry Bonus",
+    body = "Welcome back to town. Your blacksmith bonus is now available."
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+MacNotificationManager.Instance.UpdateNotification("mac-sample-notification", contentJson, null, result =>
+{
+    Debug.Log($"UpdateNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Cancel
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Cancel a pending notification by ID
+MacNotificationManager.Instance.CancelNotification("mac-sample-notification");
+
+// Cancel all pending notifications
+MacNotificationManager.Instance.CancelAllNotifications();
+#endif
+```
+
+#### Remove delivered
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Remove a delivered notification from Notification Center
+MacNotificationManager.Instance.RemoveDeliveredNotification("mac-sample-notification");
+
+// Remove all delivered notifications from Notification Center
+MacNotificationManager.Instance.RemoveAllDeliveredNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Update.png" alt="Example_MacNotificationManager_Update" width="720" />
+</p>
+
+---
+
+### Scheduled notifications
+
+Schedule a notification to appear at a future time without blocking the game loop.
+
+#### Time interval
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Guild Battle Starts Soon",
+    body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy."
+};
+var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Calendar
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var future = DateTime.Now.AddMinutes(1);
+var content = new NotificationContentPayload
+{
+    id = "mac-sample-notification",
+    title = "Daily Reward Window",
+    body = "Your daily reward window is open. Check in now to keep your streak."
+};
+var trigger = new CalendarTriggerPayload
+{
+    year = future.Year,
+    month = future.Month,
+    day = future.Day,
+    hour = future.Hour,
+    minute = future.Minute,
+    second = future.Second,
+    repeats = false
+};
+var contentJson = MacNotificationJsonBuilder.BuildContentJson(content);
+var triggerJson = MacNotificationJsonBuilder.BuildCalendarTriggerJson(trigger);
+MacNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, result =>
+{
+    Debug.Log($"ScheduleNotification: {result.IsSuccess}");
+});
+#endif
+```
+
+#### Cancel scheduled
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Cancel a specific scheduled notification by ID
+MacNotificationManager.Instance.CancelScheduledNotification("mac-sample-notification");
+
+// Cancel all scheduled notifications
+MacNotificationManager.Instance.CancelAllScheduledNotifications();
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Schedule.png" alt="Example_MacNotificationManager_Schedule" width="720" />
+</p>
+
+---
+
+### Query
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Fetch pending scheduled notifications
+MacNotificationManager.Instance.GetScheduledNotifications(result =>
+{
+    Debug.Log($"GetScheduled: {result.Json}");
+});
+
+// Fetch delivered notifications in Notification Center
+MacNotificationManager.Instance.GetDeliveredNotifications(result =>
+{
+    Debug.Log($"GetDelivered: {result.Json}");
+});
+#endif
+```
+
+---
+
+### Badge
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+// Set badge count to 1
+MacNotificationManager.Instance.SetBadgeCount(1, result =>
+{
+    Debug.Log($"SetBadgeCount(1): {result.IsSuccess}");
+});
+
+// Clear the badge
+MacNotificationManager.Instance.SetBadgeCount(0, result =>
+{
+    Debug.Log($"SetBadgeCount(0): {result.IsSuccess}");
+});
+#endif
+```
+
+---
+
+### Category and actions
+
+Register a category with action buttons before sending a notification that uses `categoryIdentifier`.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+var category = new MacNotificationCategoryPayload
+{
+    id = "mac-sample-category",
+    actions = new[]
+    {
+        new MacNotificationActionPayload
+        {
+            id = "open",
+            title = "Open",
+            isForeground = true,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "delete",
+            title = "Delete",
+            isForeground = false,
+            isTextInput = false
+        },
+        new MacNotificationActionPayload
+        {
+            id = "reply",
+            title = "Reply",
+            isForeground = false,
+            isTextInput = true,
+            textInputPlaceholder = "Type a message"
+        }
+    }
+};
+string categoryJson = MacNotificationJsonBuilder.BuildCategoryJson(category);
+MacNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+To see action buttons, hover over the notification banner and click the Options (▼) button.
+
+#### Remove a category
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+MacNotificationManager.Instance.RemoveCategory("mac-sample-category", result =>
+{
+    Debug.Log($"RemoveCategory: {result.IsSuccess}");
+});
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_RegisterCategory.png" alt="Example_MacNotificationManager_RegisterCategory" width="720" />
+</p>
+
+---
+
+### Receive events
+
+Subscribe in `OnEnable` and unsubscribe in `OnDisable`.
+
+```csharp
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+private void OnEnable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived += OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived += OnNotificationTextInputActionReceived;
+}
+
+private void OnDisable()
+{
+    MacNotificationManager.Instance.NotificationActionReceived -= OnNotificationActionReceived;
+    MacNotificationManager.Instance.NotificationTextInputActionReceived -= OnNotificationTextInputActionReceived;
+}
+
+private void OnNotificationActionReceived(MacNotificationActionResult result)
+{
+    Debug.Log($"Action: notificationId={result.NotificationId}, actionId={result.ActionId}");
+}
+
+private void OnNotificationTextInputActionReceived(MacNotificationTextInputActionResult result)
+{
+    Debug.Log($"TextInput: notificationId={result.NotificationId}, actionId={result.ActionId}, userText={result.UserText}");
+}
+#endif
+```
+
+<p align="center">
+    <img src="images/mac/notification/Example_MacNotificationManager_Result.png" alt="Example_MacNotificationManager_Result" width="720" />
+</p>
