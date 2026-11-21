@@ -16,13 +16,14 @@ namespace JonghyunKim.NativeToolkit.Editor.iOS
     /// <remarks>
     /// The three places that pick the iOS XCFrameworks - <c>PreBuildProcessor</c> (dist to Plugins/iOS),
     /// <c>PostBuildProcessor</c> (Plugins/iOS to the exported Xcode project) and
-    /// <c>IosFrameworkPatcher</c> (the same, from the menu) - used to take the highest-sorting folder
+    /// <c>IosFrameworkPatcher</c> (the same, from the menu; removed in stage 4 of the C ABI 2.0.0 move, since
+    /// Unity links and embeds the XCFrameworks by their .meta) - used to take the highest-sorting folder
     /// whose name starts with <c>ios-native-toolkit-</c> or <c>unity-ios-native-toolkit-</c>. The first
     /// prefix also matches <c>ios-native-toolkit-capi-2.0.0.xcframework</c>, which sorts after
     /// <c>ios-native-toolkit-2.0.0.xcframework</c> ('c' &gt; '2'), so with both present the Swift
     /// library's slot would get the C ABI. Android and Windows broke the same way when native-toolkit
     /// published a new dist, and are pinned the same way (<c>AndroidPin</c>, <c>WindowsPin</c>).
-    /// All three now read this pin and match names exactly.
+    /// They read this pin and match names exactly (the menu tool, while it existed, too).
     /// <para>
     /// The pin lives in <c>NativeToolkit.Editor</c> because the build steps sit in two assemblies:
     /// <c>NativeToolkit.BuildProcessors.Editor</c>, which only compiles with

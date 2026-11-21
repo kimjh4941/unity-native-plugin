@@ -100,10 +100,6 @@
   - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "iOS Profile" -> Build.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project.
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  - Click "Browse" and select the built iOS project.
-  - Click "Run: Add/Embed iOS XCFrameworks" to add NativeToolkit libraries.
   - Install the sample app from Xcode.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">Reference</a>
 

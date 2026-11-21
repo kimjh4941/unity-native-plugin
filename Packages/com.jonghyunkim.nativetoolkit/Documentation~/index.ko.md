@@ -100,10 +100,6 @@
   - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "iOS Profile" -> Build를 실행합니다.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project를 선택합니다.
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  - "Browse"를 클릭하고 빌드된 iOS 프로젝트를 선택합니다.
-  - "Run: Add/Embed iOS XCFrameworks"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
   - Xcode에서 샘플 앱을 설치합니다.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">참고</a>
 

@@ -1,14 +1,14 @@
 # Which native-toolkit artifacts this folder holds, and where they came from.
 #
-# PreBuildProcessor (the development copy from dist), IosXcodeProjectSetup (the
-# post-build check that Unity linked and embedded these) and IosFrameworkPatcher
-# READ the keys below from this file (Editor/iOS/IosXcframeworkPin.cs). Unity itself
+# PreBuildProcessor (the development copy from dist) and IosXcodeProjectSetup (the
+# post-build check that Unity linked and embedded these) READ the keys below from
+# this file (Editor/iOS/IosXcframeworkPin.cs). Unity itself
 # links the XCFrameworks and embeds them through AddToEmbeddedBinaries in their .meta.
 # They do not scan for a name
 # prefix and take the highest-sorting match: the prefix "ios-native-toolkit-" also
 # matches ios-native-toolkit-capi-*, which sorts after ios-native-toolkit-2.0.0.
 # If a required key is missing, or an XCFramework it names is not there, the build
-# FAILS (the menu tool shows the error) rather than using something else.
+# FAILS rather than using something else.
 # PreBuildProcessor deletes every other XCFramework in this folder.
 #
 # Change these keys in the same commit as the XCFrameworks. The point is that the
@@ -16,7 +16,7 @@
 #
 # A development build replaces a release XCFramework here with its -debug one when
 # dist publishes it, and a release build puts the release one back. Do not commit
-# the folder in that state; IosFrameworkPatcher accepts either form.
+# the folder in that state.
 #
 # dist_version   the folder under native-toolkit/dist to copy from (required)
 # xcframeworks   the release XCFrameworks, comma-separated full folder names
