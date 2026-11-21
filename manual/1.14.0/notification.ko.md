@@ -920,7 +920,7 @@ IosNotificationManager.Instance.Initialize();
 
 > **참고:** 빌드 프로필의 Scripting Defines는 Player Settings의 정의에 더해집니다. Player Settings에 정의가 있으면, 빌드 프로필에서 빼도 없어지지 않습니다.
 
-<!-- 要確認: Player Settings の Scripting Define Symbols に足す経路は実測していない（ビルドプロファイルの Scripting Defines に足す経路は、2026-11-21 にシミュレーターで確かめた: 書き出しから NtkNotificationInstaller.mm が外れ、起動時は delegate が無く、Initialize() で入り、Manager の受け手が登録できる。artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み。Mobile Notifications との共存は 1a の試作での実機の実測（U-4）で、2.0.0 では測っていない -->
+<!-- 根拠（2026-11-22）: ビルドプロファイルの Scripting Defines に define を足す経路はシミュレーターで確かめた（artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4、scripts/verify_unity_ios.sh --skip-install）。git の URL で入れた使い捨てのプロジェクトで（artifact/topics/ios-c-abi-2/designs/2026-11-22-ios-c-abi-i17-git-url-check-design-v3.md、scripts/verify_unity_ios_git_url.sh）、Player Settings の Scripting Define Symbols に足す経路は書き出しで確かめた（G-4。インストーラーが外れる）。Mobile Notifications 2.5.0 との共存（起動の後は proxy、AuthorizationRequest で UnityNotificationManager に替わり、Initialize() で proxy に戻り、ライブラリが前の delegate として残す）はシミュレーターで確かめた（M-1〜M-3）。このパッケージが出していない通知のタップが前の delegate に渡ることは native-toolkit の 1b のシミュレーターのテストによる。起動の後の install で起動のタップが失われうることは native-toolkit のソースの読み -->
 
 #### 즉시 알림 표시
 

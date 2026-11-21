@@ -920,7 +920,7 @@ To keep the build from adding the file, add `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION
 
 > **Note:** A build profile's Scripting Defines are added to those in Player Settings. If the define is in Player Settings, leaving it out of a build profile does not remove it.
 
-<!-- 要確認: Player Settings の Scripting Define Symbols に足す経路は実測していない（ビルドプロファイルの Scripting Defines に足す経路は、2026-11-21 にシミュレーターで確かめた: 書き出しから NtkNotificationInstaller.mm が外れ、起動時は delegate が無く、Initialize() で入り、Manager の受け手が登録できる。artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み。Mobile Notifications との共存は 1a の試作での実機の実測（U-4）で、2.0.0 では測っていない -->
+<!-- 根拠（2026-11-22）: ビルドプロファイルの Scripting Defines に define を足す経路はシミュレーターで確かめた（artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4、scripts/verify_unity_ios.sh --skip-install）。git の URL で入れた使い捨てのプロジェクトで（artifact/topics/ios-c-abi-2/designs/2026-11-22-ios-c-abi-i17-git-url-check-design-v3.md、scripts/verify_unity_ios_git_url.sh）、Player Settings の Scripting Define Symbols に足す経路は書き出しで確かめた（G-4。インストーラーが外れる）。Mobile Notifications 2.5.0 との共存（起動の後は proxy、AuthorizationRequest で UnityNotificationManager に替わり、Initialize() で proxy に戻り、ライブラリが前の delegate として残す）はシミュレーターで確かめた（M-1〜M-3）。このパッケージが出していない通知のタップが前の delegate に渡ることは native-toolkit の 1b のシミュレーターのテストによる。起動の後の install で起動のタップが失われうることは native-toolkit のソースの読み -->
 
 #### Show an immediate notification
 

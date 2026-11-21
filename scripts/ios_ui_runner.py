@@ -12,8 +12,9 @@ Subcommands (paths are relative to the repository root, which is the first argum
       of keepInstalled (they run only in the keep-installed run). With --keep-installed, prints
       keepInstalled in its order, and stops when one of them is not moved yet.
       Prints the UI tests, one "Class/method" per line, from Tools~/IosUiTests/DeviceRequirements.json.
-      The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, which
-      need the same approval on a device; it is not a UI test and is not printed.
+      The entry PlayerTests/IosPlayer stands for the player tests of scripts/verify_unity_ios.sh, and
+      GitUrlApp/IosLaunch for the launch of scripts/verify_unity_ios_git_url.sh (I-17); both need the same
+      approval on a device, are not UI tests, and are not printed.
   approve <repo> <test>...
       For a device run: checks the guarded trees (below) are committed, writes an approval record
       outside the repository, prints what will happen on the device and a random approval ID.
@@ -166,6 +167,7 @@ GUARDED = [
     "scripts/test_ios_ui.sh",
     "scripts/ios_ui_runner.py",
     "scripts/verify_unity_ios.sh",
+    "scripts/verify_unity_ios_git_url.sh",
     "scripts/ios_player_results.py",
     "scripts/ios_script_common.sh",
     "Packages/manifest.json",
@@ -175,6 +177,11 @@ GUARDED = [
 ]
 APPROVALS = os.path.expanduser("~/Library/Application Support/unity-native-plugin/test_ios-approvals")
 PLAYER_TESTS = "PlayerTests/IosPlayer"
+# I-17 (artifact/topics/ios-c-abi-2/designs/2026-11-22-ios-c-abi-i17-git-url-check-design-v3.md, 3.2): the
+# throwaway app that installs this repository's HEAD from its git URL, launched on a device.
+GITURL_TEST = "GitUrlApp/IosLaunch"
+# The entries that stand for a run of their own rather than a UI test.
+OWN_RUNS = (PLAYER_TESTS, GITURL_TEST)
 DEFAULT_TIME_LIMIT = 600
 # xcresulttool's results that pass: "Expected Failure" is a test whose known issue is wrapped in
 # XCTExpectFailure (ShareUITests.test_SH13; it fails once the issue is fixed, as strict).
@@ -183,6 +190,9 @@ UI_APPS = [
     ("com.jonghyunkim.nativetoolkit.uiharness", "the UI harness (Unity)"),
     ("com.jonghyunkim.nativetoolkit.uitesthost", "the empty host of the UI tests"),
     ("com.jonghyunkim.nativetoolkit.uitests.xctrunner", "the UI test runner Xcode installs"),
+]
+GITURL_APPS = [
+    ("com.jonghyunkim.nativetoolkit.giturlapp", "a throwaway app (Unity's default template) with this repository's HEAD installed from its git URL"),
 ]
 PLAYER_APPS = [
     ("com.jonghyunkim.nativetoolkit.playertests", "the iOS player tests (Unity)"),
@@ -198,6 +208,7 @@ CATEGORIES = {
     "appdialog": "presses the harness's own alerts and action sheets (not the springboard); may type a test value into a text field with the keyboard",
 "focus": "the harness is installed once and stays: the run waits until the user lets only NTK UI Harness through a Focus mode, then runs the tests in order without reinstalling",
     "longpress": "long-presses the harness's notification banner and presses an action only after the expanded notification shows that notification",
+    "giturlapp": "installs and launches a throwaway app (Unity) made from Unity's default template with this repository's HEAD installed from its git URL (no third-party package besides it; no Mobile Notifications); the app writes the class of the notification delegate and the library's version into its own data folder, never asks for the notification permission and touches nothing on the screen; the result is copied out and the app is removed",
     "playertests": "runs the iOS player tests: Share calls that fail without a sheet, Clipboard on named pasteboards of the player only (never the general one), Dialog calls rejected before an alert, and Notification calls without ever asking for the permission (requests, a badge and categories of the player; nothing is shown without the permission, and the player's requests are removed with the app). The sample-screen layout tests turn the player's own screen to portrait and landscape (Screen.orientation of the player only; no device setting is changed, and the player is put back to portrait after each test). Next to the player runs the UI driver (an XCUITest runner on 127.0.0.1 of the device): it brings the player to the front, and for the sample-screen tests presses the player's own alerts and closes share sheets without choosing an activity; on a device it never sends the player to the background, never types into an alert that has a password field, never taps a notification banner, and prints nothing it reads from the screen; the Dialog sample's text-input alert gets a test value typed with the device's keyboard (never an alert that has a password field). Then a second player run on a fresh install: the Notification sample screen asks for the notification permission once and the driver answers Allow (on the player only, removed at the end), shows and removes the player's own notifications and badge, and opens the player's page in Settings and comes back (no setting is changed)",
 }
 
@@ -236,7 +247,7 @@ def check_requirements(data):
     if overlap:
         problems.append("keepInstalled and simulatorOnly overlap: " + ", ".join(overlap))
     classes = {t.split("/", 1)[0] for t in tests}
-    bad_classes = [c for c in data.get("notMovedYet", []) if c not in classes or c == PLAYER_TESTS.split("/")[0]]
+    bad_classes = [c for c in data.get("notMovedYet", []) if c not in classes or c in {t.split("/")[0] for t in OWN_RUNS}]
     if bad_classes:
         problems.append("notMovedYet names test classes that do not exist: " + ", ".join(bad_classes))
     return problems
@@ -310,8 +321,29 @@ def approval_problems(record, tests, head, trees, dirty, marker=None, keep=False
 
 
 def mixed_kinds(tests):
-    """True when the player tests and UI tests are asked for together."""
-    return PLAYER_TESTS in tests and len(set(tests)) > 1
+    """True when a run of its own (the player tests, the git-URL app) is asked for with anything else.
+
+    >>> mixed_kinds(["PlayerTests/IosPlayer"]), mixed_kinds(["GitUrlApp/IosLaunch"]), mixed_kinds(["X/test_a", "X/test_b"])
+    (False, False, False)
+    >>> mixed_kinds(["GitUrlApp/IosLaunch", "X/test_a"]), mixed_kinds(["PlayerTests/IosPlayer", "GitUrlApp/IosLaunch"])
+    (True, True)
+    """
+    return any(t in tests for t in OWN_RUNS) and len(set(tests)) > 1
+
+
+def apps_for(tests):
+    """The apps an approved run installs and removes.
+
+    >>> [a for a, _ in apps_for(["GitUrlApp/IosLaunch"])]
+    ['com.jonghyunkim.nativetoolkit.giturlapp']
+    >>> apps_for(["PlayerTests/IosPlayer"])[0][0], apps_for(["X/test_a"])[0][0]
+    ('com.jonghyunkim.nativetoolkit.playertests', 'com.jonghyunkim.nativetoolkit.uiharness')
+    """
+    if GITURL_TEST in tests:
+        return GITURL_APPS
+    if PLAYER_TESTS in tests:
+        return PLAYER_APPS
+    return UI_APPS
 
 
 def judge_results(data, tests):
@@ -416,7 +448,7 @@ def main(argv):
             return 0
         skip = simulator_only(rest[0]) | set(keep_installed(rest[0])) if "--device" in rest[1:] else set()
         skip |= set(not_moved(data, data["tests"]))
-        print("\n".join(t for t in requirements(rest[0]) if t != PLAYER_TESTS and t not in skip))
+        print("\n".join(t for t in requirements(rest[0]) if t not in OWN_RUNS and t not in skip))
         return 0
     if command == "not-moved":
         found = not_moved(load_requirements(rest[0]), rest[1:])
@@ -464,7 +496,7 @@ def main(argv):
         print("these run only in the keep-installed run (--keep-installed): " + ", ".join(sorted(set(tests) & set(keep_list))), file=sys.stderr)
         return 2
     if mixed_kinds(tests):
-        print(f"{PLAYER_TESTS} is approved and run on its own (scripts/verify_unity_ios.sh --device)", file=sys.stderr)
+        print(f"{PLAYER_TESTS} and {GITURL_TEST} are each approved and run on their own", file=sys.stderr)
         return 2
     head, trees, dirty = tree_state(repo)
     if command == "approve":
@@ -479,14 +511,18 @@ def main(argv):
         for test in tests:
             print(f"  {test}: " + "; ".join(CATEGORIES[c] for c in known[test]))
         print("Apps installed, and removed at the end:")
-        apps = (PLAYER_APPS if PLAYER_TESTS in tests else []) + (UI_APPS if set(tests) - {PLAYER_TESTS} else [])
-        for bundle_id, what in apps:
+        for bundle_id, what in apps_for(tests):
             print(f"  {bundle_id} ({what})")
         if keep:
             print("Before the run (the user): unlock the iPhone, set Auto-Lock to Never, keep it charging, and make sure no")
             print("  scheduled Focus mode starts during the run. After NU-1 the run waits (up to 30 minutes) until the user")
             print("  lets only NTK UI Harness through a Focus mode (no people, no time-sensitive notifications from others).")
             print("  Afterwards, remove NTK UI Harness from that Focus mode. Time: 30 to 40 minutes plus the wait.")
+        if GITURL_TEST in tests:
+            print("Before the run (the user): connect the iPhone by cable, keep it charging, unlocked and with its screen")
+            print("  on until the run ends (about 10 minutes of export and build come before anything reaches it). The")
+            print("  run finds the iPhone first and checks its development connection right before the install.")
+            print("  Time: about 20 minutes.")
         print(f"Approval ID: {approval_id}")
         return 0
     path = record_path(rest[1])

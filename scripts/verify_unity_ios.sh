@@ -307,7 +307,9 @@ on_exit() {
   # Unity or xcodebuild may still be running (a signal stopped the script mid-step). Stop them
   # before restoring files they could write again.
   stop_running_step
-  stop_driver
+  # Defined further down: a signal during the Editor runs, which come before that point of the script,
+  # finds it not yet defined (and no driver started then).
+  if declare -F stop_driver >/dev/null; then stop_driver; fi
   if [ "$CLEANED_UP" -eq 0 ]; then
     clean_up_player || echo "WARNING: the player of this run may still be on the device"
   fi
