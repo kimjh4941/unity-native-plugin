@@ -537,6 +537,7 @@ Android の接頭辞の無い 37 型（Result、Payload ほか）は、段 4 で
 
 - 複雑な構造（通知コンテンツ等）はネイティブとの境界を JSON 文字列で渡す
 - `XxxJsonBuilder` クラスで JSON 組み立てを担い、Manager から呼び出す
+  - iOS の例外: Android と同じ。Share・Clipboard の Manager は Payload を C ABI の構造体に移して渡し、JSON ビルダーを持たない（`IosShareJsonBuilder`・`IosClipboardJsonBuilder` は段 4 で消した。2026-11-21）。`IosNotificationJsonBuilder` は、利用者が Manager に渡す JSON を組む道具として残す
   - Android の例外: Share・Clipboard の Manager は Payload を C ABI の構造体に移して渡し、JSON ビルダーを持たない（1.x の Share・Clipboard の JSON ビルダーは段 4 で消した。2026-10-17）。`AndroidNotificationJsonBuilder` は、利用者が Manager に渡す JSON を組むための道具で、Manager からは呼ばない
 - JSON のスキーマ変更はネイティブ側との整合を必ず確認する
 

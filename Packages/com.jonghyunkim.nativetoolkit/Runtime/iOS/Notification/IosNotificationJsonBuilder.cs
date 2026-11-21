@@ -9,8 +9,13 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
     using JonghyunKim.NativeToolkit.Runtime.Notification;
     /// <summary>
     /// Builds JSON strings for iOS notification APIs.
-    /// All methods produce output matching the schemas expected by UnityIosNotificationJsonParser.
     /// </summary>
+    /// <remarks>
+    /// The manager's operations take JSON, and this is the way to build it: the manager reads what it writes
+    /// by the rules 1.x's Swift parser had (artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v5.md;
+    /// <c>IosNotificationRequests</c>). The manager does not call this class itself. Kept when the Share and
+    /// Clipboard builders were removed in stage 4 (artifact/topics/ios-c-abi-2, I-8).
+    /// </remarks>
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Notification")]
     public static class IosNotificationJsonBuilder
     {

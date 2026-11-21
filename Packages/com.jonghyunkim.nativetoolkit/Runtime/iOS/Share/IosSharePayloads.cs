@@ -44,7 +44,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Share
     /// <remarks>
     /// <see cref="items"/> is expected to contain non-null entries under normal usage. Null
     /// entries are tolerated defensively (e.g. from Unity serialization or externally generated
-    /// data): <c>IosShareJsonBuilder</c> excludes them rather than throwing.
+    /// data): <c>IosShareManager.Share</c> leaves them out, with a warning, rather than throwing.
     /// </remarks>
     [Serializable]
     [UnityEngine.Scripting.APIUpdating.MovedFrom(true, sourceNamespace: "JonghyunKim.NativeToolkit.Runtime.Share")]
