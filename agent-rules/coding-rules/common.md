@@ -468,7 +468,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 | 逸脱している型 | 実際の所属 |
 |---|---|
-| `Notification/IosNotificationPayloads.cs` の `NotificationContentPayload` / `NotificationAttachmentPayload` / `TimeIntervalTriggerPayload` / `CalendarTriggerPayload` / `LocationTriggerPayload` | iOS |
+| `Notification/NotificationPayloads.cs` の `NotificationContentPayload` / `NotificationAttachmentPayload` / `TimeIntervalTriggerPayload` / `CalendarTriggerPayload` / `LocationTriggerPayload` | **macOS**（iOS は段 4 で `IosNotificationContentPayload` などの自分の型に替えた。2026-11-21。macOS の移行で改名する） |
 | `Dialog/MacDialogManager.cs` の `DialogButtonsWrapper` / `DialogButton` / `DialogOptions` | macOS |
 | `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
 

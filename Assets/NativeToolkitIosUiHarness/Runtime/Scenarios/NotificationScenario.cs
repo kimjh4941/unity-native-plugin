@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
 
 namespace JonghyunKim.NativeToolkit.IosUiHarness
@@ -146,7 +145,7 @@ namespace JonghyunKim.NativeToolkit.IosUiHarness
             "{\"id\":\"" + id + "\",\"title\":\"" + Title + "\",\"body\":\"" + body + "\"" + extra + "}";
 
         private static string Interval(double seconds) =>
-            IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new TimeIntervalTriggerPayload { interval = seconds });
+            IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new IosTimeIntervalTriggerPayload { interval = seconds });
 
         private static void Schedule(string id, string body, string extra = "") =>
             M.ScheduleNotification(Content(id, body, extra), Interval(10), id, r => Result("schedule", r, id));

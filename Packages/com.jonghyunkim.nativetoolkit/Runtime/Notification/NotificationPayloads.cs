@@ -4,13 +4,14 @@ using System;
 
 namespace JonghyunKim.NativeToolkit.Runtime.Notification
 {
-    // The notification content and trigger payloads shared by the iOS and macOS notification
-    // managers. They stay in this namespace when the iOS types move to Runtime/iOS/Notification
-    // (artifact/topics/ios-c-abi-2, plan design v4, I-10): stage 4 gives iOS its own types, and the
-    // macOS migration renames these for macOS.
+    // The macOS notification content and trigger payloads (MacNotificationJsonBuilder). iOS used them too
+    // until stage 4 of the iOS C ABI 2.0.0 move gave it its own types (IosNotificationContentPayload and the
+    // others in Runtime/iOS/Notification; artifact/topics/ios-c-abi-2, I-10). The macOS migration renames
+    // these. MacNotificationJsonBuilder reads only id, title, subtitle, body, badge and categoryIdentifier of
+    // the content; the other content fields and LocationTriggerPayload are not used on macOS.
 
     /// <summary>
-    /// Represents the content of an iOS notification.
+    /// Represents the content of a macOS notification.
     /// </summary>
     [Serializable]
     public sealed class NotificationContentPayload
@@ -56,7 +57,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     }
 
     /// <summary>
-    /// Represents a media attachment for an iOS notification.
+    /// Represents a media attachment (the type of <see cref="NotificationContentPayload.attachments"/>; not used on macOS).
     /// </summary>
     [Serializable]
     public sealed class NotificationAttachmentPayload
@@ -110,7 +111,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.Notification
     }
 
     /// <summary>
-    /// Trigger that fires a notification when the device enters or exits a geographic region.
+    /// Trigger that fires a notification when the device enters or exits a geographic region (not used on macOS).
     /// </summary>
     [Serializable]
     public sealed class LocationTriggerPayload

@@ -10,7 +10,6 @@ using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
 using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
 using static JonghyunKim.NativeToolkit.Tests.IosPlayerTestSupport;
 
@@ -56,7 +55,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             "{\"id\":\"" + id + "\",\"title\":\"" + title + "\"" + extra + "}";
 
         private static string Interval(double seconds) =>
-            IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new TimeIntervalTriggerPayload { interval = seconds });
+            IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new IosTimeIntervalTriggerPayload { interval = seconds });
 
         private sealed class Box<T>
         {
@@ -377,7 +376,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             var lines = new List<string>();
             foreach (var (seconds, repeats) in new[] { (0.0, false), (-1.0, false), (30.0, true), (59.9, true) })
             {
-                string trigger = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new TimeIntervalTriggerPayload { interval = seconds, repeats = repeats });
+                string trigger = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(new IosTimeIntervalTriggerPayload { interval = seconds, repeats = repeats });
                 yield return RunCase($"{seconds}/{repeats}", () => Schedule(Id("ntkp-9"), Content("ntkp-9"), trigger), Describe, lines);
             }
             foreach (string line in lines) Record(line);

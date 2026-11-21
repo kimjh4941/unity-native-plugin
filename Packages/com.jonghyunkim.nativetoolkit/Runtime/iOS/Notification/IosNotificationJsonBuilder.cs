@@ -6,7 +6,6 @@ using System.Text;
 
 namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
 {
-    using JonghyunKim.NativeToolkit.Runtime.Notification;
     /// <summary>
     /// Builds JSON strings for iOS notification APIs.
     /// </summary>
@@ -24,7 +23,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         /// <param name="content">Content payload to serialize.</param>
         /// <returns>JSON string matching the iOS notification content schema.</returns>
-        public static string BuildContentJson(NotificationContentPayload content)
+        public static string BuildContentJson(IosNotificationContentPayload content)
         {
             var result = new Dictionary<string, object?>
             {
@@ -52,7 +51,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         /// <param name="trigger">Time interval trigger payload to serialize.</param>
         /// <returns>JSON string matching the iOS time interval trigger schema.</returns>
-        public static string BuildTimeIntervalTriggerJson(TimeIntervalTriggerPayload trigger)
+        public static string BuildTimeIntervalTriggerJson(IosTimeIntervalTriggerPayload trigger)
         {
             var result = new Dictionary<string, object?>
             {
@@ -69,7 +68,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         /// <param name="trigger">Calendar trigger payload to serialize.</param>
         /// <returns>JSON string matching the iOS calendar trigger schema.</returns>
-        public static string BuildCalendarTriggerJson(CalendarTriggerPayload trigger)
+        public static string BuildCalendarTriggerJson(IosCalendarTriggerPayload trigger)
         {
             var result = new Dictionary<string, object?>
             {
@@ -92,7 +91,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         /// </summary>
         /// <param name="trigger">Location trigger payload to serialize.</param>
         /// <returns>JSON string matching the iOS location trigger schema.</returns>
-        public static string BuildLocationTriggerJson(LocationTriggerPayload trigger)
+        public static string BuildLocationTriggerJson(IosLocationTriggerPayload trigger)
         {
             var result = new Dictionary<string, object?>
             {
@@ -127,7 +126,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
             return SerializeObject(result);
         }
 
-        private static List<object?> BuildAttachmentObjects(NotificationAttachmentPayload[] attachments)
+        private static List<object?> BuildAttachmentObjects(IosNotificationAttachmentPayload[] attachments)
         {
             var result = new List<object?>();
             foreach (var attachment in attachments)
