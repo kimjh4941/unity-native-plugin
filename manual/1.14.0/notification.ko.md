@@ -920,7 +920,7 @@ IosNotificationManager.Instance.Initialize();
 
 > **참고:** 빌드 프로필의 Scripting Defines는 Player Settings의 정의에 더해집니다. Player Settings에 정의가 있으면, 빌드 프로필에서 빼도 없어지지 않습니다.
 
-<!-- 要確認: NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL を付けたビルドで Initialize() が delegate を入れ、イベントが届くようになる流れは実測していない（段 4 の項目 5）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み（NotificationDelegateInstaller.install のログ、NotificationDelegateRouter.noteFirstInstall）。Mobile Notifications との共存は、1a の試作での実機の実測（U-4、artifact/topics/ios-c-abi-handoff/results/2026-10-31-ios-c-abi-handoff-2-results.md）で、2.0.0 では測っていない -->
+<!-- 要確認: Player Settings の Scripting Define Symbols に足す経路は実測していない（ビルドプロファイルの Scripting Defines に足す経路は、2026-11-21 にシミュレーターで確かめた: 書き出しから NtkNotificationInstaller.mm が外れ、起動時は delegate が無く、Initialize() で入り、Manager の受け手が登録できる。artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4）。起動の後の install で起動のタップが失われうることは、native-toolkit のソースの読み。Mobile Notifications との共存は 1a の試作での実機の実測（U-4）で、2.0.0 では測っていない -->
 
 #### 즉시 알림 표시
 

@@ -33,6 +33,12 @@
 # as in a project that installs the package (artifact/topics/ios-c-abi-2, 3-S design v3, 1.7; before
 # the 2.0.0 switch it was refused: the 1.x XCFrameworks were embedded by the build steps only).
 #
+# --skip-install exports the player with the "Test iOS SkipInstall Profile" (the Test iOS Profile with
+# NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL in its Scripting Defines) and runs only the
+# IosNotificationOptOut tests: the export leaves NtkNotificationInstaller.mm out, and Initialize()
+# installs the notification delegate (artifact/ios/notification, opt-out check design v2). Simulator
+# only. Every other run checks that the export added the installer.
+#
 # A device run needs an approval, the same as the UI tests (scripts/test_ios_ui.sh; native-toolkit's
 # agent-rules/device-testing.md): --device --dry-run prints what happens on the device and an approval
 # ID without touching it; --device --approved <ID> runs the player tests only (no Editor runs) on the
@@ -50,6 +56,7 @@
 #
 # Usage:
 #   scripts/verify_unity_ios.sh [--skip-editmode] [--keep-changes] [--as-package-user]
+#   scripts/verify_unity_ios.sh --skip-install [--skip-editmode] [--keep-changes]
 #   scripts/verify_unity_ios.sh --device --dry-run
 #   scripts/verify_unity_ios.sh --device --approved <ID> [--as-package-user]
 #
@@ -96,6 +103,12 @@ NOTIFICATION_SAMPLE_CATEGORY="IosNotificationSample"
 PACKAGE_USER=0
 EXPLORE_CATEGORY=""
 SKIP_EDITMODE=0
+# --skip-install: the player is exported with the "Test iOS SkipInstall Profile", whose Scripting Defines hold
+# NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL, and runs only IosNotificationOptOut (artifact/ios/notification,
+# opt-out check design v2). Every other run checks that the export added the installer.
+SKIP_INSTALL=0
+SKIP_INSTALL_PROFILE="Assets/Settings/Build Profiles/Test iOS SkipInstall Profile.asset"
+SKIP_INSTALL_CATEGORY="IosNotificationOptOut"
 KEEP_CHANGES=0
 # shellcheck source=scripts/ios_script_common.sh
 source "$PROJECT_DIR/scripts/ios_script_common.sh"
@@ -112,6 +125,7 @@ while [ $# -gt 0 ]; do
     # required and the Notification sample run is left out). For looking at one category alone, such as
     # IosSampleLayout (UI driver design v3, chapter 9; in the gate since the sample plan of 2026-11-21).
     --category) EXPLORE_CATEGORY="${2:-}"; shift ;;
+    --skip-install) SKIP_INSTALL=1 ;;
     --keep-changes) KEEP_CHANGES=1 ;;
     --as-package-user)
       PROFILE="Assets/Settings/Build Profiles/Test iOS Profile.asset"
@@ -126,6 +140,17 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$SKIP_INSTALL" -eq 1 ]; then
+  if [ "$DEVICE_MODE" -eq 1 ] || [ "$PACKAGE_USER" -eq 1 ] || [ -n "$EXPLORE_CATEGORY" ]; then
+    echo "--skip-install is for the simulator alone: not with --device, --as-package-user or --category." >&2
+    exit 2
+  fi
+  PROFILE="$SKIP_INSTALL_PROFILE"
+  # Like an exploring run: the UI driver starts but its test is not required, and the Notification sample
+  # run is left out.
+  EXPLORE_CATEGORY="$SKIP_INSTALL_CATEGORY"
+fi
 
 if [ -n "$EXPLORE_CATEGORY" ]; then
   if [ "$DEVICE_MODE" -eq 1 ]; then
@@ -432,6 +457,31 @@ finish_driver() {
   fi
 }
 
+# check_installer <export dir> <export log>: the package's IosXcodeProjectSetup added NtkNotificationInstaller.mm
+# to the exported project, or with --skip-install left it out (opt-out check design v2, OO-1). Its log line
+# shows that the hook ran and which way it read the define.
+check_installer() {
+  local export_dir="$1" export_log="$2" file="$1/Libraries/com.jonghyunkim.nativetoolkit/NtkNotificationInstaller.mm"
+  local pbx="$1/Unity-iPhone.xcodeproj/project.pbxproj" line
+  line="$(grep -o 'installer entries: [0-9]* (skip: [A-Za-z]*)' "$export_log" | tail -1)"
+  if [ "$SKIP_INSTALL" -eq 1 ]; then
+    if [ -z "$line" ]; then
+      echo "  export: no setup log line: the package's iOS build hook did not run"
+      return 1
+    elif [ "$line" != "installer entries: 0 (skip: True)" ]; then
+      echo "  export: the build hook did not see the profile's define ($line)"
+      return 1
+    elif [ -e "$file" ] || grep -q 'NtkNotificationInstaller\.mm' "$pbx"; then
+      echo "  export: the installer is in the project although the build hook skipped it"
+      return 1
+    fi
+    echo "  export: installer left out ($line)"
+  elif [ "$line" != "installer entries: 1 (skip: False)" ] || [ ! -f "$file" ] || ! grep -q 'NtkNotificationInstaller\.mm in Sources' "$pbx"; then
+    echo "  export: the installer is missing from the project (${line:-no setup log line})"
+    return 1
+  fi
+}
+
 # The iOS player on the simulator or the device. Returns non-zero at the first step that fails.
 run_player_tests() {
   local sdk=simulator
@@ -460,6 +510,7 @@ run_player_tests() {
     echo "  export: no Xcode project at $export_dir"
     return 1
   fi
+  check_installer "$export_dir" "$export_log" || return 1
   echo "  export: ok"
 
   if [ "$DEVICE_MODE" -eq 1 ]; then

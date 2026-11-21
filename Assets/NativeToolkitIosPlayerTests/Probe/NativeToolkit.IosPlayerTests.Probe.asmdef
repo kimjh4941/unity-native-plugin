@@ -1,6 +1,6 @@
 {
   "name": "NativeToolkit.IosPlayerTests.Probe",
-  "references": [],
+  "references": ["NativeToolkit.Runtime"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "autoReferenced": false,
