@@ -2,7 +2,7 @@
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知・共有・クリップボードなどのネイティブ機能をシングルトン API で扱えます。
-- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS と macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
+- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS では、ネイティブライブラリのリンクと埋め込みを Unity が自動で行います。macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
 
 他言語 README:
 
@@ -11,7 +11,7 @@
 
 ## バージョン
 
-- 1.13.0
+- 1.14.0
 
 ## 対応 OS バージョン
 
@@ -159,12 +159,13 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.14.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降（Android は 6000.0.61f1、6000.3.1f1、6000.4.1f1 以降）
   - 依存パッケージ: Localization, Addressables, Input System
 - 1.12.0 から上げる場合: 1.13.0 では Android の名前空間と型の名前が変わり、1.x のネイティブライブラリと、Android の Gradle 設定のウィンドウが無くなりました。[1.13.0 での変更（Android）](docs/latest/index.ja.md#1130-での変更android)を見てください。
+- 1.13.0 から上げる場合: 1.14.0 では iOS の名前空間と、iOS の通知のペイロードの型が変わり、1.x のネイティブライブラリ、iOS の共有とクリップボードの JSON Builder、iOS の Xcode 設定のウィンドウが無くなりました。[1.14.0 での変更（iOS）](docs/latest/index.ja.md#1140-での変更ios)を見てください。
 
 ## サンプル
 

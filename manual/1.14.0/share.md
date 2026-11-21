@@ -30,6 +30,7 @@ Language:
   - [Receive Events](#receive-events)
   - [Error Handling](#error-handling)
 - [iOS](#ios)
+  - [Changes in 1.14.0](#changes-in-1140)
   - [Setup](#setup-1)
   - [Share Text](#share-text-1)
   - [Share URL](#share-url-1)
@@ -67,7 +68,7 @@ Since 1.13.0 Android Share runs on native-toolkit's C ABI 2.0.0 instead of the 1
 
 #### Updating your code
 
-- Replace `using JonghyunKim.NativeToolkit.Runtime.Share;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Share;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Share;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Share;` in your Android code. Keep the old line in macOS code: its types did not move. The iOS types moved in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)).
 - Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
 - Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
 
@@ -539,15 +540,56 @@ AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
 
 ## iOS
 
+### Changes in 1.14.0
+
+Since 1.14.0 iOS Share runs on native-toolkit's C ABI 2.0.0 instead of the 1.x Unity bridge. The `Share` method and `ShareCompleted` event of `IosShareManager`, the payload fields and the result properties are unchanged, and a share with valid input opens the same share sheet. What you need to change, and what differs from 1.13.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Share;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Share;` in your iOS code. Keep the old line in macOS code: its types did not move.
+- The type names are unchanged: `IosShareManager`, `IosShareContentPayload`, `IosShareItem` and `IosShareResult` only moved to the new namespace. Unity does not change the `using` for you: the API Updater does not rewrite references to this package's types, so a script that still uses the old namespace fails to compile. Code inside `#if UNITY_IOS || UNITY_EDITOR` (as in the examples on this page) is also compiled in the Editor, so the errors appear as soon as Unity compiles your scripts.
+- Data you saved with `[SerializeReference]` under the old namespace loads as the same type with its values: each moved type records its old namespace with `[MovedFrom]`.
+
+#### Breaking changes shared by every iOS feature
+
+- **The 1.x native libraries are no longer bundled.** `ios-native-toolkit-1.3.0.xcframework` and `unity-ios-native-toolkit-1.3.0.xcframework` were removed. The package ships `ios-native-toolkit-2.0.0.xcframework` and `ios-native-toolkit-capi-2.0.0.xcframework` (native-toolkit's C ABI 2.0.0). Code that called the 1.x Unity bridge (`UnityIosPlugin`) directly no longer works. An Xcode project exported with 1.13.0 cannot be appended to: the build stops while the project still references a 1.x XCFramework, so build into a new folder (Replace).
+- **"Configure Xcode Project" is gone.** The menu Tools > Native Toolkit > iOS > Configure Xcode Project and its window were removed. Unity now links and embeds the XCFrameworks itself, as their `.meta` settings say. A step after the build checks the exported Xcode project and stops the build if one of them is missing.
+- **iOS 18.0 or later.** The build stops with a message when Player Settings > Other Settings > Target minimum iOS Version (or the same setting in the active build profile) is below 18.0. native-toolkit 2.0.0 is built for iOS 18.0; on iOS 17 and earlier the app quits right after it starts. See [iOS requirements](index.md#ios-requirements).
+
+#### Share changes
+
+- **`IosShareJsonBuilder` was removed.** In 1.13.0 `IosShareManager` used it (`BuildShareContentJson`) to turn the payload into JSON for the 1.x bridge. The manager now passes the payload to the native library itself, so nothing uses that JSON any more. Pass an `IosShareContentPayload` to `IosShareManager.Share`, as the examples on this page do. There is no replacement for the JSON string.
+- **Each result goes to the callback of its own call.** 1.13.0 kept a single per-call callback and replaced it on every `Share` call. If you called `Share` again before the earlier result arrived, the earlier callback was never called, and the earlier result could reach the newer call's callback. Now every call keeps its own callback.
+- **Error messages no longer include the URL or path.** The native library reports only the kind of error, so the messages for an invalid URL, a missing file and an image that cannot be loaded are shorter (see the table below).
+
+#### Behavior differences from 1.13.0
+
+| Case | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| An `IosShareItem.Url` that is not a valid URL | `Invalid URL: <URL>.` | `Invalid URL.` |
+| An `IosShareItem.Image` that cannot be loaded as an image (including a missing file) | `Failed to load image at path: <path>.` | `Failed to load image.` |
+| An `IosShareItem.File` that does not exist | `File not found at path: <path>.` | `File not found.` |
+| The share sheet could not be presented | `Failed to present the share sheet: <reason>.` | `Failed to present the share sheet.` |
+| The activity the user chose failed | `Failed to present the share sheet: <reason>.` | `Failed to present the share sheet: the share activity failed.` |
+| The system, not the user, dismissed the share sheet | No result | Fails with `The share sheet was dismissed without a result.` |
+| Calling `Share` while the app is in the foreground but inactive (for example, while Control Center is open over it) | Failed with `No root view controller available to present the share sheet.`; no sheet was shown | The share sheet is shown. Closing it reports `IsSuccess = true` and `Completed = false` |
+| Calling `Share` again before the earlier result arrives | The newer call replaced the per-call callback: the earlier callback was never called, and the earlier result could go to the newer call's callback | Each result goes to the callback passed with its own call |
+| Two `Share` calls in the same frame <!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> | One share sheet was shown. Closing it reported one result to `ShareCompleted` and to the second call's callback; the first call's callback was never called | Still one share sheet. Closing it reports one result to `ShareCompleted` and to the callback of the call it belongs to (in the recorded runs, sometimes the first call and sometimes the second). The other call gets no result at all, not even a failure. This is a known issue in native-toolkit 2.0.0; until it is fixed, call `Share` again only after the previous result has arrived |
+| A null item, an item whose `type` is not `text`, `url`, `image` or `file`, or an item whose `value` is null | Left out silently | Left out in the same way, with a warning in the log. The warning gives the number of items and their `type`, not the values |
+| `excludedActivityTypes` that contains null | The whole list was ignored silently | The whole list is ignored in the same way, with a warning in the log |
+| U+0000 in an item's `value`, `subject`, `previewTitle` or an excluded activity type | Passed in full | Cut at that character, with a warning in the log |
+
+Unchanged: a null payload or empty `items` fails with `No shareable items were provided.`, and so does a payload with nothing left after the items above are left out. A blank `subject` or `previewTitle` is left out. In the Editor every share fails with `iOS share is only available on an iOS device.` A share called while the app is in the background fails with `No root view controller available to present the share sheet.` after the app returns to the foreground. Results arrive after `Share` returns, `ShareCompleted` first and then the per-call callback, and a cancellation by the user is a success with `Completed = false`.
+
 ### Setup
 
 #### Import the namespace
 
-`IosShareManager` compiles whenever the iOS build target is selected, including in the Editor. Calling `Share` in the Editor or on a non-iOS device does not crash; it returns an immediate failure result instead (see [Error Handling](#error-handling-1)).
+`IosShareManager` is compiled for the iOS player and in the Editor (`UNITY_IOS || UNITY_EDITOR`), so the examples on this page also compile in the Editor. In the Editor `Share` does not show anything: it reports a failure with `iOS share is only available on an iOS device.` (see [Error Handling](#error-handling-1)).
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 #endif
 ```
 
@@ -809,11 +851,11 @@ private void OnShareCompleted(IosShareResult result)
 
 ### Error Handling
 
-All `Share` calls report their outcome via `ShareCompleted` (and the optional per-call callback passed to `Share`). The `ErrorMessage` field is guaranteed to be non-null whenever `IsSuccess` is `false`.
+All `Share` calls report their outcome via `ShareCompleted` (and the optional per-call callback passed to `Share`) after the call returns. The exception is two calls made in the same frame, where one of the calls gets no result: see [Behavior differences from 1.13.0](#behavior-differences-from-1130). <!-- TODO(SH-13): update after native-toolkit rebuilds dist/1.14.0 --> The `ErrorMessage` field is guaranteed to be non-null whenever `IsSuccess` is `false`. The messages do not include the URL or path you passed.
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-// No items: fails immediately without presenting the share sheet.
+// No items: fails without presenting the share sheet.
 // ErrorMessage: "No shareable items were provided."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
@@ -821,21 +863,21 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 });
 
 // Invalid URL string: fails with a native validation error.
-// ErrorMessage: "Invalid URL: not a valid url."
+// ErrorMessage: "Invalid URL."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Url("not a valid url") }
 });
 
 // Missing file: fails when the native layer cannot find the file.
-// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+// ErrorMessage: "File not found."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.File("/nonexistent/share-missing.txt") }
 });
 
 // Missing image: fails when the native layer cannot load the image.
-// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+// ErrorMessage: "Failed to load image."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }

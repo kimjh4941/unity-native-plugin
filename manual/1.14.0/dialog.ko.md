@@ -16,6 +16,7 @@
   - [1.13.0 변경 사항](#1130-변경-사항)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
+  - [1.14.0 변경 사항](#1140-변경-사항)
   - [IosDialogManager](#iosdialogmanager)
 - [Windows](#windows)
   - [1.12.0 변경 사항](#1120-변경-사항)
@@ -33,7 +34,7 @@
 
 #### 코드 수정 방법
 
-- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;`로 바꿔 주세요. iOS와 macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;`로 바꿔 주세요. macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다). iOS 타입은 1.14.0에서 옮겨졌습니다([1.14.0 변경 사항](#1140-변경-사항) 참고).
 - Dialog 타입은 이름이 바뀌지 않았으므로, 고칠 것은 위의 `using` 줄뿐입니다. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.12.0의 이름을 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_ANDROID && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 Android Player를 빌드할 때 처음 나타납니다.
 
 #### Android 전체 기능에 공통인 호환성이 깨지는 변경
@@ -502,6 +503,53 @@ private void OnLoginDialogResult(
 
 ## iOS
 
+### 1.14.0 변경 사항
+
+1.14.0부터 iOS 다이얼로그는 1.x의 Unity용 브리지가 아니라 native-toolkit의 C ABI 2.0.0(`ios-native-toolkit-capi-2.0.0.xcframework`)으로 동작합니다. 메서드, 이벤트, 인수와 기본값은 바뀌지 않았습니다. 1.13.0과 다른 점은 다음과 같습니다.
+
+#### 코드 수정 방법
+
+- iOS 코드의 `using JonghyunKim.NativeToolkit.Runtime.Dialog;`를 `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;`로 바꿔 주세요. macOS 코드의 줄은 그대로 두세요(`MacDialogManager`는 옮겨지지 않았습니다).
+- Dialog 타입은 이름이 바뀌지 않았으므로, 고칠 것은 위의 `using` 줄뿐입니다. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.13.0의 네임스페이스를 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_IOS && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 iOS Player를 빌드할 때 처음 나타납니다.
+
+#### iOS 전체 기능에 공통인 호환성이 깨지는 변경
+
+- **1.x 네이티브 라이브러리를 더 이상 포함하지 않습니다.** `ios-native-toolkit-1.3.0.xcframework`와 `unity-ios-native-toolkit-1.3.0.xcframework`를 제거했습니다. 패키지에 포함된 것은 `ios-native-toolkit-2.0.0.xcframework`와 `ios-native-toolkit-capi-2.0.0.xcframework`(native-toolkit의 C ABI 2.0.0)입니다. 1.x의 Unity용 브리지(`UnityIosPlugin`)를 직접 호출하던 코드는 동작하지 않습니다. 1.13.0으로 내보낸 Xcode 프로젝트에는 덧붙여 내보낼(Append) 수 없습니다. 1.x XCFramework를 계속 참조하는 프로젝트에서는 빌드가 중단되므로, 새 폴더로 내보내 주세요(Replace).
+- **"Configure Xcode Project"가 없어졌습니다.** 메뉴 Tools > Native Toolkit > iOS > Configure Xcode Project와 그 창을 삭제했습니다. XCFramework의 링크와 임베드는 `.meta` 설정에 따라 Unity가 직접 합니다. 빌드 후 처리가 내보낸 Xcode 프로젝트를 확인하고, 빠진 것이 있으면 빌드를 중단합니다.
+- **iOS 18.0 이상이 필요합니다.** Player Settings > Other Settings > Target minimum iOS Version(또는 사용 중인 빌드 프로필의 같은 설정)이 18.0보다 낮으면 빌드는 메시지를 표시하고 중단됩니다. native-toolkit 2.0.0은 iOS 18.0용으로 빌드되어 있어, iOS 17 이하에서는 앱이 시작 직후에 종료됩니다. [iOS 요구 사항](index.ko.md#ios-요구-사항)을 참고해 주세요.
+
+#### 1.13.0과의 동작 차이
+
+| 상황 | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| 앱이 전면에 있지만 활성 상태가 아닐 때(scene이 `foregroundInactive`) 호출 | 다이얼로그는 표시되지 않고, `"Failed to get root view controller"` 이벤트가 1회 발생했음 | 다이얼로그가 표시되고, 누른 버튼이 평소처럼 이벤트로 돌아옵니다 |
+| 앱이 백그라운드에 있을 때 호출 | 실패 `"Failed to get root view controller"` | 실패 `"Failed to <method>: the app is not in the foreground."` |
+| 표시된 뒤 버튼을 누르지 않았는데 다이얼로그가 사라짐 | 이벤트가 발생하지 않았음 | 다이얼로그가 해제될 때 실패 `"Failed to <method>: the dialog was closed by the system."`이 발생합니다. 아직 무언가가 다이얼로그를 붙잡고 있는 동안에는 발생하지 않습니다 |
+| 닫히는 중인 화면 위에 표시 | UIKit이 거부해서 다이얼로그도 이벤트도 없었음 | 닫히는 중인 화면을 건너뛰고, 한 번 기다린 뒤 다이얼로그를 표시합니다. 그래도 표시할 수 없으면 `"Failed to <method>: the dialog could not be shown."` 이벤트가 발생합니다 |
+| `ShowActionSheet`의 `options`에 `null` 요소가 있음 | 바로 `"Internal error: <예외 메시지>"` | 바로 `"Options cannot contain null."` |
+| Editor(빌드 타깃이 iOS)에서 호출 | `"Internal error: <예외 메시지>"`(네이티브 함수를 찾지 못함)와 오류 로그 | `"Failed to <method>: the native library is not available."`와 경고 로그 |
+| 바로 발생하는 실패(빈 제목 등)의 이벤트에서 핸들러가 예외를 던짐 | 예외가 `Show*`를 호출한 코드까지 전달되었음 | `"<이벤트 이름> callback error: <예외 메시지>"`(예: `DialogResult callback error: ...`)로 오류 로그에 출력하고, 호출한 쪽에는 전달되지 않습니다. 나중에 도착하는 결과의 핸들러는 1.13.0에서도 이렇게 처리되었습니다 |
+| iPad 액션 시트(팝오버로 표시)의 기준점 | 루트 뷰 전체 | 최상위 화면의 중앙. iPad에서는 확인하지 않았습니다 |
+
+<!-- 要確認: 「アプリがバックグラウンドにあるときに呼ぶ」「ボタンを押さずにダイアログが消えた」「閉じかけの画面の上に出す」「iPad のアクションシートの基点」の 4 行は、artifact/ios/dialog/designs/2026-11-15-ios-dialog-cabi-design-v2.md の 3 章（1.x と native-toolkit の一次ソースの読み）による。UI テストでも実機でも確かめていない -->
+
+`errorMessage`의 문구는 다음과 같습니다. `<method>`에는 `showDialog`, `showConfirmDialog`, `showDestructiveDialog`, `showActionSheet`, `showTextInputDialog`, `showLoginDialog` 중 하나가 들어갑니다. "바로"는 `Show*` 메서드가 반환되기 전에, "나중"은 반환된 뒤에 이벤트가 발생한다는 뜻입니다.
+
+| 원인 | 시점 | `errorMessage` |
+| --- | --- | --- |
+| 제목·메시지가 비어 있음(변경 없음) | 바로 | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` |
+| `options`가 `null`이거나 비어 있음(변경 없음) | 바로 | `"Options cannot be null or empty."` |
+| `options`에 `null` 요소가 있음 | 바로 | `"Options cannot contain null."` |
+| 네이티브 라이브러리를 사용할 수 없음(Editor 등) | 바로 | `"Failed to <method>: the native library is not available."` |
+| 라이브러리가 요청을 거부함(이 패키지의 결함) | 바로 | `"Failed to <method>: the request was rejected (<name>)."`(`<name>`은 오류 이름. `INVALID_PARAMETER` 등) |
+| C#의 예외(변경 없음) | 바로 | `"Internal error: <예외 메시지>"` |
+| 앱이 전면에 없음 | 나중 | `"Failed to <method>: the app is not in the foreground."` |
+| 다이얼로그를 표시할 수 없음 | 나중 | `"Failed to <method>: the dialog could not be shown."` |
+| 시스템이 다이얼로그를 닫음 | 나중 | `"Failed to <method>: the dialog was closed by the system."` |
+| 호출이 받아들여진 뒤의 그 밖의 실패 | 나중 | `"Failed to <method>: <name>."` |
+
+바뀌지 않은 것: 메서드, 이벤트와 그 인수, 기본값. 각 다이얼로그가 돌려주는 버튼 문구(액션 시트에서는 고른 선택 항목이나 취소 버튼의 문구). 텍스트 입력과 로그인 다이얼로그에서 취소 버튼을 누르면 입력란의 값이 `null`이 되고, 비운 채로 확정하면 `""`가 되는 것. `enableConfirmWhenEmpty` / `enableLoginWhenEmpty`가 `false`이면 입력이 비어 있는 동안 버튼을 누를 수 없는 것. 다이얼로그가 표시된 동안 호출하면 그 위에 겹쳐 표시되는 것. 앱이 백그라운드로 가도 다이얼로그가 남아 있고, 돌아온 뒤 응답할 수 있는 것. 제목·메시지·선택 항목의 검사와 그 문구. 응답한 다이얼로그는 응답한 뒤의 `Update`에서 이벤트를 1회 발생시키는 것.
+
 ### IosDialogManager
 
 #### ShowDialog - 기본 다이얼로그
@@ -511,7 +559,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -567,7 +615,7 @@ private void OnDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -626,7 +674,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -685,7 +733,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -744,7 +792,7 @@ private void OnActionSheetResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -792,7 +840,7 @@ IosDialogManager.Instance.ShowTextInputDialog(
 
 ```csharp
 // buttonText: 누른 버튼 텍스트. 오류 시 null.
-// inputText: 입력된 텍스트. 오류 시 null.
+// inputText: 입력된 텍스트. 오류 시나 취소 버튼을 누른 경우 null.
 // isSuccess: 성공 시 true.
 // errorMessage: 오류 메시지 (성공 시 null).
 
@@ -811,7 +859,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -862,8 +910,8 @@ IosDialogManager.Instance.ShowLoginDialog(
 
 ```csharp
 // buttonText: 누른 버튼 텍스트. 오류 시 null.
-// username: 입력된 사용자명. 오류 시 null.
-// password: 입력된 비밀번호. 오류 시 null.
+// username: 입력된 사용자명. 오류 시나 취소 버튼을 누른 경우 null.
+// password: 입력된 비밀번호. 오류 시나 취소 버튼을 누른 경우 null.
 // isSuccess: 성공 시 true.
 // errorMessage: 오류 메시지 (성공 시 null).
 

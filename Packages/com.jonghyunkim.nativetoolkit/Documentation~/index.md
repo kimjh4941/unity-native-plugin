@@ -4,7 +4,7 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
-- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. On iOS, Unity links and embeds the native libraries by itself. For macOS, an editor window adds the native library to the built Xcode project.
 
 # Version
 
