@@ -6,6 +6,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
     using UnityEngine;
 
     /// <summary>
@@ -270,7 +271,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 return IosClipboardDetectedValuesResult.Failure(MalformedResponse());
             }
 
-            return DetectedValuesFromData(IosClipboardJsonReader.Parse(json!));
+            return DetectedValuesFromData(IosJsonReader.Parse(json!));
         }
 
         private static IosClipboardDetectedValuesResult DetectedValuesFromData(JsonValue? data)
@@ -388,7 +389,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
         /// <returns>The event, or <c>null</c> when it must be dropped.</returns>
         internal static IosClipboardChangeEvent? ParseChangeEvent(string? eventJson)
         {
-            JsonValue? root = IosClipboardJsonReader.Parse(eventJson);
+            JsonValue? root = IosJsonReader.Parse(eventJson);
             if (root == null || root.Kind != JsonValueKind.Object)
             {
                 Debug.LogError($"[{LogTag}][{nameof(ParseChangeEvent)}] Dropped a change event: unparsable payload.");
@@ -440,7 +441,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
                 return false;
             }
 
-            JsonValue? root = IosClipboardJsonReader.Parse(json);
+            JsonValue? root = IosJsonReader.Parse(json);
             if (root == null || root.Kind != JsonValueKind.Object)
             {
                 error = MalformedResponse();

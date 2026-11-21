@@ -142,7 +142,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void Content_UserInfoLosesNullsAndKeepsNumbersAsWritten()
         {
             Req.Content c = Read("{\"id\":\"a\",\"title\":\"t\",\"userInfo\":{\"n\":1.50,\"z\":null,\"o\":{\"x\":null,\"y\":[1,null,\"s\"]},\"b\":true}}");
-            var reparsed = JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard.IosClipboardJsonReader.Parse(c.UserInfoJson)!;
+            var reparsed = JonghyunKim.NativeToolkit.Runtime.iOS.Common.IosJsonReader.Parse(c.UserInfoJson)!;
             Assert.AreEqual("1.50", reparsed.Members["n"].RawNumber);
             Assert.IsFalse(reparsed.Members.ContainsKey("z"));
             Assert.IsFalse(reparsed.Members["o"].Members.ContainsKey("x"));

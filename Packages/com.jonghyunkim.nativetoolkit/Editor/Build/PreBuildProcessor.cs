@@ -481,7 +481,12 @@ public class PreBuildProcessor : IPreprocessBuildWithReport
         }
         else
         {
-            // Clean existing xcframeworks only now that every replacement is known to exist.
+            // Clean existing xcframeworks only now that every replacement is known to exist. Their .meta
+            // files stay, unlike the Android AARs and Windows DLLs: on iOS the .meta carries the embed setting
+            // (AddToEmbeddedBinaries) and the GUID, which the same name copied back (a rebuilt dist, or the
+            // -debug swap of a development build and back) must keep. A .meta left by a name that is no longer
+            // pinned only appears when the pin changes, which is a reviewed commit (ios-c-abi-2, stage 4 plan,
+            // item 5: decided not to delete them).
             foreach (string xcfDir in Directory.GetDirectories(destDir, "*.xcframework"))
             {
                 Directory.Delete(xcfDir, true);

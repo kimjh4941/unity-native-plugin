@@ -1,7 +1,7 @@
 #nullable enable
 
 #if UNITY_IOS || UNITY_EDITOR
-namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
+namespace JonghyunKim.NativeToolkit.Runtime.iOS.Common
 {
     using System;
     using System.Collections.Generic;
@@ -422,7 +422,9 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     }
 
     /// <summary>
-    /// Minimal recursive-descent JSON reader for the iOS clipboard bridge responses.
+    /// Minimal recursive-descent JSON reader for the iOS C ABI responses: the clipboard results, and the
+    /// notification JSON the managers take (IosNotificationRequests). Moved from Clipboard to Common in stage 4
+    /// of the C ABI 2.0.0 move (artifact/topics/ios-c-abi-2, stage 4 plan, item 5), since both features use it.
     /// <para>
     /// <c>JsonUtility</c> cannot be used here: the snapshot payload contains
     /// <c>allTypeIdentifiers</c> (an array of arrays), <c>readData</c> reports "no data" as a null
@@ -439,7 +441,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard
     /// all, matching the native <c>ClipboardRedaction</c> policy.
     /// </para>
     /// </summary>
-    internal static class IosClipboardJsonReader
+    internal static class IosJsonReader
     {
         /// <summary>Maximum nesting depth accepted, to bound recursion on hostile input.</summary>
         internal const int MaxDepth = 64;

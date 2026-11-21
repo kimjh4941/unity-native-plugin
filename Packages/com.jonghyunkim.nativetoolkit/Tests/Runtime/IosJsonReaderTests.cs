@@ -4,22 +4,22 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
     /// <summary>
-    /// EditMode tests for the minimal JSON reader backing the iOS clipboard parser.
+    /// EditMode tests for the minimal JSON reader behind the iOS clipboard parser and the notification requests.
     /// Covers the shapes JsonUtility cannot handle (nested arrays, polymorphic and null members)
     /// and the base64 fast path that avoids materializing large payloads.
     /// </summary>
-    public sealed class IosClipboardJsonReaderTests
+    public sealed class IosJsonReaderTests
     {
         [Test]
         public void Parse_NullOrEmpty_ReturnsNull()
         {
-            Assert.IsNull(IosClipboardJsonReader.Parse(null));
-            Assert.IsNull(IosClipboardJsonReader.Parse(string.Empty));
+            Assert.IsNull(IosJsonReader.Parse(null));
+            Assert.IsNull(IosJsonReader.Parse(string.Empty));
         }
 
         [Test]
@@ -41,8 +41,8 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             foreach (string json in malformed)
             {
-                Assert.DoesNotThrow(() => IosClipboardJsonReader.Parse(json), $"threw on: {json}");
-                Assert.IsNull(IosClipboardJsonReader.Parse(json), $"expected null for: {json}");
+                Assert.DoesNotThrow(() => IosJsonReader.Parse(json), $"threw on: {json}");
+                Assert.IsNull(IosJsonReader.Parse(json), $"expected null for: {json}");
             }
         }
 
@@ -63,23 +63,23 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             foreach (string json in malformed)
             {
-                Assert.IsNull(IosClipboardJsonReader.Parse(json), $"expected null for: {json}");
+                Assert.IsNull(IosJsonReader.Parse(json), $"expected null for: {json}");
             }
         }
 
         [Test]
         public void Parse_RawControlCharactersInStrings_AreRejected()
         {
-            Assert.IsNull(IosClipboardJsonReader.Parse("{\"a\":\"line\nbreak\"}"));
-            Assert.IsNull(IosClipboardJsonReader.Parse("{\"a\":\"tab\there\"}"));
-            Assert.IsNull(IosClipboardJsonReader.Parse("{\"a\":\"nul\u0000\"}"));
+            Assert.IsNull(IosJsonReader.Parse("{\"a\":\"line\nbreak\"}"));
+            Assert.IsNull(IosJsonReader.Parse("{\"a\":\"tab\there\"}"));
+            Assert.IsNull(IosJsonReader.Parse("{\"a\":\"nul\u0000\"}"));
         }
 
         [Test]
         public void Parse_ValidEscapesAndSpaces_AreAccepted()
         {
-            Assert.IsNotNull(IosClipboardJsonReader.Parse("{\"a\":\"\\n\\t\\\\\\\"\\/\\b\\f\\r\\u00e9\"}"));
-            Assert.IsNotNull(IosClipboardJsonReader.Parse("{\"a\":\"a space is fine\"}"));
+            Assert.IsNotNull(IosJsonReader.Parse("{\"a\":\"\\n\\t\\\\\\\"\\/\\b\\f\\r\\u00e9\"}"));
+            Assert.IsNotNull(IosJsonReader.Parse("{\"a\":\"a space is fine\"}"));
         }
 
         [Test]
@@ -100,7 +100,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             foreach (string json in malformed)
             {
-                Assert.IsNull(IosClipboardJsonReader.Parse(json), $"expected null for: {json}");
+                Assert.IsNull(IosJsonReader.Parse(json), $"expected null for: {json}");
             }
         }
 
@@ -111,7 +111,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             foreach (string number in valid)
             {
-                JsonValue? root = IosClipboardJsonReader.Parse("{\"a\":" + number + "}");
+                JsonValue? root = IosJsonReader.Parse("{\"a\":" + number + "}");
                 Assert.IsNotNull(root, $"expected parse for: {number}");
                 Assert.IsTrue(root!.GetMemberOrNull("a")!.TryGetDouble(out _), number);
             }
@@ -120,11 +120,11 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void Parse_EmptyObjectAndArray_AreAccepted()
         {
-            JsonValue? obj = IosClipboardJsonReader.Parse("{}");
+            JsonValue? obj = IosJsonReader.Parse("{}");
             Assert.IsNotNull(obj);
             Assert.AreEqual(JsonValueKind.Object, obj!.Kind);
 
-            JsonValue? array = IosClipboardJsonReader.Parse("[]");
+            JsonValue? array = IosJsonReader.Parse("[]");
             Assert.IsNotNull(array);
             Assert.AreEqual(JsonValueKind.Array, array!.Kind);
             Assert.AreEqual(0, array.AsArray().Count);
@@ -134,7 +134,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void Parse_NestedArrayOfArrays_IsPreserved()
         {
             // This is the shape JsonUtility cannot deserialize: snapshot.allTypeIdentifiers.
-            JsonValue? root = IosClipboardJsonReader.Parse("{\"a\":[[\"x\",\"y\"],[],[\"z\"]]}");
+            JsonValue? root = IosJsonReader.Parse("{\"a\":[[\"x\",\"y\"],[],[\"z\"]]}");
             Assert.IsNotNull(root);
 
             Assert.IsTrue(root!.TryGetMember("a", out JsonValue outer));
@@ -151,17 +151,17 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetMember_AbsentKeyOrWrongKind_ReturnsFalse()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":1}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":1}")!;
             Assert.IsFalse(root.TryGetMember("missing", out _));
 
-            JsonValue array = IosClipboardJsonReader.Parse("[1]")!;
+            JsonValue array = IosJsonReader.Parse("[1]")!;
             Assert.IsFalse(array.TryGetMember("a", out _));
         }
 
         [Test]
         public void GetMemberOrNull_NullMember_ReturnsNull()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":null,\"b\":1}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":null,\"b\":1}")!;
             Assert.IsNull(root.GetMemberOrNull("a"));
             Assert.IsNull(root.GetMemberOrNull("missing"));
             Assert.IsNotNull(root.GetMemberOrNull("b"));
@@ -170,7 +170,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetBool_OnlyForBooleans()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"t\":true,\"f\":false,\"n\":1}")!;
+            JsonValue root = IosJsonReader.Parse("{\"t\":true,\"f\":false,\"n\":1}")!;
 
             Assert.IsTrue(root.GetMemberOrNull("t")!.TryGetBool(out bool t));
             Assert.IsTrue(t);
@@ -182,7 +182,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetDouble_AcceptsIntegerDecimalAndExponent()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":12,\"b\":-3.5,\"c\":1.5e3,\"d\":\"12\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":12,\"b\":-3.5,\"c\":1.5e3,\"d\":\"12\"}")!;
 
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetDouble(out double a));
             Assert.AreEqual(12d, a, 1e-9);
@@ -198,7 +198,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetInt_AcceptsIntegralFormsAndRejectsOthers()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":7,\"b\":7.0,\"c\":7.5,\"d\":true}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":7,\"b\":7.0,\"c\":7.5,\"d\":true}")!;
 
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetInt(out int a));
             Assert.AreEqual(7, a);
@@ -211,7 +211,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetString_UnescapedValue_IsReturnedVerbatim()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":\"plain value\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":\"plain value\"}")!;
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetString(out string value));
             Assert.AreEqual("plain value", value);
         }
@@ -219,7 +219,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetString_DecodesAllSimpleEscapes()
         {
-            JsonValue root = IosClipboardJsonReader.Parse(
+            JsonValue root = IosJsonReader.Parse(
                 "{\"a\":\"q\\\"b\\\\s\\/f\\bf\\ff\\nf\\rf\\tend\"}")!;
 
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetString(out string value));
@@ -230,7 +230,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void TryGetString_DecodesUnicodeEscapesIncludingSurrogatePairs()
         {
             // "あ" and an emoji expressed as a surrogate pair.
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":\"\\u3042\\uD83D\\uDE00\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":\"\\u3042\\uD83D\\uDE00\"}")!;
 
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetString(out string value));
             Assert.AreEqual("あ\U0001F600", value);
@@ -239,7 +239,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetString_RawNonAsciiCharacters_ArePreserved()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"a\":\"日本語 \U0001F680\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"a\":\"日本語 \U0001F680\"}")!;
             Assert.IsTrue(root.GetMemberOrNull("a")!.TryGetString(out string value));
             Assert.AreEqual("日本語 \U0001F680", value);
         }
@@ -247,19 +247,19 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void Parse_ExceedingMaxDepth_ReturnsNull()
         {
-            string deep = new string('[', IosClipboardJsonReader.MaxDepth + 5)
+            string deep = new string('[', IosJsonReader.MaxDepth + 5)
                           + "1"
-                          + new string(']', IosClipboardJsonReader.MaxDepth + 5);
+                          + new string(']', IosJsonReader.MaxDepth + 5);
 
-            Assert.DoesNotThrow(() => IosClipboardJsonReader.Parse(deep));
-            Assert.IsNull(IosClipboardJsonReader.Parse(deep));
+            Assert.DoesNotThrow(() => IosJsonReader.Parse(deep));
+            Assert.IsNull(IosJsonReader.Parse(deep));
         }
 
         [Test]
         public void Parse_AtModestDepth_Succeeds()
         {
             string nested = new string('[', 10) + "1" + new string(']', 10);
-            Assert.IsNotNull(IosClipboardJsonReader.Parse(nested));
+            Assert.IsNotNull(IosJsonReader.Parse(nested));
         }
 
         // ── base64 ──────────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void TryGetBase64Bytes_RoundTripsPayload()
         {
             var payload = new byte[] { 1, 2, 3, 4, 5 };
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
 
             JsonBase64Status status = root.GetMemberOrNull("b")!.TryGetBase64Bytes(long.MaxValue, out byte[]? bytes);
 
@@ -328,7 +328,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             // Padded payload sitting exactly on the limit: proves the limit uses the exact decoded
             // length, not the padding-inflated estimate.
             var payload = new byte[1];
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
 
             JsonBase64Status status = root.GetMemberOrNull("b")!.TryGetBase64Bytes(1, out byte[]? bytes);
 
@@ -340,7 +340,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void TryGetBase64Bytes_OneByteOverLimit_ReportsTooLarge()
         {
             var payload = new byte[4];
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
 
             JsonBase64Status status = root.GetMemberOrNull("b")!.TryGetBase64Bytes(3, out byte[]? bytes);
 
@@ -352,7 +352,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         public void TryGetBase64Bytes_JustUnderLimit_Succeeds()
         {
             var payload = new byte[3];
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{Convert.ToBase64String(payload)}\"}}")!;
 
             Assert.AreEqual(
                 JsonBase64Status.Success,
@@ -362,7 +362,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetBase64Bytes_NonStringMember_ReportsNotAString()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"b\":123}")!;
+            JsonValue root = IosJsonReader.Parse("{\"b\":123}")!;
             Assert.AreEqual(
                 JsonBase64Status.NotAString,
                 root.GetMemberOrNull("b")!.TryGetBase64Bytes(long.MaxValue, out _));
@@ -371,7 +371,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         [Test]
         public void TryGetBase64Bytes_MalformedToken_ReportsMalformed()
         {
-            JsonValue root = IosClipboardJsonReader.Parse("{\"b\":\"AA=A\",\"c\":\"AAA\",\"d\":\"@@@@\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"b\":\"AA=A\",\"c\":\"AAA\",\"d\":\"@@@@\"}")!;
 
             Assert.AreEqual(
                 JsonBase64Status.Malformed,
@@ -391,7 +391,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             // unless .withoutEscapingSlashes is set, so real device payloads arrive escaped.
             var payload = new byte[] { 255, 255, 255 };
             string escaped = Convert.ToBase64String(payload).Replace("/", "\\/");
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
 
             JsonBase64Status status = root.GetMemberOrNull("b")!.TryGetBase64Bytes(long.MaxValue, out byte[]? bytes);
 
@@ -405,7 +405,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             // The limit must be measured on the unescaped token, not on the longer escaped source.
             var payload = new byte[] { 255, 255, 255 };
             string escaped = Convert.ToBase64String(payload).Replace("/", "\\/");
-            JsonValue root = IosClipboardJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
+            JsonValue root = IosJsonReader.Parse($"{{\"b\":\"{escaped}\"}}")!;
 
             Assert.AreEqual(
                 JsonBase64Status.TooLarge,
@@ -418,7 +418,7 @@ namespace JonghyunKim.NativeToolkit.Tests
         {
             // Canonical base64 never needs escaping, so an escaped token must not take the
             // zero-copy path.
-            JsonValue root = IosClipboardJsonReader.Parse("{\"b\":\"AA\\u003d\\u003d\"}")!;
+            JsonValue root = IosJsonReader.Parse("{\"b\":\"AA\\u003d\\u003d\"}")!;
             Assert.AreEqual(
                 JsonBase64Status.Malformed,
                 root.GetMemberOrNull("b")!.TryGetBase64Bytes(long.MaxValue, out _));

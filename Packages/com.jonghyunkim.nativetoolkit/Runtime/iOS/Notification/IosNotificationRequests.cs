@@ -7,7 +7,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
     using System.Collections.Generic;
     using System.Globalization;
     using System.Text;
-    using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
+    using JonghyunKim.NativeToolkit.Runtime.iOS.Common;
 
     /// <summary>
     /// Reads the public API's JSON (content, trigger, category) as native-toolkit 1.13.0's Unity bridge read it, and
@@ -320,7 +320,7 @@ namespace JonghyunKim.NativeToolkit.Runtime.iOS.Notification
         private static JsonValue? ParseLike1x(string? json)
         {
             if (json != null && json.Length > 0 && json[0] == '\uFEFF') json = json.Substring(1);
-            return IosClipboardJsonReader.Parse(json, MaxDepth);
+            return IosJsonReader.Parse(json, MaxDepth);
         }
 
         private static string CutAtNul(string value)

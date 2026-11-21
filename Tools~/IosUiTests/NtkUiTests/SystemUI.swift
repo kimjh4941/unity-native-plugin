@@ -3,6 +3,9 @@ import XCTest
 /// The system screens the tests press (native-toolkit's CApiUITestApp.swift, the same element queries).
 /// Labels are matched in English and Japanese.
 enum SystemUI {
+    /// The major iOS version the runner runs on: iOS 26 changed the share sheet (native-toolkit's U-16).
+    static var osMajorVersion: Int { ProcessInfo.processInfo.operatingSystemVersion.majorVersion }
+
     /// Allows the notification permission alert (shown by springboard).
     static func allowNotifications(_ springboard: XCUIApplication, timeout: TimeInterval = 10) -> Bool {
         let allow = springboard.alerts.buttons.matching(NSPredicate(format: "label IN {'Allow', '許可'}")).firstMatch
@@ -18,9 +21,17 @@ enum SystemUI {
             .firstMatch.waitForExistence(timeout: timeout)
     }
 
-    /// Closes the share sheet without choosing an activity. Only the Close button is pressed: a tap at
-    /// a guessed point could land on a share target (a real app or contact) on a device.
+    /// Closes the share sheet without choosing an activity. On iOS 18 only the Close button is pressed;
+    /// iOS 26 has none, and the sheet's own dismiss region (`PopoverDismissRegion`) is pressed when there
+    /// is exactly one (native-toolkit's ShareSheet.close, U-16). Never a guessed point: it could land on a
+    /// share target (a real app or contact) on a device.
     static func closeShareSheet(_ app: XCUIApplication, timeout: TimeInterval = 10) -> Bool {
+        if osMajorVersion >= 26 {
+            let region = app.otherElements.matching(identifier: "PopoverDismissRegion")
+            guard region.firstMatch.waitForExistence(timeout: timeout), region.count == 1 else { return false }
+            region.element.tap()
+            return true
+        }
         let close = app.buttons.matching(NSPredicate(format: "label IN {'Close', '閉じる'}")).firstMatch
         guard close.waitForExistence(timeout: timeout) else { return false }
         close.tap()
@@ -42,19 +53,23 @@ enum SystemUI {
         return true
     }
 
-    /// The share sheet header's title on iOS 18, read every 0.1 s for `duration` seconds. The header is
-    /// the one navigation bar holding Close: with two `Other` children (title, subtitle) the first one's
-    /// label, with one `Other` child the bar's own identifier unless it is `UIActivityContentView`; any
-    /// other shape reads "" (native-toolkit's ShareSheet.observeHeaderTitle; iOS 26 is not read here,
-    /// the simulator is iOS 18.3 until stage 4).
+    /// The share sheet header's title, read every 0.1 s for `duration` seconds. On iOS 26 the element
+    /// `LP.CaptionBar.TopCaption` ("" unless exactly one). On iOS 18 the header is the one navigation bar
+    /// holding Close: with two `Other` children (title, subtitle) the first one's label, with one `Other`
+    /// child the bar's own identifier unless it is `UIActivityContentView`; any other shape reads ""
+    /// (native-toolkit's ShareSheet.observeHeaderTitle).
     static func headerTitles(_ app: XCUIApplication, for duration: TimeInterval) -> [String] {
+        let caption = app.descendants(matching: .any).matching(identifier: "LP.CaptionBar.TopCaption")
         let header = app.navigationBars.containing(NSPredicate(
             format: "elementType == %lu AND label IN {'Close', '閉じる'}", XCUIElement.ElementType.button.rawValue))
+        let isIOS26 = osMajorVersion >= 26
         var seen: [String] = []
         let deadline = Date().addingTimeInterval(duration)
         repeat {
             var label = ""
-            if header.count == 1 {
+            if isIOS26 {
+                label = caption.count == 1 ? caption.element.label : ""
+            } else if header.count == 1 {
                 let bar = header.element
                 let parts = bar.children(matching: .other)
                 if parts.count == 2 {
