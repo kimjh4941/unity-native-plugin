@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
-using JonghyunKim.NativeToolkit.Runtime.Notification;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -26,6 +26,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private const string NotificationPermissionSettingsGuideMessage = "Permission denied. Tap Open Notification Settings and allow notifications.";
 
     private Label? _resultLabel;
+    private ScrollView? _resultScrollView;
     private Button? _homeButton;
     private Button? _requestPermissionButton;
     private Button? _hasPermissionButton;
@@ -129,6 +130,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _resultScrollView = root.Q<ScrollView>("ResultScrollView");
         _homeButton = root.Q<Button>("HomeButton");
         _requestPermissionButton = root.Q<Button>("RequestPermissionButton");
         _hasPermissionButton = root.Q<Button>("HasPermissionButton");
@@ -257,7 +259,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("ShowImmediate", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Energy Refilled",
@@ -290,7 +292,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
                 return;
             }
 
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Immediate Notification with Attachment",
@@ -298,7 +300,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
                 sound = "default",
                 attachments = new[]
                 {
-                    new NotificationAttachmentPayload
+                    new IosNotificationAttachmentPayload
                     {
                         identifier = SampleAttachmentId,
                         fileURL = appIconFileUrl
@@ -324,14 +326,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("ShowTimeInterval", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Guild Battle Countdown",
                 body = "Your team queue opens in 5 seconds. Rally your party and get ready.",
                 sound = "default"
             };
-            var trigger = new TimeIntervalTriggerPayload { interval = 5.0, repeats = false };
+            var trigger = new IosTimeIntervalTriggerPayload { interval = 5.0, repeats = false };
             var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
             var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
             IosNotificationManager.Instance.ShowNotification(contentJson, triggerJson, result =>
@@ -351,14 +353,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         ExecuteIfNotificationPermissionGranted("ShowCalendar", () =>
         {
             var now = DateTime.Now.AddMinutes(1);
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Daily Reward Ready",
                 body = "Your login streak chest is ready in town. Claim it before reset.",
                 sound = "default"
             };
-            var trigger = new CalendarTriggerPayload
+            var trigger = new IosCalendarTriggerPayload
             {
                 hour = now.Hour,
                 minute = now.Minute,
@@ -383,14 +385,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("ShowLocation", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Town Entry Bonus",
                 body = "Welcome back to town. Your blacksmith bonus is now available.",
                 sound = "default"
             };
-            var trigger = new LocationTriggerPayload
+            var trigger = new IosLocationTriggerPayload
             {
                 identifier = "tokyo-station",
                 latitude = 35.6812,
@@ -417,7 +419,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("UpdateById", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleNotificationId,
                 title = "Daily Reward Ready",
@@ -497,14 +499,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("ScheduleTimeInterval", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleScheduledId,
                 title = "Guild Battle Starts Soon",
                 body = "Battle queue opens in 10 seconds. Finalize your loadout and deploy.",
                 sound = "default"
             };
-            var trigger = new TimeIntervalTriggerPayload { interval = 10.0, repeats = false };
+            var trigger = new IosTimeIntervalTriggerPayload { interval = 10.0, repeats = false };
             var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
             var triggerJson = IosNotificationJsonBuilder.BuildTimeIntervalTriggerJson(trigger);
             IosNotificationManager.Instance.ScheduleNotification(contentJson, triggerJson, SampleScheduledId, result =>
@@ -524,14 +526,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         ExecuteIfNotificationPermissionGranted("ScheduleCalendar", () =>
         {
             var future = DateTime.Now.AddMinutes(1);
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleScheduledId,
                 title = "Daily Reward Window",
                 body = "Your daily reward window is open. Check in now to keep your streak.",
                 sound = "default"
             };
-            var trigger = new CalendarTriggerPayload
+            var trigger = new IosCalendarTriggerPayload
             {
                 hour = future.Hour,
                 minute = future.Minute,
@@ -556,14 +558,14 @@ public class IosNotificationManagerExampleController : MonoBehaviour
 #if UNITY_IOS && !UNITY_EDITOR
         ExecuteIfNotificationPermissionGranted("ScheduleLocation", () =>
         {
-            var content = new NotificationContentPayload
+            var content = new IosNotificationContentPayload
             {
                 id = SampleScheduledId,
                 title = "Town Arrival Bonus",
                 body = "You reached the hub area. Visit the guild board to claim your bonus quest.",
                 sound = "default"
             };
-            var trigger = new LocationTriggerPayload
+            var trigger = new IosLocationTriggerPayload
             {
                 identifier = "tokyo-station-scheduled",
                 latitude = 35.6812,
@@ -885,6 +887,12 @@ public class IosNotificationManagerExampleController : MonoBehaviour
             return false;
         }
 
+        // native-toolkit 2.0.0's text (C ABI design v4, D-6, D-17); 1.x's generic, localized text below.
+        if (errorMessage == "Notification permission was denied.")
+        {
+            return true;
+        }
+
         var normalized = errorMessage.Replace(" ", string.Empty);
         return normalized.Contains("notificationerror", StringComparison.OrdinalIgnoreCase)
                && (normalized.Contains("error4", StringComparison.OrdinalIgnoreCase)
@@ -933,6 +941,13 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         if (_resultLabel != null)
         {
             _resultLabel.text = message;
+        }
+
+        // The result area is fixed height and scrolls (as on the Clipboard screen). Without this, a new result
+        // inherits the previous scroll position and its first lines would be hidden above the viewport.
+        if (_resultScrollView != null)
+        {
+            _resultScrollView.scrollOffset = Vector2.zero;
         }
     }
 }

@@ -29,6 +29,8 @@ public class TopMenuExampleController : MonoBehaviour
             return;
         }
 
+        // The scene opens on this screen without going through the navigator.
+        NativeToolkitSampleNavigator.EnsureSafeArea(uiDocument);
         InitializeUI();
     }
 

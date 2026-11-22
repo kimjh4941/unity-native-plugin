@@ -4,11 +4,11 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, and sharing via singleton APIs per platform.
-- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. On iOS, Unity links and embeds the native libraries by itself. For macOS, an editor window adds the native library to the built Xcode project.
 
 # Version
 
-## 1.13.0
+## 1.14.0
 
 # Supported OS Versions
 
@@ -29,6 +29,16 @@
 ## Changes in 1.13.0 (Android)
 
 Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The Android types moved from `JonghyunKim.NativeToolkit.Runtime.<Feature>` to `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>`, the Android types without the `Android` prefix were renamed, and the 1.x native libraries and "Configure Gradle Project" were removed. Unity does not update your scripts for you. What to change, per feature: [Dialog](dialog.md#changes-in-1130), [Notification](notification.md#changes-in-1130), [Share](share.md#changes-in-1130), [Clipboard](clipboard.md#changes-in-1130).
+
+## iOS requirements
+
+- Minimum iOS: 18.0. Set Player Settings > Other Settings > Target minimum iOS Version (or the one in the active build profile) to 18.0 or later. A lower value stops the build with a message before anything else runs.
+- Xcode project: nothing to set up. Unity links `ios-native-toolkit-2.0.0.xcframework` and `ios-native-toolkit-capi-2.0.0.xcframework` and embeds them in the app. After the export, the build checks that both are linked and embedded, and stops with a message when one is missing or when the project still refers to a 1.x XCFramework. This happens when you build with "Append" into an Xcode project exported with 1.13.0 or earlier: build with "Replace" instead.
+- Notifications: the build adds a native file (`NtkNotificationInstaller.mm`) to UnityFramework, which sets up notification handling when the app starts. How to leave it out, and how it works with other notification packages: [Notification](notification.md).
+
+## Changes in 1.14.0 (iOS)
+
+Since 1.14.0 every iOS feature runs on native-toolkit's C ABI 2.0.0. The iOS types moved from `JonghyunKim.NativeToolkit.Runtime.<Feature>` to `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`, the five notification payload types without a prefix were replaced on iOS by `Ios` types, `IosShareJsonBuilder`, `IosClipboardJsonBuilder` and the six unused delegate types nested in `IosDialogManager` were removed, and the 1.x native libraries and "Configure Xcode Project" for iOS were removed. Unity does not update your scripts for you. What to change, per feature: [Dialog](dialog.md#changes-in-1140), [Notification](notification.md#changes-in-1140), [Share](share.md#changes-in-1140), [Clipboard](clipboard.md#changes-in-1140).
 
 # Features
 
@@ -176,7 +186,7 @@ Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The And
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
+  - https://github.com/kimjh4941/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.14.0
 - Click "install".
 - Requirements:
   - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
@@ -200,14 +210,7 @@ Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The And
 
 - iOS sample
   - The sample UI appears in the Game view.
-  - From Build Profiles, run "iOS Profile" -> Build.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project.
-  <p align="center">
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  </p>
-
-  - Click "Browse" and select the built iOS project.
-  - Click "Run: Add/Embed iOS XCFrameworks" to add NativeToolkit libraries.
+  - From Build Profiles, run "iOS Profile" -> Build. The built Xcode project already links and embeds the NativeToolkit libraries.
   - Install the sample app from Xcode.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">Reference</a>
 

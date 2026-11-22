@@ -30,6 +30,7 @@
   - [이벤트 수신](#이벤트-수신)
   - [에러 처리](#에러-처리)
 - [iOS](#ios)
+  - [1.14.0 변경 사항](#1140-변경-사항)
   - [설정](#설정-1)
   - [텍스트 공유](#텍스트-공유-1)
   - [URL 공유](#url-공유-1)
@@ -67,7 +68,7 @@
 
 #### 코드 수정 방법
 
-- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Share;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Share;`로 바꿔 주세요. iOS와 macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- Android 코드의 `using JonghyunKim.NativeToolkit.Runtime.Share;`를 `using JonghyunKim.NativeToolkit.Runtime.Android.Share;`로 바꿔 주세요. macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다). iOS 타입은 1.14.0에서 옮겨졌습니다([1.14.0 변경 사항](#1140-변경-사항) 참고).
 - 아래 표의 타입 이름을 바꿔 주세요. Unity는 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 1.12.0의 이름을 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_ANDROID && !UNITY_EDITOR` 안에 작성한 코드는 Editor에서 컴파일되지 않으므로, 오류는 Android Player를 빌드할 때 처음 나타납니다.
 - 1.12.0의 이름으로 `[SerializeReference]`에 저장한 데이터는 새 타입으로 값과 함께 불러와집니다. 이름이 바뀐 타입은 1.12.0의 이름을 `[MovedFrom]`으로 기록하고 있습니다.
 
@@ -539,15 +540,56 @@ AndroidShareManager.Instance.ShareFile(new AndroidShareFilePayload
 
 ## iOS
 
+### 1.14.0 변경 사항
+
+1.14.0부터 iOS 공유 기능은 1.x의 Unity용 브리지가 아니라 native-toolkit의 C ABI 2.0.0으로 동작합니다. `IosShareManager`의 `Share` 메서드와 `ShareCompleted` 이벤트, Payload의 필드, 결과의 프로퍼티는 바뀌지 않았습니다. 올바른 입력으로 공유하면 이전과 같은 공유 시트가 열립니다. 고쳐야 할 부분과 1.13.0과 다른 점은 다음과 같습니다.
+
+#### 코드 수정 방법
+
+- iOS 코드의 `using JonghyunKim.NativeToolkit.Runtime.Share;`를 `using JonghyunKim.NativeToolkit.Runtime.iOS.Share;`로 바꿔 주세요. macOS 코드의 줄은 그대로 두세요(해당 타입은 옮겨지지 않았습니다).
+- 타입 이름은 바뀌지 않았습니다. `IosShareManager`, `IosShareContentPayload`, `IosShareItem`, `IosShareResult`는 네임스페이스만 옮겨졌습니다. Unity는 `using`을 자동으로 고쳐 주지 않습니다. API Updater는 이 패키지의 타입에 대한 참조를 다시 쓰지 않으므로, 이전 네임스페이스를 그대로 쓰는 스크립트는 컴파일에 실패합니다. 이 페이지의 예처럼 `#if UNITY_IOS || UNITY_EDITOR` 안에 작성한 코드는 Editor에서도 컴파일되므로, 오류는 Unity가 스크립트를 컴파일할 때 바로 나타납니다.
+- 이전 네임스페이스로 `[SerializeReference]`에 저장한 데이터는 같은 타입으로 값과 함께 불러와집니다. 옮겨진 타입은 이전 네임스페이스를 `[MovedFrom]`으로 기록하고 있습니다.
+
+#### iOS 전체 기능에 공통인 호환성이 깨지는 변경
+
+- **1.x 네이티브 라이브러리를 더 이상 포함하지 않습니다.** `ios-native-toolkit-1.3.0.xcframework`와 `unity-ios-native-toolkit-1.3.0.xcframework`를 제거했습니다. 패키지에 포함된 것은 `ios-native-toolkit-2.0.0.xcframework`와 `ios-native-toolkit-capi-2.0.0.xcframework`(native-toolkit의 C ABI 2.0.0)입니다. 1.x의 Unity용 브리지(`UnityIosPlugin`)를 직접 호출하던 코드는 동작하지 않습니다. 1.13.0으로 내보낸 Xcode 프로젝트에는 덧붙여 내보낼(Append) 수 없습니다. 1.x XCFramework를 계속 참조하는 프로젝트에서는 빌드가 중단되므로, 새 폴더로 내보내 주세요(Replace).
+- **"Configure Xcode Project"가 없어졌습니다.** 메뉴 Tools > Native Toolkit > iOS > Configure Xcode Project와 그 창을 삭제했습니다. XCFramework의 링크와 임베드는 `.meta` 설정에 따라 Unity가 직접 합니다. 빌드 후 처리가 내보낸 Xcode 프로젝트를 확인하고, 빠진 것이 있으면 빌드를 중단합니다.
+- **iOS 18.0 이상이 필요합니다.** Player Settings > Other Settings > Target minimum iOS Version(또는 사용 중인 빌드 프로필의 같은 설정)이 18.0보다 낮으면 빌드는 메시지를 표시하고 중단됩니다. native-toolkit 2.0.0은 iOS 18.0용으로 빌드되어 있어, iOS 17 이하에서는 앱이 시작 직후에 종료됩니다. [iOS 요구 사항](index.ko.md#ios-요구-사항)을 참고해 주세요.
+
+#### 공유 기능의 변경 사항
+
+- **`IosShareJsonBuilder`를 삭제했습니다.** 1.13.0에서는 `IosShareManager`가 이 클래스(`BuildShareContentJson`)로 Payload에서 JSON을 만들어 1.x 브리지에 전달했습니다. 이제는 Manager가 Payload를 그대로 네이티브 라이브러리에 전달하므로, 이 JSON을 사용하는 곳이 없습니다. 이 페이지의 예처럼 `IosShareContentPayload`를 `IosShareManager.Share`에 전달해 주세요. JSON 문자열을 대신하는 것은 없습니다.
+- **결과는 해당 호출의 콜백에 전달됩니다.** 1.13.0은 호출별 콜백을 하나만 가지고 있었고, `Share`를 호출할 때마다 바꿔 넣었습니다. 이전 결과가 오기 전에 `Share`를 다시 호출하면 이전 콜백은 호출되지 않았고, 이전 결과가 나중 호출의 콜백에 전달되기도 했습니다. 이제는 호출마다 콜백을 따로 가집니다.
+- **오류 메시지에 URL이나 경로가 들어가지 않습니다.** 네이티브 라이브러리는 오류의 종류만 돌려주므로, 올바르지 않은 URL, 없는 파일, 불러올 수 없는 이미지의 메시지가 짧아졌습니다(아래 표 참고).
+
+#### 1.13.0과 다른 동작
+
+| 상황 | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| `IosShareItem.Url`이 올바른 URL이 아님 | `Invalid URL: <URL>.` | `Invalid URL.` |
+| `IosShareItem.Image`를 이미지로 불러올 수 없음(파일이 없는 경우 포함) | `Failed to load image at path: <경로>.` | `Failed to load image.` |
+| `IosShareItem.File`의 파일이 없음 | `File not found at path: <경로>.` | `File not found.` |
+| 공유 시트를 표시할 수 없음 | `Failed to present the share sheet: <이유>.` | `Failed to present the share sheet.` |
+| 사용자가 고른 액티비티가 실패함 | `Failed to present the share sheet: <이유>.` | `Failed to present the share sheet: the share activity failed.` |
+| 사용자가 아니라 시스템이 공유 시트를 닫음 | 결과가 오지 않았습니다 | `The share sheet was dismissed without a result.`로 실패합니다 |
+| 앱이 포그라운드에 있지만 비활성일 때(제어 센터를 연 상태 등) `Share` 호출 | `No root view controller available to present the share sheet.`로 실패했고, 시트는 나타나지 않았습니다 | 공유 시트가 나타납니다. 닫으면 `IsSuccess = true`, `Completed = false`가 전달됩니다 |
+| 이전 결과가 오기 전에 `Share`를 다시 호출 | 나중 호출이 콜백을 바꿔 넣었습니다. 이전 콜백은 호출되지 않았고, 이전 결과가 나중 호출의 콜백에 전달되기도 했습니다 | 각 결과는 해당 호출에서 전달한 콜백에 전달됩니다 |
+| 같은 프레임에서 `Share`를 2번 호출 | 공유 시트는 하나만 나타났습니다. 닫으면 결과가 `ShareCompleted`와 두 번째 호출의 콜백에 한 번씩 전달되었고, 첫 번째 호출의 콜백은 호출되지 않았습니다 | 지금도 공유 시트는 하나만 나타납니다. 나머지 호출은 시트가 표시된 뒤(늦어도 약 10초 뒤) `Failed to present the share sheet.`로 실패하고, 시트를 닫으면 그 결과는 시트를 띄운 호출에 전달됩니다. 두 호출 모두 결과를 정확히 한 번 받고, `ShareCompleted`도 두 번 발생합니다. 어느 쪽이 실패할지는 정해져 있지 않습니다 |
+| null 아이템, `type`이 `text`·`url`·`image`·`file` 중 어느 것도 아닌 아이템, `value`가 null인 아이템 | 조용히 제외했습니다 | 똑같이 제외하고, 로그에 경고를 출력합니다. 경고에는 아이템의 수와 `type`만 나오고 값은 나오지 않습니다 |
+| null을 포함한 `excludedActivityTypes` | 목록 전체를 조용히 무시했습니다 | 똑같이 목록 전체를 무시하고, 로그에 경고를 출력합니다 |
+| 아이템의 `value`, `subject`, `previewTitle`, 제외할 액티비티 타입에 U+0000이 있음 | 전체가 전달되었습니다 | 그 문자에서 잘리고, 로그에 경고를 출력합니다 |
+
+바뀌지 않은 것: payload가 null이거나 `items`가 비어 있으면 `No shareable items were provided.`로 실패하며, 위의 아이템을 제외하고 남는 것이 없을 때도 마찬가지입니다. 공백뿐인 `subject`나 `previewTitle`은 생략합니다. Editor에서는 모든 공유가 `iOS share is only available on an iOS device.`로 실패합니다. 앱이 백그라운드에 있을 때 호출한 공유는 앱이 포그라운드로 돌아온 뒤 `No root view controller available to present the share sheet.`로 실패합니다. 결과는 `Share`가 반환된 뒤에 `ShareCompleted`, 호출별 콜백 순으로 전달되며, 사용자의 취소는 `Completed = false`인 성공입니다.
+
 ### 설정
 
 #### 네임스페이스 가져오기
 
-`IosShareManager`는 iOS 빌드 타겟이 선택되어 있는 한 에디터를 포함해 항상 컴파일됩니다. 에디터나 iOS가 아닌 기기에서 `Share`를 호출해도 크래시하지 않고 즉시 실패 결과를 반환합니다([에러 처리](#에러-처리-1) 참조).
+`IosShareManager`는 iOS Player와 Editor(`UNITY_IOS || UNITY_EDITOR`)에서 컴파일되므로, 이 페이지의 예는 Editor에서도 컴파일됩니다. Editor에서는 `Share`가 아무것도 표시하지 않고 `iOS share is only available on an iOS device.` 실패가 전달됩니다([에러 처리](#에러-처리-1) 참조).
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 #endif
 ```
 
@@ -809,11 +851,11 @@ private void OnShareCompleted(IosShareResult result)
 
 ### 에러 처리
 
-모든 `Share` 호출 결과는 `ShareCompleted`(및 `Share`에 전달한 개별 콜백)를 통해 보고됩니다. `IsSuccess`가 `false`인 경우 `ErrorMessage`는 항상 non-null입니다.
+모든 `Share` 호출 결과는 호출이 반환된 뒤 `ShareCompleted`(및 `Share`에 전달한 개별 콜백)를 통해 보고됩니다. 호출이 겹친 경우(같은 프레임에서 2번 호출한 경우 등)에는 시트가 하나만 나타나고, 다른 호출은 `Failed to present the share sheet.`로 실패합니다([1.13.0과 다른 동작](#1130과-다른-동작) 참조). `IsSuccess`가 `false`인 경우 `ErrorMessage`는 항상 non-null입니다. 메시지에는 전달한 URL이나 경로가 들어가지 않습니다.
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-// 아이템 없음: 공유 시트를 표시하지 않고 즉시 실패합니다.
+// 아이템 없음: 공유 시트를 표시하지 않고 실패합니다.
 // ErrorMessage: "No shareable items were provided."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
@@ -821,21 +863,21 @@ IosShareManager.Instance.Share(new IosShareContentPayload
 });
 
 // 유효하지 않은 URL 문자열: 네이티브 유효성 검사 오류로 실패합니다.
-// ErrorMessage: "Invalid URL: not a valid url."
+// ErrorMessage: "Invalid URL."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Url("not a valid url") }
 });
 
 // 파일 없음: 네이티브 레이어가 파일을 찾지 못하면 실패합니다.
-// ErrorMessage: "File not found at path: /nonexistent/share-missing.txt."
+// ErrorMessage: "File not found."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.File("/nonexistent/share-missing.txt") }
 });
 
 // 이미지 없음: 네이티브 레이어가 이미지를 로드하지 못하면 실패합니다.
-// ErrorMessage: "Failed to load image at path: /nonexistent/share-missing.png."
+// ErrorMessage: "Failed to load image."
 IosShareManager.Instance.Share(new IosShareContentPayload
 {
     items = new[] { IosShareItem.Image("/nonexistent/share-missing.png") }

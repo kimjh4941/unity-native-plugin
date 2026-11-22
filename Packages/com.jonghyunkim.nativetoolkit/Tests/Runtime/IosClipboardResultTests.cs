@@ -3,7 +3,7 @@
 #if UNITY_IOS || UNITY_EDITOR
 using System;
 using NUnit.Framework;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {

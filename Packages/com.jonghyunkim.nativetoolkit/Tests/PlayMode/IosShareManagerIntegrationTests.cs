@@ -1,12 +1,12 @@
 #nullable enable
 
-#if UNITY_IOS || UNITY_EDITOR
+#if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
@@ -73,12 +73,9 @@ namespace JonghyunKim.NativeToolkit.Tests
         [UnityTest]
         public IEnumerator Share_ConsecutiveCalls_EachCallbackFiresExactlyOnce()
         {
-            // Note: on the Editor / non-iOS path, Share() resolves synchronously (immediate
-            // FireResult), so consecutive calls never actually overlap and each call's own
-            // callback fires. Last-registered-wins (s_onShare overwritten before FireResult runs)
-            // only manifests on-device, where the native shareContent() call is asynchronous and a
-            // second Share() can overwrite s_onShare before the first native callback arrives; that
-            // path cannot be exercised without a real device.
+            // In the Editor every share fails on the next Update, so each call's own callback fires.
+            // On a device each accepted call is recorded by number (IosSharePendingCalls); that is checked
+            // by IosShareManagerEditorTests with a stand-in native call and by the player tests.
             var payload = new IosShareContentPayload { items = new[] { IosShareItem.Text("hello") } };
             bool firstCallbackInvoked = false;
             bool secondCallbackInvoked = false;

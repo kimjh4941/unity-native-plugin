@@ -4,7 +4,7 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes dialog operations via singleton APIs per platform.
-- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. On iOS, Unity links and embeds the native libraries by itself. For macOS, an editor window adds the native library to the built Xcode project.
 
 # Version
 
@@ -73,7 +73,7 @@
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - https://github.com/kimjh4941/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
 - Click "install".
 - Requirements:
   - Unity 6+
@@ -100,10 +100,6 @@
   - Click the "Open" button.
   - The sample UI appears in the Game view.
   - From Build Profiles, run "iOS Profile" -> Build.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project.
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  - Click "Browse" and select the built iOS project.
-  - Click "Run: Add/Embed iOS XCFrameworks" to add NativeToolkit libraries.
   - Install the sample app from Xcode.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">Reference</a>
 
@@ -553,7 +549,7 @@ private void OnLoginDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -608,7 +604,7 @@ private void OnDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -666,7 +662,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -724,7 +720,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -782,7 +778,7 @@ private void OnActionSheetResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -848,7 +844,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -921,7 +917,7 @@ private void OnLoginDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -985,7 +981,7 @@ private void OnAlertDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1039,7 +1035,7 @@ private void OnFileDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1093,7 +1089,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1147,7 +1143,7 @@ private void OnFolderDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1201,7 +1197,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // Guard: Windows (Player) only. Avoid native calls in the Editor.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

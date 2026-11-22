@@ -1,0 +1,7 @@
+{
+  "name": "NativeToolkit.IosUiHarness.Editor",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "autoReferenced": false
+}

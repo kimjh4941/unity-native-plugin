@@ -1,0 +1,8 @@
+{
+  "name": "NativeToolkit.IosPlayerTests.Editor",
+  "references": [],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

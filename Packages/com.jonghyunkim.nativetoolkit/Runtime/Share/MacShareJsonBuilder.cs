@@ -8,8 +8,8 @@ namespace JonghyunKim.NativeToolkit.Runtime.Share
 {
     /// <summary>
     /// Builds JSON strings for the macOS <c>shareContent</c> / <c>shareViaService</c> native
-    /// operations with full control over optional fields. Does not use external JSON libraries;
-    /// matches the hand-written serializer pattern used by <c>IosShareJsonBuilder</c>.
+    /// operations with full control over optional fields. Does not use external JSON libraries; a
+    /// hand-written serializer, as the other JSON builders of this package.
     /// </summary>
     public static class MacShareJsonBuilder
     {

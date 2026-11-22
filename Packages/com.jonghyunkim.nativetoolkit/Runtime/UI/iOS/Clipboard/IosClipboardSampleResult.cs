@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 
 // Intentional deviation from the "log every internal method" rule in csharp.md: every member here
 // is a pure string formatter called once per result line. Logging inside them would duplicate the

@@ -1,0 +1,316 @@
+{
+  "schema": 1,
+  "about": "What each UI test does on a device, listed by scripts/test_ios_ui.sh --dry-run for approval (artifact/topics/ios-c-abi-2, UI automation design v4, 4.6). systemui: presses system alerts or the springboard. sharesheet: opens the share sheet of the harness and closes it with Close without choosing a target; nothing in the sheet is read on a device (Share UI test plan v3; Copy, the sheet's contents, backgrounding and Control Center are simulator only). clipboard: on a device, writes and observes a named pasteboard of the harness only and never reads or writes the general pasteboard (CB-5); the general-pasteboard tests CB-1 to CB-4 are simulator only (Clipboard test plan v4). reinstall: the harness is removed and installed again before the test. playertests: runs the iOS player tests of scripts/verify_unity_ios.sh with the UI driver next to them (the player's own alerts, the share sheet closed with Close, a test value typed into a text-input alert without a password field; Clipboard on named pasteboards only; a second run on a fresh install asks for the notification permission once, answers Allow, and opens the player's page in Settings and comes back; the full list is in scripts/ios_ui_runner.py). The entry PlayerTests/IosPlayer is that run; scripts/test_ios_ui.sh never selects it. giturlapp: the entry GitUrlApp/IosLaunch is the device launch of scripts/verify_unity_ios_git_url.sh (I-17): a throwaway app (Unity's default template, no third-party package besides this one) with this repository's HEAD installed from its git URL, which writes the notification delegate's class and the library's version into its own data folder, never asks for the permission and is removed at the end; scripts/test_ios_ui.sh never selects it either. simulatorOnly: tests never run on a device (the runner leaves them out of device runs and refuses to approve them): backgrounding, Control Center by coordinates, and login dialogs (password saving and AutoFill can take over the screen) - Dialog UI test plan v3. appdialog: presses the harness's own alerts and action sheets (not the springboard); ID-9 types a test value into a text field with the device keyboard. After the switch to the C ABI 2.0.0, the player tests and the UI tests run on a device only after they all pass on the simulator (a wrong migration could otherwise reach the user's device, for example a remove request to the general pasteboard; stage 3-R implementation review v1, R-11). Notification: keepInstalled lists, in order, the tests that run on a device only in the keep-installed run (scripts/test_ios_ui.sh --device --keep-installed; keep-installed design v4): the harness is installed once, NU-1 allows the permission, the run waits until the user lets only the harness through a Focus mode, and the rest run without reinstalling. focus and longpress describe that run. The other Notification tests are simulator only. timeLimits: a test's time limit in seconds when 600 is not enough (NU-11 took over 600 s on the iPhone XS). notMovedYet: the test classes of features not moved to the C ABI 2.0.0 yet (3-S design v3, 1.7). Their UI tests expect 1.x, which the package no longer has, so they are left out of every run (scripts/test_ios_ui.sh refuses them by name), and a class leaves the list when its feature moves (stage 3).",
+  "tests": {
+    "DialogUITests/test_ID1": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID2": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID3": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID4": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID5": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID6": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID7": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID8": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID9": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID10": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID11": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID12": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID13": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID14a": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID14b": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID15": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID16": [
+      "appdialog",
+      "reinstall"
+    ],
+    "DialogUITests/test_ID17": [
+      "appdialog",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH1": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH2": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH3": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH4": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH5": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH6": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH7": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH8": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH9": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH10": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH11": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH12": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH13": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH14": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH15": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH16": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH17": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "ShareUITests/test_SH18": [
+      "sharesheet",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU1": [
+      "systemui",
+      "focus"
+    ],
+    "NotificationUITests/test_NU2": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU2b": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU3": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU3b": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU4": [
+      "systemui",
+      "focus"
+    ],
+    "NotificationUITests/test_NU5": [
+      "systemui",
+      "focus",
+      "longpress"
+    ],
+    "NotificationUITests/test_NU6": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU7": [
+      "focus"
+    ],
+    "NotificationUITests/test_NU8": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU9": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU10": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU11": [
+      "focus"
+    ],
+    "NotificationUITests/test_NU12": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU13": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU14": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU14b_granted": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU14b_denied": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU15": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU16_lat91": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU16_noEntryExit": [
+      "systemui",
+      "reinstall"
+    ],
+    "NotificationUITests/test_NU16_nestedNull": [
+      "systemui",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB1": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB2": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB2b": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB3": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB4": [
+      "clipboard",
+      "reinstall"
+    ],
+    "ClipboardUITests/test_CB5": [
+      "clipboard",
+      "reinstall"
+    ],
+    "PlayerTests/IosPlayer": [
+      "playertests",
+      "reinstall"
+    ],
+    "GitUrlApp/IosLaunch": [
+      "giturlapp",
+      "reinstall"
+    ]
+  },
+  "simulatorOnly": [
+    "DialogUITests/test_ID12",
+    "DialogUITests/test_ID13",
+    "DialogUITests/test_ID15",
+    "DialogUITests/test_ID16",
+    "DialogUITests/test_ID17",
+    "ShareUITests/test_SH6",
+    "ShareUITests/test_SH7",
+    "ShareUITests/test_SH8",
+    "ShareUITests/test_SH14",
+    "ShareUITests/test_SH15",
+    "ShareUITests/test_SH17",
+    "ShareUITests/test_SH18",
+    "ClipboardUITests/test_CB1",
+    "ClipboardUITests/test_CB2",
+    "ClipboardUITests/test_CB2b",
+    "ClipboardUITests/test_CB3",
+    "ClipboardUITests/test_CB4",
+    "NotificationUITests/test_NU2",
+    "NotificationUITests/test_NU2b",
+    "NotificationUITests/test_NU3",
+    "NotificationUITests/test_NU3b",
+    "NotificationUITests/test_NU6",
+    "NotificationUITests/test_NU8",
+    "NotificationUITests/test_NU9",
+    "NotificationUITests/test_NU10",
+    "NotificationUITests/test_NU12",
+    "NotificationUITests/test_NU13",
+    "NotificationUITests/test_NU14",
+    "NotificationUITests/test_NU14b_granted",
+    "NotificationUITests/test_NU14b_denied",
+    "NotificationUITests/test_NU15",
+    "NotificationUITests/test_NU16_lat91",
+    "NotificationUITests/test_NU16_noEntryExit",
+    "NotificationUITests/test_NU16_nestedNull"
+  ],
+  "keepInstalled": [
+    "NotificationUITests/test_NU1",
+    "NotificationUITests/test_NU4",
+    "NotificationUITests/test_NU5",
+    "NotificationUITests/test_NU7",
+    "NotificationUITests/test_NU11"
+  ],
+  "timeLimits": {
+    "NotificationUITests/test_NU11": 1500
+  },
+  "notMovedYet": []
+}

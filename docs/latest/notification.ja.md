@@ -25,9 +25,11 @@
   - [フォアグラウンドサービス通知](#フォアグラウンドサービス通知)
   - [スケジュール通知](#スケジュール通知)
 - [iOS](#ios)
+  - [1.14.0 での変更](#1140-での変更)
   - [概要](#概要)
   - [サポート機能](#サポート機能)
     - [基本セットアップ](#基本セットアップ)
+    - [通知のデリゲート](#通知のデリゲート)
     - [即座通知を表示する](#即座通知を表示する)
     - [添付付き即座通知（アプリアイコン）](#添付付き即座通知アプリアイコン)
     - [スケジュール通知を登録する](#スケジュール通知を登録する)
@@ -65,7 +67,7 @@
 
 #### コードの直し方
 
-- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` に書き換えてください。macOS のコードの行はそのままにしてください（型は移っていません）。iOS の型は 1.14.0 で移りました（[1.14.0 での変更](#1140-での変更)を見てください）。
 - 下の表の型の名前を書き換えてください。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
 - 1.12.0 の名前で `[SerializeReference]` に保存したデータは、新しい型として値ごと読み込まれます。改名した型は、1.12.0 の名前を `[MovedFrom]` で記録しています。
 
@@ -781,6 +783,72 @@ bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1
 
 ## iOS
 
+### 1.14.0 での変更
+
+1.14.0 から、iOS の通知は 1.x の Unity 向けブリッジではなく、native-toolkit の C ABI 2.0.0（`ios-native-toolkit-capi-2.0.0.xcframework`）で動きます。`IosNotificationManager` のメソッド、イベント、定数は変わらず、今も `IosNotificationJsonBuilder` で組み立てた JSON を受け取り、1.13.0 と同じ規則で読みます。直すことと、1.13.0 との違いは次のとおりです。
+
+#### コードの直し方
+
+- iOS のコードの `using JonghyunKim.NativeToolkit.Runtime.Notification;` を `using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;` に書き換えてください。macOS のコードの行はそのままにしてください（macOS の型は移っていません）。
+- iOS のコードで、下の表の 5 つのペイロードの型の名前を書き換えてください。`IosNotificationJsonBuilder` は新しい型だけを受け取ります。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.13.0 の名前空間や名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_IOS && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは iOS の Player をビルドしたときに初めて出ます。
+- 新しい型のフィールドと既定値は古い型と同じで、Builder が書き出す JSON も変わりません。古い型は macOS 用にそのまま残っています。1 つのペイロードを iOS と macOS の両方の Builder に渡していた場合は、それぞれの型で値を作ってください。
+- ほかの iOS の通知の型は名前が変わらず、名前空間だけが移りました。これらの型は 1.13.0 の名前空間を `[MovedFrom]` で記録しているので、`[SerializeReference]` に保存したデータは今も読み込めます。名前が変わった 5 つの型には `[MovedFrom]` がありません（古い型が macOS 用に残っているため）。古い型として `[SerializeReference]` に保存したデータは、新しい型には移りません。
+
+名前が変わった型です（iOS だけ）。`IosNotificationManager`、`IosNotificationJsonBuilder` と、ほかの `IosNotification*` の型は名前が変わらず、名前空間だけが移りました。
+
+| 1.13.0 | 1.14.0 |
+| --- | --- |
+| `NotificationContentPayload` | `IosNotificationContentPayload` |
+| `NotificationAttachmentPayload` | `IosNotificationAttachmentPayload` |
+| `TimeIntervalTriggerPayload` | `IosTimeIntervalTriggerPayload` |
+| `CalendarTriggerPayload` | `IosCalendarTriggerPayload` |
+| `LocationTriggerPayload` | `IosLocationTriggerPayload` |
+
+#### iOS の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `ios-native-toolkit-1.3.0.xcframework` と `unity-ios-native-toolkit-1.3.0.xcframework` を外しました。パッケージに入っているのは `ios-native-toolkit-2.0.0.xcframework` と `ios-native-toolkit-capi-2.0.0.xcframework`（native-toolkit の C ABI 2.0.0）です。1.x の Unity 向けブリッジ（`UnityIosPlugin`）を直接呼んでいたコードは動きません。1.13.0 で書き出した Xcode プロジェクトには追加の書き出し（Append）ができません。1.x の XCFramework を参照したままのプロジェクトではビルドが止まるので、新しいフォルダーに書き出してください（Replace）。
+- **「Configure Xcode Project」は無くなりました。** メニューの Tools > Native Toolkit > iOS > Configure Xcode Project と、そのウィンドウを削除しました。XCFramework のリンクと埋め込みは、`.meta` の設定に従って Unity が自分で行います。ビルドの後の処理が書き出した Xcode プロジェクトを確かめ、どれかが入っていなければビルドを止めます。
+- **iOS 18.0 以降が必要です。** Player Settings > Other Settings > Target minimum iOS Version（または使っているビルドプロファイルの同じ設定）が 18.0 より低いと、ビルドはメッセージを出して止まります。native-toolkit 2.0.0 は iOS 18.0 向けにビルドされていて、iOS 17 以前ではアプリが起動の直後に終わります。[iOS の要件](index.ja.md#ios-の要件)を見てください。
+
+#### 通知の変更
+
+- **通知のデリゲートはアプリの起動時に設定されます。** ビルドは、書き出した Xcode プロジェクトの UnityFramework にネイティブのファイル `NtkNotificationInstaller.mm` を足します。このファイルが、アプリの起動が終わったときに native-toolkit の通知のデリゲートを設定します。1.13.0 では、`IosNotificationManager` が作られるたびに `Awake` で（`Initialize()` を通して）デリゲートを設定していました。今は、Manager を作っても、イベントの受け手を登録するだけです。このパッケージだけを使っている場合、直すことはありません。このファイルを外すには、`NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を定義してください（[通知のデリゲート](#通知のデリゲート)を見てください）。
+- **ほかの通知パッケージがデリゲートを設定した後は `Initialize()` を呼んでください。** `Initialize()` はデリゲートを設定し直し、その時点のデリゲートを前のデリゲートとして残します。Unity の Mobile Notifications のようなほかの通知パッケージも使っている場合は、そのパッケージが自分のデリゲートを設定した後（たとえば `AuthorizationRequest` の後）に、Unity のメインスレッドで `IosNotificationManager.Instance.Initialize()` を呼んでください。
+- **権限が無いときの通知の表示は失敗になりました。** 通知の権限が無いとき（状態が authorized、provisional、ephemeral のどれでもないとき）、`ShowNotification`、`ScheduleNotification`、`UpdateNotification` は `Notification permission was denied.` を知らせ、何も追加しません。1.13.0 は成功を知らせていました。先に `HasPermission` を確かめるか、`RequestPermission` を呼んでください。
+- **呼び出しごとに結果が届きます。** 1.13.0 では、最初の結果が届く前に同じ操作をもう一度呼ぶと、後の呼び出しのコールバックだけが呼ばれました。今は、それぞれの呼び出しのコールバックが 1 回ずつ呼ばれ、その後に `NotificationOperationCompleted` が発生します。
+- **失敗の文言は固定の英文になりました。** 1.13.0 は、システムの汎用の文言（`The operation couldn’t be completed. (IosLibrary.NotificationError error N.)`）を端末の言語に訳されたまま渡していました。今の文言は次のとおりです。
+  - `Notification permission was denied.` 権限が無い、またはユーザーが拒否した。
+  - `The app is not in the foreground.` ユーザーにまだ聞いていない状態で、背面から `RequestPermission` を呼んだ。
+  - `The notification request is invalid.` ネイティブライブラリが値を受け付けなかった（下の表を見てください）。
+  - `Failed to request notification permission.`、`Failed to create a notification attachment.`、`Failed to add the notification request.`、`Failed to set the badge count.`
+  - `An unknown error occurred.`
+
+  読めない JSON の文言（`Failed to parse notification content JSON`、`Failed to parse notification content or trigger JSON`、`Failed to parse category JSON`）は変わりません。`ErrorMessage` から権限の拒否を見分けている場合は、`Notification permission was denied.` と比べてください。
+
+#### 1.13.0 との動作の違い
+
+| 場面 | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| 最初の結果が届く前に同じ操作をもう一度呼ぶ | 後の呼び出しのコールバックだけが呼ばれた。`NotificationOperationCompleted` は両方で発生した | それぞれの呼び出しのコールバックが 1 回ずつ呼ばれ、その後に `NotificationOperationCompleted` |
+| 通知の権限が無いときの `ShowNotification`、`ScheduleNotification`、`UpdateNotification` | 成功 | 失敗: `Notification permission was denied.` 何も追加しない |
+| `RequestPermission` でユーザーが拒否する | `The operation couldn’t be completed. (IosLibrary.NotificationError error 4.)`（端末の言語で） | `Notification permission was denied.` |
+| 負の値の `SetBadgeCount` | 汎用の文言（`error 2`）で失敗した | 失敗: `The notification request is invalid.` |
+| ユーザーにまだ聞いていない状態で、背面から `RequestPermission` を呼ぶ | アプリが前面に戻ったときにダイアログが出て、その後に結果が届いた | すぐに失敗: `The app is not in the foreground.` |
+| 権限が provisional のときの `RequestPermission` | システムにもう一度求めた | 求めずに成功 |
+| アプリを起動した通知のタップ | 届かなかった | 最初の Manager を作った後に `NotificationActionReceived` で届く |
+| このパッケージが出していない通知のタップ（アプリ自身のネイティブコードが出したもの、1.13.0 で予約したもの） | `NotificationActionReceived` が発生した | 発生しない。前のデリゲートがあれば、そちらに渡す |
+| システムがアプリの通知設定の表示を求める（ネイティブで `providesAppNotificationSettings` を求めたアプリだけ） | 設定アプリが開いた | 前のデリゲートがあれば、そちらに渡す。無ければ何も起きない |
+| `IosNotificationManager` を作る | デリゲートを設定し直した | イベントの受け手を登録するだけ。設定し直すには `Initialize()` を呼ぶ |
+| 同じ識別子でのカテゴリの登録し直し | 置き換わらなかった（結果は揺れた）。カテゴリを書き込む前に成功を知らせた | 置き換わる。結果はカテゴリを書き込んだ後に届く |
+| 添付で失敗した `UpdateNotification` | 前の予約は先に消えていた | 前の予約が残る |
+| 1.13.0 が受け付けた値: 0 以下の時間間隔や、繰り返すときの 60 秒未満の時間間隔、日時の項目が無いカレンダーのトリガー、範囲外の位置や空の識別子、`notifyOnEntry` と `notifyOnExit` の両方が false の位置のトリガー、`ShowNotification` の空の `id`、`ScheduleNotification` と `UpdateNotification` の空の `identifier`、空のカテゴリの識別子、`userInfo` の最上位のキー `com.jonghyunkim.nativetoolkit` | 成功（範囲外の時間間隔ではアプリが落ちた） | 失敗: `The notification request is invalid.` |
+| JSON の中の識別子、`fileURL`、音の名前に含まれる U+0000 | そのまま全体を渡した | 失敗: `The notification request is invalid.`（ユーザーに見せる文字列は U+0000 の手前で切れ、ログに警告が出る） |
+| `UserInfo` の値と、`GetScheduledNotifications`・`GetDeliveredNotifications` の JSON の中の `/` | `\/` にエスケープした | 送ったとおり（`/`） |
+| `userInfo` の中の文字列でない値（数など） | そこで読むのを止め、その後の項目は失われた | その値を飛ばし、ほかの文字列の項目は残す |
+| 例外を投げるコールバック | `NotificationOperationCompleted` は発生しなかった | `NotificationOperationCompleted` は発生する |
+
+変わらないもの: メソッド、イベント、`Operation*` の定数。Builder が書き出す JSON と、その読み方（`id` と `title` は必須、`ShowNotification` の未知のトリガーはすぐに通知を出す）。`GetScheduledNotifications` と `GetDeliveredNotifications` の JSON のキーと日時の形。1.13.0 が受け付け、今も受け付ける値（未知の `interruptionLevel` は `active`、負の `badge` はバッジ無しとして読み、0〜1 の外の `relevanceScore` はその範囲に収める）。Manager を破棄した後も、コールバックは呼ばれること。
+
 ### 概要
 
 iOS 通知は `IosNotificationManager` を通じて利用します。サンプル画面では、権限リクエスト、即座通知、添付付き通知、スケジュール通知、カテゴリ/アクション、バッジ操作まで確認できます。
@@ -795,6 +863,17 @@ iOS 通知は `IosNotificationManager` を通じて利用します。サンプ�
 - カテゴリ登録 / 通知アクション / テキスト入力アクション
 
 #### 基本セットアップ
+
+名前空間をインポートします。
+
+```csharp
+// Guard: iOS (Player) only. Prevents native calls in the Editor.
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
+#endif
+```
+
+権限をリクエストし、権限の状態を確かめます。
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
@@ -823,11 +902,31 @@ IosNotificationManager.Instance.GetAuthorizationStatus(status =>
     <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
 </p>
 
+#### 通知のデリゲート
+
+ビルドは、書き出した Xcode プロジェクトの UnityFramework に `NtkNotificationInstaller.mm` を足し、アプリは起動が終わったときに native-toolkit の通知のデリゲートを設定します。このために呼ぶものはありません。アプリを起動した通知のタップは、最初の `IosNotificationManager` を作った後に `NotificationActionReceived` で届きます。`IosNotificationManager.Instance` を初めて読んだら、すぐにイベントを購読してください。
+
+Unity の Mobile Notifications のようなほかの通知パッケージが自分のデリゲートを設定する場合は、その後に `Initialize()` を呼んでください。`Initialize()` はこのパッケージのデリゲートを設定し直し、その時点のデリゲートを前のデリゲートとして残します。このパッケージが出していない通知のタップは、前のデリゲートに渡ります。
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+// Call on Unity's main thread, after the other package has set its own delegate
+// (for example, once its permission request has finished).
+IosNotificationManager.Instance.Initialize();
+#endif
+```
+
+ビルドにこのファイルを足させないようにするには、Player Settings > Other Settings > Scripting Define Symbols（iOS）か、ビルドに使うビルドプロファイルの Scripting Defines に `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を足してください。ビルドはファイルを足さなくなります（前のビルドがファイルを足した Xcode プロジェクトからは、取り除きます）。このパッケージでタップを受け取る時点になったら、`Initialize()` を呼んでください。デリゲートが設定されるまで、Manager はイベントの受け手を登録できないので、`NotificationActionReceived` と `NotificationTextInputActionReceived` は発生しません。アプリの起動が終わった後に設定したデリゲートには、アプリを起動したタップが届かないことがあります（デリゲートを設定するときに、ライブラリがその旨をログに出します）。
+
+> **注意:** ビルドプロファイルの Scripting Defines は、Player Settings の定義に足されます。Player Settings に定義がある場合、ビルドプロファイルで外しても消えません。
+
+<!-- 根拠（2026-11-22）: ビルドプロファイルの Scripting Defines に define を足す経路はシミュレーターで確かめた（artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4、scripts/verify_unity_ios.sh --skip-install）。git の URL で入れた使い捨てのプロジェクトで（artifact/topics/ios-c-abi-2/designs/2026-11-22-ios-c-abi-i17-git-url-check-design-v3.md、scripts/verify_unity_ios_git_url.sh）、Player Settings の Scripting Define Symbols に足す経路は書き出しで確かめた（G-4。インストーラーが外れる）。Mobile Notifications 2.5.0 との共存（起動の後は proxy、AuthorizationRequest で UnityNotificationManager に替わり、Initialize() で proxy に戻り、ライブラリが前の delegate として残す）はシミュレーターで確かめた（M-1〜M-3）。このパッケージが出していない通知のタップが前の delegate に渡ることは native-toolkit の 1b のシミュレーターのテストによる。起動の後の install で起動のタップが失われうることは native-toolkit のソースの読み -->
+
 #### 即座通知を表示する
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "sample-notification",
     title = "Energy Refilled",
@@ -854,7 +953,7 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "sample-notification",
     title = "Immediate Notification with Attachment",
@@ -862,7 +961,7 @@ var content = new NotificationContentPayload
     sound = "default",
     attachments = new[]
     {
-        new NotificationAttachmentPayload
+        new IosNotificationAttachmentPayload
         {
             identifier = "app-icon",
             fileURL = appIconFileUrl
@@ -871,7 +970,10 @@ var content = new NotificationContentPayload
 };
 
 var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
+IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    Debug.Log($"ShowNotification (attachment): {result.IsSuccess}");
+});
 #endif
 ```
 
@@ -885,7 +987,7 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "scheduled-notification",
     title = "Guild Battle Starts Soon",
@@ -893,7 +995,7 @@ var content = new NotificationContentPayload
     sound = "default"
 };
 
-var trigger = new TimeIntervalTriggerPayload
+var trigger = new IosTimeIntervalTriggerPayload
 {
     repeats = false,
     interval = 10.0
@@ -916,7 +1018,7 @@ IosNotificationManager.Instance.ScheduleNotification(
     <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
 </p>
 
-カレンダー通知は `CalendarTriggerPayload`、位置情報通知は `LocationTriggerPayload` を使って同様に登録できます。
+カレンダー通知は `IosCalendarTriggerPayload`、位置情報通知は `IosLocationTriggerPayload` を使って同様に登録できます。
 
 #### カテゴリ / アクションを登録する
 
@@ -932,6 +1034,12 @@ var category = new IosNotificationCategoryPayload
             identifier = "open",
             title = "Open",
             options = new[] { "foreground" }
+        },
+        new IosNotificationActionPayload
+        {
+            identifier = "delete",
+            title = "Delete",
+            options = new[] { "destructive" }
         }
     },
     textInputActions = new[]
@@ -947,7 +1055,10 @@ var category = new IosNotificationCategoryPayload
 };
 
 string categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
-IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
+IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
 #endif
 ```
 

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 
 namespace JonghyunKim.NativeToolkit.Tests
 {
@@ -183,16 +183,17 @@ namespace JonghyunKim.NativeToolkit.Tests
         // ── RunDestroyCleanup ───────────────────────────────────────────────────
 
         [Test]
-        public void RunDestroyCleanup_InvokesStopThenCancelThenManaged()
+        public void RunDestroyCleanup_InvokesStopThenRemoveListenerThenCancelThenManaged()
         {
             var order = new List<string>();
 
             IosClipboardManager.RunDestroyCleanup(
                 stop: () => order.Add("stop"),
+                removeListener: () => order.Add("removeListener"),
                 cancel: () => order.Add("cancel"),
                 managedCleanup: () => order.Add("managed"));
 
-            Assert.AreEqual(new[] { "stop", "cancel", "managed" }, order.ToArray());
+            Assert.AreEqual(new[] { "stop", "removeListener", "cancel", "managed" }, order.ToArray());
         }
 
         [Test]
@@ -205,6 +206,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             IosClipboardManager.RunDestroyCleanup(
                 stop: () => throw new DllNotFoundException("__Internal"),
+                removeListener: () => { },
                 cancel: () => cancelled = true,
                 managedCleanup: () => cleaned = true);
 
@@ -221,6 +223,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             IosClipboardManager.RunDestroyCleanup(
                 stop: () => { },
+                removeListener: () => { },
                 cancel: () => throw new EntryPointNotFoundException("clipboardCancelLoads"),
                 managedCleanup: () => cleaned = true);
 
@@ -237,6 +240,7 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.DoesNotThrow(() => IosClipboardManager.RunDestroyCleanup(
                 stop: () => throw new InvalidOperationException("stop"),
+                removeListener: () => { },
                 cancel: () => throw new InvalidOperationException("cancel"),
                 managedCleanup: () => cleaned = true));
 
@@ -250,8 +254,28 @@ namespace JonghyunKim.NativeToolkit.Tests
 
             Assert.DoesNotThrow(() => IosClipboardManager.RunDestroyCleanup(
                 stop: () => { },
+                removeListener: () => { },
                 cancel: () => { },
                 managedCleanup: () => throw new InvalidOperationException("managed")));
+        }
+
+        [Test]
+        public void RunDestroyCleanup_ThrowingRemoveListener_StillRunsCancelAndManaged()
+        {
+            // C ABI design v2, D-7: each native step has its own boundary.
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex(".*RunDestroyCleanup.*removeListener.*"));
+
+            bool cancelled = false;
+            bool cleaned = false;
+
+            IosClipboardManager.RunDestroyCleanup(
+                stop: () => { },
+                removeListener: () => throw new InvalidOperationException("remove"),
+                cancel: () => cancelled = true,
+                managedCleanup: () => cleaned = true);
+
+            Assert.IsTrue(cancelled, "a failing listener removal must not skip cancel");
+            Assert.IsTrue(cleaned, "managed cleanup always runs");
         }
 
         [Test]
@@ -262,6 +286,7 @@ namespace JonghyunKim.NativeToolkit.Tests
             {
                 Assert.DoesNotThrow(() => IosClipboardManager.RunDestroyCleanup(
                     stop: () => throw new Exception("a"),
+                    removeListener: () => { },
                     cancel: () => throw new Exception("b"),
                     managedCleanup: () => throw new Exception("c")));
             }

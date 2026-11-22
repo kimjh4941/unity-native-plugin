@@ -115,20 +115,32 @@ Notification も移した（`artifact/android/notification/designs/2026-10-12-an
 - `[DllImport("__Internal")]` でネイティブ C 関数をインポートする
 - コールバックは `[UnmanagedFunctionPointer(CallingConvention.Cdecl)]` delegate + `[MonoPInvokeCallback]` static メソッドで受け取る
 - IL2CPP で動作させるため、コールバックメソッドは必ず `static` にする
+- C ABI に渡すコールバックは、static readonly の delegate の欄に持ち続け、`Marshal.GetFunctionPointerForDelegate` の関数ポインター（`IntPtr`）で渡す（例: `IosDialogManager.s_resultCallbackPointer`）
+- MonoBehaviour の補助のメソッドに Unity のメッセージ名（`Start`・`Awake`・`Update` など）を付けない。引数があると Unity が読み込みのたびに `Script error … can not take parameters.` を出す（`UnityMessageNameTests` が照らす）
 
-```csharp
-[DllImport("__Internal", CallingConvention = CallingConvention.Cdecl)]
-private static extern void showDialog(string title, string message, DialogCallback callback);
+**iOS（native-toolkit の C ABI 2.0.0）**: 移した機能は、`Plugins/iOS` の `ios-native-toolkit-capi-2.0.0.xcframework` の
+`Dialog.h` などを `__Internal` で呼ぶ（2026-11-15 の段 3-S で切り替え、Dialog から 1 つずつ移す。`artifact/topics/ios-c-abi-2`）。
 
-[MonoPInvokeCallback(typeof(DialogCallback))]
-private static void OnDialogCallback(string? buttonText, bool isSuccess, string? errorMessage)
-{
-    UnityMainThreadDispatcher.Instance.Enqueue(() =>
-    {
-        Instance.DialogResult?.Invoke(buttonText, isSuccess, errorMessage);
-    });
-}
-```
+- 宣言と変換は `<Os><Feature>CApi.cs`（例: `Runtime/iOS/Dialog/IosDialogCApi.cs`）に置き、`#if UNITY_IOS || UNITY_EDITOR` で囲む。
+  `extern` の宣言は `!UNITY_EDITOR` の**外**（Editor でも組み、`IosCApiDeclarationTests` がヘッダーと照らす。期待の集合は機能を移すたびに足す）。
+  呼び出しと `[MonoPInvokeCallback]` の本体は `UNITY_IOS && !UNITY_EDITOR`
+- 要求の構造体は `[StructLayout(LayoutKind.Sequential, Pack = 8)]`、`struct_size` は `Marshal.SizeOf`。EditMode で大きさと**全項目の位置**（`Marshal.OffsetOf`）を照らす
+- 文字列は `IosNativeToolkitCApi.AllocUtf8` などで UTF-8 に写し、呼び出しが返った直後に `FreeAll` で解放する（C ABI は呼び出しの中で写す）。
+  結果の文字列は `ReadUtf8OrNull`（NULL と空を分ける）で読み、handle はコールバックの中で解放する
+- 完了は Unity と同じ主スレッドで来る。1.x と同じ時点にするため `UnityMainThreadDispatcher` で次の `Update` に出し、
+  積むラムダの中でイベントを出す所を `try/catch` で囲む（購読者の例外を dispatcher の `Update` から漏らさない）
+- `IosNativeToolkitCApi.IsAvailable` が false（Editor、別の版）なら失敗を返す。時点は 1.x に合わせる: Dialog は呼び出しの中、Share はすべての結果を次の `Update` に出す
+- 呼び出しごとの受け手がある機能（Share）は、`user_data` に呼び出しの番号を渡し、番号から受け手を引く表（`IosSharePendingCalls`）を持つ。表には呼ぶ前に入れ、拒み・例外で取り出し、Manager の破棄で空にする。番号は空にしても戻さない（戻すと、破棄の前の遅れた完了が後の呼び出しに届く）。表に無い番号の完了は、生きている Manager の共通イベントだけに出し、Manager を作り直さない。これで結果は必ずその呼び出しの受け手に届く（1.x は 1 つの枠の後勝ちだった）。ただし native-toolkit 2.0.0 は、表示中のシートに重ねた共有の完了を出さないことがある（その番号は表に残る。`artifact/ios/share/results/2026-11-15-ios-share-cabi-implementation-result-v1.md`）
+- Clipboard（`artifact/ios/clipboard/designs/2026-11-15-ios-clipboard-cabi-design-v5.md`）は 1.x の単一の実行（操作ごとの `CLIPBOARD_BUSY`）を保ち、`user_data` は操作の種類（`IosClipboardCApi.Op`）。静的なコールバックは C ABI のコールバックの型ごとに 1 つ:
+  - **呼び出しの中で決まった結果**（入口の拒み、C# の検査の失敗、`InvokeNative` の例外、CancelLoads の成功）は、Manager の外の静的な一覧に、積んだフレームの番号を付けて入れる。境を見るのは**ディスパッチャーの GameObject に付けた常駐の部品**（`IosClipboardLaterPump`。Manager の有効・無効と関係なく回る）で、「積んだフレームより後」の塊だけを**ディスパッチャーの末尾に**順に渡す（先に積まれた結果・変化を追い越さない）。配るまで印と枠を持つ（1.x はネイティブの主の待ち行列を回ってから届いたので、同じフレームの 2 回目は BUSY）。ディスパッチャーは `Update` の中で積まれたものも同じ回で回すので、呼び出しの中でそこに積むと、受け手の中から呼び直すコードで `Update` が終わらない。塊を回す時、その場で配る（積み直さない）のは塊 1 つの `Dispatch` の 1 回だけ。一覧に待ちがある間は、ネイティブの完了の結果も後ろに並べる（CancelLoads の結果を読み込みの取り消しが追い越さない）。ネイティブの結果はリセットをまたいだら捨てる。ディスパッチャーが壊れたら一覧を捨て、印を外す。Manager の `Update` に戻さない（無効にすると止まり、BUSY が残る）
+  - 入口の拒みのログは `LogWarning`（利用者の入力から来るものがある）
+  - 名前・型・道に U+0000 があれば C# で `CLIPBOARD_INVALID_REQUEST`（C の文字列で切れると別の pasteboard やファイルを指す）。書き込む値の U+0000 は値を出さない警告で渡す
+  - 監視は、リスナーを 1 つだけ登録して破棄まで持ち、C# が自分の監視の状態を持って、状態が下りている間の変化を捨てる（`stop_observing_async` はプロセスのすべての監視を止め、変化はすべてのリスナーに配られるため）。状態を変えるのは、ライブラリが受け付けた監視の要求の完了と破棄だけ
+- Notification（`artifact/ios/notification/designs/2026-11-15-ios-notification-cabi-design-v4.md`）は公開の JSON を 1.x のブリッジと同じ規則で C# が読み（`IosNotificationRequests`。配列は全か無か、bool・整数は Swift の `as?` と同じ橋渡し）、1.x で通り 2.0.0 で拒まれる値のうち同じ結果になるものは C# で直して渡す:
+  - 呼び出しごとの受け手は `user_data` の番号の表（`IosNotificationPendingCalls`）。Manager の破棄でも空にしない（1.x の受け手は static で、破棄の後にも呼ばれた）
+  - 呼び出しの中で決まった結果は共通の `IosNextFrameQueue`（ディスパッチャーの GameObject のポンプが後のフレームに末尾へ渡す）。待ちがある間はネイティブの結果とイベントも後ろに並べる。どのスレッドからでも積める
+  - interaction の受け手はプロセスの間 1 つだけ登録し、外さない（外すとライブラリが次の登録まで 32 件抱え、作り直した Manager に古いタップが届く）。settings request の受け手は登録しない（抱えられた要求で後から設定の画面が開く）
+  - Awake は受け手の登録だけ。delegate を入れ直すのは公開の `Initialize()` だけ（`NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` を効かせる）
 
 ### Windows（native-toolkit の C ABI）
 
@@ -400,7 +412,7 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 | プラットフォームをまたぐ共通（下の「例外」） | `Runtime/Common/` | `JonghyunKim.NativeToolkit.Runtime.Common` |
 
 - `<Platform>` のディレクトリ名は `Windows` / `Android` / `iOS` / `macOS`（`UI/<Platform>/` と同じ綴り）
-- **Windows と Android は移行済み**（`Runtime/Windows/Clipboard/`、`Runtime/Android/Dialog/` など。Android は 2026-10-11 に 4 機能の型をまとめて移した）。**iOS / macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、それぞれの OS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
+- **Windows と Android は移行済み**（`Runtime/Windows/Clipboard/`、`Runtime/Android/Dialog/` など。Android は 2026-10-11 に 4 機能の型をまとめて移した）。**iOS も移行済み**（`Runtime/iOS/<Feature>/`、名前空間 `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`。`[MovedFrom]` つき）。**macOS は `Runtime/<Feature>/`（名前空間 `JonghyunKim.NativeToolkit.Runtime.<Feature>`）のまま**で、macOS の対応のときに移す。移すまでは、その OS の新しいファイルも今の場所に置く（1 つの OS の中で形を混ぜない）
 - 移すときは `.cs` と `.meta` をいっしょに `git mv` する（GUID を保つ）。名前空間の変更は公開 API の破壊的変更になるので、その版の既知の差分とマニュアルに書く
 - `Tests/Runtime/` と `Tests/PlayMode/` はプラットフォームで分けない（ファイル名の接頭辞で分かる）
 
@@ -452,11 +464,13 @@ public Awaitable<IosShareResult> ShareAsync(IosShareContentPayload? payload)
 
 `UI/` は `UI/<Platform>/<Feature>/` の構造を採る（Runtime の正しい形と同じ順）。ファイル名の接頭辞は同じ規則に従う。
 
+- そのプラットフォームのサンプルの全画面が使う部品（機能の中身ではないもの）は `UI/<Platform>/Common/` に置く。例: iOS のサンプルの画面をセーフエリアに合わせる `UI/iOS/Common/IosSampleSafeArea.cs`（`artifact/ios/sample-layout/designs/2026-11-21-ios-sample-layout-sample-scene-design-v3.md` の D-1。2026-11-21）。全 OS の画面の切り替えは今までどおり `UI/Common/`
+
 **既知の逸脱（新規実装で真似しない）: Runtime 9 件**
 
 | 逸脱している型 | 実際の所属 |
 |---|---|
-| `Notification/IosNotificationPayloads.cs` の `NotificationContentPayload` / `NotificationAttachmentPayload` / `TimeIntervalTriggerPayload` / `CalendarTriggerPayload` / `LocationTriggerPayload` | iOS |
+| `Notification/NotificationPayloads.cs` の `NotificationContentPayload` / `NotificationAttachmentPayload` / `TimeIntervalTriggerPayload` / `CalendarTriggerPayload` / `LocationTriggerPayload` | **macOS**（iOS は段 4 で `IosNotificationContentPayload` などの自分の型に替えた。2026-11-21。macOS の移行で改名する） |
 | `Dialog/MacDialogManager.cs` の `DialogButtonsWrapper` / `DialogButton` / `DialogOptions` | macOS |
 | `Common/IconConfiguration` | **macOS**（`MacDialogManager` 専用。`Common/` にあるが横断インフラではない） |
 
@@ -525,6 +539,7 @@ Android の接頭辞の無い 37 型（Result、Payload ほか）は、段 4 で
 
 - 複雑な構造（通知コンテンツ等）はネイティブとの境界を JSON 文字列で渡す
 - `XxxJsonBuilder` クラスで JSON 組み立てを担い、Manager から呼び出す
+  - iOS の例外: Android と同じ。Share・Clipboard の Manager は Payload を C ABI の構造体に移して渡し、JSON ビルダーを持たない（`IosShareJsonBuilder`・`IosClipboardJsonBuilder` は段 4 で消した。2026-11-21）。`IosNotificationJsonBuilder` は、利用者が Manager に渡す JSON を組む道具として残す
   - Android の例外: Share・Clipboard の Manager は Payload を C ABI の構造体に移して渡し、JSON ビルダーを持たない（1.x の Share・Clipboard の JSON ビルダーは段 4 で消した。2026-10-17）。`AndroidNotificationJsonBuilder` は、利用者が Manager に渡す JSON を組むための道具で、Manager からは呼ばない
 - JSON のスキーマ変更はネイティブ側との整合を必ず確認する
 

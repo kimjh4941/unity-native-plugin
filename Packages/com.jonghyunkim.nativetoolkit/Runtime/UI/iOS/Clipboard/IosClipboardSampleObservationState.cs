@@ -2,7 +2,7 @@
 
 #if UNITY_IOS || UNITY_EDITOR
 using System;
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 
 // Intentional deviation from the "log every internal method" rule in csharp.md: this is a pure
 // state machine with no side effects. The controller logs every transition it drives, so logging

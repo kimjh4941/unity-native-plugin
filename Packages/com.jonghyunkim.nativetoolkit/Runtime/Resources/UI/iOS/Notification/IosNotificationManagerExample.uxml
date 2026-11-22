@@ -6,7 +6,9 @@
             <ui:Label text="IosNotificationManager Example" class="ios-notif-title" />
             <ui:Label text="Gameplay-focused notification scenarios for iOS devices." class="ios-notif-subtitle" />
             <ui:VisualElement class="ios-result-border">
-                <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="ios-result-text" />
+                <ui:ScrollView name="ResultScrollView" class="ios-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="Notification result will be displayed here" class="ios-result-text" />
+                </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:ScrollView class="ios-notif-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">

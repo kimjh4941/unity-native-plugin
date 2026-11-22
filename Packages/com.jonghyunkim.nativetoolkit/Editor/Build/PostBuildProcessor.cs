@@ -5,6 +5,7 @@ using UnityEditor.iOS.Xcode;
 using UnityEditor.iOS.Xcode.Extensions;
 #endif
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
 using UnityEditor.Build;
@@ -12,6 +13,9 @@ using UnityEditor.Build;
 /// <summary>
 /// Post-build processor that handles platform-specific setup after Unity builds complete.
 /// For macOS builds, copies XCFramework and modifies the Xcode project.
+/// iOS builds need none: Unity links the XCFrameworks in Plugins/iOS and embeds them through
+/// AddToEmbeddedBinaries in their .meta, and Editor/iOS/IosXcodeProjectSetup.cs checks that and adds
+/// the notification installer (artifact/topics/ios-c-abi-2, stage 3-S).
 /// Windows builds need no post-processing: the DLLs are placed before the build by
 /// PreBuildProcessor. (A development build used to copy a PDB from an absolute path in the
 /// native-toolkit checkout; that path no longer resolved and dist publishes no PDB, so the copy
@@ -33,103 +37,6 @@ public static class PostBuildProcessor
     [PostProcessBuild]
     public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
     {
-#if UNITY_IOS
-        if (target == BuildTarget.iOS)
-        {
-            UnityEngine.Debug.Log("[Build][iOS] Post-build steps started.");
-
-            bool isDevelopmentBuild = EditorUserBuildSettings.development;
-            string xcfSuffix = isDevelopmentBuild ? "-debug" : "";
-            // XCFramework source and destination paths
-            string projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            string pluginsIosDir = Path.Combine(projectRoot, "Packages/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-
-            string unityXcframeworkName = FindXcframeworkName(pluginsIosDir, "unity-ios-native-toolkit-", xcfSuffix, "[Build][iOS][Unity]", isDevelopmentBuild);
-            string iosNativeToolkitXcframeworkName = FindXcframeworkName(pluginsIosDir, "ios-native-toolkit-", xcfSuffix, "[Build][iOS][Native]", isDevelopmentBuild);
-
-            if (string.IsNullOrEmpty(unityXcframeworkName) || string.IsNullOrEmpty(iosNativeToolkitXcframeworkName))
-            {
-                return;
-            }
-
-            string unityXcframeworkSrc = Path.Combine(pluginsIosDir, unityXcframeworkName);
-            string iosNativeToolkitXcframeworkSrc = Path.Combine(pluginsIosDir, iosNativeToolkitXcframeworkName);
-            string frameworksDir = Path.Combine(pathToBuiltProject, "Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS");
-            string unityXcframeworkDst = Path.Combine(frameworksDir, unityXcframeworkName);
-            string iosNativeToolkitXcframeworkDst = Path.Combine(frameworksDir, iosNativeToolkitXcframeworkName);
-
-            if (!Directory.Exists(unityXcframeworkSrc))
-            {
-                UnityEngine.Debug.LogError("[Build][iOS] Source xcframework not found: " + unityXcframeworkSrc);
-                return;
-            }
-
-            if (!Directory.Exists(iosNativeToolkitXcframeworkSrc))
-            {
-                UnityEngine.Debug.LogError("[Build][iOS] Source xcframework not found: " + iosNativeToolkitXcframeworkSrc);
-                return;
-            }
-
-            // Ensure clean destination
-            if (Directory.Exists(unityXcframeworkDst))
-            {
-                Directory.Delete(unityXcframeworkDst, true);
-            }
-
-            if (Directory.Exists(iosNativeToolkitXcframeworkDst))
-            {
-                Directory.Delete(iosNativeToolkitXcframeworkDst, true);
-            }
-            Directory.CreateDirectory(frameworksDir);
-            // Copy XCFrameworks into project
-            DirectoryCopy(unityXcframeworkSrc, unityXcframeworkDst, true);
-            DirectoryCopy(iosNativeToolkitXcframeworkSrc, iosNativeToolkitXcframeworkDst, true);
-
-            // Edit Xcode project to link and embed the XCFramework
-            string pbxprojPath = Path.Combine(pathToBuiltProject, "Unity-iPhone.xcodeproj", "project.pbxproj");
-            if (!File.Exists(pbxprojPath))
-            {
-                UnityEngine.Debug.LogError("[Build][iOS] Xcode project file not found: " + pbxprojPath);
-                return;
-            }
-
-            var proj = new PBXProject();
-            proj.ReadFromFile(pbxprojPath);
-
-            string mainTargetGuid = proj.GetUnityMainTargetGuid();
-            string frameworkTargetGuid = proj.GetUnityFrameworkTargetGuid();
-
-            // Add XCFrameworks to Frameworks
-            string unityRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{unityXcframeworkName}";
-            string unityFileGuid = proj.AddFile(unityRelativePath, unityRelativePath, PBXSourceTree.Source);
-
-            string iosNativeToolkitRelativePath = $"Frameworks/com.jonghyunkim.nativetoolkit/Plugins/iOS/{iosNativeToolkitXcframeworkName}";
-            string iosNativeToolkitFileGuid = proj.AddFile(iosNativeToolkitRelativePath, iosNativeToolkitRelativePath, PBXSourceTree.Source);
-
-            // Link and embed the framework
-            proj.AddFileToBuild(frameworkTargetGuid, unityFileGuid);
-            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, unityFileGuid);
-
-            proj.AddFileToBuild(frameworkTargetGuid, iosNativeToolkitFileGuid);
-            PBXProjectExtensions.AddFileToEmbedFrameworks(proj, mainTargetGuid, iosNativeToolkitFileGuid);
-
-            // Search paths / Run paths (minimum necessary)
-            proj.AddBuildProperty(frameworkTargetGuid, "FRAMEWORK_SEARCH_PATHS", "$(inherited)");
-            proj.AddBuildProperty(frameworkTargetGuid, "FRAMEWORK_SEARCH_PATHS", "$(PROJECT_DIR)/Frameworks/**");
-            proj.AddBuildProperty(frameworkTargetGuid, "LD_RUNPATH_SEARCH_PATHS", "$(inherited)");
-            proj.AddBuildProperty(frameworkTargetGuid, "LD_RUNPATH_SEARCH_PATHS", "@executable_path/Frameworks");
-            proj.AddBuildProperty(frameworkTargetGuid, "LD_RUNPATH_SEARCH_PATHS", "@loader_path/Frameworks");
-
-            proj.AddBuildProperty(mainTargetGuid, "LD_RUNPATH_SEARCH_PATHS", "@loader_path/Frameworks");
-
-            UnityEngine.Debug.Log($"[Build][iOS] Added {unityXcframeworkName} to Xcode project.");
-            UnityEngine.Debug.Log($"[Build][iOS] Added {iosNativeToolkitXcframeworkName} to Xcode project.");
-
-            proj.WriteToFile(pbxprojPath);
-            UnityEngine.Debug.Log("[Build][iOS] Post-build steps completed.");
-        }
-#endif
-
 #if UNITY_EDITOR_OSX
         if (target == BuildTarget.StandaloneOSX)
         {
@@ -207,6 +114,10 @@ public static class PostBuildProcessor
 #endif
     }
 
+    /// <summary>
+    /// Finds an XCFramework folder name by prefix and build-mode filter. macOS only: iOS matches the
+    /// names in Plugins/iOS/VERSION.txt exactly (JonghyunKim.NativeToolkit.Editor.iOS.IosXcframeworkPin).
+    /// </summary>
     private static string FindXcframeworkName(string pluginsDir, string prefix, string xcfSuffix, string logPrefix, bool isDevelopmentBuild)
     {
         if (!Directory.Exists(pluginsDir))

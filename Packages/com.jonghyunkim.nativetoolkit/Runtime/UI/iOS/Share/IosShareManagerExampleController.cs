@@ -3,7 +3,7 @@
 #if UNITY_IOS || UNITY_EDITOR
 using System;
 using System.IO;
-using JonghyunKim.NativeToolkit.Runtime.Share;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Share;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -24,6 +24,7 @@ public class IosShareManagerExampleController : MonoBehaviour
     private const string ExcludedActivityPostToFacebook = "com.apple.UIKit.activity.PostToFacebook";
 
     private Label? _resultLabel;
+    private ScrollView? _resultScrollView;
     private string _pendingOperationTitle = string.Empty;
 
     private Button? _homeButton;
@@ -107,6 +108,7 @@ public class IosShareManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _resultScrollView = root.Q<ScrollView>("ResultScrollView");
 
         _homeButton = root.Q<Button>("HomeButton");
         _shareTextButton = root.Q<Button>("ShareTextButton");
@@ -420,6 +422,13 @@ public class IosShareManagerExampleController : MonoBehaviour
         if (_resultLabel != null)
         {
             _resultLabel.text = message;
+        }
+
+        // The result area is fixed height and scrolls (as on the Clipboard screen). Without this, a new result
+        // inherits the previous scroll position and its first lines would be hidden above the viewport.
+        if (_resultScrollView != null)
+        {
+            _resultScrollView.scrollOffset = Vector2.zero;
         }
     }
 }

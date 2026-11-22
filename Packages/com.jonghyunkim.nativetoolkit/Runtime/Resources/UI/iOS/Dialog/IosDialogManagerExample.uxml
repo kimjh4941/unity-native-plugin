@@ -5,7 +5,9 @@
             <ui:Button name="HomeButton" class="ios-dialog-secondary-button" text="Back To Home" />
             <ui:Label name="TitleTextBlock" text="IosDialogManager Example" class="ios-dialog-title" />
             <ui:VisualElement class="ios-result-border">
-                <ui:Label name="ResultTextBlock" text="Result will be displayed here" class="ios-result-text" />
+                <ui:ScrollView name="ResultScrollView" class="ios-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="Result will be displayed here" class="ios-result-text" />
+                </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:ScrollView class="ios-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">

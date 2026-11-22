@@ -3,7 +3,7 @@
   "rootNamespace": "Jonghyunkim.NativeToolkit.Editor.Build",
   "includePlatforms": [ "Editor" ],
   "defineConstraints": [ "NATIVETOOLKIT_ENABLE_BUILD_STEPS" ],
-  "references": [],
+  "references": [ "NativeToolkit.Editor" ],
   "autoReferenced": true,
   "noEngineReferences": false
 }

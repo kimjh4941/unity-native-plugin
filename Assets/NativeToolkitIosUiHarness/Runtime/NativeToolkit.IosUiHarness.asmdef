@@ -1,0 +1,9 @@
+{
+  "name": "NativeToolkit.IosUiHarness",
+  "references": ["NativeToolkit.Runtime"],
+  "includePlatforms": ["iOS"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": false,
+  "defineConstraints": ["NTK_UI_HARNESS"]
+}
