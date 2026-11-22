@@ -14,7 +14,7 @@
 
 ## 0. 状態サマリー
 
-設計 7 章のステップ 0〜7 を終え、ステップ 8（S4-5、リリース）の途中にいる（8 章）。v2 からの変更: native-toolkit のタグが打たれ、S4-5 を進めた（8 章を足した）。
+設計 7 章のステップ 0〜8 を終え、1.13.0 をリリースした（2026-10-18。8 章の「リリースの結果」。2026-11-22 に書き足した）。v2 からの変更: native-toolkit のタグが打たれ、S4-5 を進めた（8 章を足した）。
 
 | ステップ | 内容 | コミット | 状態 |
 |---|---|---|---|
@@ -29,7 +29,7 @@
 | 5 | 実装のレビューと直し | `5c3c68a` | 済み |
 | 6 | `verified_native_toolkit_commit` | `e4eb039` | 済み |
 | 7 | S4-4: マニュアル（起点のコピー、index、4 機能のページ、README と `package.json`、`Documentation~`、`docs`） | `498cc5b`、`11d2245`、`0c2edb2`、`cd74b3b`、`7cbf7d5`、`325dbf5`、`b8a049e`、`4a9efb3`、`0ad05dd` | 済み（7 章） |
-| 8 | S4-5: リリース（チェックリスト、版、Unity の動作環境の追記、PR） | `a8a7af8`、`b3fc87f`、PR #31 | 途中（8 章） |
+| 8 | S4-5: リリース（チェックリスト、版、Unity の動作環境の追記、PR） | `a8a7af8`、`b3fc87f`、PR #31、PR #32 | 済み（8 章。1.13.0 をリリースした） |
 
 ## 1. 実装サマリー
 
@@ -142,4 +142,5 @@ Unity 6000.4.2f1 の batchmode、`-buildTarget Android`、作業ツリーの外�
 - **リリースノート**: ステップ 4 の形で、Breaking Changes を先頭に置いた（出す条件の両方に当たる: 英語のマニュアルに `Changes in 1.13.0` の見出しがあり、件名に `!` のコミットがある）。各機能のページの `#changes-in-1130` と index の `#android-requirements` へ、タグの `docs/1.13.0` の絶対 URL でリンクした（設計 8 章の S5-9）。全文は PR #31 の本文にある
 - **PR**: `feature/UNT-13` → develop の PR #31（https://github.com/kimjh4941/unity-native-plugin/pull/31）。`MERGEABLE`、CI のチェックは無い
 - **残りの手順**（release の手順のステップ 5〜7）: PR #31 を merge commit でマージ（`--delete-branch`）→ develop → main の PR を作って merge commit でマージ → main でタグ `1.13.0` を打って push → GitHub Release（本文は PR #31 と同じリリースノート）。push とマージは、利用者に確かめてから行う
+- **リリースの結果**（2026-11-22 に書き足した。リリースの時は書き足していなかった）: 利用者に確かめて、上の手順をすべて行った。PR #31（`feature/UNT-13` → `develop`、`30459b6`）、PR #32（`develop` → `main`、`19bd3da`）、タグ `1.13.0` = `19bd3da`、[GitHub Release](https://github.com/kimjh4941/unity-native-plugin/releases/tag/1.13.0)。PR #31 のマージは 2026-10-18 13:58、PR #32 は 13:59、GitHub Release は 14:00（JST）
 - **このとき記録したもの**: 公開型を改名するときの `[MovedFrom]` の決まりを `agent-rules/coding-rules/common.md` の「既知の逸脱」の下に足した（iOS・macOS の改名で使う）。Windows の `VERSION.txt.meta` の件を `artifact/topics/windows-version-meta/` の課題にした（5 章の X1-1 の行）
