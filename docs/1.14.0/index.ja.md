@@ -38,7 +38,7 @@
 
 ## 1.14.0 での変更（iOS）
 
-1.14.0 から、iOS のすべての機能が native-toolkit の C ABI 2.0.0 で動きます。iOS の型は `JonghyunKim.NativeToolkit.Runtime.<Feature>` から `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>` に移り、接頭辞の無かった通知の 5 つのペイロードの型は、iOS では `Ios` の付いた型に替わりました。`IosShareJsonBuilder` と `IosClipboardJsonBuilder`、1.x のネイティブライブラリ、iOS の「Configure Xcode Project」は無くなりました。Unity はスクリプトを自動では直しません。機能ごとの直し方: [ダイアログ](dialog.ja.md#1140-での変更)、[通知](notification.ja.md#1140-での変更)、[共有](share.ja.md#1140-での変更)、[クリップボード](clipboard.ja.md#1140-での変更)
+1.14.0 から、iOS のすべての機能が native-toolkit の C ABI 2.0.0 で動きます。iOS の型は `JonghyunKim.NativeToolkit.Runtime.<Feature>` から `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>` に移り、接頭辞の無かった通知の 5 つのペイロードの型は、iOS では `Ios` の付いた型に替わりました。`IosShareJsonBuilder` と `IosClipboardJsonBuilder`、`IosDialogManager` の中の使われていない 6 つのデリゲートの型、1.x のネイティブライブラリ、iOS の「Configure Xcode Project」は無くなりました。Unity はスクリプトを自動では直しません。機能ごとの直し方: [ダイアログ](dialog.ja.md#1140-での変更)、[通知](notification.ja.md#1140-での変更)、[共有](share.ja.md#1140-での変更)、[クリップボード](clipboard.ja.md#1140-での変更)
 
 # 機能一覧
 

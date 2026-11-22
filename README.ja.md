@@ -165,7 +165,7 @@
   - Unity 6 以降（Android は 6000.0.61f1、6000.3.1f1、6000.4.1f1 以降）
   - 依存パッケージ: Localization, Addressables, Input System
 - 1.12.0 から上げる場合: 1.13.0 では Android の名前空間と型の名前が変わり、1.x のネイティブライブラリと、Android の Gradle 設定のウィンドウが無くなりました。[1.13.0 での変更（Android）](docs/latest/index.ja.md#1130-での変更android)を見てください。
-- 1.13.0 から上げる場合: 1.14.0 では iOS の名前空間と、iOS の通知のペイロードの型が変わり、1.x のネイティブライブラリ、iOS の共有とクリップボードの JSON Builder、iOS の Xcode 設定のウィンドウが無くなりました。[1.14.0 での変更（iOS）](docs/latest/index.ja.md#1140-での変更ios)を見てください。
+- 1.13.0 から上げる場合: 1.14.0 では iOS の名前空間と、iOS の通知のペイロードの型が変わり、1.x のネイティブライブラリ、iOS の共有とクリップボードの JSON Builder、`IosDialogManager` の中の使われていない 6 つのデリゲートの型、iOS の Xcode 設定のウィンドウが無くなりました。[1.14.0 での変更（iOS）](docs/latest/index.ja.md#1140-での変更ios)を見てください。
 
 ## サンプル
 

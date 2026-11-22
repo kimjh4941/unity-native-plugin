@@ -38,7 +38,7 @@ Since 1.13.0 every Android feature runs on native-toolkit's C ABI 2.0.0. The And
 
 ## Changes in 1.14.0 (iOS)
 
-Since 1.14.0 every iOS feature runs on native-toolkit's C ABI 2.0.0. The iOS types moved from `JonghyunKim.NativeToolkit.Runtime.<Feature>` to `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`, the five notification payload types without a prefix were replaced on iOS by `Ios` types, `IosShareJsonBuilder` and `IosClipboardJsonBuilder` were removed, and the 1.x native libraries and "Configure Xcode Project" for iOS were removed. Unity does not update your scripts for you. What to change, per feature: [Dialog](dialog.md#changes-in-1140), [Notification](notification.md#changes-in-1140), [Share](share.md#changes-in-1140), [Clipboard](clipboard.md#changes-in-1140).
+Since 1.14.0 every iOS feature runs on native-toolkit's C ABI 2.0.0. The iOS types moved from `JonghyunKim.NativeToolkit.Runtime.<Feature>` to `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`, the five notification payload types without a prefix were replaced on iOS by `Ios` types, `IosShareJsonBuilder`, `IosClipboardJsonBuilder` and the six unused delegate types nested in `IosDialogManager` were removed, and the 1.x native libraries and "Configure Xcode Project" for iOS were removed. Unity does not update your scripts for you. What to change, per feature: [Dialog](dialog.md#changes-in-1140), [Notification](notification.md#changes-in-1140), [Share](share.md#changes-in-1140), [Clipboard](clipboard.md#changes-in-1140).
 
 # Features
 

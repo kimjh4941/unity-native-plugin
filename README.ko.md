@@ -165,7 +165,7 @@
   - Unity 6 이상 (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상)
   - 의존 패키지: Localization, Addressables, Input System
 - 1.12.0에서 올리는 경우: 1.13.0에서는 Android의 네임스페이스와 타입 이름이 바뀌었고, 1.x 네이티브 라이브러리와 Android Gradle 설정 창이 제거되었습니다. [1.13.0 변경 사항 (Android)](docs/latest/index.ko.md#1130-변경-사항-android)을 참고해 주세요.
-- 1.13.0에서 올리는 경우: 1.14.0에서는 iOS의 네임스페이스와 iOS 알림 페이로드 타입이 바뀌었고, 1.x 네이티브 라이브러리, iOS 공유·클립보드 JSON Builder, iOS Xcode 설정 창이 제거되었습니다. [1.14.0 변경 사항 (iOS)](docs/latest/index.ko.md#1140-변경-사항-ios)을 참고해 주세요.
+- 1.13.0에서 올리는 경우: 1.14.0에서는 iOS의 네임스페이스와 iOS 알림 페이로드 타입이 바뀌었고, 1.x 네이티브 라이브러리, iOS 공유·클립보드 JSON Builder, `IosDialogManager` 안의 사용되지 않는 델리게이트 타입 6개, iOS Xcode 설정 창이 제거되었습니다. [1.14.0 변경 사항 (iOS)](docs/latest/index.ko.md#1140-변경-사항-ios)을 참고해 주세요.
 
 ## 샘플
 

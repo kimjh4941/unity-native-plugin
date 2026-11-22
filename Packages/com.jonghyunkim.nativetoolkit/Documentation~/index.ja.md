@@ -549,7 +549,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -604,7 +604,7 @@ private void OnDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -662,7 +662,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -720,7 +720,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -778,7 +778,7 @@ private void OnActionSheetResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -844,7 +844,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -917,7 +917,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -981,7 +981,7 @@ private void OnAlertDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1035,7 +1035,7 @@ private void OnFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1089,7 +1089,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1143,7 +1143,7 @@ private void OnFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1197,7 +1197,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

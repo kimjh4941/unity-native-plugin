@@ -38,7 +38,7 @@
 
 ## 1.14.0 변경 사항 (iOS)
 
-1.14.0부터 iOS의 모든 기능이 native-toolkit의 C ABI 2.0.0으로 동작합니다. iOS 타입은 `JonghyunKim.NativeToolkit.Runtime.<Feature>`에서 `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`로 옮겨졌고, 접두사가 없던 알림 페이로드 타입 5개는 iOS에서 `Ios`가 붙은 타입으로 바뀌었습니다. `IosShareJsonBuilder`와 `IosClipboardJsonBuilder`, 1.x 네이티브 라이브러리, iOS의 "Configure Xcode Project"는 제거되었습니다. Unity는 스크립트를 자동으로 고쳐 주지 않습니다. 기능별 수정 방법: [다이얼로그](dialog.ko.md#1140-변경-사항), [알림](notification.ko.md#1140-변경-사항), [공유](share.ko.md#1140-변경-사항), [클립보드](clipboard.ko.md#1140-변경-사항).
+1.14.0부터 iOS의 모든 기능이 native-toolkit의 C ABI 2.0.0으로 동작합니다. iOS 타입은 `JonghyunKim.NativeToolkit.Runtime.<Feature>`에서 `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`로 옮겨졌고, 접두사가 없던 알림 페이로드 타입 5개는 iOS에서 `Ios`가 붙은 타입으로 바뀌었습니다. `IosShareJsonBuilder`와 `IosClipboardJsonBuilder`, `IosDialogManager` 안의 사용되지 않는 델리게이트 타입 6개, 1.x 네이티브 라이브러리, iOS의 "Configure Xcode Project"는 제거되었습니다. Unity는 스크립트를 자동으로 고쳐 주지 않습니다. 기능별 수정 방법: [다이얼로그](dialog.ko.md#1140-변경-사항), [알림](notification.ko.md#1140-변경-사항), [공유](share.ko.md#1140-변경-사항), [클립보드](clipboard.ko.md#1140-변경-사항).
 
 # 기능
 

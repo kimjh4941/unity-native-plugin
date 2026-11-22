@@ -165,7 +165,7 @@ Other languages:
   - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
 - Upgrading from 1.12.0: 1.13.0 changes the Android namespaces and type names, and removes the 1.x native libraries and the Android Gradle setup window. See [Changes in 1.13.0 (Android)](docs/latest/index.md#changes-in-1130-android).
-- Upgrading from 1.13.0: 1.14.0 changes the iOS namespaces and the iOS notification payload types, and removes the 1.x native libraries, the iOS Share and Clipboard JSON builders, and the iOS Xcode setup window. See [Changes in 1.14.0 (iOS)](docs/latest/index.md#changes-in-1140-ios).
+- Upgrading from 1.13.0: 1.14.0 changes the iOS namespaces and the iOS notification payload types, and removes the 1.x native libraries, the iOS Share and Clipboard JSON builders, the six unused delegate types nested in `IosDialogManager`, and the iOS Xcode setup window. See [Changes in 1.14.0 (iOS)](docs/latest/index.md#changes-in-1140-ios).
 
 ## Samples
 
