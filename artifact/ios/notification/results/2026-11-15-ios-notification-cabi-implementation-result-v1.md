@@ -88,6 +88,8 @@
 ## 6. 残っていること
 
 - 段 4 の候補:
-  - 起動時の install を無効にした状態から、`Initialize()` で登録し直すことの確かめ
-  - JSON の読み手を Common に移す
+  - 起動時の install を無効にした状態から、`Initialize()` で登録し直すことの確かめ → 済み（2026-11-21、`808ec8c`。[記録](2026-11-21-ios-notification-optout-check-result-v1.md)）
+  - JSON の読み手を Common に移す → 済み（2026-11-21、`029ad32`。`Runtime/iOS/Common` の `IosJsonReader`）
   - サンプルの画面の手の確かめ（V-5）。あわせて、iOS のサンプルの画面の自動 UI テストを作る（Android と同じく Player のテストの中でサンプルのシーンのボタンを C# から押す。システムの画面は今のハーネスで確かめる）
+    - 自動 UI テスト → 済み（`e34c6fe`〜`44349ce`。Notification のサンプルは別の回の 8 件。[手伝い役の記録](../../../topics/ios-c-abi-2/results/2026-11-15-ios-ui-driver-implementation-result-v1.md)）
+    - 手の確かめ（V-5）: 実機で手で見た記録は無い（未記録）。配置（ボタンがセーフエリアとスクロールの窓の中にあるか、文字の切れ）は自動のテストで見る形にした（`01a1545`、`a75d802`）

@@ -58,7 +58,7 @@
 
 ## 4. 残っていること
 
-- 実装のレビュー（サブエージェントと Codex）
+- 実装のレビュー（サブエージェントと Codex）→ 済み（[reviews/2026-11-14-ios-stage3r-tests-implementation-review-v1.md](../../../topics/ios-c-abi-2/reviews/2026-11-14-ios-stage3r-tests-implementation-review-v1.md)。直しは 2 章。topic の README の段 3-R の行）
 
 ## 5. 実機の記録
 

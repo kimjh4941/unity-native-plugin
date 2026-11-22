@@ -70,6 +70,6 @@ Player のテスト 4 件（1.x）:
 
 ## 5. 残っていること
 
-- (B) UI の自動化（ハーネス、XCUITest のプロジェクト、`scripts/test_ios_ui.sh`、実機の承認）
-- (A) の実機の回（承認の後）、`--as-package-user`（3-S）
-- 実装のレビュー（サブエージェントと Codex）
+- (B) UI の自動化（ハーネス、XCUITest のプロジェクト、`scripts/test_ios_ui.sh`、実機の承認）→ 済み（[2026-11-14-ios-stage2b-ui-automation-result-v1.md](2026-11-14-ios-stage2b-ui-automation-result-v1.md)）
+- (A) の実機の回（承認の後）、`--as-package-user`（3-S）→ 済み。実機は 2026-11-14（[README](../README.md) の 6.6。4 件成功）。`--as-package-user` は 3-S で足した（[2026-11-15-ios-c-abi-3s-switch-result-v1.md](2026-11-15-ios-c-abi-3s-switch-result-v1.md) の V-3）
+- 実装のレビュー（サブエージェントと Codex）→ 済み（[../reviews/2026-11-14-ios-stage2a-player-tests-review-v1.md](../reviews/2026-11-14-ios-stage2a-player-tests-review-v1.md)。直しは 4 章）

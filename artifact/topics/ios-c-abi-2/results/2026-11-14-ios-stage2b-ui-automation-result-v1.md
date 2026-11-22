@@ -96,5 +96,5 @@ UI テスト（パイロット。機能ごとの確かめる項目は 3-R で表
 
 ## 7. 残っていること
 
-- 実機（許可を得て）: `test_ios_ui.sh --device`（承認、署名、4 件）と `verify_unity_ios.sh --device`（6 章）。それぞれ `--dry-run` の一覧を見せて許可を得る
-- 実装のレビュー（サブエージェントと Codex）
+- 実機（許可を得て）: `test_ios_ui.sh --device`（承認、署名、4 件）と `verify_unity_ios.sh --device`（6 章）。それぞれ `--dry-run` の一覧を見せて許可を得る → 済み（2026-11-14、[README](../README.md) の 6.6）
+- 実装のレビュー（サブエージェントと Codex）→ 済み（[../reviews/2026-11-14-ios-stage2b-ui-automation-review-v1.md](../reviews/2026-11-14-ios-stage2b-ui-automation-review-v1.md)。直しは 5 章。実機の経路のレビューは 6 章）

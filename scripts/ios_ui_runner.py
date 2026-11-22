@@ -518,6 +518,11 @@ def main(argv):
             print("  scheduled Focus mode starts during the run. After NU-1 the run waits (up to 30 minutes) until the user")
             print("  lets only NTK UI Harness through a Focus mode (no people, no time-sensitive notifications from others).")
             print("  Afterwards, remove NTK UI Harness from that Focus mode. Time: 30 to 40 minutes plus the wait.")
+        if not keep and GITURL_TEST not in tests:
+            # The 2026-11-21 device gate: the screen locked during the export and the UI driver could not start.
+            print("Before the run (the user): connect the iPhone by cable, keep it charging, unlocked and with its screen")
+            print("  on until the run ends (the export and build come first, before anything reaches it; a screen that locks")
+            print("  meanwhile keeps the UI test runner from starting). Time: about 20 to 40 minutes.")
         if GITURL_TEST in tests:
             print("Before the run (the user): connect the iPhone by cable, keep it charging, unlocked and with its screen")
             print("  on until the run ends (about 10 minutes of export and build come before anything reaches it). The")

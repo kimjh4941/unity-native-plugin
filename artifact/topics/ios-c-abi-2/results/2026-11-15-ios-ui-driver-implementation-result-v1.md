@@ -39,8 +39,9 @@
 - ~~実機での 2 つの回~~（`44349ce` で成功）
 - 配置の確かめ: スパイクで、iOS のサンプルの画面がセーフエリアに合わせていないことが分かった（設計 v3 の 9 章）。サンプルを直すかは利用者の判断を待つ。それまで、配置の確かめのテストはゲートに入れない（**2026-11-21: 利用者の判断でサンプルを直し、ゲートの 1 つ目の回に入れた**。[artifact/ios/sample-layout](../../../ios/sample-layout/results/2026-11-21-ios-sample-layout-implement-sample-scene-result-v1.md)）
 - ~~実装のレビュー~~（[reviews/2026-11-16-ios-ui-driver-implementation-review-v1.md](../reviews/2026-11-16-ios-ui-driver-implementation-review-v1.md)。指摘を直した）
-- 外した分と流れなかった分の見分け（レビュー v1 の C-9）: 流すはずのテストの一覧と結果を照らす形
-- `test_ios_ui.sh` との組み立ての手順の共有（設計 4.1 の 1。今は `verify_unity_ios.sh` に `build_driver` を持った）
+- 外した分と流れなかった分の見分け（レビュー v1 の C-9）: 流すはずのテストの一覧と結果を照らす形 → 1.14.0 の後へ持ち越す（2026-11-22）
+- `test_ios_ui.sh` との組み立ての手順の共有（設計 4.1 の 1。今は `verify_unity_ios.sh` に `build_driver` を持った）→ 1.14.0 の後へ持ち越す（2026-11-22）
+- 2026-11-22 の追記: iOS 26.2 への手当て（`5b9e875`）で、命令 `sheet-cancel`・`password-offer-close` を足し、共有シートの押し直しを `SystemUI.closeShareSheetAndWait` に移した（[記録](2026-11-21-ios26-ui-adaptation-result-v1.md)）。**iOS 26 の端末では、共有シートの計算した点を押さない**（`closeShareSheet` が false を返す）。今の実機（iPhone XS、iOS 18.7.2）には効かない。iOS 26 の端末を使うときに押し方を決める（1.14.0 の後へ持ち越す）
 
 ## 4. 確かめたこと
 
@@ -81,7 +82,7 @@
 | Notification | `HomeButton` と `RemoveCategoryButton`（最後） | 26 個すべて左の余白にかかる |
 
 - `panel.Pick` で別の要素に覆われたボタンは 0 件
-- サンプルの画面がセーフエリアに合わせていない（設計 v3 の 9 章のスパイクと同じ）。直すかは利用者の判断を待つ。直したら、このテストに `IosPlayer` を付けてゲートに入れる
+- サンプルの画面がセーフエリアに合わせていない（設計 v3 の 9 章のスパイクと同じ）。直すかは利用者の判断を待つ。直したら、このテストに `IosPlayer` を付けてゲートに入れる → 決まった（2026-11-21、利用者の判断: サンプルを直す）。直してゲートに入れた（`01a1545`）
 
 ## 5. 途中で起きたこと
 

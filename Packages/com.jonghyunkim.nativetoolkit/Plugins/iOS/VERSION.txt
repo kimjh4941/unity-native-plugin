@@ -23,8 +23,20 @@
 #                (required). A development build uses <name>-debug.xcframework
 #                when dist has it, and the release one otherwise: dist publishes
 #                no -debug variant of the 2.0.0 C ABI (ios-native-toolkit-capi).
+#
+# One key is NOT read by the build:
+#
+# verified_native_toolkit_commit
+#                the native-toolkit commit whose dist/<dist_version>/ios the XCFrameworks
+#                here were copied from and the last full verification ran against
+#                (the iOS gate and UI tests on the simulators and the device, and
+#                scripts/verify_unity_ios_git_url.sh). The release checklist compares
+#                dist/<dist_version>/ios between it and the tag <dist_version>, and the
+#                XCFrameworks here with the tag's (agent-rules/workflows/release/workflow.md,
+#                step 3). Rewrite it whenever the XCFrameworks are copied again.
 
 # native-toolkit 2.0.0: the Swift library and its C ABI (IosLibrary.framework and
 # IosLibraryCApi.framework; minimum iOS 18.0).
 dist_version: 1.14.0
 xcframeworks: ios-native-toolkit-2.0.0.xcframework, ios-native-toolkit-capi-2.0.0.xcframework
+verified_native_toolkit_commit: 68ca7674a96cf8df15409738c5c6d30026b74424

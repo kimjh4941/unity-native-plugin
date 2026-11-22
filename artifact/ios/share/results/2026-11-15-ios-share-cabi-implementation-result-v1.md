@@ -64,5 +64,6 @@ EditMode 1521 件（成功 1520、既にあった 1 件の skip）、Editor の 
 
 ## 5. 残っていること
 
-- native-toolkit への申し送り（SH-13。利用者の判断）
+- native-toolkit への申し送り（SH-13。利用者の判断）→ 済み（2026-11-15 に送った。[下書き](2026-11-15-ios-share-sh13-native-toolkit-report-draft-v1.md)）。native-toolkit が直して dist を作り直した（同じ main の回の 2 回目は `SHOW_FAILED`、どちらの呼び出しもちょうど 1 回の結果）。こちらは `756b6d5` で写し直し、`8007c0d` で SH-13 のテストから `XCTExpectFailure` を外し、マニュアルの文を直した。今の dist は `68ca7674`（`1b3c424`）
 - V-6: サンプルの画面（`IosShareManagerExampleController`。`subject` と複数の画像・ファイル）を実機で手で一度見る（利用者に頼む）
+  - 2026-11-22 の追記: 実機で手で見た記録は無い（別に記録していない）。サンプルの画面は自動のテスト（Share の 15 件、`e34c6fe`〜`44349ce`）と配置の確かめ（`01a1545`、`a75d802`）で見る形にした

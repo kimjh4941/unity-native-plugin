@@ -27,6 +27,6 @@
 
 ## 3. まだ確かめていないこと
 
-- 実機での `--keep-installed`（利用者の準備: 集中モードで通知を許すアプリをハーネスだけにする。承認の一覧に準備と所要時間が出る）
+- 実機での `--keep-installed`（利用者の準備: 集中モードで通知を許すアプリをハーネスだけにする。承認の一覧に準備と所要時間が出る）→ 済み（1.x で NU-1・4・5・7 が成功〈[README](../README.md) の段 3-R の行〉。2.0.0 で 5 件が成功〈[Notification の実装の記録](../../../ios/notification/results/2026-11-15-ios-notification-cabi-implementation-result-v1.md)〉）
 - 接続の確かめで見る欄（今は `devicectl device info details` が 60 秒以内に成功することだけ）。実機の出力で決める
 - 偽の印・場所の印を認めないこと、待ちの間の HEAD の変化、時間切れ、`.cancel` は、シェルを端末の操作をまねる関数に差し替えて流す確かめを、まだ作っていない（設計 v4 の 3 章）

@@ -43,7 +43,7 @@
 ## 4. 残ること
 
 - 配布用の証明書（Apple Distribution）での署名し直しと Validate App は、Apple Developer Program の登録が要るので確かめていない（native-toolkit の 2b と同じ）
-- git の URL で入れた利用者の形でのアーカイブは、段 4 の I-17（実機）とあわせて見る
+- git の URL で入れた利用者の形でのアーカイブは、段 4 の I-17（実機）とあわせて見る → 済み（2026-11-22、I-17 の G-5。Personal Team の開発用の証明書で署名し直され、`codesign --verify --deep --strict` が通った。端末は使っていない。[I-17 の結果](2026-11-22-ios-c-abi-i17-git-url-result-v1.md)）
 
 ## 5. 途中で起きたこと
 

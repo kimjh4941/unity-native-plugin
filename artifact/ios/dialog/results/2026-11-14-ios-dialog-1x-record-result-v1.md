@@ -49,8 +49,8 @@
 
 ## 4. 残っていること
 
-- 実機での記録（ID 1〜11、14a、14b。許可を得てから。`scripts/test_ios_ui.sh --device --dry-run` の一覧を見せる）
-- ID-20〜22（画面を出さない Player のテスト）を `IosDialogPlayerTests` に足す（段 2 の (A) の仕組みで流す）
+- 実機での記録（ID 1〜11、14a、14b。許可を得てから。`scripts/test_ios_ui.sh --device --dry-run` の一覧を見せる）→ 済み（2026-11-14、5 章。topic の [README](../../../topics/ios-c-abi-2/README.md) の 6.6 と段 2 の行）
+- ID-20〜22（画面を出さない Player のテスト）を `IosDialogPlayerTests` に足す（段 2 の (A) の仕組みで流す）→ 済み（2026-11-14、6 章・7 章。topic の README の段 3-R の行「Dialog の ID-20〜22 も Player で記録した」）
 
 ## 5. 実機の記録（2026-11-14 20:3x、iPhone XS / iOS 18.7.2）
 

@@ -3,7 +3,7 @@
 - 記録日: 2026-11-15
 - 宛先: native-toolkit（iOS の C ABI `2.0.0`、`ios-native-toolkit-capi-2.0.0.xcframework`）
 - 出どころ: unity-native-plugin の iOS Share の移行（[2026-11-15-ios-share-cabi-implementation-result-v1.md](2026-11-15-ios-share-cabi-implementation-result-v1.md) の 2 章、実装のレビュー [../reviews/2026-11-15-ios-share-cabi-implementation-review-v1.md](../reviews/2026-11-15-ios-share-cabi-implementation-review-v1.md) の 1.2）
-- 状態: **下書き**。利用者が目を通してから出す
+- 状態: ~~**下書き**。利用者が目を通してから出す~~ → **送った（2026-11-15、native-toolkit のセッションへ）**。native-toolkit が直した（2026-11-21。`56d5e0e2` の作り直し、今の dist は `68ca7674`）。こちらの確かめは `756b6d5`・`8007c0d`（[topic の README](../../../topics/ios-c-abi-2/README.md) の段 4）
 
 ## 1. 何が起きるか
 

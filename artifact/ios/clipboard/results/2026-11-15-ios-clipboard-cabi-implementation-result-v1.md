@@ -82,4 +82,4 @@ Player の記録の行（`[NTK-CLIPBOARD-RECORD]`）は次のとおり:
 ## 5. 残っていること
 
 - 設計 v4・v5 はレビューしていない。4 回目の設計のレビューは回さない（利用者の判断、2026-11-15。D-12 の仕組みは実装のレビュー v1 で全体を見てもらい、指摘は直してテストを足した）。
-- 段 4: JSON Builder（`IosClipboardJsonBuilder`）を消す。
+- 段 4: JSON Builder（`IosClipboardJsonBuilder`）を消す。→ 済み（2026-11-21、`4dcf144`）
