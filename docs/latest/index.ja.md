@@ -4,11 +4,11 @@
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、ダイアログ・通知・共有などのネイティブ機能をシングルトン API で扱えます。
-- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS と macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
+- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS では、ネイティブライブラリのリンクと埋め込みを Unity が自動で行います。macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
 
 # バージョン
 
-## 1.13.0
+## 1.14.0
 
 # 対応 OS バージョン
 
@@ -29,6 +29,16 @@
 ## 1.13.0 での変更（Android）
 
 1.13.0 から、Android のすべての機能が native-toolkit の C ABI 2.0.0 で動きます。Android の型は `JonghyunKim.NativeToolkit.Runtime.<Feature>` から `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>` に移り、`Android` の接頭辞が無かった Android の型は名前が変わりました。1.x のネイティブライブラリと「Configure Gradle Project」は無くなりました。Unity はスクリプトを自動では直しません。機能ごとの直し方: [ダイアログ](dialog.ja.md#1130-での変更)、[通知](notification.ja.md#1130-での変更)、[共有](share.ja.md#1130-での変更)、[クリップボード](clipboard.ja.md#1130-での変更)。
+
+## iOS の要件
+
+- 最小の iOS: 18.0。Player Settings > Other Settings > Target minimum iOS Version（または有効な Build Profile の同じ項目）を 18.0 以上にしてください。それより低いと、ビルドは最初にメッセージを出して止まります。
+- Xcode プロジェクト: 設定は要りません。Unity が `ios-native-toolkit-2.0.0.xcframework` と `ios-native-toolkit-capi-2.0.0.xcframework` をリンクし、アプリに埋め込みます。書き出しの後、ビルドは 2 つがリンクされ埋め込まれているかを確かめ、足りないとき、またはプロジェクトが 1.x の XCFramework を参照したままのときは、メッセージを出して止まります。1.13.0 以前で書き出した Xcode プロジェクトに「Append」でビルドすると、こうなります。「Replace」でビルドしてください。
+- 通知: ビルドは UnityFramework にネイティブのファイル（`NtkNotificationInstaller.mm`）を追加し、アプリの起動時に通知を受け取る準備をします。外し方と、ほかの通知パッケージとの併用: [通知](notification.ja.md)。
+
+## 1.14.0 での変更（iOS）
+
+1.14.0 から、iOS のすべての機能が native-toolkit の C ABI 2.0.0 で動きます。iOS の型は `JonghyunKim.NativeToolkit.Runtime.<Feature>` から `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>` に移り、接頭辞の無かった通知の 5 つのペイロードの型は、iOS では `Ios` の付いた型に替わりました。`IosShareJsonBuilder` と `IosClipboardJsonBuilder`、1.x のネイティブライブラリ、iOS の「Configure Xcode Project」は無くなりました。Unity はスクリプトを自動では直しません。機能ごとの直し方: [ダイアログ](dialog.ja.md#1140-での変更)、[通知](notification.ja.md#1140-での変更)、[共有](share.ja.md#1140-での変更)、[クリップボード](clipboard.ja.md#1140-での変更)
 
 # 機能一覧
 
@@ -176,7 +186,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
+  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.14.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降（Android は 6000.0.61f1、6000.3.1f1、6000.4.1f1 以降）
@@ -200,14 +210,7 @@
 
 - iOS サンプル
   - 「Game ビュー」にサンプル画面が表示されます。
-  - 「Build Profiles」から「iOS Profile」→ Build を実行します。
-  - Tools → Native Toolkit → iOS → Configue Xcode Project を選択します。
-  <p align="center">
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  </p>
-
-  - 「Browse」ボタンを押下して、Build した iOS Project を指定します。
-  - 「Run: Add/Embed iOS XCFrameworks」ボタンを押下して、NativeToolkit ライブラリを追加します。
+  - 「Build Profiles」から「iOS Profile」→ Build を実行します。Build した Xcode プロジェクトには、NativeToolkit ライブラリがリンクされ、埋め込まれています。
   - Xcode からサンプルアプリをインストールしてください。
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 

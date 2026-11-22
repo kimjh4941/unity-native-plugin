@@ -4,11 +4,11 @@
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
 - 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 다이얼로그·알림·공유 등의 네이티브 기능을 싱글톤 API로 사용할 수 있습니다.
-- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS와 macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
+- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS에서는 Unity가 네이티브 라이브러리를 자동으로 링크하고 임베드합니다. macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
 
 # 버전
 
-## 1.13.0
+## 1.14.0
 
 # 지원 OS 버전
 
@@ -29,6 +29,16 @@
 ## 1.13.0 변경 사항 (Android)
 
 1.13.0부터 Android의 모든 기능이 native-toolkit의 C ABI 2.0.0으로 동작합니다. Android 타입은 `JonghyunKim.NativeToolkit.Runtime.<Feature>`에서 `JonghyunKim.NativeToolkit.Runtime.Android.<Feature>`로 옮겨졌고, `Android` 접두사가 없던 Android 타입은 이름이 바뀌었습니다. 1.x 네이티브 라이브러리와 "Configure Gradle Project"는 제거되었습니다. Unity는 스크립트를 자동으로 고쳐 주지 않습니다. 기능별 수정 방법: [다이얼로그](dialog.ko.md#1130-변경-사항), [알림](notification.ko.md#1130-변경-사항), [공유](share.ko.md#1130-변경-사항), [클립보드](clipboard.ko.md#1130-변경-사항).
+
+## iOS 요구 사항
+
+- 최소 iOS: 18.0. Player Settings > Other Settings > Target minimum iOS Version(또는 활성 Build Profile의 같은 항목)을 18.0 이상으로 설정해 주세요. 그보다 낮으면 빌드가 가장 먼저 메시지를 표시하고 중단됩니다.
+- Xcode 프로젝트: 설정할 것이 없습니다. Unity가 `ios-native-toolkit-2.0.0.xcframework`와 `ios-native-toolkit-capi-2.0.0.xcframework`를 링크하고 앱에 임베드합니다. 내보내기가 끝나면 빌드는 두 XCFramework가 링크되고 임베드되었는지 확인하고, 하나가 빠졌거나 프로젝트가 여전히 1.x XCFramework를 참조하고 있으면 메시지를 표시하고 중단됩니다. 1.13.0 이전에 내보낸 Xcode 프로젝트에 "Append"로 빌드하면 이렇게 됩니다. "Replace"로 빌드해 주세요.
+- 알림: 빌드는 UnityFramework에 네이티브 파일(`NtkNotificationInstaller.mm`)을 추가하고, 이 파일이 앱이 시작될 때 알림을 받을 준비를 합니다. 제외하는 방법과 다른 알림 패키지와 함께 쓰는 방법: [알림](notification.ko.md).
+
+## 1.14.0 변경 사항 (iOS)
+
+1.14.0부터 iOS의 모든 기능이 native-toolkit의 C ABI 2.0.0으로 동작합니다. iOS 타입은 `JonghyunKim.NativeToolkit.Runtime.<Feature>`에서 `JonghyunKim.NativeToolkit.Runtime.iOS.<Feature>`로 옮겨졌고, 접두사가 없던 알림 페이로드 타입 5개는 iOS에서 `Ios`가 붙은 타입으로 바뀌었습니다. `IosShareJsonBuilder`와 `IosClipboardJsonBuilder`, 1.x 네이티브 라이브러리, iOS의 "Configure Xcode Project"는 제거되었습니다. Unity는 스크립트를 자동으로 고쳐 주지 않습니다. 기능별 수정 방법: [다이얼로그](dialog.ko.md#1140-변경-사항), [알림](notification.ko.md#1140-변경-사항), [공유](share.ko.md#1140-변경-사항), [클립보드](clipboard.ko.md#1140-변경-사항).
 
 # 기능
 
@@ -176,7 +186,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
+  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.14.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상 (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 이상)
@@ -200,14 +210,7 @@
 
 - iOS 샘플
   - Game 뷰에 샘플 화면이 표시됩니다.
-  - Build Profiles에서 "iOS Profile" -> Build를 실행합니다.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project를 선택합니다.
-  <p align="center">
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  </p>
-
-  - "Browse"를 클릭하고 빌드된 iOS 프로젝트를 선택합니다.
-  - "Run: Add/Embed iOS XCFrameworks"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
+  - Build Profiles에서 "iOS Profile" -> Build를 실행합니다. 빌드된 Xcode 프로젝트에는 NativeToolkit 라이브러리가 이미 링크되고 임베드되어 있습니다.
   - Xcode에서 샘플 앱을 설치합니다.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">참고</a>
 

@@ -34,6 +34,7 @@
   - [イベントの受信](#イベントの受信)
   - [エラーハンドリング](#エラーハンドリング)
 - [iOS](#ios)
+  - [1.14.0 での変更](#1140-での変更)
   - [セットアップ](#セットアップ-1)
   - [ペーストボードのスコープ](#ペーストボードのスコープ)
   - [プレーンテキストのコピー](#プレーンテキストのコピー-1)
@@ -120,7 +121,7 @@
 
 #### コードの直し方
 
-- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` に書き換えてください。macOS のコードの行はそのままにしてください（型は移っていません）。iOS の型は 1.14.0 で移りました（[1.14.0 での変更](#1140-での変更)を見てください）。
 - 下の表の型の名前を書き換えてください。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
 - 1.12.0 の名前で `[SerializeReference]` に保存したデータは、新しい型として値ごと読み込まれます。改名した型は、1.12.0 の名前を `[MovedFrom]` で記録しています。
 
@@ -132,7 +133,7 @@
 
 #### 改名した型と削除した型
 
-Android のクリップボードの型は、すべて `JonghyunKim.NativeToolkit.Runtime.Clipboard` から `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました。`AndroidClipboardManager` は名前が変わらず、ほかの型は名前の前に `Android` が付きました。iOS と macOS のクリップボードの型（`Ios*`、`Mac*`）は変わりません。
+Android のクリップボードの型は、すべて `JonghyunKim.NativeToolkit.Runtime.Clipboard` から `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました。`AndroidClipboardManager` は名前が変わらず、ほかの型は名前の前に `Android` が付きました。macOS のクリップボードの型（`Mac*`）は変わりません。iOS のクリップボードの型（`Ios*`）は 1.14.0 で `JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard` に移りました（[1.14.0 での変更](#1140-での変更)を見てください）。
 
 | 1.12.0 | 1.13.0 |
 | --- | --- |
@@ -674,19 +675,53 @@ AndroidClipboardManager.Instance.CopyUri(new AndroidCopyUriPayload
 
 ## iOS
 
+### 1.14.0 での変更
+
+1.14.0 から、iOS のクリップボードは 1.x の Unity 向けのブリッジではなく、native-toolkit の C ABI 2.0.0（`ios-native-toolkit-capi-2.0.0.xcframework`）で動きます。型の名前、`IosClipboardManager` のメソッドとイベント、`Operation*` の定数、内容・スコープ・オプション・結果の型、エラーコード、エラーメッセージは変わりません。直すところと、1.13.0 と動きが違うところは次のとおりです。
+
+#### コードの直し方
+
+- iOS のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を `using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;` に書き換えてください。完全修飾名で書いたところも同じように直してください。macOS のコードの行はそのままにしてください（macOS の型 `Mac*` は移っていません）。両方を使うスクリプトには、両方の行が要ります。
+- Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.13.0 の名前空間のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_IOS || UNITY_EDITOR` の中に書いたコードは Editor でもコンパイルされるので、エラーは Unity がスクリプトをコンパイルした時点で出ます。
+- 1.13.0 の名前空間で `[SerializeReference]` に保存したデータは、同じ型として値ごと読み込まれます。移った型は、1.13.0 の名前空間を `[MovedFrom]` で記録しています。
+
+#### iOS の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `ios-native-toolkit-1.3.0.xcframework` と `unity-ios-native-toolkit-1.3.0.xcframework` を外しました。パッケージに入っているのは `ios-native-toolkit-2.0.0.xcframework` と `ios-native-toolkit-capi-2.0.0.xcframework`（native-toolkit の C ABI 2.0.0）です。1.x の Unity 向けブリッジ（`UnityIosPlugin`）を直接呼んでいたコードは動きません。1.13.0 で書き出した Xcode プロジェクトには追加の書き出し（Append）ができません。1.x の XCFramework を参照したままのプロジェクトではビルドが止まるので、新しいフォルダーに書き出してください（Replace）。
+- **「Configure Xcode Project」は無くなりました。** メニューの Tools > Native Toolkit > iOS > Configure Xcode Project と、そのウィンドウを削除しました。XCFramework のリンクと埋め込みは、`.meta` の設定に従って Unity が自分で行います。ビルドの後の処理が書き出した Xcode プロジェクトを確かめ、どれかが入っていなければビルドを止めます。
+- **iOS 18.0 以降が必要です。** Player Settings > Other Settings > Target minimum iOS Version（または使っているビルドプロファイルの同じ設定）が 18.0 より低いと、ビルドはメッセージを出して止まります。native-toolkit 2.0.0 は iOS 18.0 向けにビルドされていて、iOS 17 以前ではアプリが起動の直後に終わります。[iOS の要件](index.ja.md#ios-の要件)を見てください。
+
+#### クリップボードの変更
+
+- **`IosClipboardJsonBuilder` を削除しました。** 1.13.0 の Manager は、このビルダーでブリッジに送る JSON を組み立てていました。1.14.0 の Manager は、内容・スコープ・オプションをそのまま C ABI に渡します。このビルダー（`BuildCopyJson`、`BuildReadJson` など）を呼んでいたコードは、同じ `IosClipboardContent`、`IosPasteboardScope`、`IosClipboardCopyOptions`、`IosClipboardLoadRequest`、`IosPasteboardCreationRequest` を、対応する `IosClipboardManager` のメソッドに渡す形に直してください。JSON の文字列を返す代わりの API はありません。
+
+#### 1.13.0 との動作の違い
+
+| 場面 | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| 失敗の `Domain` と `NativeCode` | システムが理由を返した一部の失敗で値が入った。たとえば、ペーストを許可しなかったとき、`LoadItem` は `NSItemProviderErrorDomain` と `-1200`、`DetectValues` は `PBErrorDomain` と `13` で失敗した | いつも `null` です。C ABI はエラーの番号しか返しません。`Code` と `Message` は 1.13.0 と同じなので、分岐には `Code` を使ってください |
+| 読み取り系の操作（`Read`、`LoadItem` など）が失敗したときのログ | `[IosClipboardJsonParser][ReadErrorInfo] errorCode: ...` の `Debug.LogError` が出た | 出ません。テストでこのログを `LogAssert.Expect` で待っている場合は、その行を外してください |
+| ネイティブライブラリが要求を始める前に拒んだとき（たとえば `CLIPBOARD_EMPTY_ITEMS`） | `Copy` など成功か失敗だけを返す操作ではログは出ず、読み取り系の操作では上の `LogError` が出た | `[IosClipboardManager] <operation> rejected: <code>` の `LogWarning` が 1 行出ます。値は含みません。1.13.0 と同じく、失敗は後のフレームに届き、それまで同じ操作は実行中の扱いです |
+| コピーする値（テキスト、HTML、URL、`texts` の要素）の中の U+0000 | 文字列の全体がネイティブライブラリに届いた | ネイティブライブラリには最初の U+0000 の手前までが届き、値を含まない警告がログに出ます。空になった値は、空の内容として失敗します（`CLIPBOARD_EMPTY_CONTENT` など） |
+| ペーストボードの名前、型識別子、画像ファイルのパスの中の U+0000 | そのままネイティブ層に渡した | ネイティブライブラリを呼ばずに `CLIPBOARD_INVALID_REQUEST`（`The request is invalid.`）で失敗します |
+| ペーストボードから読み取った文字列の中の U+0000 | U+0000 のまま返した | U+FFFD になります |
+| 同じアプリのほかのネイティブのコードが監視を置き換えたとき | Manager の監視は知らせなしに止まり、置き換えた側の変更は `ClipboardChanged` に出なかった | Manager の監視が知らせなしに止まるのは同じです。置き換えた側が native-toolkit の C ABI で監視していれば、Manager が監視している間（`StartObserving` の成功から `StopObserving` の結果まで）は、その変更も `ClipboardChanged` に出ます。native-toolkit の Swift のライブラリを直接使っていれば、1.13.0 と同じく出ません |
+
+変わらないもの: パッケージのテストが iOS のシミュレーターと実機で確かめている、結果と変更のイベントの値・回数・順（たとえば、`CancelLoads` の結果は取り消した `LoadItem` の結果より先に届き、名前付きのペーストボードへの 1 回の `Copy` で `ClipboardChanged` は 2 回出ます）。実行中の操作をもう一度呼んだときの `CLIPBOARD_BUSY`。Unity のメインスレッドからしか呼べないこと。Editor での `CLIPBOARD_BRIDGE_UNAVAILABLE`。
+
 ### セットアップ
 
 #### 名前空間のインポート
 
-`IosClipboardManager` は iOS ビルドターゲットが選択されていれば Editor 上でもコンパイルされます。Editor で呼び出してもクラッシュせず、ネイティブブリッジに触れないまま `CLIPBOARD_BRIDGE_UNAVAILABLE` の失敗が即座に返ります。Editor でも動くシーンにそのまま置いて構いません。
+`IosClipboardManager` は、iOS の Player と、どのビルドターゲットの Editor でもコンパイルされます。Editor で呼び出してもクラッシュせず、引数が正しい呼び出しは、ネイティブライブラリを呼ばずに `CLIPBOARD_BRIDGE_UNAVAILABLE`（`<operation> is only available on an iOS device.`）で失敗します。Editor でも動くシーンにそのまま置いて構いません。
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 #endif
 ```
 
-ネイティブ層の対象は iOS 18 以降です。
+ネイティブライブラリは iOS 18.0 以降が必要です。[iOS の要件](index.ja.md#ios-の要件)を見てください。
 
 #### すべての操作が非同期
 
@@ -704,7 +739,7 @@ iOS 側に同期 API はありません。各呼び出しは任意の per-call �
 | `LoadItem` | `IosClipboardLoadedItemResult` | `ItemLoaded` |
 | `CheckForegroundChange` | `IosClipboardForegroundChangeResult` | `ForegroundChangeChecked` |
 
-イベントにはどの呼び出しの結果かを判別する手段がありません。結果を特定のリクエストと対応させる必要がある場合は per-call コールバックを使い、イベントはログや共有 UI の更新にとどめてください。すべての結果型は `IsSuccess` を持ち、失敗時は `Error`（`Code` / `Message` と、任意の `Domain` / `NativeCode` を持つ `IosClipboardErrorInfo`）を返します。
+イベントにはどの呼び出しの結果かを判別する手段がありません。結果を特定のリクエストと対応させる必要がある場合は per-call コールバックを使い、イベントはログや共有 UI の更新にとどめてください。すべての結果型は `IsSuccess` を持ち、失敗時は `Error`（`Code` と `Message` を持つ `IosClipboardErrorInfo`。`Domain` と `NativeCode` は 1.14.0 からいつも `null` です）を返します。
 
 #### メインスレッド限定
 
@@ -716,7 +751,7 @@ iOS 側に同期 API はありません。各呼び出しは任意の per-call �
 
 #### Manager のライフタイム
 
-`IosClipboardManager.Instance` は初回アクセス時に生成され、ネイティブ層は最初の呼び出し時に初期化されます。実行中に破棄して作り直す運用には対応していません。破棄後は `IosClipboardManager.IsTerminated` が `true` になり、以降のすべての API が `CLIPBOARD_MANAGER_DESTROYED` を返します。
+`IosClipboardManager.Instance` は初回アクセス時に生成されます。ネイティブライブラリの初期化は要りません。実行中に破棄して作り直す運用には対応していません。破棄後は `IosClipboardManager.IsTerminated` が `true` になり、以降のすべての API が `CLIPBOARD_MANAGER_DESTROYED` を返します。
 
 ---
 
@@ -779,7 +814,7 @@ IosClipboardManager.Instance.RemovePasteboard(_scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_RemoveActivePasteboard.png" alt="Example_IosClipboardManager_RemoveActivePasteboard" width="400" />
 </p>
 
-> **注意:** 削除済みのスコープを読み取っても失敗しません。ペーストボードが空の状態で再生成されます。「空の読み取り」を削除済みの証拠として扱い、エラーとして扱わないでください。
+> **注意:** `RemovePasteboard` で削除した Named / Unique のペーストボードを読み取ると、`CLIPBOARD_UNAVAILABLE` で失敗します。読み取りでペーストボードが作り直されることはありません。
 
 ---
 
@@ -1078,7 +1113,7 @@ IosClipboardManager.Instance.ReadData("public.png", _scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_ReadDataPng.png" alt="Example_IosClipboardManager_ReadDataPng" width="400" />
 </p>
 
-> **注意:** デコード後のサイズが 64 MiB を超えるペイロードは、バッファを確保する前に `CLIPBOARD_CONTENT_TOO_LARGE` で拒否されます。
+> **注意:** 64 MiB を超えるデータは、マネージドのメモリに写す前に `CLIPBOARD_CONTENT_TOO_LARGE` で拒否されます。
 
 ---
 
@@ -1296,6 +1331,8 @@ IosClipboardManager.Instance.StopObserving(result => Debug.Log($"StopObserving: 
     <img src="images/ios/clipboard/Example_IosClipboardManager_StartObserving.png" alt="Example_IosClipboardManager_StartObserving" width="400" />
 </p>
 
+> **注意:** 1 回の `Copy` で `ClipboardChanged` が 2 回出ることがあります。1 回目は足された型が無く、2 回目に足された型が入ります。名前付きのペーストボードで確かめた動きです。
+
 > **注意:** `StartObserving` が失敗した場合、監視は行われていない状態になります。ネイティブ層は新しい監視を開始する前に旧監視を停止するため、停止すべきものは残りません。
 
 ---
@@ -1417,7 +1454,7 @@ private void OnClipboardChanged(IosClipboardChangeEvent changeEvent)
 
 ### エラーハンドリング
 
-失敗はすべて `IosClipboardErrorInfo` を伴います。`Code` は安定しており分岐に使えます。`Message` はログ用です。`Domain` と `NativeCode` は、システムが理由を返した失敗にのみ入ります。
+失敗はすべて `IosClipboardErrorInfo` を伴います。`Code` は安定しており分岐に使えます。`Message` はログ用です。`Domain` と `NativeCode` は 1.14.0 からいつも `null` です（ネイティブライブラリはエラーの番号しか返しません）。
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
@@ -1485,13 +1522,13 @@ Unity 側で、ネイティブ呼び出しの前または代わりに返るコ�
 | エラーコード | 意味 |
 | --- | --- |
 | `CLIPBOARD_BUSY` | 同一操作が実行中 |
-| `CLIPBOARD_BRIDGE_UNAVAILABLE` | iOS 実機で実行されていない（Editor を含む）、またはブリッジ呼び出しが例外を投げた |
+| `CLIPBOARD_BRIDGE_UNAVAILABLE` | iOS 実機で実行されていない（Editor を含む）、またはネイティブライブラリの呼び出しが例外を投げた（`<operation> could not be started.`） |
 | `CLIPBOARD_MAIN_THREAD_REQUIRED` | Unity のメインスレッド以外から呼び出された |
 | `CLIPBOARD_MANAGER_DESTROYED` | Manager が破棄済み。実行中の再生成には対応していない |
-| `CLIPBOARD_INVALID_REQUEST` | 必須引数が `null` |
+| `CLIPBOARD_INVALID_REQUEST` | 必須引数が `null`、ペーストボードの名前・型識別子・画像ファイルのパスに U+0000 が含まれる、または検出パターンが定義済みの値でない |
 | `CLIPBOARD_EMPTY_PATTERNS` | 空のパターン配列。ネイティブ呼び出し前に拒否 |
-| `CLIPBOARD_CONTENT_TOO_LARGE` | 返却されたペイロードのデコード後サイズが 64 MiB を超える |
-| `CLIPBOARD_UNKNOWN` | ネイティブ応答が空、またはパースできない |
+| `CLIPBOARD_CONTENT_TOO_LARGE` | `ReadData` が 64 MiB を超えるデータを返した |
+| `CLIPBOARD_UNKNOWN` | ネイティブライブラリから結果を読み取れない、または `DetectValues` の結果をパースできない |
 
 結果として返らず、生成時点で例外になる入力もあります。これらはユーザー入力から作る前に検証してください。
 
@@ -2273,7 +2310,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 1.12.0 から、Windows のクリップボードは native-toolkit の C ABI 2.0.0（`windows-native-toolkit-capi-2.0.0.dll`）で動きます。メソッド、イベント、`Operation*` の値、結果の型、エラーコードの値、`WindowsClipboardJsonBuilder`、ペイロードの型、スレッドの規則は変わりません。1.11.0 との違いは次のとおりです。
 
-- **名前空間。** `WindowsClipboardManager` と、結果・ペイロード・ビルダーの型は `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を書き換えてください。iOS と macOS の型の名前空間は変わりません。Android の型は 1.13.0 で `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました（[1.13.0 での変更](#1130-での変更)を見てください）。
+- **名前空間。** `WindowsClipboardManager` と、結果・ペイロード・ビルダーの型は `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard` にあります。Windows のコードの `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` を書き換えてください。macOS の型の名前空間は変わりません。iOS の型は 1.14.0 で `JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard` に移りました（[1.14.0 での変更](#1140-での変更)を見てください）。Android の型は 1.13.0 で `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` に移りました（[1.13.0 での変更](#1130-での変更)を見てください）。
 
 | 場面 | 1.11.0 | 1.12.0 |
 | --- | --- | --- |
