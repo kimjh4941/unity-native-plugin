@@ -4,7 +4,7 @@
 
 - Unity 6+에서 네이티브 기능을 제공하는 툴킷입니다.
 - 패키지에는 Android/iOS/Windows/macOS용 네이티브 플러그인과 샘플 씬이 포함되며, 각 플랫폼의 다이얼로그를 싱글톤 API로 사용할 수 있습니다.
-- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS와 macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
+- Android에서는 네이티브 라이브러리와 그 Gradle 의존성을 빌드가 자동으로 추가합니다. iOS에서는 Unity가 네이티브 라이브러리를 자동으로 링크하고 임베드합니다. macOS에서는 Editor 창을 통해 빌드한 Xcode 프로젝트에 네이티브 라이브러리를 추가할 수 있습니다.
 
 # 버전
 
@@ -73,7 +73,7 @@
 - Window -> Package Manager를 선택합니다.
 - "install from Git URL..."을 선택합니다.
 - Native Toolkit 패키지의 Git URL을 입력합니다.
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - https://github.com/kimjh4941/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
 - "install"을 클릭합니다.
 - 요구 사항:
   - Unity 6 이상
@@ -100,10 +100,6 @@
   - "Open" 버튼을 클릭합니다.
   - Game 뷰에 샘플 화면이 표시됩니다.
   - Build Profiles에서 "iOS Profile" -> Build를 실행합니다.
-  - Tools -> Native Toolkit -> iOS -> Configure Xcode Project를 선택합니다.
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  - "Browse"를 클릭하고 빌드된 iOS 프로젝트를 선택합니다.
-  - "Run: Add/Embed iOS XCFrameworks"를 클릭하여 NativeToolkit 라이브러리를 추가합니다.
   - Xcode에서 샘플 앱을 설치합니다.
     - <a href="https://developer.apple.com/xcode" target="_blank" rel="noopener noreferrer">참고</a>
 
@@ -553,7 +549,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -608,7 +604,7 @@ private void OnDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -666,7 +662,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -724,7 +720,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -782,7 +778,7 @@ private void OnActionSheetResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -848,7 +844,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 가드: iOS (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -921,7 +917,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -985,7 +981,7 @@ private void OnAlertDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1039,7 +1035,7 @@ private void OnFileDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1093,7 +1089,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1147,7 +1143,7 @@ private void OnFolderDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1201,7 +1197,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // 가드: Windows (Player)만. Editor에서는 네이티브 호출을 피합니다.
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

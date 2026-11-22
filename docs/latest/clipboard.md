@@ -34,6 +34,7 @@ Language:
   - [Receive Events](#receive-events)
   - [Error Handling](#error-handling)
 - [iOS](#ios)
+  - [Changes in 1.14.0](#changes-in-1140)
   - [Setup](#setup-1)
   - [Pasteboard Scopes](#pasteboard-scopes)
   - [Copy Plain Text](#copy-plain-text-1)
@@ -120,7 +121,7 @@ Since 1.13.0 the Android clipboard runs on native-toolkit's C ABI 2.0.0 (`androi
 
 #### Updating your code
 
-- Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Clipboard;` in your Android code. Keep the old line in macOS code: its types did not move. The iOS types moved in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)).
 - Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
 - Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
 
@@ -132,7 +133,7 @@ Since 1.13.0 the Android clipboard runs on native-toolkit's C ABI 2.0.0 (`androi
 
 #### Renamed and removed types
 
-Every Android Clipboard type moved from `JonghyunKim.NativeToolkit.Runtime.Clipboard` to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard`. `AndroidClipboardManager` keeps its name; the other types gained the `Android` prefix. The iOS and macOS Clipboard types (`Ios*`, `Mac*`) did not change.
+Every Android Clipboard type moved from `JonghyunKim.NativeToolkit.Runtime.Clipboard` to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard`. `AndroidClipboardManager` keeps its name; the other types gained the `Android` prefix. The macOS Clipboard types (`Mac*`) did not change. The iOS Clipboard types (`Ios*`) moved to `JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard` in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)).
 
 | 1.12.0 | 1.13.0 |
 | --- | --- |
@@ -674,19 +675,53 @@ The full set of stable error codes reported through `ErrorCode`:
 
 ## iOS
 
+### Changes in 1.14.0
+
+Since 1.14.0 the iOS clipboard runs on native-toolkit's C ABI 2.0.0 (`ios-native-toolkit-capi-2.0.0.xcframework`) instead of the 1.x Unity bridge. The type names, the methods and events of `IosClipboardManager`, the `Operation*` constants, the content, scope, option and result types, the error codes and the error messages are unchanged. What you need to change, and what behaves differently from 1.13.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;` in your iOS code, and change fully qualified names the same way. Keep the old line in macOS code: the macOS types (`Mac*`) did not move. A script that uses both needs both lines.
+- Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.13.0 namespace fails to compile. Code inside `#if UNITY_IOS || UNITY_EDITOR` (as in the examples on this page) is also compiled in the Editor, so the errors appear as soon as Unity compiles your scripts.
+- Data you saved with `[SerializeReference]` under the 1.13.0 namespace loads as the same type with its values: each moved type records its 1.13.0 namespace with `[MovedFrom]`.
+
+#### Breaking changes shared by every iOS feature
+
+- **The 1.x native libraries are no longer bundled.** `ios-native-toolkit-1.3.0.xcframework` and `unity-ios-native-toolkit-1.3.0.xcframework` were removed. The package ships `ios-native-toolkit-2.0.0.xcframework` and `ios-native-toolkit-capi-2.0.0.xcframework` (native-toolkit's C ABI 2.0.0). Code that called the 1.x Unity bridge (`UnityIosPlugin`) directly no longer works. An Xcode project exported with 1.13.0 cannot be appended to: the build stops while the project still references a 1.x XCFramework, so build into a new folder (Replace).
+- **"Configure Xcode Project" is gone.** The menu Tools > Native Toolkit > iOS > Configure Xcode Project and its window were removed. Unity now links and embeds the XCFrameworks itself, as their `.meta` settings say. A step after the build checks the exported Xcode project and stops the build if one of them is missing.
+- **iOS 18.0 or later.** The build stops with a message when Player Settings > Other Settings > Target minimum iOS Version (or the same setting in the active build profile) is below 18.0. native-toolkit 2.0.0 is built for iOS 18.0; on iOS 17 and earlier the app quits right after it starts. See [iOS requirements](index.md#ios-requirements).
+
+#### Clipboard changes
+
+- **`IosClipboardJsonBuilder` was removed.** In 1.13.0 the manager used it to build the JSON it sent to the bridge. In 1.14.0 the manager passes the content, scope and options to the C ABI directly. If your code called the builder (`BuildCopyJson`, `BuildReadJson` and the like), pass the same `IosClipboardContent`, `IosPasteboardScope`, `IosClipboardCopyOptions`, `IosClipboardLoadRequest` or `IosPasteboardCreationRequest` to the matching `IosClipboardManager` method instead. There is no replacement that returns the JSON string.
+
+#### Behavior differences from 1.13.0
+
+| Case | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| `Domain` and `NativeCode` of a failure | Set for some failures the system reported. For example, after the user denied pasting, `LoadItem` failed with `NSItemProviderErrorDomain` and `-1200`, and `DetectValues` with `PBErrorDomain` and `13` | Always `null`: the C ABI reports an error number only. `Code` and `Message` are the same as in 1.13.0, so branch on `Code` |
+| Log when a read operation (`Read`, `LoadItem` and the like) fails | `Debug.LogError` with `[IosClipboardJsonParser][ReadErrorInfo] errorCode: ...` | No log. If a test expects that log with `LogAssert.Expect`, remove the expectation |
+| Log when the native library rejects a request before starting it (for example `CLIPBOARD_EMPTY_ITEMS`) | None for `Copy` and the other operations that report only success or failure; the `LogError` above for read operations | One `LogWarning` line, `[IosClipboardManager] <operation> rejected: <code>`, which holds no values. As in 1.13.0, the failure arrives on a later frame and the operation stays busy until then |
+| U+0000 inside a value you copy (text, HTML, URL, `texts` elements) | The whole string reached the native library | The native library receives the string up to the first U+0000, and a warning that names no value is logged. A value that becomes empty fails as empty content (for example `CLIPBOARD_EMPTY_CONTENT`) |
+| U+0000 inside a pasteboard name, a type identifier or an image file path | Passed on to the native layer | Fails with `CLIPBOARD_INVALID_REQUEST` (`The request is invalid.`) without calling the native library |
+| U+0000 in text read from the pasteboard | Returned as U+0000 | Returned as U+FFFD |
+| Other native code in the same app replaces the observation | The manager's observation stopped without notice, and the other code's changes did not reach `ClipboardChanged` | The manager's observation still stops without notice. When the other code observes through native-toolkit's C ABI, its changes reach `ClipboardChanged` while the manager is observing (from a successful `StartObserving` until the result of `StopObserving`). When it uses native-toolkit's Swift library directly, they do not, as in 1.13.0 |
+
+Unchanged: the values, counts and order of results and change events that the package's tests check on the iOS simulator and a device (for example, the `CancelLoads` result arrives before the cancelled `LoadItem` result, and one `Copy` to a named pasteboard raises `ClipboardChanged` twice); `CLIPBOARD_BUSY` for a second call of a running operation; the main-thread requirement; `CLIPBOARD_BRIDGE_UNAVAILABLE` in the Editor.
+
 ### Setup
 
 #### Import the namespace
 
-`IosClipboardManager` compiles whenever the iOS build target is selected, including in the Editor. Calling it in the Editor does not crash: every operation returns an immediate `CLIPBOARD_BRIDGE_UNAVAILABLE` failure without touching the native bridge, so the same code can stay in a scene that also runs in the Editor.
+`IosClipboardManager` compiles in iOS players and in the Editor on every build target. Calling it in the Editor does not crash: every call with valid arguments fails with `CLIPBOARD_BRIDGE_UNAVAILABLE` (`<operation> is only available on an iOS device.`) without calling the native library, so the same code can stay in a scene that also runs in the Editor.
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Clipboard;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard;
 #endif
 ```
 
-The native layer targets iOS 18 or later.
+The native libraries require iOS 18.0 or later. See [iOS requirements](index.md#ios-requirements).
 
 #### Every operation is asynchronous
 
@@ -704,7 +739,7 @@ There is no synchronous API on iOS. Each call takes an optional per-call callbac
 | `LoadItem` | `IosClipboardLoadedItemResult` | `ItemLoaded` |
 | `CheckForegroundChange` | `IosClipboardForegroundChangeResult` | `ForegroundChangeChecked` |
 
-The events carry no way to tell which call they belong to. Use the per-call callback whenever a result must be matched to a specific request, and the events only for logging or shared UI. Every result exposes `IsSuccess` and, on failure, `Error` (an `IosClipboardErrorInfo` with `Code`, `Message`, and optional `Domain` / `NativeCode`).
+The events carry no way to tell which call they belong to. Use the per-call callback whenever a result must be matched to a specific request, and the events only for logging or shared UI. Every result exposes `IsSuccess` and, on failure, `Error` (an `IosClipboardErrorInfo` with `Code` and `Message`; its `Domain` and `NativeCode` are always `null` since 1.14.0).
 
 #### Main thread only
 
@@ -716,7 +751,7 @@ Calls are serialized per operation: a second `LoadItem` issued while the first i
 
 #### Manager lifetime
 
-`IosClipboardManager.Instance` creates the manager on first access, and the native layer is initialized on the first call. Destroying and recreating the manager during a run is not supported: once it has been destroyed, `IosClipboardManager.IsTerminated` is `true` and every API returns `CLIPBOARD_MANAGER_DESTROYED`.
+`IosClipboardManager.Instance` creates the manager on first access. The native library needs no initialization. Destroying and recreating the manager during a run is not supported: once it has been destroyed, `IosClipboardManager.IsTerminated` is `true` and every API returns `CLIPBOARD_MANAGER_DESTROYED`.
 
 ---
 
@@ -779,7 +814,7 @@ IosClipboardManager.Instance.RemovePasteboard(_scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_RemoveActivePasteboard.png" alt="Example_IosClipboardManager_RemoveActivePasteboard" width="400" />
 </p>
 
-> **Note:** Reading a scope that was removed does not fail; the pasteboard is recreated empty. Treat an empty read as "gone", not as an error.
+> **Note:** Reading a named or unique pasteboard after `RemovePasteboard` fails with `CLIPBOARD_UNAVAILABLE`. Reading does not create the pasteboard again.
 
 ---
 
@@ -1078,7 +1113,7 @@ IosClipboardManager.Instance.ReadData("public.png", _scope, result =>
     <img src="images/ios/clipboard/Example_IosClipboardManager_ReadDataPng.png" alt="Example_IosClipboardManager_ReadDataPng" width="400" />
 </p>
 
-> **Note:** A payload whose decoded size exceeds 64 MiB is rejected with `CLIPBOARD_CONTENT_TOO_LARGE` before any buffer is allocated.
+> **Note:** Data larger than 64 MiB is rejected with `CLIPBOARD_CONTENT_TOO_LARGE` before it is copied into managed memory.
 
 ---
 
@@ -1296,6 +1331,8 @@ IosClipboardManager.Instance.StopObserving(result => Debug.Log($"StopObserving: 
     <img src="images/ios/clipboard/Example_IosClipboardManager_StartObserving.png" alt="Example_IosClipboardManager_StartObserving" width="400" />
 </p>
 
+> **Note:** One `Copy` can raise `ClipboardChanged` twice: first with no added types, then with the types it added. This was observed on a named pasteboard.
+
 > **Note:** A failed `StartObserving` leaves the app not observing. The native layer stops the previous observation before it tries to start the new one, so there is nothing left running to stop.
 
 ---
@@ -1417,7 +1454,7 @@ private void OnClipboardChanged(IosClipboardChangeEvent changeEvent)
 
 ### Error Handling
 
-Every failure carries an `IosClipboardErrorInfo`. `Code` is stable and safe to branch on; `Message` is for logs. `Domain` and `NativeCode` are present only for failures the system reported.
+Every failure carries an `IosClipboardErrorInfo`. `Code` is stable and safe to branch on; `Message` is for logs. `Domain` and `NativeCode` are always `null` since 1.14.0: the native library reports an error number only.
 
 ```csharp
 #if UNITY_IOS || UNITY_EDITOR
@@ -1485,13 +1522,13 @@ Codes produced on the Unity side, before or instead of a native call:
 | Error Code | Meaning |
 | --- | --- |
 | `CLIPBOARD_BUSY` | The same operation is already in progress. |
-| `CLIPBOARD_BRIDGE_UNAVAILABLE` | Not running on an iOS device (this includes the Editor), or the bridge call itself threw. |
+| `CLIPBOARD_BRIDGE_UNAVAILABLE` | Not running on an iOS device (this includes the Editor), or the call into the native library threw (`<operation> could not be started.`). |
 | `CLIPBOARD_MAIN_THREAD_REQUIRED` | The API was called from a thread other than the Unity main thread. |
 | `CLIPBOARD_MANAGER_DESTROYED` | The manager was destroyed; it cannot be recreated during the run. |
-| `CLIPBOARD_INVALID_REQUEST` | A required argument was `null`. |
+| `CLIPBOARD_INVALID_REQUEST` | A required argument was `null`, a pasteboard name, type identifier or image file path contains U+0000, or a detection pattern is not one of the defined values. |
 | `CLIPBOARD_EMPTY_PATTERNS` | An empty pattern array, rejected before the native call. |
-| `CLIPBOARD_CONTENT_TOO_LARGE` | The decoded size of a returned payload exceeds 64 MiB. |
-| `CLIPBOARD_UNKNOWN` | The native response was empty or could not be parsed. |
+| `CLIPBOARD_CONTENT_TOO_LARGE` | `ReadData` returned more than 64 MiB. |
+| `CLIPBOARD_UNKNOWN` | A result could not be read from the native library, or the `DetectValues` result could not be parsed. |
 
 Some inputs never reach a result at all: they throw from the factory that builds them. Validate user input before constructing these.
 
@@ -2273,7 +2310,7 @@ MacClipboardManager.Instance.Read(_scope, result =>
 
 Since 1.12.0 the Windows clipboard runs on the native-toolkit C ABI 2.0.0 (`windows-native-toolkit-capi-2.0.0.dll`). The methods, the events, the `Operation*` values, the result types, the error code values, `WindowsClipboardJsonBuilder`, the payload types and the threading rules are unchanged. What differs from 1.11.0:
 
-- **Namespace.** `WindowsClipboardManager` and its result, payload and builder types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`. Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` in Windows code. The iOS and macOS types keep their namespace; the Android types moved to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
+- **Namespace.** `WindowsClipboardManager` and its result, payload and builder types are in `JonghyunKim.NativeToolkit.Runtime.Windows.Clipboard`. Replace `using JonghyunKim.NativeToolkit.Runtime.Clipboard;` in Windows code. The macOS types keep their namespace; the iOS types moved to `JonghyunKim.NativeToolkit.Runtime.iOS.Clipboard` in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)), and the Android types moved to `JonghyunKim.NativeToolkit.Runtime.Android.Clipboard` in 1.13.0 (see [Changes in 1.13.0](#changes-in-1130)).
 
 | Case | 1.11.0 | 1.12.0 |
 | --- | --- | --- |

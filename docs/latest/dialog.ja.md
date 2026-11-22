@@ -16,7 +16,8 @@
   - [1.13.0 での変更](#1130-での変更)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
-  - [iOSDialogManager](#iosdialogmanager)
+  - [1.14.0 での変更](#1140-での変更)
+  - [IosDialogManager](#iosdialogmanager)
 - [Windows](#windows)
   - [1.12.0 での変更](#1120-での変更)
   - [WindowsDialogManager](#windowsdialogmanager)
@@ -33,7 +34,7 @@
 
 #### コードの直し方
 
-- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` に書き換えてください。iOS と macOS のコードの行はそのままにしてください（型は移っていません）。
+- Android のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` に書き換えてください。macOS のコードの行はそのままにしてください（型は移っていません）。iOS の型は 1.14.0 で移りました（[1.14.0 での変更](#1140-での変更)を見てください）。
 - Dialog の型は名前が変わっていないので、直すのは上の `using` の行だけです。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.12.0 の名前のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_ANDROID && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは Android の Player をビルドしたときに初めて出ます。
 
 #### Android の全機能に共通の破壊的変更
@@ -502,7 +503,53 @@ private void OnLoginDialogResult(
 
 ## iOS
 
-### iOSDialogManager
+### 1.14.0 での変更
+
+1.14.0 から、iOS のダイアログは 1.x の Unity 向けブリッジではなく、native-toolkit の C ABI 2.0.0（`ios-native-toolkit-capi-2.0.0.xcframework`）で動きます。メソッド、イベント、その引数と既定値は変わりません。1.13.0 との違いは次のとおりです。
+
+#### コードの直し方
+
+- iOS のコードの `using JonghyunKim.NativeToolkit.Runtime.Dialog;` を `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;` に書き換えてください。macOS のコードの行はそのままにしてください（`MacDialogManager` は移っていません）。
+- Dialog の型は名前が変わっていないので、下の消えたデリゲートの型を使っていない限り、直すのは上の `using` の行だけです。Unity は自動では直しません。API Updater はこのパッケージの型への参照を書き換えないので、1.13.0 の名前空間のままのスクリプトはコンパイルに失敗します。このページの例のように `#if UNITY_IOS && !UNITY_EDITOR` の中に書いたコードは Editor ではコンパイルされないので、エラーは iOS の Player をビルドしたときに初めて出ます。
+- `IosDialogManager` の中の 6 つのデリゲートの型（`DialogCallback`、`ConfirmDialogCallback`、`DestructiveDialogCallback`、`ActionSheetCallback`、`TextInputDialogCallback`、`LoginDialogCallback`）は無くなりました。1.x のブリッジのコールバックの型で、C ABI に移ってからはパッケージのどこからも使われていませんでした。結果は、このページの例のように `IosDialogManager` のイベントで受け取ってください。
+
+#### iOS の全機能に共通の破壊的変更
+
+- **1.x のネイティブライブラリを同梱しなくなりました。** `ios-native-toolkit-1.3.0.xcframework` と `unity-ios-native-toolkit-1.3.0.xcframework` を外しました。パッケージに入っているのは `ios-native-toolkit-2.0.0.xcframework` と `ios-native-toolkit-capi-2.0.0.xcframework`（native-toolkit の C ABI 2.0.0）です。1.x の Unity 向けブリッジ（`UnityIosPlugin`）を直接呼んでいたコードは動きません。1.13.0 で書き出した Xcode プロジェクトには追加の書き出し（Append）ができません。1.x の XCFramework を参照したままのプロジェクトではビルドが止まるので、新しいフォルダーに書き出してください（Replace）。
+- **「Configure Xcode Project」は無くなりました。** メニューの Tools > Native Toolkit > iOS > Configure Xcode Project と、そのウィンドウを削除しました。XCFramework のリンクと埋め込みは、`.meta` の設定に従って Unity が自分で行います。ビルドの後の処理が書き出した Xcode プロジェクトを確かめ、どれかが入っていなければビルドを止めます。
+- **iOS 18.0 以降が必要です。** Player Settings > Other Settings > Target minimum iOS Version（または使っているビルドプロファイルの同じ設定）が 18.0 より低いと、ビルドはメッセージを出して止まります。native-toolkit 2.0.0 は iOS 18.0 向けにビルドされていて、iOS 17 以前ではアプリが起動の直後に終わります。[iOS の要件](index.ja.md#ios-の要件)を見てください。
+
+#### 1.13.0 との動作の違い
+
+| 場面 | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| アプリが前面にあるがアクティブでない（scene が `foregroundInactive`）ときに呼ぶ | ダイアログは出ず、`"Failed to get root view controller"` のイベントが 1 回出た | ダイアログが出て、押したボタンがいつもどおりイベントで返ります |
+| アプリがバックグラウンドにあるときに呼ぶ | 失敗 `"Failed to get root view controller"` | 失敗 `"Failed to <method>: the app is not in the foreground."` |
+| 表示した後、ボタンを押さずにダイアログが消えた | イベントは出なかった | ダイアログが解放されたときに、失敗 `"Failed to <method>: the dialog was closed by the system."` が出ます。まだ何かがダイアログを持っている間は出ません |
+| 閉じかけの画面の上に出す | UIKit に断られ、ダイアログもイベントも出なかった | 閉じかけの画面を飛ばし、1 回待ってからダイアログを出します。それでも出せなければ `"Failed to <method>: the dialog could not be shown."` のイベントが出ます |
+| `ShowActionSheet` の `options` に `null` の要素がある | すぐに `"Internal error: <例外の文言>"` | すぐに `"Options cannot contain null."` |
+| Editor（ビルドターゲットが iOS）で呼ぶ | `"Internal error: <例外の文言>"`（ネイティブの関数が見つからない）とエラーのログ | `"Failed to <method>: the native library is not available."` と警告のログ |
+| すぐに出る失敗（空のタイトルなど）のイベントで、ハンドラーが例外を投げた | 例外は `Show*` の呼び出し元まで伝わった | `"<イベント名> callback error: <例外の文言>"`（例: `DialogResult callback error: ...`）としてエラーのログに出し、呼び出し元には伝わりません。後で届く結果のハンドラーは、1.13.0 でもこう扱われていました |
+| iPad のアクションシート（ポップオーバーで出る）の基点 | ルートビュー全体 | 最前面の画面の中央。iPad では確かめていません |
+
+`errorMessage` の文言は次のとおりです。`<method>` には `showDialog`、`showConfirmDialog`、`showDestructiveDialog`、`showActionSheet`、`showTextInputDialog`、`showLoginDialog` のどれかが入ります。「すぐ」は `Show*` メソッドが戻る前に、「後で」は戻った後にイベントが出ることを表します。
+
+| 原因 | 時点 | `errorMessage` |
+| --- | --- | --- |
+| タイトル・メッセージが空（変更なし） | すぐ | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` |
+| `options` が `null` または空（変更なし） | すぐ | `"Options cannot be null or empty."` |
+| `options` に `null` の要素がある | すぐ | `"Options cannot contain null."` |
+| ネイティブライブラリが使えない（Editor など） | すぐ | `"Failed to <method>: the native library is not available."` |
+| ライブラリが要求を拒んだ（このパッケージの不具合） | すぐ | `"Failed to <method>: the request was rejected (<name>)."`（`<name>` はエラーの名前。`INVALID_PARAMETER` など） |
+| C# の例外（変更なし） | すぐ | `"Internal error: <例外の文言>"` |
+| アプリが前面にない | 後で | `"Failed to <method>: the app is not in the foreground."` |
+| ダイアログを出せない | 後で | `"Failed to <method>: the dialog could not be shown."` |
+| システムがダイアログを閉じた | 後で | `"Failed to <method>: the dialog was closed by the system."` |
+| 受け付けた後のそのほかの失敗 | 後で | `"Failed to <method>: <name>."` |
+
+変わらないもの: メソッド、イベントとその引数、既定値。各ダイアログが返すボタンの文言（アクションシートでは、選んだ選択肢かキャンセルボタンの文言）。テキスト入力とログインのダイアログでキャンセルボタンを押すと入力欄の値は `null` になり、空のまま確定すると `""` になること。`enableConfirmWhenEmpty` / `enableLoginWhenEmpty` が `false` なら、入力が空の間はボタンを押せないこと。ダイアログが出ている間に呼ぶと、その上に重ねて出ること。アプリがバックグラウンドに移ってもダイアログは残り、戻ってから答えられること。タイトル・メッセージ・選択肢の検査とその文言。答えたダイアログは、答えた後の `Update` でイベントを 1 回出すこと。
+
+### IosDialogManager
 
 #### ShowDialog - 基本ダイアログ
 
@@ -511,7 +558,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -567,7 +614,7 @@ private void OnDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -626,7 +673,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -685,7 +732,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -744,7 +791,7 @@ private void OnActionSheetResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -792,7 +839,7 @@ IosDialogManager.Instance.ShowTextInputDialog(
 
 ```csharp
 // buttonText:　押下したボタンのテキストを取得します。エラーの場合、null を返します。
-// inputText: 入力されたテキストを取得します。エラーの場合、null を返します。
+// inputText: 入力されたテキストを取得します。エラーの場合とキャンセルボタンを押した場合は null を返します。
 // isSuccess: ダイアログ表示成功のプラグを取得します。成功の場合、true を返します。
 // errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
 
@@ -811,7 +858,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -862,8 +909,8 @@ IosDialogManager.Instance.ShowLoginDialog(
 
 ```csharp
 // buttonText:　押下したボタンのテキストを取得します。エラーの場合、null を返します。
-// username: 入力されたユーザ名を取得します。エラーの場合、null を返します。
-// password: 入力されたパスワードを取得します。エラーの場合、null を返します。
+// username: 入力されたユーザ名を取得します。エラーの場合とキャンセルボタンを押した場合は null を返します。
+// password: 入力されたパスワードを取得します。エラーの場合とキャンセルボタンを押した場合は null を返します。
 // isSuccess: ダイアログ表示成功のプラグを取得します。成功の場合、true を返します。
 // errorMessage: エラーが発生した場合、エラー内容を取得します。成功の場合、null を返します。
 

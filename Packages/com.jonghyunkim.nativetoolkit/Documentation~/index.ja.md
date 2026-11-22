@@ -4,7 +4,7 @@
 
 - Unity6 以降でネイティブ機能を提供するツールキットです。
 - パッケージには Android/iOS/Windows/macOS 用のネイティブプラグインとサンプルシーンが含まれ、各プラットフォームのダイアログ操作をシングルトン API で扱えます。
-- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS と macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
+- Android では、ネイティブライブラリと、その Gradle の依存をビルドが自動で追加します。iOS では、ネイティブライブラリのリンクと埋め込みを Unity が自動で行います。macOS では、Editor 用ウィンドウから、ビルドした Xcode プロジェクトにネイティブライブラリを追加できます。
 
 # バージョン
 
@@ -73,7 +73,7 @@
 - Window → Package Manager を選択します。
 - Unity Package Manager → install from Git URL... を選択します。
 - Native Toolkit パッケージの Git URL を入力します。
-  - Git URL: https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
+  - Git URL: https://github.com/kimjh4941/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.0.0
 - install をクリックします。
 - 必要条件:
   - Unity 6 以降
@@ -100,10 +100,6 @@
   - 「Open」ボタンをクリックします。
   - 「Game ビュー」にサンプル画面が表示されます。
   - 「Build Profiles」から「iOS Profile」→ Build を実行します。
-  - Tools → Native Toolkit → iOS → Configue Xcode Project を選択します。
-    <img src="images/editor/IosConfigureXcodeProject.png" alt="IosConfigureXcodeProject" width="720" />
-  - 「Browse」ボタンを押下して、Build した iOS Project を指定します。
-  - 「Run: Add/Embed iOS XCFrameworks」ボタンを押下して、NativeToolkit ライブラリを追加します。
   - Xcode からサンプルアプリをインストールしてください。
     - <a href="https://developer.apple.com/jp/xcode" target="_blank" rel="noopener noreferrer">参考サイト</a>
 
@@ -553,7 +549,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -608,7 +604,7 @@ private void OnDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -666,7 +662,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -724,7 +720,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -782,7 +778,7 @@ private void OnActionSheetResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -848,7 +844,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // 実行ガード: iOS (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -921,7 +917,7 @@ private void OnLoginDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -985,7 +981,7 @@ private void OnAlertDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1039,7 +1035,7 @@ private void OnFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1093,7 +1089,7 @@ private void OnMultiFileDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1147,7 +1143,7 @@ private void OnFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 
@@ -1201,7 +1197,7 @@ private void OnMultiFolderDialogResult(
 ```csharp
 // 実行ガード: Windows (Player) のみ有効。Editor ではネイティブ呼び出しを行わないようにします。
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.Windows.Dialog;
 #endif
 ```
 

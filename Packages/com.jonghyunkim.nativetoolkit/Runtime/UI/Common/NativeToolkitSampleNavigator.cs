@@ -206,6 +206,24 @@ public static class NativeToolkitSampleNavigator
         {
             uiDocument.gameObject.AddComponent<TController>();
         }
+
+        EnsureSafeArea(uiDocument);
+    }
+
+    /// <summary>
+    /// On iOS, adds <c>IosSampleSafeArea</c> to the UIDocument when it has none, so the sample screens stay
+    /// inside the safe area; elsewhere it does nothing. Called for every screen change, and by the top menu at
+    /// start, since the scene opens on the top menu without going through the navigator.
+    /// </summary>
+    /// <param name="uiDocument">UIDocument that hosts the sample screens.</param>
+    public static void EnsureSafeArea(UIDocument? uiDocument)
+    {
+#if UNITY_IOS
+        if (uiDocument != null && uiDocument.GetComponent<IosSampleSafeArea>() == null)
+        {
+            uiDocument.gameObject.AddComponent<IosSampleSafeArea>();
+        }
+#endif
     }
 
     private static void RemoveExistingControllers(GameObject gameObject)

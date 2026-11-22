@@ -16,6 +16,7 @@ Language:
   - [Changes in 1.13.0](#changes-in-1130)
   - [AndroidDialogManager](#androiddialogmanager)
 - [iOS](#ios)
+  - [Changes in 1.14.0](#changes-in-1140)
   - [IosDialogManager](#iosdialogmanager)
 - [Windows](#windows)
   - [Changes in 1.12.0](#changes-in-1120)
@@ -33,7 +34,7 @@ Since 1.13.0 the Android dialogs run on native-toolkit's C ABI 2.0.0 (`libntk.so
 
 #### Updating your code
 
-- Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Dialog;` in your Android code. Keep the old line in macOS code: its types did not move. The iOS types moved in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)).
 - No Dialog type was renamed, so the `using` line above is the only edit your code needs. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
 
 #### Breaking changes shared by every Android feature
@@ -502,6 +503,52 @@ private void OnLoginDialogResult(
 
 ## iOS
 
+### Changes in 1.14.0
+
+Since 1.14.0 the iOS dialogs run on native-toolkit's C ABI 2.0.0 (`ios-native-toolkit-capi-2.0.0.xcframework`) instead of the 1.x Unity bridge. The methods, the events, their parameters and the default values are unchanged. What differs from 1.13.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Dialog;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;` in your iOS code. Keep the old line in macOS code: `MacDialogManager` did not move.
+- No Dialog type was renamed, so the `using` line above is the only edit your code needs, unless it names one of the removed delegate types below. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.13.0 namespace fails to compile. Code inside `#if UNITY_IOS && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the iOS player.
+- The six delegate types nested in `IosDialogManager` (`DialogCallback`, `ConfirmDialogCallback`, `DestructiveDialogCallback`, `ActionSheetCallback`, `TextInputDialogCallback`, `LoginDialogCallback`) were removed. They were the callback types of the 1.x bridge, and nothing in the package has used them since the move to the C ABI. Receive the results through the events of `IosDialogManager`, as in the examples on this page.
+
+#### Breaking changes shared by every iOS feature
+
+- **The 1.x native libraries are no longer bundled.** `ios-native-toolkit-1.3.0.xcframework` and `unity-ios-native-toolkit-1.3.0.xcframework` were removed. The package ships `ios-native-toolkit-2.0.0.xcframework` and `ios-native-toolkit-capi-2.0.0.xcframework` (native-toolkit's C ABI 2.0.0). Code that called the 1.x Unity bridge (`UnityIosPlugin`) directly no longer works. An Xcode project exported with 1.13.0 cannot be appended to: the build stops while the project still references a 1.x XCFramework, so build into a new folder (Replace).
+- **"Configure Xcode Project" is gone.** The menu Tools > Native Toolkit > iOS > Configure Xcode Project and its window were removed. Unity now links and embeds the XCFrameworks itself, as their `.meta` settings say. A step after the build checks the exported Xcode project and stops the build if one of them is missing.
+- **iOS 18.0 or later.** The build stops with a message when Player Settings > Other Settings > Target minimum iOS Version (or the same setting in the active build profile) is below 18.0. native-toolkit 2.0.0 is built for iOS 18.0; on iOS 17 and earlier the app quits right after it starts. See [iOS requirements](index.md#ios-requirements).
+
+#### Behavior differences from 1.13.0
+
+| Case | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| Called while the app is in the foreground but not active (its scene is `foregroundInactive`) | No dialog; the event reported `"Failed to get root view controller"` once | The dialog shows, and the event reports the pressed button as usual |
+| Called while the app is in the background | A failure: `"Failed to get root view controller"` | A failure: `"Failed to <method>: the app is not in the foreground."` |
+| The dialog went away without a button press after it was shown | No event | A failure, `"Failed to <method>: the dialog was closed by the system."`, when the dialog is released. No event while something still holds it |
+| Shown over a screen that is being dismissed | UIKit refused it: no dialog and no event | The closing screen is skipped and the call waits once before showing the dialog. If it still cannot be shown, the event reports `"Failed to <method>: the dialog could not be shown."` |
+| A `null` item in the `options` of `ShowActionSheet` | `"Internal error: <exception message>"` at once | `"Options cannot contain null."` at once |
+| Called in the Editor (with the iOS build target) | `"Internal error: <exception message>"` (the native function was not found) and an error log | `"Failed to <method>: the native library is not available."` and a warning log |
+| Your handler throws while a failure is reported at once (an empty title, for example) | The exception reached the code that called `Show*` | Logged as an error, `"<event> callback error: <exception message>"` (for example `DialogResult callback error: ...`), and does not reach the caller. Handlers of results that arrive later were already treated this way in 1.13.0 |
+| The anchor of an action sheet on iPad (shown as a popover) | The whole root view | The center of the topmost screen. Not checked on an iPad |
+
+The `errorMessage` texts are below. `<method>` is one of `showDialog`, `showConfirmDialog`, `showDestructiveDialog`, `showActionSheet`, `showTextInputDialog` or `showLoginDialog`. "At once" means the event is raised before the `Show*` method returns; "later" means after it returns.
+
+| Cause | When | `errorMessage` |
+| --- | --- | --- |
+| An empty title or message (unchanged) | At once | `"Title cannot be null or empty."` / `"Message cannot be null or empty."` |
+| `options` is `null` or empty (unchanged) | At once | `"Options cannot be null or empty."` |
+| A `null` item in `options` | At once | `"Options cannot contain null."` |
+| The native library cannot be used (in the Editor, for example) | At once | `"Failed to <method>: the native library is not available."` |
+| The library rejected the request (a defect in this package) | At once | `"Failed to <method>: the request was rejected (<name>)."` (`<name>` is the error's name, such as `INVALID_PARAMETER`) |
+| An exception in C# (unchanged) | At once | `"Internal error: <exception message>"` |
+| The app is not in the foreground | Later | `"Failed to <method>: the app is not in the foreground."` |
+| The dialog could not be shown | Later | `"Failed to <method>: the dialog could not be shown."` |
+| The dialog was closed by the system | Later | `"Failed to <method>: the dialog was closed by the system."` |
+| Any other failure after the call was accepted | Later | `"Failed to <method>: <name>."` |
+
+Unchanged: the methods, the events and their arguments, and the default values; the button text each dialog returns (on an action sheet, the chosen option or the cancel button's text); the cancel button of the text input and login dialogs returns `null` for the fields, and a field left empty and confirmed returns `""`; with `enableConfirmWhenEmpty` / `enableLoginWhenEmpty` set to `false`, the button cannot be pressed while the input is empty; a dialog called while another is up shows on top of it; a dialog stays up while the app is in the background and can be answered when it returns; the checks of the title, message and options and their messages; an answered dialog raises its event once, in the `Update` after it was answered.
+
 ### IosDialogManager
 
 #### ShowDialog - Basic dialog
@@ -511,7 +558,7 @@ private void OnLoginDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -567,7 +614,7 @@ private void OnDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -626,7 +673,7 @@ private void OnConfirmDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -685,7 +732,7 @@ private void OnDestructiveDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -744,7 +791,7 @@ private void OnActionSheetResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -792,7 +839,7 @@ IosDialogManager.Instance.ShowTextInputDialog(
 
 ```csharp
 // buttonText: The pressed button text. Null on error.
-// inputText: Entered text. Null on error.
+// inputText: Entered text. Null on error or when the cancel button is pressed.
 // isSuccess: True on success.
 // errorMessage: Error details (null on success).
 
@@ -811,7 +858,7 @@ private void OnTextInputDialogResult(
 ```csharp
 // Guard: iOS (Player) only. Avoid native calls in the Editor.
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 ```
 
@@ -862,8 +909,8 @@ IosDialogManager.Instance.ShowLoginDialog(
 
 ```csharp
 // buttonText: The pressed button text. Null on error.
-// username: Entered username. Null on error.
-// password: Entered password. Null on error.
+// username: Entered username. Null on error or when the cancel button is pressed.
+// password: Entered password. Null on error or when the cancel button is pressed.
 // isSuccess: True on success.
 // errorMessage: Error details (null on success).
 

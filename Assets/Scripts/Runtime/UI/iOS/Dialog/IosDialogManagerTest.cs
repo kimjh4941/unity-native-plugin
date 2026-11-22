@@ -2,7 +2,7 @@
 
 using UnityEngine;
 #if UNITY_IOS && !UNITY_EDITOR
-using JonghyunKim.NativeToolkit.Runtime.Dialog;
+using JonghyunKim.NativeToolkit.Runtime.iOS.Dialog;
 #endif
 
 public class IosDialogManagerTest : MonoBehaviour

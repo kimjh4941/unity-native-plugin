@@ -1,0 +1,8 @@
+framework module IosLibraryCApi {
+    header "NativeToolkitC/Common.h"
+    header "NativeToolkitC/Clipboard.h"
+    header "NativeToolkitC/Dialog.h"
+    header "NativeToolkitC/Notification.h"
+    header "NativeToolkitC/Share.h"
+    export *
+}

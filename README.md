@@ -2,7 +2,7 @@
 
 - A toolkit that provides native features for Unity 6+.
 - The package includes native plugins and sample scenes for Android/iOS/Windows/macOS, and exposes native features such as dialogs, notifications, sharing, and clipboard access via singleton APIs per platform.
-- On Android, the build adds the native libraries and their Gradle dependencies by itself. For iOS and macOS, editor windows add the native libraries to the built Xcode project.
+- On Android, the build adds the native libraries and their Gradle dependencies by itself. On iOS, Unity links and embeds the native libraries by itself. For macOS, an editor window adds the native library to the built Xcode project.
 
 Other languages:
 
@@ -11,7 +11,7 @@ Other languages:
 
 ## Version
 
-- 1.13.0
+- 1.14.0
 
 ## Supported OS Versions
 
@@ -159,12 +159,13 @@ Other languages:
 - Window -> Package Manager.
 - Select "install from Git URL...".
 - Enter the Git URL for this package:
-  - https://github.com/jonghyunkim/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.13.0
+  - https://github.com/kimjh4941/unity-native-plugin.git?path=/Packages/com.jonghyunkim.nativetoolkit#1.14.0
 - Click "install".
 - Requirements:
   - Unity 6+ (Android: 6000.0.61f1, 6000.3.1f1, 6000.4.1f1 or later)
   - Dependencies: Localization, Addressables, Input System
 - Upgrading from 1.12.0: 1.13.0 changes the Android namespaces and type names, and removes the 1.x native libraries and the Android Gradle setup window. See [Changes in 1.13.0 (Android)](docs/latest/index.md#changes-in-1130-android).
+- Upgrading from 1.13.0: 1.14.0 changes the iOS namespaces and the iOS notification payload types, and removes the 1.x native libraries, the iOS Share and Clipboard JSON builders, the six unused delegate types nested in `IosDialogManager`, and the iOS Xcode setup window. See [Changes in 1.14.0 (iOS)](docs/latest/index.md#changes-in-1140-ios).
 
 ## Samples
 

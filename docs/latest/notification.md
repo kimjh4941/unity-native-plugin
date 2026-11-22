@@ -25,9 +25,11 @@ Language:
   - [Foreground Service Notifications](#foreground-service-notifications)
   - [Scheduled Notifications](#scheduled-notifications)
 - [iOS](#ios)
+  - [Changes in 1.14.0](#changes-in-1140)
   - [Overview](#overview)
   - [Supported capabilities](#supported-capabilities)
     - [Basic setup](#basic-setup)
+    - [Notification delegate](#notification-delegate)
     - [Show an immediate notification](#show-an-immediate-notification)
     - [Show an immediate notification with an app icon attachment](#show-an-immediate-notification-with-an-app-icon-attachment)
     - [Schedule a notification](#schedule-a-notification)
@@ -65,7 +67,7 @@ Since 1.13.0 Android notifications run on native-toolkit's C ABI 2.0.0 instead o
 
 #### Updating your code
 
-- Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` in your Android code. Keep the old line in iOS and macOS code: their types did not move.
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` with `using JonghyunKim.NativeToolkit.Runtime.Android.Notification;` in your Android code. Keep the old line in macOS code: its types did not move. The iOS types moved in 1.14.0 (see [Changes in 1.14.0](#changes-in-1140)).
 - Rename the types listed below in your code. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.12.0 names fails to compile. Code inside `#if UNITY_ANDROID && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the Android player.
 - Data you saved with `[SerializeReference]` under a 1.12.0 name loads as the new type with its values: each renamed type records its 1.12.0 name with `[MovedFrom]`.
 
@@ -781,6 +783,72 @@ bool isScheduled = AndroidNotificationManager.Instance.IsNotificationScheduled(1
 
 ## iOS
 
+### Changes in 1.14.0
+
+Since 1.14.0 iOS notifications run on native-toolkit's C ABI 2.0.0 (`ios-native-toolkit-capi-2.0.0.xcframework`) instead of the 1.x Unity bridge. `IosNotificationManager` keeps its methods, events and constants, and they still take the JSON that `IosNotificationJsonBuilder` builds, read by the same rules as in 1.13.0. What to change, and what differs from 1.13.0:
+
+#### Updating your code
+
+- Replace `using JonghyunKim.NativeToolkit.Runtime.Notification;` with `using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;` in your iOS code. Keep the old line in macOS code: the macOS types did not move.
+- Rename the five payload types listed below in your iOS code: `IosNotificationJsonBuilder` now takes only the new types. Unity does not do this for you: the API Updater does not rewrite references to this package's types, so a script that still uses the 1.13.0 namespace or names fails to compile. Code inside `#if UNITY_IOS && !UNITY_EDITOR` (as in the examples on this page) is not compiled in the Editor, so the errors appear only when you build the iOS player.
+- The new types have the same fields and default values as the old ones, and the builder writes the same JSON from them. The old types stay unchanged for macOS. If you passed one payload to both the iOS and the macOS builder, create one value of each type.
+- The other iOS notification types keep their names and only move to the new namespace. They record their 1.13.0 namespace with `[MovedFrom]`, so data you saved with `[SerializeReference]` still loads. The five renamed types have no `[MovedFrom]` (the old types still exist for macOS), so data saved with `[SerializeReference]` as one of the old types is not moved to the new types.
+
+Renamed types (iOS only). `IosNotificationManager`, `IosNotificationJsonBuilder` and the other `IosNotification*` types keep their names and only move to the new namespace.
+
+| 1.13.0 | 1.14.0 |
+| --- | --- |
+| `NotificationContentPayload` | `IosNotificationContentPayload` |
+| `NotificationAttachmentPayload` | `IosNotificationAttachmentPayload` |
+| `TimeIntervalTriggerPayload` | `IosTimeIntervalTriggerPayload` |
+| `CalendarTriggerPayload` | `IosCalendarTriggerPayload` |
+| `LocationTriggerPayload` | `IosLocationTriggerPayload` |
+
+#### Breaking changes shared by every iOS feature
+
+- **The 1.x native libraries are no longer bundled.** `ios-native-toolkit-1.3.0.xcframework` and `unity-ios-native-toolkit-1.3.0.xcframework` were removed. The package ships `ios-native-toolkit-2.0.0.xcframework` and `ios-native-toolkit-capi-2.0.0.xcframework` (native-toolkit's C ABI 2.0.0). Code that called the 1.x Unity bridge (`UnityIosPlugin`) directly no longer works. An Xcode project exported with 1.13.0 cannot be appended to: the build stops while the project still references a 1.x XCFramework, so build into a new folder (Replace).
+- **"Configure Xcode Project" is gone.** The menu Tools > Native Toolkit > iOS > Configure Xcode Project and its window were removed. Unity now links and embeds the XCFrameworks itself, as their `.meta` settings say. A step after the build checks the exported Xcode project and stops the build if one of them is missing.
+- **iOS 18.0 or later.** The build stops with a message when Player Settings > Other Settings > Target minimum iOS Version (or the same setting in the active build profile) is below 18.0. native-toolkit 2.0.0 is built for iOS 18.0; on iOS 17 and earlier the app quits right after it starts. See [iOS requirements](index.md#ios-requirements).
+
+#### Notification changes
+
+- **The notification delegate is installed when the app starts.** The build adds a native file, `NtkNotificationInstaller.mm`, to UnityFramework in the exported Xcode project. When the app finishes launching, it installs native-toolkit's notification delegate. In 1.13.0, `IosNotificationManager` installed the delegate in `Awake` (through `Initialize()`) each time a manager was created; now creating the manager only registers its event listeners. If you only use this package, there is nothing to change. To leave the file out, define `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` (see [Notification delegate](#notification-delegate)).
+- **Call `Initialize()` after another notification package sets its delegate.** `Initialize()` installs the delegate again and keeps the current one as the previous delegate. If you also use another notification package, such as Unity's Mobile Notifications, call `IosNotificationManager.Instance.Initialize()` after it sets its own delegate (for example after its `AuthorizationRequest`), on Unity's main thread.
+- **Showing a notification without the permission now fails.** When the notification permission is not granted (the status is not authorized, provisional or ephemeral), `ShowNotification`, `ScheduleNotification` and `UpdateNotification` report `Notification permission was denied.` and add nothing. 1.13.0 reported success. Check `HasPermission`, or call `RequestPermission`, first.
+- **Every call gets its own result.** In 1.13.0, when the same operation was called again before the first result arrived, only the later call's callback was called. Now each call's callback is called once, followed by `NotificationOperationCompleted`.
+- **Failure messages are fixed English text.** 1.13.0 passed on the system's generic message (`The operation couldn’t be completed. (IosLibrary.NotificationError error N.)`), translated into the device's language. The messages are now:
+  - `Notification permission was denied.` The permission is not granted, or the user declined it.
+  - `The app is not in the foreground.` `RequestPermission` was called in the background before the user was asked.
+  - `The notification request is invalid.` The native library rejected a value (see the table below).
+  - `Failed to request notification permission.`, `Failed to create a notification attachment.`, `Failed to add the notification request.`, `Failed to set the badge count.`
+  - `An unknown error occurred.`
+
+  The messages for JSON that cannot be read (`Failed to parse notification content JSON`, `Failed to parse notification content or trigger JSON`, `Failed to parse category JSON`) are unchanged. If your code recognizes a declined permission from `ErrorMessage`, compare it with `Notification permission was denied.`
+
+#### Behavior differences from 1.13.0
+
+| Case | 1.13.0 | 1.14.0 |
+| --- | --- | --- |
+| The same operation called again before the first result arrived | Only the later call's callback was called; `NotificationOperationCompleted` was raised for both | Each call's callback is called once, then `NotificationOperationCompleted` |
+| `ShowNotification`, `ScheduleNotification` or `UpdateNotification` without the notification permission | Succeeded | Fails: `Notification permission was denied.` Nothing is added |
+| The user declines the permission in `RequestPermission` | `The operation couldn’t be completed. (IosLibrary.NotificationError error 4.)`, in the device's language | `Notification permission was denied.` |
+| `SetBadgeCount` with a negative value | Failed with the generic message (`error 2`) | Fails: `The notification request is invalid.` |
+| `RequestPermission` in the background before the user was asked | The dialog appeared when the app came back to the foreground, then the result came | Fails at once: `The app is not in the foreground.` |
+| `RequestPermission` while the permission is provisional | Asked the system again | Succeeds without asking |
+| A tap on a notification that launched the app | Not delivered | Delivered through `NotificationActionReceived` after the first manager is created |
+| A tap on a notification this package did not post (posted by your own native code, or scheduled with 1.13.0) | Raised `NotificationActionReceived` | Not raised: passed to the previous delegate, if there is one |
+| The system asks the app to show its notification settings (only for an app that asked natively for `providesAppNotificationSettings`) | The Settings app opened | Passed to the previous delegate, if there is one; otherwise nothing happens |
+| Creating `IosNotificationManager` | Installed the delegate again | Registers the event listeners only. Call `Initialize()` to install the delegate again |
+| Registering a category again with the same identifier | Not replaced (the result varied); success was reported before the category was written | Replaced; the result comes after the category is written |
+| `UpdateNotification` that fails on an attachment | The earlier request was already removed | The earlier request stays |
+| Values 1.13.0 accepted: a time interval of 0 or less, or under 60 seconds when repeating; a calendar trigger without date fields; a location trigger out of range, with an empty identifier, or with both `notifyOnEntry` and `notifyOnExit` false; an empty `id` in `ShowNotification`; an empty `identifier` in `ScheduleNotification` or `UpdateNotification`; an empty category identifier; the top-level `userInfo` key `com.jonghyunkim.nativetoolkit` | Succeeded (an interval out of range made the app crash) | Fails: `The notification request is invalid.` |
+| U+0000 in an identifier, a `fileURL` or a sound name in the JSON | Passed on whole | Fails: `The notification request is invalid.` (Text shown to the user is cut at U+0000, with a warning in the log) |
+| `/` in `UserInfo` values, and in the JSON of `GetScheduledNotifications` and `GetDeliveredNotifications` | Escaped as `\/` | As sent (`/`) |
+| A non-string value in `userInfo` (a number, for example) | Reading stopped there; the entries after it were lost | Skipped; the other string entries are kept |
+| A callback that throws | `NotificationOperationCompleted` was not raised | `NotificationOperationCompleted` is still raised |
+
+Unchanged: the methods, the events and the `Operation*` constants; the JSON the builder writes and the rules it is read by (`id` and `title` are required, and an unknown trigger in `ShowNotification` delivers the notification at once); the keys and the date format of the JSON from `GetScheduledNotifications` and `GetDeliveredNotifications`; values 1.13.0 accepted that are still accepted (an unknown `interruptionLevel` is read as `active`, a negative `badge` as no badge, and a `relevanceScore` outside 0 to 1 is clamped); a callback is still called after its manager was destroyed.
+
 ### Overview
 
 iOS notifications are provided through `IosNotificationManager`. The sample scene demonstrates permission flow, immediate notifications, attachment notifications, scheduled notifications, category/actions, and badge operations.
@@ -795,6 +863,17 @@ iOS notifications are provided through `IosNotificationManager`. The sample scen
 - Category registration / actions / text input actions
 
 #### Basic setup
+
+Import the namespace:
+
+```csharp
+// Guard: iOS (Player) only. Prevents native calls in the Editor.
+#if UNITY_IOS && !UNITY_EDITOR
+using JonghyunKim.NativeToolkit.Runtime.iOS.Notification;
+#endif
+```
+
+Request the permission and check the authorization status:
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
@@ -823,11 +902,31 @@ IosNotificationManager.Instance.GetAuthorizationStatus(status =>
     <img src="images/ios/notification/Example_IosNotificationManager_RequestPermission.png" alt="Example_IosNotificationManager_RequestPermission" width="400" />
 </p>
 
+#### Notification delegate
+
+The build adds `NtkNotificationInstaller.mm` to UnityFramework in the exported Xcode project, and the app installs native-toolkit's notification delegate when it finishes launching. You do not need to call anything for this. A tap that launched the app is delivered through `NotificationActionReceived` after the first `IosNotificationManager` is created, so subscribe to the events right after you first read `IosNotificationManager.Instance`.
+
+If another notification package, such as Unity's Mobile Notifications, sets its own delegate, call `Initialize()` after it does so. `Initialize()` installs this package's delegate again and keeps the current one as the previous delegate: taps on notifications this package did not post are passed to it.
+
+```csharp
+#if UNITY_IOS && !UNITY_EDITOR
+// Call on Unity's main thread, after the other package has set its own delegate
+// (for example, once its permission request has finished).
+IosNotificationManager.Instance.Initialize();
+#endif
+```
+
+To keep the build from adding the file, add `NATIVETOOLKIT_IOS_SKIP_NOTIFICATION_INSTALL` to Player Settings > Other Settings > Scripting Define Symbols for iOS, or to the Scripting Defines of the build profile you build with. The build then leaves the file out (and removes it from an Xcode project that an earlier build added it to). Call `Initialize()` when this package should receive taps: until the delegate is installed, the manager cannot register its event listeners, so `NotificationActionReceived` and `NotificationTextInputActionReceived` are not raised. A delegate installed after the app has finished launching may miss the tap that launched the app; the library logs this when it installs the delegate.
+
+> **Note:** A build profile's Scripting Defines are added to those in Player Settings. If the define is in Player Settings, leaving it out of a build profile does not remove it.
+
+<!-- 根拠（2026-11-22）: ビルドプロファイルの Scripting Defines に define を足す経路はシミュレーターで確かめた（artifact/ios/notification/designs/2026-11-21-ios-notification-optout-check-design-v2.md の OO-1〜OO-4、scripts/verify_unity_ios.sh --skip-install）。git の URL で入れた使い捨てのプロジェクトで（artifact/topics/ios-c-abi-2/designs/2026-11-22-ios-c-abi-i17-git-url-check-design-v3.md、scripts/verify_unity_ios_git_url.sh）、Player Settings の Scripting Define Symbols に足す経路は書き出しで確かめた（G-4。インストーラーが外れる）。Mobile Notifications 2.5.0 との共存（起動の後は proxy、AuthorizationRequest で UnityNotificationManager に替わり、Initialize() で proxy に戻り、ライブラリが前の delegate として残す）はシミュレーターで確かめた（M-1〜M-3）。このパッケージが出していない通知のタップが前の delegate に渡ることは native-toolkit の 1b のシミュレーターのテストによる。起動の後の install で起動のタップが失われうることは native-toolkit のソースの読み -->
+
 #### Show an immediate notification
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "sample-notification",
     title = "Energy Refilled",
@@ -854,7 +953,7 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "sample-notification",
     title = "Immediate Notification with Attachment",
@@ -862,7 +961,7 @@ var content = new NotificationContentPayload
     sound = "default",
     attachments = new[]
     {
-        new NotificationAttachmentPayload
+        new IosNotificationAttachmentPayload
         {
             identifier = "app-icon",
             fileURL = appIconFileUrl
@@ -871,7 +970,10 @@ var content = new NotificationContentPayload
 };
 
 var contentJson = IosNotificationJsonBuilder.BuildContentJson(content);
-IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
+IosNotificationManager.Instance.ShowNotification(contentJson, null, result =>
+{
+    Debug.Log($"ShowNotification (attachment): {result.IsSuccess}");
+});
 #endif
 ```
 
@@ -885,7 +987,7 @@ IosNotificationManager.Instance.ShowNotification(contentJson, null, null);
 
 ```csharp
 #if UNITY_IOS && !UNITY_EDITOR
-var content = new NotificationContentPayload
+var content = new IosNotificationContentPayload
 {
     id = "scheduled-notification",
     title = "Guild Battle Starts Soon",
@@ -893,7 +995,7 @@ var content = new NotificationContentPayload
     sound = "default"
 };
 
-var trigger = new TimeIntervalTriggerPayload
+var trigger = new IosTimeIntervalTriggerPayload
 {
     repeats = false,
     interval = 10.0
@@ -916,7 +1018,7 @@ IosNotificationManager.Instance.ScheduleNotification(
     <img src="images/ios/notification/Example_IosNotificationManager_ScheduleNotification.png" alt="Example_IosNotificationManager_ScheduleNotification" width="400" />
 </p>
 
-Use `CalendarTriggerPayload` for calendar schedules and `LocationTriggerPayload` for location-based schedules.
+Use `IosCalendarTriggerPayload` for calendar schedules and `IosLocationTriggerPayload` for location-based schedules.
 
 #### Register categories and actions
 
@@ -932,6 +1034,12 @@ var category = new IosNotificationCategoryPayload
             identifier = "open",
             title = "Open",
             options = new[] { "foreground" }
+        },
+        new IosNotificationActionPayload
+        {
+            identifier = "delete",
+            title = "Delete",
+            options = new[] { "destructive" }
         }
     },
     textInputActions = new[]
@@ -947,7 +1055,10 @@ var category = new IosNotificationCategoryPayload
 };
 
 string categoryJson = IosNotificationJsonBuilder.BuildCategoryJson(category);
-IosNotificationManager.Instance.RegisterCategory(categoryJson, null);
+IosNotificationManager.Instance.RegisterCategory(categoryJson, result =>
+{
+    Debug.Log($"RegisterCategory: {result.IsSuccess}");
+});
 #endif
 ```
 
