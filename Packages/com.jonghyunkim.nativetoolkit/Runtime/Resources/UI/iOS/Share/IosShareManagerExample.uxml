@@ -6,7 +6,9 @@
             <ui:Label text="IosShareManager Example" class="ios-share-title" />
             <ui:Label text="Present the iOS system share sheet for text, URL, image, and file content." class="ios-share-subtitle" />
             <ui:VisualElement class="ios-share-result-border">
-                <ui:Label name="ResultTextBlock" text="iOS share sample ready. Run on an iOS device to test sharing." class="ios-share-result-text" />
+                <ui:ScrollView name="ResultScrollView" class="ios-share-result-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+                    <ui:Label name="ResultTextBlock" text="iOS share sample ready. Run on an iOS device to test sharing." class="ios-share-result-text" />
+                </ui:ScrollView>
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:ScrollView class="ios-share-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">

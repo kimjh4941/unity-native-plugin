@@ -48,6 +48,20 @@ namespace JonghyunKim.NativeToolkit.Tests
             yield return Unload();
         }
 
+        /// <summary>
+        /// The top menu as the scene first lays it out, without turning the screen (on the iPhone XS it was cut at both
+        /// sides at launch, 2026-11-22). SL01 and the others set the orientation first.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator SL00_TopMenu_AsLaunched()
+        {
+            yield return LoadAtTopMenu("DialogFeatureButton");
+            yield return WaitSeconds(2f);
+            var problems = new List<string>();
+            yield return CheckLayout(problems, expectResult: false);
+            Assert.IsEmpty(problems, $"{problems.Count} layout problem(s) as launched:\n" + string.Join("\n", problems));
+        }
+
         [UnityTest] public IEnumerator SL01_TopMenu_Portrait() => Check(null, "DialogFeatureButton", ScreenOrientation.Portrait);
         [UnityTest] public IEnumerator SL02_TopMenu_Landscape() => Check(null, "DialogFeatureButton", ScreenOrientation.LandscapeLeft);
         [UnityTest] public IEnumerator SL03_Dialog_Portrait() => Check(TopMenuDialog, "ShowDialogButton", ScreenOrientation.Portrait);

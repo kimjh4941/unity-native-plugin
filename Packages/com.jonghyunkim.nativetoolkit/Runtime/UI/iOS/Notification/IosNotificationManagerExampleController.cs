@@ -26,6 +26,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
     private const string NotificationPermissionSettingsGuideMessage = "Permission denied. Tap Open Notification Settings and allow notifications.";
 
     private Label? _resultLabel;
+    private ScrollView? _resultScrollView;
     private Button? _homeButton;
     private Button? _requestPermissionButton;
     private Button? _hasPermissionButton;
@@ -129,6 +130,7 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         }
 
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _resultScrollView = root.Q<ScrollView>("ResultScrollView");
         _homeButton = root.Q<Button>("HomeButton");
         _requestPermissionButton = root.Q<Button>("RequestPermissionButton");
         _hasPermissionButton = root.Q<Button>("HasPermissionButton");
@@ -939,6 +941,13 @@ public class IosNotificationManagerExampleController : MonoBehaviour
         if (_resultLabel != null)
         {
             _resultLabel.text = message;
+        }
+
+        // The result area is fixed height and scrolls (as on the Clipboard screen). Without this, a new result
+        // inherits the previous scroll position and its first lines would be hidden above the viewport.
+        if (_resultScrollView != null)
+        {
+            _resultScrollView.scrollOffset = Vector2.zero;
         }
     }
 }

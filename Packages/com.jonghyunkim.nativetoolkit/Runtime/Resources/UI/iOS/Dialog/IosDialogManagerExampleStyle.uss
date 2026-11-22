@@ -26,11 +26,16 @@
     flex-grow: 1;
 }
 
+/*
+ * At least 46 tall and taller when the text wraps (as the Clipboard screen's buttons): in landscape the Home
+ * button is 30% wide and its two lines were cut at a fixed 46 on an iPhone 13 mini (2026-11-22).
+ */
 .ios-dialog-secondary-button {
     background-color: #8E8E93;
     color: white;
     font-size: 14px;
-    height: 46px;
+    min-height: 46px;
+    height: auto;
     -unity-text-align: middle-center;
     border-width: 0;
     border-radius: 10px;
@@ -61,10 +66,20 @@
 
 /* ListView専用スタイル */
 
+/*
+ * Fixed height, and the text scrolls inside (as on the Clipboard screen): a long result grew the header until
+ * the button list below was squashed to nothing on an iPhone 13 mini (2026-11-22).
+ */
 .ios-result-border {
     background-color: #E9E9EB; /* iOS風のグレー */
     border-radius: 12px;
     margin: 10px 0 20px 0;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+.ios-result-scroll {
+    flex-grow: 1;
 }
 
 .ios-result-text {
@@ -75,11 +90,17 @@
     white-space: normal;
 }
 
+/*
+ * The text wraps and the button grows (as the Clipboard screen's buttons): "ShowDestructiveDialog" did not fit
+ * in one line on an iPhone 16 and three of the names did not on a 13 mini (2026-11-22).
+ */
 .ios-dialog-button {
     background-color: #007AFF; /* iOSシステムブルー */
     color: white;
     font-size: 14px;
-    height: 46px;
+    min-height: 46px;
+    height: auto;
+    white-space: normal;
     -unity-text-align: middle-center;
     border-width: 0;
     border-radius: 10px;
@@ -146,7 +167,7 @@
  * Landscape (IosSampleSafeArea puts .ios-sample-landscape on the root while the screen is wider than tall;
  * UI Toolkit has no media queries). The portrait header would take almost the whole height and leave the
  * button list less than a button tall, so the header becomes one row - the Home button, then the result -
- * and the title and the description are hidden. The result keeps its full text: the header grows with it.
+ * and the title and the description are hidden. The result box is 52 tall and its text scrolls inside.
  */
 .ios-sample-landscape .ios-dialog-header {
     flex-direction: row;
@@ -169,5 +190,6 @@
     flex-grow: 1;
     flex-shrink: 1;
     flex-basis: 0;
+    height: 52px;
     margin: 0;
 }

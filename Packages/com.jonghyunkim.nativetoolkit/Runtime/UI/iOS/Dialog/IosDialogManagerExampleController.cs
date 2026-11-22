@@ -23,6 +23,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
 
     // UI element references
     private Label? _resultLabel;
+    private ScrollView? _resultScrollView;
     private Button? _btnHome;
     private Button? _btnDialog;
     private Button? _btnConfirm;
@@ -138,6 +139,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
             return;
         }
         _resultLabel = root.Q<Label>("ResultTextBlock");
+        _resultScrollView = root.Q<ScrollView>("ResultScrollView");
         _btnDialog = root.Q<Button>("ShowDialogButton");
         _btnConfirm = root.Q<Button>("ShowConfirmDialogButton");
         _btnDestructive = root.Q<Button>("ShowDestructiveDialogButton");
@@ -371,6 +373,16 @@ public class IosDialogManagerExampleController : MonoBehaviour
     /// <param name="buttonText">Pressed button text (may be null on error).</param>
     /// <param name="isSuccess">True if native invocation succeeded.</param>
     /// <param name="errorMessage">Error description if <c>isSuccess == false</c>.</param>
+    private void ScrollResultToTop()
+    {
+        // The result area is fixed height and scrolls (as on the Clipboard screen). Without this, a new result
+        // inherits the previous scroll position and its first lines would be hidden above the viewport.
+        if (_resultScrollView != null)
+        {
+            _resultScrollView.scrollOffset = Vector2.zero;
+        }
+    }
+
     private void OnDialogResult(string? buttonText, bool isSuccess, string? errorMessage)
     {
         Debug.Log($"[IosDialogManagerExampleController] OnDialogResult buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}");
@@ -378,6 +390,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowDialog buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {
@@ -395,6 +408,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowConfirmDialog buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {
@@ -412,6 +426,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowDestructiveDialog buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {
@@ -429,6 +444,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowActionSheet buttonText: {buttonText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {
@@ -448,6 +464,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowTextInputDialog buttonText: {buttonText ?? "null"}, inputText: {inputText ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {
@@ -468,6 +485,7 @@ public class IosDialogManagerExampleController : MonoBehaviour
         {
             _resultLabel.text = (isSuccess ? "OK" : "Error") +
                                 $"\nShowLoginDialog buttonText: {buttonText ?? "null"}, username: {username ?? "null"}, password: {password ?? "null"}, isSuccess: {isSuccess}, errorMessage: {errorMessage ?? "null"}";
+            ScrollResultToTop();
         }
         else
         {

@@ -10,15 +10,15 @@
 }
 
 /*
- * Capped at half the screen: on a device the header would otherwise take most of it, leaving the
- * button list a few rows tall. The explanatory text lives in the scrolling About section instead.
+ * The explanatory text lives in the scrolling About section, and the result has a fixed height, so the header
+ * stays short. It is not capped at half the screen any more: on an iPhone 13 mini the title and the status line
+ * wrap and the cap pushed the status line out of the header (2026-11-22).
  */
 .ios-clipboard-header {
     background-color: rgba(255, 255, 255, 1);
     padding: 12px 16px;
     gap: 6px;
     flex-shrink: 0;
-    max-height: 50%;
     display: flex;
     flex-direction: column;
 }
@@ -63,9 +63,10 @@
     white-space: normal;
 }
 
+/* The rest of the screen below the header (no floor: with the header uncapped, half the screen as a floor pushed
+   the list past the bottom of the screen on an iPhone 13 mini, 2026-11-22). */
 .ios-clipboard-scroll {
     flex-grow: 1;
-    min-height: 50%;
 }
 
 .ios-clipboard-content {
@@ -156,7 +157,7 @@
  * Landscape (IosSampleSafeArea puts .ios-sample-landscape on the root while the screen is wider than tall;
  * UI Toolkit has no media queries). The portrait header would take almost the whole height and leave the
  * button list less than a button tall, so the header becomes one row - the Home button, then the result -
- * and the title and the description are hidden. The result keeps its full text: the header grows with it.
+ * and the title and the description are hidden. The result box is 52 tall and its text scrolls inside.
  */
 .ios-sample-landscape .ios-clipboard-header {
     flex-direction: row;

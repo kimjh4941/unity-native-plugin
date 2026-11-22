@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="TopMenuExampleStyle.uss" />
     <ui:VisualElement class="top-root">
-        <ui:ScrollView class="top-scroll" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
+        <ui:ScrollView class="top-scroll" mode="Vertical" vertical-scroller-visibility="Auto" horizontal-scroller-visibility="Hidden">
             <ui:VisualElement class="top-content">
                 <ui:Label text="Native Toolkit" class="top-title" />
                 <ui:Label text="Select a feature sample to preview." class="top-subtitle" />

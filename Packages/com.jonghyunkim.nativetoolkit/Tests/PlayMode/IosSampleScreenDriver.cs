@@ -161,6 +161,9 @@ namespace JonghyunKim.NativeToolkit.Tests
                 if (scroll != null)
                 {
                     scroll.ScrollTo(button);
+                    // Only up and down, as a user scrolls: ScrollTo also moves sideways, which brought a button
+                    // wider than the viewport into it and hid that it was cut (the top menu, 2026-11-22).
+                    scroll.scrollOffset = new Vector2(0f, scroll.scrollOffset.y);
                     yield return null;
                     yield return null;
                     // ScrollTo stops with the button on the edge of the view, which can be outside the safe area
@@ -207,6 +210,8 @@ namespace JonghyunKim.NativeToolkit.Tests
                     problems.Add($"{button.name}: covered by {picked?.name ?? picked?.GetType().Name ?? "nothing"}");
             }
 
+            CheckLabels(root, safePanel, problems);
+
             Label? result = root.Q<Label>(ResultLabel);
             if (result == null)
             {
@@ -214,9 +219,9 @@ namespace JonghyunKim.NativeToolkit.Tests
                 yield break; // the top menu has no result
             }
             CheckResult(result, panel, safePanel, problems, "");
-            // A long result, such as a native error message (sample plan v3, R3-1 and R3-2): the box must stay
-            // inside its header. The header may then leave the button list short: that is accepted (R3-2), so
-            // its height is only logged.
+            // A long result, such as a native error message (sample plan v3, R3-1): the box keeps its fixed height
+            // inside its header, the text scrolls inside it, and the button list below stays at least a button tall
+            // (the result boxes are fixed since 2026-11-22; before, a long result grew the header).
             string before = result.text;
             result.text = "Long result: " + string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 6)) +
                           "\nSecond line of the result.\nThird line of the result.";
@@ -304,11 +309,78 @@ namespace JonghyunKim.NativeToolkit.Tests
             Label? status = header.Q<Label>(ClipboardStatusLabel);
             if (status != null && !Inside(status.worldBound, h))
                 problems.Add($"{ClipboardStatusLabel}{when}: not inside the header");
+
+            // The text itself (implementation review of 2026-11-22): it scrolls in a ScrollView inside the box, is shown,
+            // is no wider than that view, and can be scrolled to its end when it is longer than the view.
+            ScrollView? textView = result.GetFirstAncestorOfType<ScrollView>();
+            if (textView == null || !box.Contains(textView))
+            {
+                problems.Add($"{ResultLabel}{when}: not in a scroll view inside its box");
+                return;
+            }
+            Rect v = textView.contentViewport.worldBound;
+            Rect t = result.worldBound;
+            if (t.width <= 0f || t.height <= 0f)
+            {
+                problems.Add($"{ResultLabel}{when}: its text is not shown [{t.width:F0}x{t.height:F0}]");
+                return;
+            }
+            if (!Inside(v, b))
+                problems.Add($"{ResultLabel}{when}: its scroll view [{v.xMin:F0},{v.yMin:F0},{v.xMax:F0},{v.yMax:F0}] is not inside its box");
+            if (t.xMin < v.xMin - 0.5f || t.xMax > v.xMax + 0.5f)
+                problems.Add($"{ResultLabel}{when}: its text [{t.xMin:F0},{t.xMax:F0}] is wider than its scroll view [{v.xMin:F0},{v.xMax:F0}]");
+            float hidden = t.height - v.height;
+            if (hidden > 1f && textView.verticalScroller.highValue < hidden - 1f)
+                problems.Add($"{ResultLabel}{when}: {hidden:F0} of its text is below the view and it scrolls only {textView.verticalScroller.highValue:F0}");
         }
 
         /// <summary>The sample screens' header: <c>ios-dialog-header</c>, <c>ios-notif-header</c> and so on.</summary>
         private static bool IsHeader(VisualElement element) =>
             element.GetClasses().Any(name => name.EndsWith("-header", StringComparison.Ordinal));
+
+        /// <summary>
+        /// The screen's texts, labels and buttons (the result has its own checks): inside the ScrollView's viewport
+        /// from side to side (up and down the scroll can bring them in), or inside the safe area from side to side
+        /// outside a ScrollView; the text of one that does not wrap no wider than its box, and that of one that wraps
+        /// no taller than its box at its width, or it is cut at the box's edges (the top menu on the iPhone XS and the
+        /// 13 mini, 2026-11-22; implementation review of the same day).
+        /// </summary>
+        private static void CheckLabels(VisualElement root, Rect safePanel, List<string> problems)
+        {
+            foreach (TextElement label in root.Query<TextElement>().ToList())
+            {
+                if (label.name == ResultLabel || string.IsNullOrEmpty(label.text)) continue;
+                if (label.resolvedStyle.display == DisplayStyle.None || label.resolvedStyle.visibility == Visibility.Hidden) continue;
+                Rect r = label.worldBound;
+                if (r.width <= 0f || r.height <= 0f)
+                {
+                    if (HiddenByAncestor(label)) continue;
+                    problems.Add($"{LabelName(label)}: shown but has no size");
+                    continue;
+                }
+                ScrollView? scroll = label.GetFirstAncestorOfType<ScrollView>();
+                Rect side = scroll != null ? scroll.contentViewport.worldBound : safePanel;
+                if (r.xMin < side.xMin - 0.5f || r.xMax > side.xMax + 0.5f)
+                    problems.Add($"{LabelName(label)}: wider than the {(scroll != null ? "scroll view's viewport" : "safe area")} [{r.xMin:F0},{r.xMax:F0}] vs [{side.xMin:F0},{side.xMax:F0}]");
+                Rect content = label.contentRect;
+                if (label.resolvedStyle.whiteSpace == WhiteSpace.NoWrap)
+                {
+                    Vector2 text = label.MeasureTextSize(label.text, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+                    if (text.x > content.width + 1f)
+                        problems.Add($"{LabelName(label)}: its text is {text.x:F0} wide in a box {content.width:F0} wide (it does not wrap)");
+                }
+                else
+                {
+                    Vector2 text = label.MeasureTextSize(label.text, content.width, VisualElement.MeasureMode.Exactly, 0f, VisualElement.MeasureMode.Undefined);
+                    if (text.y > content.height + 1f)
+                        problems.Add($"{LabelName(label)}: its text is {text.y:F0} tall in a box {content.height:F0} tall at its width");
+                }
+            }
+        }
+
+        private static string LabelName(TextElement label) =>
+            !string.IsNullOrEmpty(label.name) ? label.name
+                : label.GetClasses().FirstOrDefault(c => !c.StartsWith("unity-")) ?? "a label";
 
         private static bool HiddenByAncestor(VisualElement element)
         {

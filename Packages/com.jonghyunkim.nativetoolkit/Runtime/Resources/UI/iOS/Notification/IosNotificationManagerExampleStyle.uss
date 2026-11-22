@@ -36,9 +36,19 @@
     white-space: normal;
 }
 
+/*
+ * Fixed height, and the text scrolls inside (as on the Clipboard screen): a long result grew the header until
+ * the button list below was squashed to nothing on an iPhone 13 mini (2026-11-22).
+ */
 .ios-result-border {
     background-color: #EEEEEE;
     border-radius: 8px;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+.ios-result-scroll {
+    flex-grow: 1;
 }
 
 .ios-result-text {
@@ -130,7 +140,7 @@
  * Landscape (IosSampleSafeArea puts .ios-sample-landscape on the root while the screen is wider than tall;
  * UI Toolkit has no media queries). The portrait header would take almost the whole height and leave the
  * button list less than a button tall, so the header becomes one row - the Home button, then the result -
- * and the title and the description are hidden. The result keeps its full text: the header grows with it.
+ * and the title and the description are hidden. The result box is 52 tall and its text scrolls inside.
  */
 .ios-sample-landscape .ios-notif-header {
     flex-direction: row;
@@ -153,4 +163,5 @@
     flex-grow: 1;
     flex-shrink: 1;
     flex-basis: 0;
+    height: 52px;
 }
